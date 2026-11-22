@@ -20,6 +20,18 @@ const PROCESS_TOKEN = randomUUID().replace(/-/g, "");
 
 const stateCache = new Map<string, HarnessState>();
 
+interface LoweredSearchFields {
+	rawTitle: string;
+	rawContent: string;
+	rawPath: string;
+	rawId: string;
+	title: string;
+	content: string;
+	pathAndId: string;
+}
+
+const LOWERED_SEARCH_CACHE = new WeakMap<HarnessEntry, LoweredSearchFields>();
+
 export interface HarnessEntry {
 	id: string;
 	kind: HarnessKind;
@@ -387,6 +399,14 @@ function serializeRefinement(event: RefinementEvent): Record<string, unknown> {
 	};
 }
 
+interface CachedSearchCorpus {
+	entries: HarnessEntry[];
+	titles: string[];
+	contents: string[];
+	pathAndIds: string[];
+	updatedAts: string[];
+}
+
 export class HarnessState {
 	readonly filePath: string | null;
 	readonly scope: HarnessScope;
@@ -397,6 +417,7 @@ export class HarnessState {
 	private readonly _localWriteError: string | null;
 	private _loadedMtimeNs: bigint | null = null;
 	private _heldLock: { lockPath: string; owner: string } | null = null;
+	private _searchCache = new Map<string, CachedSearchCorpus>();
 
 	constructor(
 		filePath?: string | null,
@@ -615,6 +636,7 @@ export class HarnessState {
 			}
 		}
 		this.entries = entries;
+		this._searchCache.clear();
 
 		const refinements: RefinementEvent[] = [];
 		const rawRefinements = data.refinements;
@@ -662,6 +684,7 @@ export class HarnessState {
 	}
 
 	save(): this {
+		this._searchCache.clear();
 		requireRefinementsEnabled();
 		if (!this.filePath) return this;
 		if (!this._heldLock) {
@@ -1136,6 +1159,47 @@ export class HarnessState {
 		return lines.join("\n");
 	}
 
+	private _searchCorpus(kind: HarnessKind | null): CachedSearchCorpus {
+		const cacheKey = kind ?? "__all__";
+		const cached = this._searchCache.get(cacheKey);
+		if (cached) return cached;
+		const entries = this.list(kind);
+		const n = entries.length;
+		const titles = new Array<string>(n);
+		const contents = new Array<string>(n);
+		const pathAndIds = new Array<string>(n);
+		const updatedAts = new Array<string>(n);
+		for (let i = 0; i < n; i += 1) {
+			const entry = entries[i]!;
+			let lowered = LOWERED_SEARCH_CACHE.get(entry);
+			if (
+				!lowered ||
+				lowered.rawTitle !== entry.title ||
+				lowered.rawContent !== entry.content ||
+				lowered.rawPath !== entry.path ||
+				lowered.rawId !== entry.id
+			) {
+				lowered = {
+					rawTitle: entry.title,
+					rawContent: entry.content,
+					rawPath: entry.path,
+					rawId: entry.id,
+					title: entry.title.toLowerCase(),
+					content: entry.content.toLowerCase(),
+					pathAndId: `${entry.path} ${entry.id}`.toLowerCase(),
+				};
+				LOWERED_SEARCH_CACHE.set(entry, lowered);
+			}
+			titles[i] = lowered.title;
+			contents[i] = lowered.content;
+			pathAndIds[i] = lowered.pathAndId;
+			updatedAts[i] = entry.updated_at || "";
+		}
+		const corpus: CachedSearchCorpus = { entries, titles, contents, pathAndIds, updatedAts };
+		this._searchCache.set(cacheKey, corpus);
+		return corpus;
+	}
+
 	search(
 		query: string,
 		optionsOrKind?: HarnessKind | { kind?: HarnessKind; limit?: number; global?: boolean; global_?: boolean } | null,
@@ -1155,13 +1219,17 @@ export class HarnessState {
 		if (!Number.isInteger(limit) || limit < 1) {
 			throw new TypeError("limit must be a positive integer");
 		}
-		const entries = this.list(opts.kind ?? null);
-		const titles = entries.map((entry) => entry.title);
-		const contents = entries.map((entry) => entry.content);
-		const pathAndIds = entries.map((entry) => `${entry.path} ${entry.id}`);
-		const updatedAts = entries.map((entry) => entry.updated_at || "");
-		const ranked = rankHarnessIndices(query, titles, contents, pathAndIds, updatedAts, limit);
-		return ranked.map((index) => entries[index]!);
+		const corpus = this._searchCorpus(opts.kind ?? null);
+		const ranked = rankHarnessIndices(
+			query,
+			corpus.titles,
+			corpus.contents,
+			corpus.pathAndIds,
+			corpus.updatedAts,
+			limit,
+			true,
+		);
+		return ranked.map((index) => corpus.entries[index]!);
 	}
 
 	snapshot(options?: { global?: boolean; global_?: boolean }): Record<string, unknown> {

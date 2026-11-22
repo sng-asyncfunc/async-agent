@@ -936,11 +936,22 @@ function unquoteFrontmatterValue(raw: string, field: string): [string | null, st
 	return [value, null];
 }
 
-function parseMachineFrontmatter(text: string, source: string): [Record<string, string> | null, string, string[]] {
-	const normalized = text.replace(/^\ufeff/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+const MACHINE_FRONTMATTER_FIELD_SET = new Set<string>(MACHINE_FRONTMATTER_FIELDS);
+
+function parseMachineFrontmatter(
+	text: string,
+	source: string,
+): [Record<string, string> | null, string[], number, string[]] {
+	let normalized = text;
+	if (normalized.charCodeAt(0) === 0xfeff) {
+		normalized = normalized.slice(1);
+	}
+	if (normalized.includes("\r")) {
+		normalized = normalized.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+	}
 	const lines = normalized.split("\n");
 	if (lines.length === 0 || lines[0]!.trimEnd() !== "---") {
-		return [null, "", [`${source}: MACHINE.md must start with a \`---\` frontmatter block`]];
+		return [null, lines, 0, [`${source}: MACHINE.md must start with a \`---\` frontmatter block`]];
 	}
 	const fields: Record<string, string> = {};
 	const errors: string[] = [];
@@ -962,7 +973,7 @@ function parseMachineFrontmatter(text: string, source: string): [Record<string, 
 		}
 		const key = line.slice(0, colon).trim();
 		const rawValue = line.slice(colon + 1);
-		if (!MACHINE_FRONTMATTER_FIELDS.includes(key as (typeof MACHINE_FRONTMATTER_FIELDS)[number])) {
+		if (!MACHINE_FRONTMATTER_FIELD_SET.has(key)) {
 			errors.push(`${source}: unknown frontmatter key ${JSON.stringify(key)} (allowed: ${MACHINE_FRONTMATTER_FIELDS.join(", ")})`);
 			continue;
 		}
@@ -982,38 +993,61 @@ function parseMachineFrontmatter(text: string, source: string): [Record<string, 
 		fields[key] = unquoted!;
 	}
 	if (closeIndex === null) {
-		return [null, "", [`${source}: frontmatter is not closed (end it with a \`---\` line)`]];
+		return [null, lines, 0, [`${source}: frontmatter is not closed (end it with a \`---\` line)`]];
 	}
-	const body = lines.slice(closeIndex + 1).join("\n");
-	if (errors.length > 0) return [null, "", errors];
-	return [fields, body, []];
+	if (errors.length > 0) return [null, lines, closeIndex + 1, errors];
+	return [fields, lines, closeIndex + 1, []];
 }
 
-function extractMachineSpecBlocks(body: string, source: string): [string | null, string[]] {
-	const lines = body.split("\n");
+function startsWithFence(line: string): boolean {
+	let i = 0;
+	const len = line.length;
+	while (i < len) {
+		const c = line.charCodeAt(i);
+		if (c === 32 || c === 9) {
+			i += 1;
+			continue;
+		}
+		return c === 96 && i + 2 < len && line.charCodeAt(i + 1) === 96 && line.charCodeAt(i + 2) === 96;
+	}
+	return false;
+}
+
+function isClosingFence(line: string): boolean {
+	if (line.length < 3 || line.charCodeAt(0) !== 96 || line.charCodeAt(1) !== 96 || line.charCodeAt(2) !== 96) {
+		return false;
+	}
+	for (let i = 3; i < line.length; i += 1) {
+		const c = line.charCodeAt(i);
+		if (c !== 32 && c !== 9) return false;
+	}
+	return true;
+}
+
+function extractMachineSpecBlocks(lines: readonly string[], startIndex: number, source: string): [string | null, string[]] {
 	const contents: string[] = [];
-	let index = 0;
-	while (index < lines.length) {
-		const line = lines[index]!.trimEnd();
-		if (!line.trimStart().startsWith("```")) {
+	let index = startIndex;
+	const totalLines = lines.length;
+	while (index < totalLines) {
+		const rawLine = lines[index]!;
+		if (!startsWithFence(rawLine)) {
 			index += 1;
 			continue;
 		}
-		const openIndex = index;
-		const info = line.trim().slice(3).trim();
+		const openIndex = index - startIndex;
+		const info = rawLine.trim().slice(3).trim();
 		index += 1;
-		const contentLines: string[] = [];
+		const contentStart = index;
 		let closed = false;
-		while (index < lines.length) {
-			const fenceLine = lines[index]!.trimEnd();
-			if (fenceLine === "```") {
+		while (index < totalLines) {
+			if (isClosingFence(lines[index]!)) {
 				closed = true;
-				index += 1;
 				break;
 			}
-			contentLines.push(lines[index]!);
 			index += 1;
 		}
+		const contentEnd = index;
+		if (closed) index += 1;
 		if (info !== MACHINE_SPEC_FENCE) {
 			if (!closed) {
 				return [null, [`${source}: the \`\`\`${info} fence opened at line ${openIndex + 1} is never closed`]];
@@ -1023,7 +1057,7 @@ function extractMachineSpecBlocks(body: string, source: string): [string | null,
 		if (!closed) {
 			return [null, [`${source}: the \`\`\`${MACHINE_SPEC_FENCE} fence is never closed`]];
 		}
-		contents.push(contentLines.join("\n"));
+		contents.push(lines.slice(contentStart, contentEnd).join("\n"));
 	}
 	if (contents.length === 0) {
 		return [null, [`${source}: MACHINE.md requires exactly one fenced \`\`\`${MACHINE_SPEC_FENCE} block; found none`]];
@@ -1038,9 +1072,9 @@ function extractMachineSpecBlocks(body: string, source: string): [string | null,
 }
 
 export function parseMachineFile(text: string, source = "machine file"): [MachineFile | null, string[]] {
-	const [fields, body, fmErrors] = parseMachineFrontmatter(text, source);
+	const [fields, lines, bodyStart, fmErrors] = parseMachineFrontmatter(text, source);
 	if (!fields) return [null, fmErrors];
-	const [payload, blockErrors] = extractMachineSpecBlocks(body, source);
+	const [payload, blockErrors] = extractMachineSpecBlocks(lines, bodyStart, source);
 	if (blockErrors.length > 0 || payload === null) return [null, blockErrors];
 	let spec: unknown;
 	try {

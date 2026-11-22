@@ -195,28 +195,56 @@ function lowerImportDeclaration(
 	return { code: lines.join("\n"), bindings };
 }
 
-function privateImportNamespace(source: string, index: number, generatedNames: Set<string>): string {
+function privateImportNamespace(
+	source: string,
+	index: number,
+	generatedNames: Set<string>,
+	checkSourceCollision: boolean,
+): string {
 	let name = `__asyncImport${index}`;
-	while (source.includes(name) || generatedNames.has(name)) name += "_";
+	if (checkSourceCollision || generatedNames.size > 0) {
+		while ((checkSourceCollision && source.includes(name)) || generatedNames.has(name)) name += "_";
+	}
 	generatedNames.add(name);
 	return name;
 }
 
 function persistenceSource(bindings: readonly BindingPersistence[]): string {
-	return bindings
-		.map(({ name, recipe }) => {
-			const serializedRecipe = recipe ? `, ${JSON.stringify(recipe)}` : "";
-			return `\n__asyncPersist(${JSON.stringify(name)}, ${name}${serializedRecipe});`;
-		})
-		.join("");
+	let out = "";
+	for (let i = 0; i < bindings.length; i += 1) {
+		const { name, recipe } = bindings[i]!;
+		const serializedRecipe = recipe ? `, ${JSON.stringify(recipe)}` : "";
+		out += `\n__asyncPersist(${JSON.stringify(name)}, ${name}${serializedRecipe});`;
+	}
+	return out;
 }
 
 function applyEdits(source: string, edits: SourceEdit[]): string {
-	let transformed = source;
-	for (const edit of edits.sort((left, right) => right.start - left.start || right.end - left.end)) {
-		transformed = `${transformed.slice(0, edit.start)}${edit.text}${transformed.slice(edit.end)}`;
+	const count = edits.length;
+	if (count === 0) return source;
+	if (count === 1) {
+		const edit = edits[0]!;
+		return `${source.slice(0, edit.start)}${edit.text}${source.slice(edit.end)}`;
 	}
-	return transformed;
+	// Preserve exact reverse-order semantics for identical (start, end) insertions
+	// while assembling the output in a single O(N) forward pass.
+	const indexed = new Array<{ start: number; end: number; text: string; order: number }>(count);
+	for (let i = 0; i < count; i += 1) {
+		const edit = edits[i]!;
+		indexed[i] = { start: edit.start, end: edit.end, text: edit.text, order: i };
+	}
+	indexed.sort((left, right) => left.start - right.start || left.end - right.end || right.order - left.order);
+	const parts = new Array<string>(count * 2 + 1);
+	let cursor = 0;
+	let outIdx = 0;
+	for (let i = 0; i < count; i += 1) {
+		const edit = indexed[i]!;
+		parts[outIdx++] = source.slice(cursor, edit.start);
+		parts[outIdx++] = edit.text;
+		cursor = edit.end;
+	}
+	parts[outIdx] = source.slice(cursor);
+	return parts.join("");
 }
 
 function parseCell(source: string): Program {
@@ -325,6 +353,7 @@ export function transformJavaScriptCell(source: string): TransformedJavaScriptCe
 	const bindingRecipes: Record<string, ModuleBindingRecipe> = {};
 	const persistedBindings: BindingPersistence[] = [];
 	const generatedImportNames = new Set<string>();
+	const checkImportCollision = source.includes("__asyncImport");
 	let importIndex = 0;
 	let returnIndex = 0;
 
@@ -337,7 +366,7 @@ export function transformJavaScriptCell(source: string): TransformedJavaScriptCe
 		}
 		switch (statement.type) {
 			case "ImportDeclaration": {
-				const namespace = privateImportNamespace(source, importIndex, generatedImportNames);
+				const namespace = privateImportNamespace(source, importIndex, generatedImportNames, checkImportCollision);
 				const lowered = lowerImportDeclaration(statement, namespace);
 				importIndex += 1;
 				bindingNames.push(...lowered.bindings.map(({ name }) => name));

@@ -430,4 +430,47 @@ describe("Protocol v3 REPL E2E", () => {
 		const badPayload = Buffer.concat([prefix, badHeader, Buffer.from([1, 2, 3, 4, 5])]);
 		expect(() => decodeSnapshotPayload(badPayload)).toThrow("overlaps another entry");
 	});
+
+	test("snapshotValueSkipReason preserves exact lazy error paths and rejects unsafe nested values", async () => {
+		const { snapshotValueSkipReason } = await import("../src/state-snapshot.ts");
+		const { transformJavaScriptCell } = await import("../src/cell-transform.ts");
+		const { parseMachineFile } = await import("../src/factory-spec.ts");
+
+		// Valid complex nested graph
+		const cyclic: Record<string, unknown> = { a: 1, b: [1, 2, { ok: true }], m: new Map([["k", new Set([1, "x"])]]), u: new Uint8Array([1, 2]) };
+		cyclic.self = cyclic;
+		expect(snapshotValueSkipReason(cyclic)).toBeUndefined();
+
+		// Exact error path formatting across nested object, array, Map, Set
+		expect(snapshotValueSkipReason({ nested: { arr: [1, () => 2] } })).toBe(
+			"$binding.nested.arr[1]: function values are not snapshot-safe",
+		);
+		const badArr: unknown[] = [1, 2];
+		(badArr as unknown as Record<string, unknown>).extra = "nope";
+		expect(snapshotValueSkipReason({ items: badArr })).toBe(
+			"$binding.items: custom array properties are not snapshot-safe",
+		);
+		const badMap = new Map<unknown, unknown>([["ok", 1], ["bad", Symbol("s")]]);
+		expect(snapshotValueSkipReason(badMap)).toBe("$binding.mapValue1: symbol values are not snapshot-safe");
+		const badDate = new Date();
+		(badDate as unknown as Record<string, unknown>).tag = 1;
+		expect(snapshotValueSkipReason(badDate)).toBe("$binding: custom Date properties are not snapshot-safe");
+		expect(snapshotValueSkipReason(Promise.resolve(1))).toBe("$binding: promises are not snapshot-safe");
+		expect(snapshotValueSkipReason(new DataView(new ArrayBuffer(8)))).toBe(
+			"$binding: custom prototype or unsupported view is not snapshot-safe",
+		);
+
+		// Single-pass cell transform handles EOF zero-width edits + imports + early return
+		const cell = transformJavaScriptCell('import { join } from "node:path";\nconst a = join("x", "y");\nif (false) return a;\nconst b = 42');
+		expect(cell.bindingNames).toEqual(["join", "a", "b"]);
+		expect(cell.code).toContain('__asyncPersist("join"');
+		expect(cell.code).toContain('__asyncPersist("b", b);');
+
+		// parseMachineFile handles BOM + CRLF + indented fences identically
+		const md = "\ufeff---\r\nname: sample-machine\r\ndescription: A valid sample machine\r\nversion: 1.0.0\r\nauthor: test\r\n---\r\n\r\n  ```machine-spec\r\n{\"states\": []}\r\n```  \r\n";
+		const [parsed, errs] = parseMachineFile(md, "bom.md");
+		expect(errs).toEqual([]);
+		expect(parsed?.name).toBe("sample-machine");
+		expect(parsed?.spec).toEqual({ states: [] });
+	});
 });

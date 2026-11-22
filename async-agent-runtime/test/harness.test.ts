@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { clearHarnessStateCache, getHarnessState, harnessQueryTerms } from "../src/harness.ts";
+import { rankHarnessIndices } from "../src/harness-search.ts";
 
 const tempDirs: string[] = [];
 const savedEnv: Record<string, string | undefined> = {};
@@ -143,5 +144,42 @@ describe("HarnessState", () => {
 		const entry = state.createFactory("My Flow", "Test flow", { id: "my-flow", dag: validDag });
 		expect(entry.kind).toBe("factory");
 		expect(entry.arguments.dag).toEqual(validDag);
+	});
+
+	test("rankHarnessIndices handles bit-packed, >15-term, recency tie-breaks, and cache invalidation", () => {
+		const agentDir = makeTempDir("agent-");
+		const localDir = makeTempDir("local-");
+		setEnv("ASYNC_AGENT_CODING_AGENT_DIR", agentDir);
+		setEnv("RLM_HARNESS_STATE_DIR", localDir);
+
+		// Tie-breaking by recency descending, then index ascending
+		const titles = ["Alpha Beta", "Alpha Beta", "Alpha Beta"];
+		const contents = ["body", "body", "body"];
+		const paths = ["p0", "p1", "p2"];
+		const dates = ["2026-11-01T00:00:00Z", "2026-11-10T00:00:00Z", "2026-11-10T00:00:00Z"];
+		expect(rankHarnessIndices("alpha beta", titles, contents, paths, dates, 2)).toEqual([1, 2]);
+		expect(rankHarnessIndices("alpha beta", titles, contents, paths, dates, 100)).toEqual([1, 2, 0]);
+
+		// >15 unique terms fallback path matches single-pass scoring
+		const manyTerms = Array.from({ length: 18 }, (_, i) => `term${i}abc`).join(" ");
+		const manyRes = rankHarnessIndices(
+			manyTerms,
+			["term0abc term1abc", "term0abc term17abc term16abc"],
+			["", ""],
+			["a", "b"],
+			["2026-11-01T00:00:00Z", "2026-11-01T00:00:00Z"],
+			10,
+		);
+		expect(manyRes).toEqual([1, 0]);
+
+		// HarnessState search cache invalidates on update & delete
+		const state = getHarnessState();
+		const m1 = state.createMemory("First Note", "contains zebra keyword", { id: "m1" });
+		expect(state.search("zebra").map((e) => e.id)).toEqual(["m1"]);
+		state.updateMemory(m1.id, "First Note", "now contains giraffe keyword");
+		expect(state.search("zebra")).toEqual([]);
+		expect(state.search("giraffe").map((e) => e.id)).toEqual(["m1"]);
+		state.deleteMemory(m1.id);
+		expect(state.search("giraffe")).toEqual([]);
 	});
 });

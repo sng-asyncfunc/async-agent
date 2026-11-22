@@ -12,6 +12,21 @@ function isAscii(text: string): boolean {
 
 function harnessQueryRuns(text: string): string[] {
 	const runs: string[] = [];
+	if (isAscii(text)) {
+		let start = -1;
+		for (let i = 0; i < text.length; i += 1) {
+			const c = text.charCodeAt(i);
+			const isWord = (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || (c >= 65 && c <= 90);
+			if (isWord) {
+				if (start < 0) start = i;
+			} else if (start >= 0) {
+				runs.push(text.slice(start, i));
+				start = -1;
+			}
+		}
+		if (start >= 0) runs.push(text.slice(start));
+		return runs;
+	}
 	let run: string[] = [];
 	let runIsCjk = false;
 	for (const ch of text) {
@@ -36,6 +51,13 @@ export function harnessQueryTerms(query: string): string[] {
 	const terms: string[] = [];
 	const seen = new Set<string>();
 	for (const run of harnessQueryRuns(query.toLowerCase())) {
+		if (isAscii(run)) {
+			if (run.length >= 3 && !seen.has(run)) {
+				seen.add(run);
+				terms.push(run);
+			}
+			continue;
+		}
 		let candidates: string[];
 		if (CJK_TERM_CHAR_RE.test(run)) {
 			const chars = [...run];
@@ -47,8 +69,6 @@ export function harnessQueryTerms(query: string): string[] {
 			} else {
 				candidates = [run];
 			}
-		} else if (isAscii(run)) {
-			candidates = run.length >= 3 ? [run] : [];
 		} else {
 			candidates = [...run].length >= 2 ? [run] : [];
 		}
@@ -62,6 +82,23 @@ export function harnessQueryTerms(query: string): string[] {
 	return terms;
 }
 
+function compareRecencyDesc(aRec: string, bRec: string): number {
+	return aRec < bRec ? 1 : aRec > bRec ? -1 : 0;
+}
+
+function isBetterHit(
+	score: number,
+	recency: string,
+	index: number,
+	otherScore: number,
+	otherRecency: string,
+	otherIndex: number,
+): boolean {
+	if (score !== otherScore) return score > otherScore;
+	if (recency !== otherRecency) return recency > otherRecency;
+	return index < otherIndex;
+}
+
 export function rankHarnessIndices(
 	query: string,
 	titles: string[],
@@ -69,21 +106,130 @@ export function rankHarnessIndices(
 	pathAndIds: string[],
 	updatedAts: string[],
 	limit: number,
+	alreadyLowercased = false,
 ): number[] {
 	const terms = harnessQueryTerms(query);
 	const termCount = terms.length;
 	const count = titles.length;
-	if (termCount === 0 || count === 0) return [];
+	if (termCount === 0 || count === 0 || limit <= 0) return [];
 
 	const df = new Int32Array(termCount);
+
+	if (termCount <= 15) {
+		// Pack 2-bit field counts (0..3) per term into a single Int32 per entry.
+		const masks = new Int32Array(count);
+		let anyHit = false;
+		for (let i = 0; i < count; i += 1) {
+			const title = alreadyLowercased ? titles[i]! : titles[i]!.toLowerCase();
+			const content = alreadyLowercased ? contents[i]! : contents[i]!.toLowerCase();
+			const pathAndId = alreadyLowercased ? pathAndIds[i]! : pathAndIds[i]!.toLowerCase();
+			let mask = 0;
+			for (let t = 0; t < termCount; t += 1) {
+				const term = terms[t]!;
+				const fields =
+					(title.includes(term) ? 1 : 0) +
+					(content.includes(term) ? 1 : 0) +
+					(pathAndId.includes(term) ? 1 : 0);
+				if (fields > 0) {
+					df[t] += 1;
+					mask |= fields << (t * 2);
+				}
+			}
+			if (mask !== 0) {
+				masks[i] = mask;
+				anyHit = true;
+			}
+		}
+		if (!anyHit) return [];
+
+		const idf = new Float64Array(termCount);
+		for (let t = 0; t < termCount; t += 1) {
+			const docFreq = df[t]!;
+			if (docFreq > 0) {
+				idf[t] = Math.log(1 + count / docFreq);
+			}
+		}
+
+		// Maintain a small sorted top-K buffer when limit is modest, avoiding
+		// allocating and sorting objects for all matching entries.
+		if (limit <= 64) {
+			const topIdx = new Int32Array(limit);
+			const topScore = new Float64Array(limit);
+			const topRec = new Array<string>(limit);
+			let topLen = 0;
+
+			for (let i = 0; i < count; i += 1) {
+				let mask = masks[i]!;
+				if (mask === 0) continue;
+				let total = 0;
+				let t = 0;
+				while (mask !== 0) {
+					const fields = mask & 3;
+					if (fields !== 0) {
+						total += idf[t]! * (1 + (fields - 1) * 0.5);
+					}
+					mask >>>= 2;
+					t += 1;
+				}
+				if (total <= 0) continue;
+				const recency = updatedAts[i] || "";
+				if (
+					topLen === limit &&
+					!isBetterHit(total, recency, i, topScore[topLen - 1]!, topRec[topLen - 1]!, topIdx[topLen - 1]!)
+				) {
+					continue;
+				}
+				let pos = topLen < limit ? topLen : limit - 1;
+				if (topLen < limit) topLen += 1;
+				while (pos > 0 && isBetterHit(total, recency, i, topScore[pos - 1]!, topRec[pos - 1]!, topIdx[pos - 1]!)) {
+					topIdx[pos] = topIdx[pos - 1]!;
+					topScore[pos] = topScore[pos - 1]!;
+					topRec[pos] = topRec[pos - 1]!;
+					pos -= 1;
+				}
+				topIdx[pos] = i;
+				topScore[pos] = total;
+				topRec[pos] = recency;
+			}
+
+			const out = new Array<number>(topLen);
+			for (let i = 0; i < topLen; i += 1) out[i] = topIdx[i]!;
+			return out;
+		}
+
+		const scored: Array<{ index: number; score: number; recency: string }> = [];
+		for (let i = 0; i < count; i += 1) {
+			let mask = masks[i]!;
+			if (mask === 0) continue;
+			let total = 0;
+			let t = 0;
+			while (mask !== 0) {
+				const fields = mask & 3;
+				if (fields !== 0) {
+					total += idf[t]! * (1 + (fields - 1) * 0.5);
+				}
+				mask >>>= 2;
+				t += 1;
+			}
+			if (total > 0) {
+				scored.push({ index: i, score: total, recency: updatedAts[i] || "" });
+			}
+		}
+		scored.sort((a, b) => b.score - a.score || compareRecencyDesc(a.recency, b.recency) || a.index - b.index);
+		const outLen = Math.min(limit, scored.length);
+		const out = new Array<number>(outLen);
+		for (let i = 0; i < outLen; i += 1) out[i] = scored[i]!.index;
+		return out;
+	}
+
 	const hitEntries: number[] = [];
 	const hitTerms: number[] = [];
 	const hitFields: number[] = [];
 
 	for (let i = 0; i < count; i += 1) {
-		const title = titles[i]!.toLowerCase();
-		const content = contents[i]!.toLowerCase();
-		const pathAndId = pathAndIds[i]!.toLowerCase();
+		const title = alreadyLowercased ? titles[i]! : titles[i]!.toLowerCase();
+		const content = alreadyLowercased ? contents[i]! : contents[i]!.toLowerCase();
+		const pathAndId = alreadyLowercased ? pathAndIds[i]! : pathAndIds[i]!.toLowerCase();
 		for (let t = 0; t < termCount; t += 1) {
 			const term = terms[t]!;
 			const fields =
@@ -126,6 +272,9 @@ export function rankHarnessIndices(
 		}
 	}
 
-	scored.sort((a, b) => b.score - a.score || b.recency.localeCompare(a.recency));
-	return scored.slice(0, limit).map((item) => item.index);
+	scored.sort((a, b) => b.score - a.score || compareRecencyDesc(a.recency, b.recency) || a.index - b.index);
+	const outLen = Math.min(limit, scored.length);
+	const out = new Array<number>(outLen);
+	for (let i = 0; i < outLen; i += 1) out[i] = scored[i]!.index;
+	return out;
 }
