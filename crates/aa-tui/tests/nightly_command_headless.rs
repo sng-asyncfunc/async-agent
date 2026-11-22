@@ -7,8 +7,8 @@
 
 mod support;
 
-use anyhow::Result;
 use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use anyhow::Result;
 
 use support::{
     attach_response, create_response, detach_response, options, run_headless, serve_connection,

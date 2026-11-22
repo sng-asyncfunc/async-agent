@@ -5,7 +5,6 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use anyhow::{anyhow, Context, Result};
 use aa_core::update::install::{
     current_platform_alias, read_installation, read_rollback_installation, running_release,
     RunningRelease, CURRENT_LAUNCHER,
@@ -15,6 +14,7 @@ use aa_core::update::version::{
     has_prerelease_tag, is_base_version_downgrade, is_release_update_candidate,
     resolve_update_channel, UpdateChannel,
 };
+use anyhow::{anyhow, Context, Result};
 
 /// The manifest fetch timeout.
 const MANIFEST_TIMEOUT: Duration = Duration::from_secs(10);

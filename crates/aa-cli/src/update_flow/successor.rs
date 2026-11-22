@@ -6,8 +6,8 @@
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result};
 use aa_types::daemon::update_flow::{UpdateProcessIdentity, UPDATE_ROSTER_ENV};
+use anyhow::{Context, Result};
 use serde_json::Value;
 
 /// How often the boot wait retries the hello handshake.

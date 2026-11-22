@@ -4,9 +4,9 @@
 //! `worker_deliver_message` straight to the target, one round trip then
 //! close.
 
-use anyhow::{anyhow, Context, Result};
 use aa_types::daemon::DaemonPeerTransportTicket;
 use aa_types::platform::transport::connect_transport;
+use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
 use tokio::io::AsyncWriteExt;
 

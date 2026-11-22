@@ -7,8 +7,8 @@
 
 mod support;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use aa_tui::interactive::{HeadlessPlan, HeadlessStep};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::json;
 
 use support::{

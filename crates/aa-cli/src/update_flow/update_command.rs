@@ -5,8 +5,8 @@
 
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
 use aa_types::daemon::update_flow::{UpdateState, UpdateStatus, UpdateTimeoutBudget};
+use anyhow::{Context, Result};
 
 use super::intent::{acquire, hand_over, release, status_path_for, AcquireOutcome};
 use super::plan::{plan, UpdatePlan};

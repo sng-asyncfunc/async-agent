@@ -9,9 +9,9 @@ pub use rows::ORDINAL_PREFIX;
 
 use std::path::{Path, PathBuf};
 
+use aa_daemon::rlm_ledger::RlmSpawnLedger;
 use anyhow::Context;
 use clap::ValueEnum;
-use aa_daemon::rlm_ledger::RlmSpawnLedger;
 use serde::{Deserialize, Serialize};
 
 use crate::rng::Rng;

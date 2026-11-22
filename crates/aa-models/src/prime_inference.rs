@@ -6,12 +6,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use hmac::{Hmac, Mac};
 use aa_types::ai::{
     CompatKind, Model, ModelCompat, ModelCost, ModelInput, ModelServing, ModelThinkingLevel,
     OpenAiCompletionsCompat, ThinkingFormat, ThinkingLevelMap,
 };
 use aa_types::JsNumber;
+use hmac::{Hmac, Mac};
 use serde::Deserialize;
 use sha2::Sha256;
 

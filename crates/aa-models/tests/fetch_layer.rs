@@ -4,8 +4,8 @@
 
 mod common;
 
-use common::{not_modified, ok_json, redirect, status};
 use aa_models::fetch::{CatalogFetcher, FetchOutcome};
+use common::{not_modified, ok_json, redirect, status};
 use std::time::Duration;
 
 #[tokio::test]

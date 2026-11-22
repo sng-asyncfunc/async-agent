@@ -18,12 +18,12 @@
 // Wrappers keep a uniform Result-returning API; removals would ripple through callers.
 #![allow(clippy::unnecessary_wraps)]
 
-use anyhow::{Context, Result};
-use clap::Parser;
 use aa_tui::app::{render_frame_text, run_app, AppOptions};
 use aa_tui::session::{JsonlSessionStream, SessionStream, TranscriptItem};
 use aa_tui::theme::{ColorMode, Theme};
 use aa_tui::view::AgentView;
+use anyhow::{Context, Result};
+use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(

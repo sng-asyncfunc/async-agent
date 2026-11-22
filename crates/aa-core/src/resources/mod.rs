@@ -411,18 +411,12 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            cwd.join(".async-agent")
-                .join("prompts")
-                .join("fix.md"),
+            cwd.join(".async-agent").join("prompts").join("fix.md"),
             "Fix $1",
         )
         .unwrap();
         fs::write(cwd.join("AGENTS.md"), "Project rules").unwrap();
-        fs::write(
-            cwd.join(".async-agent").join("SYSTEM.md"),
-            "custom system",
-        )
-        .unwrap();
+        fs::write(cwd.join(".async-agent").join("SYSTEM.md"), "custom system").unwrap();
         let resources = load_resources(ResourceLoaderOptions {
             cwd,
             agent_dir,
@@ -556,12 +550,7 @@ mod tests {
         let agent_dir = tmp.path().join("agent");
         let cwd = tmp.path().join("proj");
         fs::create_dir_all(agent_dir.join("skills").join("alpha")).unwrap();
-        fs::create_dir_all(
-            cwd.join(".async-agent")
-                .join("skills")
-                .join("alpha"),
-        )
-        .unwrap();
+        fs::create_dir_all(cwd.join(".async-agent").join("skills").join("alpha")).unwrap();
         fs::create_dir_all(&cwd).unwrap();
         fs::write(
             agent_dir.join("skills").join("alpha").join("SKILL.md"),

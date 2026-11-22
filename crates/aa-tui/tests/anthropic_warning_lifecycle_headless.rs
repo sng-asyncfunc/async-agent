@@ -17,11 +17,11 @@ mod support;
 use std::os::unix::net::UnixListener;
 use std::sync::{Arc, Mutex};
 
-use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, UiMode,
 };
+use anyhow::Result;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{json, Value};
 
 use support::{options, serve_connection, write_json, Request};

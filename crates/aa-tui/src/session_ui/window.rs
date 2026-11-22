@@ -6,8 +6,8 @@
 
 use std::collections::VecDeque;
 
-use anyhow::Result;
 use aa_types::daemon::{DaemonCommand, TranscriptPage};
+use anyhow::Result;
 use serde_json::{Map, Value};
 
 use super::SessionUi;

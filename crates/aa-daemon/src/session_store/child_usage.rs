@@ -1,7 +1,6 @@
 //! The idempotent child-usage attribution append: one durable row per stable
 //! row identity, written through the same persist core as every other row.
 use super::{SessionEntry, SessionFile};
-use anyhow::{ensure, Context, Result};
 use aa_core::session_engine::rlm_usage::{
     attribute_child_usage, child_usage_identity_matches, ChildUsageAppendResult,
 };
@@ -9,6 +8,7 @@ use aa_types::{
     ai::Usage,
     session::{ChildUsageAttributionEntry, ChildUsageOrigin},
 };
+use anyhow::{ensure, Context, Result};
 use std::collections::HashSet;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;

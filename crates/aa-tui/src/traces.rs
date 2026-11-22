@@ -619,8 +619,9 @@ mod tests {
         assert!(joined.contains("File: /s/a.jsonl"));
         assert!(joined.contains("Size: 1,234,567 bytes"));
         assert!(joined.contains("Uploadable: Yes"));
-        assert!(joined
-            .contains("Endpoint: https://traces.example.com/api/v1/agent-traces/sessions/s"));
+        assert!(
+            joined.contains("Endpoint: https://traces.example.com/api/v1/agent-traces/sessions/s")
+        );
         assert!(joined.contains("Session ID: s"));
         assert!(joined.contains("Trace ID: root"));
         assert!(joined.contains("Parent session: root"));

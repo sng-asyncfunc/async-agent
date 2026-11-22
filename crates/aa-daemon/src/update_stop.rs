@@ -6,9 +6,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use aa_types::daemon::UpdateTimeoutBudget;
 use anyhow::Result;
 use futures::future::join_all;
-use aa_types::daemon::UpdateTimeoutBudget;
 
 use crate::registry::ResidentWorker;
 

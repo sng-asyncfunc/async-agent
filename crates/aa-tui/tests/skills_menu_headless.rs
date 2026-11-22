@@ -9,10 +9,10 @@ mod support;
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 
-use anyhow::Result;
 use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, UiMode,
 };
+use anyhow::Result;
 use serde_json::{json, Value};
 
 use support::{

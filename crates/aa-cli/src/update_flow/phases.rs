@@ -5,11 +5,11 @@
 use std::path::Path;
 use std::time::Duration;
 
-use anyhow::{Context, Result};
 use aa_types::daemon::update_flow::{
     prepared_marker_expiry, update_marker_path, PreparedMarkerExpiry, UpdateId, UpdateStatusCounts,
     UpdateStatusFailure, UpdateTimeoutBudget,
 };
+use anyhow::{Context, Result};
 use serde_json::Value;
 
 /// The prepare-poll and restore-poll interval.

@@ -602,12 +602,13 @@ mod tests {
         assert!(lines[8].is_empty(), "blank row between mark and brand");
         let brand_text: String = lines[9].iter().map(|span| span.content.as_str()).collect();
         assert_eq!(brand_text, " Welcome to ASYNC Agent");
+        assert!(lines[9].iter().any(
+            |span| span.content == "ASYNC" && span.style.add_modifier.contains(Modifier::BOLD)
+        ));
         assert!(lines[9]
             .iter()
-            .any(|span| span.content == "ASYNC" && span.style.add_modifier.contains(Modifier::BOLD)));
-        assert!(lines[9]
-            .iter()
-            .any(|span| span.content == " Agent" && span.style.add_modifier.contains(Modifier::ITALIC)));
+            .any(|span| span.content == " Agent"
+                && span.style.add_modifier.contains(Modifier::ITALIC)));
         let text: Vec<String> = lines
             .iter()
             .map(|row| row.iter().map(|span| span.content.as_str()).collect())
@@ -617,7 +618,8 @@ mod tests {
             "trace prompt renders: {text:?}"
         );
         assert!(
-            text.iter().any(|row| row.contains("ASYNC_AGENT_TRACES_BASE_URL")),
+            text.iter()
+                .any(|row| row.contains("ASYNC_AGENT_TRACES_BASE_URL")),
             "trace description renders: {text:?}"
         );
         let share_row = lines
@@ -632,7 +634,8 @@ mod tests {
         assert!(
             share_row
                 .iter()
-                .any(|span| span.content == "> Share" && span.style.bg == Some(Color::Rgb(35, 35, 35))),
+                .any(|span| span.content == "> Share"
+                    && span.style.bg == Some(Color::Rgb(35, 35, 35))),
             "selected row carries the highlight wash"
         );
         assert!(

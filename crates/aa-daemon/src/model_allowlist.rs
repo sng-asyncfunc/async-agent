@@ -175,10 +175,7 @@ mod tests {
         );
         // A project scope cannot weaken the global pin: the project dir is
         // the temp dir itself.
-        write_settings(
-            &dir.path().join(".async-agent"),
-            r#"{"allowedModels": []}"#,
-        );
+        write_settings(&dir.path().join(".async-agent"), r#"{"allowedModels": []}"#);
         assert_eq!(
             load(dir.path(), &agent_dir),
             DaemonAllowlist::Allowed(vec!["prime-inference/*".to_string()])

@@ -15,10 +15,10 @@
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
 use aa_types::daemon::{
     DaemonPeerTransportTicket, DaemonWorkerCommand, DaemonWorkerLifecycle, DaemonWorkerPeerGrant,
 };
+use anyhow::{anyhow, Result};
 
 use crate::backpressure::RouteAdmission;
 use crate::protocol::{response_failure, response_success, DaemonResponse};

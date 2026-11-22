@@ -4,9 +4,9 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, bail, Result};
 use aa_ai::models::{get_supported_thinking_levels, thinking_level_from_str};
 use aa_core::kernel::rlm_runtime::{find_rlm_model_matches, RlmModelInfo};
+use anyhow::{anyhow, bail, Result};
 
 /// Close matches listed in model-resolution errors.
 const MODEL_ERROR_SUGGESTION_LIMIT: usize = 3;

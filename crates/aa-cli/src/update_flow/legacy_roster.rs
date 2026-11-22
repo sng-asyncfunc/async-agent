@@ -5,12 +5,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use anyhow::{ensure, Context, Result};
 use aa_types::daemon::{
     UpdateId, UpdateRoster, UpdateRosterBinary, UpdateRosterInFlight, UpdateRosterQueue,
     UpdateRosterSession, UpdateRosterSessionKind, UpdateSupervisorIdentity,
     UPDATE_ROSTER_FORMAT_VERSION,
 };
+use anyhow::{ensure, Context, Result};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 

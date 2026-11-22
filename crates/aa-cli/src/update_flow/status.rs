@@ -6,11 +6,11 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
 use aa_types::daemon::update_flow::{
     UpdateId, UpdateProcessIdentity, UpdateState, UpdateStatus, UpdateStatusCounts,
     UPDATE_STATUS_FORMAT_VERSION,
 };
+use anyhow::{Context, Result};
 use serde_json::json;
 use tokio::sync::Mutex;
 

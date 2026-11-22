@@ -218,7 +218,7 @@ pub(crate) async fn resolve_or_install_bun(
                 return resolve_bun_candidate(project, true);
             }
             #[cfg(not(unix))]
-            let _ = allow_install;
+            let _ = (options, allow_install);
             Err(anyhow!(
                 "Bun {MINIMUM_BUN_VERSION}+ is required for the persistent JavaScript runtime. \
                  Install it with `{BUN_INSTALL_COMMAND}`, or set ASYNC_AGENT_INSTALL_BUN=1 to let \

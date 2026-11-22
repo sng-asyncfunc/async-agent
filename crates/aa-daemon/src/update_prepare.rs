@@ -7,12 +7,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use anyhow::{bail, Context, Result};
 use aa_types::daemon::{
     is_daemon_mutating_command, is_update_drain_command, socket_update_dir,
     update_prepared_dir as prepared_dir_of, UpdateId, UpdatePreparedMarker, UpdateRoster,
     UpdateTimeoutBudget,
 };
+use anyhow::{bail, Context, Result};
 use tokio::sync::watch;
 use tokio::time::Instant;
 

@@ -5,8 +5,8 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, bail, Result};
 use aa_types::daemon::DaemonCommand;
+use anyhow::{anyhow, bail, Result};
 use serde_json::{json, Value};
 
 use crate::daemon_client::DaemonClient;

@@ -19,8 +19,18 @@ import threading
 import time
 
 from lifecycle_lib import digest, stop
-from check_restore_notice import texts
 from check_agent_bounce import Client
+
+
+def texts(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, list):
+        for item in value:
+            yield from texts(item)
+    elif isinstance(value, dict):
+        if isinstance(value.get('text'), str):
+            yield value['text']
 
 PROMPT = 'Complete the custom CA transport fixture.'
 ANSWER = 'Custom CA transport completed.'

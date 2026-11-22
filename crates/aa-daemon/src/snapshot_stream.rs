@@ -4,8 +4,8 @@
 //! chunk's `messages` array stays under a byte budget. A failure after the
 //! streamed response surfaces as `session_snapshot_failed`.
 
-use anyhow::{anyhow, Result};
 use aa_types::daemon::SnapshotPurpose;
+use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 
 /// Byte budget for one chunk's serialized `messages` array. Mirrors the

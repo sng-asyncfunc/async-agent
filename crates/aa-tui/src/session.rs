@@ -3,8 +3,8 @@
 //! `SessionStream` is the seam the interactive mode and the replay binary
 //! share; `JsonlSessionStream` implements it over aa-types session entries.
 
-use anyhow::{Context, Result};
 use aa_types::session::{AgentMessage, FileEntry};
+use anyhow::{Context, Result};
 use std::path::Path;
 
 /// A transcript item rendered by the agent view.

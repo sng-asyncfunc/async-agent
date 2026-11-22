@@ -7,8 +7,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use anyhow::{Context, Result};
 use aa_types::daemon::DaemonCommand;
+use anyhow::{Context, Result};
 use serde_json::Value;
 use tokio::sync::mpsc;
 

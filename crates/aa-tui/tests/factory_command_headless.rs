@@ -41,9 +41,9 @@ mod support;
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 use serde_json::{json, Value};
 
 use support::{

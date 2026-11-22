@@ -15,10 +15,10 @@ pub const MAX_NAME_LENGTH: usize = 64;
 /// Max description length per the Agent Skills spec.
 pub const MAX_DESCRIPTION_LENGTH: usize = 1024;
 
+pub use aa_types::slash_commands::parse_slash_command;
 pub use diagnostics::{ResourceCollision, ResourceDiagnostic};
 pub use discovery::load_skills_from_dir;
 pub use loader::{load_skills, LoadSkillsOptions, LoadSkillsResult};
-pub use aa_types::slash_commands::parse_slash_command;
 pub use prompt_templates::{
     expand_prompt_template, load_prompt_templates, parse_command_args, substitute_args,
     LoadPromptTemplatesOptions, PromptTemplate,

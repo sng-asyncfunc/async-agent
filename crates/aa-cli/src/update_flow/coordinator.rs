@@ -8,11 +8,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use super::phases::{check_marker_fresh, commit_update, prepare_to_prepared, restore_report};
-use anyhow::{Context, Result};
 use aa_types::daemon::update_flow::{
     update_prepared_dir, update_roster_path, UpdateId, UpdateProcessIdentity, UpdateState,
     UpdateStatus, UpdateTimeoutBudget,
 };
+use anyhow::{Context, Result};
 use tokio::sync::Mutex;
 
 use super::status::{StatusHeartbeat, StatusWriter};

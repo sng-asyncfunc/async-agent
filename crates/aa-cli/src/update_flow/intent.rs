@@ -5,10 +5,10 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
 use aa_types::daemon::update_flow::{
     socket_update_dir, update_intent_path, update_status_path, UpdateId, UpdateIntent,
 };
+use anyhow::{Context, Result};
 
 /// What `Acquire` found.
 pub enum AcquireOutcome {

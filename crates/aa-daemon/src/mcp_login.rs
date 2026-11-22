@@ -89,10 +89,10 @@ pub fn wire_worker_mcp_login(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::Result;
     use aa_core::auth::{AuthCredential, AuthStorage};
     use aa_core::kernel::shared::{HostRequestHandlers, HostRequestPayload};
     use aa_core::mcp::{McpManager, McpManagerOptions, McpServerConfig, OAuthHttpResponse};
+    use anyhow::Result;
     use serde_json::json;
     use std::collections::HashMap;
     use std::time::{Duration, Instant};

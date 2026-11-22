@@ -4,8 +4,8 @@
 //! product is load-bearing: TUI reattach, checkpoint/resume, and external
 //! tooling read the same files.
 
-use anyhow::{anyhow, Context, Result};
 use aa_types::ai::Usage;
+use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::borrow::Cow;

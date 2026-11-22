@@ -2,10 +2,10 @@
 
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
 use aa_perf::bench::{BenchOptions, RunOptions, Scenario};
 use aa_perf::corpus::{self, CacheMode, CorpusOptions, Profile};
 use aa_perf::report::{self, Baseline};
+use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(name = "aa-perf", about = "async-agent performance tooling", version)]

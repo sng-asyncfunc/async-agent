@@ -464,8 +464,7 @@ fn install_ps1_adds_bin_to_the_user_path_and_the_session_path() {
 /// documented in the header's Configuration block.
 #[test]
 fn install_rust_sh_honors_the_uv_bin_dir_knob() {
-    let text =
-        std::fs::read_to_string(repo_root().join("install.sh")).expect("read install.sh");
+    let text = std::fs::read_to_string(repo_root().join("install.sh")).expect("read install.sh");
     assert!(
         text.contains("[ -n \"${ASYNC_AGENT_UV_BIN_DIR:-}\" ]"),
         "install.sh must honor ASYNC_AGENT_UV_BIN_DIR (both e2e routes isolate)"

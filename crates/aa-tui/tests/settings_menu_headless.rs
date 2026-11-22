@@ -15,9 +15,9 @@ mod support;
 
 use std::sync::{Arc, Mutex};
 
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 use serde_json::json;
 
 use support::{

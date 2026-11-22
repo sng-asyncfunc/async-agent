@@ -56,9 +56,9 @@ use stream::SpeedStats;
 use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Context, Result};
 use aa_types::daemon::{CycleDirection, DaemonCommand};
 use aa_types::slash_commands::{SlashCommandExecution, SlashCommandRegistry};
+use anyhow::{anyhow, Context, Result};
 use serde_json::{Map, Value};
 
 use crate::bash_view::{BashView, BashViewAction};

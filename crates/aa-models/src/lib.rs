@@ -15,7 +15,7 @@ pub mod transports;
 
 mod chain;
 
-pub use chain::{ModelCatalog, PrimeCredentials, RefreshTrigger};
 pub use aa_types::ai::Model;
+pub use chain::{ModelCatalog, PrimeCredentials, RefreshTrigger};
 
 pub const CATALOG_REFRESH_INTERVAL_MS: u64 = 60 * 60_000;

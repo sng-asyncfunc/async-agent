@@ -27,7 +27,34 @@ import time
 
 from lifecycle_lib import Screen, digest, stop
 from lifecycle_lib import OwnedProcesses, TAG, finish
-from check_kernel_env import KernelClient
+from check_agent_bounce import Client as BounceClient
+
+
+class KernelClient(BounceClient):
+    """Same daemon frames, with an explicit cold-kernel request budget."""
+    def call(self, kind, timeout_seconds=35, **payload):
+        self.counter += 1
+        ident = str(self.counter)
+        envelope = {'type': 'command', 'id': ident,
+            'protocol': {'name': 'async-agent.daemon', 'version': 7},
+            'command': {'type': kind, **payload}}
+        deadline = time.monotonic() + timeout_seconds
+        previous_timeout = self.sock.gettimeout()
+        try:
+            self.sock.settimeout(timeout_seconds)
+            self.sock.sendall((json.dumps(envelope) + '\n').encode())
+            while time.monotonic() < deadline:
+                self.sock.settimeout(max(0.001, deadline - time.monotonic()))
+                line = self.reader.readline()
+                assert line, 'daemon closed connection'
+                response = json.loads(line)
+                self.wire.append(response)
+                if response.get('type') == 'response' and response.get('id') == ident:
+                    assert response.get('success'), response
+                    return response.get('data')
+            raise TimeoutError('command never answered: ' + kind)
+        finally:
+            self.sock.settimeout(previous_timeout)
 
 PUBLIC = 'z-ai/glm-5.3'
 PRIVATE = 'internal/glm-5.3-fast'

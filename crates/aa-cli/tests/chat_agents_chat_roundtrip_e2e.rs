@@ -15,11 +15,11 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
 use aa_tui::interactive::{
     HeadlessPlan, HeadlessStep, InteractiveOptions, ModelSelection, SessionSelection, UiMode,
 };
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// The layout handoff store is process-wide: the two round-trip tests
 /// serialize through this lock so one test's stash is never adopted by

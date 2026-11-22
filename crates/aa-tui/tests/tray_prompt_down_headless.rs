@@ -35,8 +35,8 @@ mod support;
 
 use std::os::unix::net::UnixListener;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::json;
 
 use support::{

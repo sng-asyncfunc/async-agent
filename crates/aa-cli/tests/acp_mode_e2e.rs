@@ -333,10 +333,7 @@ fn acp_initialize_matches_the_ts_golden() {
     let info = &result["agentInfo"];
     assert_eq!(info["name"], "async-agent");
     assert_eq!(info["title"], "Async Agent");
-    assert_eq!(
-        result["_meta"],
-        json!({ "ai.asyncfunc.async-agent": {} })
-    );
+    assert_eq!(result["_meta"], json!({ "ai.asyncfunc.async-agent": {} }));
 }
 
 #[test]
@@ -1928,8 +1925,7 @@ fn acp_goal_command_publishes_goal_meta_and_runs_the_continuation() {
         })
         .collect();
     assert!(!goal_frames.is_empty(), "updates: {updates:?}");
-    let first =
-        &goal_frames[0]["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["goal"];
+    let first = &goal_frames[0]["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["goal"];
     assert_eq!(first["status"], "active");
     assert_eq!(first["objective"], "reply with exactly: GOAL-PROGRESS");
     assert_eq!(first["tokenBudget"], 5);
@@ -1937,8 +1933,7 @@ fn acp_goal_command_publishes_goal_meta_and_runs_the_continuation() {
     // The tiny budget crosses at the first turn, so the goal is budget_limited before the wrap-up
     // steer segment runs.
     assert!(goal_frames.len() >= 2, "goal frames: {goal_frames:?}");
-    let second =
-        &goal_frames[1]["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["goal"];
+    let second = &goal_frames[1]["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["goal"];
     assert_eq!(second["status"], "budget_limited");
     assert!(second["tokensUsed"].as_u64().unwrap_or(0) > 0);
     // The steer's streamed answer is the second scripted response; the faux
@@ -2161,8 +2156,7 @@ fn acp_daemon_attached_reports_autonomous_accounting_and_limit_stop_reason() {
     assert_eq!(enable_response["result"]["stopReason"], "end_turn");
     // The enabled accounting is already visible on the command turn's completion envelope.
     let enabled_meta = updates.iter().find_map(|update| {
-        let meta =
-            &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["autonomous"];
+        let meta = &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["autonomous"];
         (!meta.is_null()).then(|| meta.clone())
     });
     let enabled_meta = enabled_meta.expect("the enabled run's accounting reached the surface");
@@ -2181,8 +2175,7 @@ fn acp_daemon_attached_reports_autonomous_accounting_and_limit_stop_reason() {
         "the turn limit maps to the TS stop reason: {prompt_response}"
     );
     let accounted = updates.iter().find_map(|update| {
-        let meta =
-            &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["autonomous"];
+        let meta = &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["autonomous"];
         (meta["enabled"] == json!(true) && meta["turnsUsed"] == json!(1)).then(|| meta.clone())
     });
     let accounted = accounted.expect("the limited turn's accounting reached the surface");

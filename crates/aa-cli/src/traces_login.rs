@@ -9,10 +9,10 @@ use std::pin::{pin, Pin};
 
 use aa_core::agent_traces::resolve_traces_base_url;
 use aa_core::auth::{
-    check_async_agent_traces_access, login_async_agent_traces, AuthCredential, AuthStorage,
-    PrimeAccessError, AsyncAgentTracesCallbacks, AsyncAgentTracesLoginOptions, PrimeAuthInfo,
-    ReqwestPrimeHttp, DEFAULT_REQUEST_TIMEOUT_MS, ASYNC_AGENT_TRACES_PROVIDER_ID,
-    ASYNC_AGENT_TRACES_PROVIDER_NAME,
+    check_async_agent_traces_access, login_async_agent_traces, AsyncAgentTracesCallbacks,
+    AsyncAgentTracesLoginOptions, AuthCredential, AuthStorage, PrimeAccessError, PrimeAuthInfo,
+    ReqwestPrimeHttp, ASYNC_AGENT_TRACES_PROVIDER_ID, ASYNC_AGENT_TRACES_PROVIDER_NAME,
+    DEFAULT_REQUEST_TIMEOUT_MS,
 };
 
 use aa_tui::auth_panel::{PastePromptTone, PasteStyle};

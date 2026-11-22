@@ -3,9 +3,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use aa_ai::types::{Context, Model, StopReason, StreamOptions, Transport};
 use base64::Engine as _;
 use futures::{SinkExt, StreamExt};
-use aa_ai::types::{Context, Model, StopReason, StreamOptions, Transport};
 use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair};
 use serde_json::json;
 use tokio::net::TcpListener;

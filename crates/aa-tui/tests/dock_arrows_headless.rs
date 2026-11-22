@@ -11,9 +11,9 @@ mod support;
 
 use std::os::unix::net::UnixListener;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use aa_tui::agents_view::AgentsViewScope;
 use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use serde_json::{json, Value};
 
 use support::{

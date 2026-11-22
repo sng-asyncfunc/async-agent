@@ -10,11 +10,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, bail, Context, Result};
 use aa_types::daemon::{
     framing, DaemonClientCapability, DaemonPeerCommand, DaemonPeerTransportTicket,
 };
 use aa_types::platform::transport::connect_transport;
+use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Map, Value};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;

@@ -5,13 +5,13 @@ pub use registry::{
     ModelRegistry, ProviderRequestConfig, ResolvedRequestAuth, SetModelSelectionError,
 };
 
-pub use catalog_chain::{
-    catalog_for, install_catalog, prime_credentials_for_dir, spawn_hourly_refresh, startup_refresh,
-};
 /// The refresh triggers (`aa-models`' own enum — the daemon's picker-open
 /// and auth-change wiring selects it; aa-daemon's runtime surface goes
 /// through aa-core, so the trigger rides this re-export).
 pub use aa_models::RefreshTrigger;
+pub use catalog_chain::{
+    catalog_for, install_catalog, prime_credentials_for_dir, spawn_hourly_refresh, startup_refresh,
+};
 
 pub mod allowlist;
 pub(crate) mod catalog_chain;

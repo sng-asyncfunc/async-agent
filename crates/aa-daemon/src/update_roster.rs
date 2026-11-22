@@ -7,7 +7,6 @@
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
 use aa_core::cron::store::read_scheduled_jobs_artifact;
 use aa_types::daemon::{
     UpdateHeartbeatDeliveryMode, UpdateHeartbeatStatus, UpdateId, UpdateRoster, UpdateRosterBinary,
@@ -15,6 +14,7 @@ use aa_types::daemon::{
     UpdateRosterSessionKind, UpdateRosterSubagent, UpdateRosterSubagentStatus, UpdateRosterWorker,
     UpdateSupervisorIdentity, UPDATE_ROSTER_FORMAT_VERSION,
 };
+use anyhow::{Context, Result};
 use serde_json::{json, Map, Value};
 
 use crate::lease::canonical_session_path;

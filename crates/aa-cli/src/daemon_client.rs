@@ -7,11 +7,11 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, Result};
 use aa_types::daemon::{
     DaemonCommand, DaemonProtocolInfo, DaemonResponse, DAEMON_PROTOCOL_VERSION,
 };
 use aa_types::platform::transport::{connect_blocking, BlockingTransportStream};
+use anyhow::{anyhow, Result};
 use serde_json::json;
 
 use crate::config;

@@ -6,6 +6,7 @@ Bearer fixture-only. This checks those headers, not unrelated SDK headers or
 wire bytes.
 """
 import argparse
+import http.server
 import json
 import os
 from pathlib import Path
@@ -13,15 +14,49 @@ import subprocess
 import tempfile
 import threading
 
-from check_minimum_reasoning import Handler, Server
 from check_saved_catalog import CatalogClient
 from lifecycle_lib import OwnedProcesses, TAG, digest, env_for, finish
 
 
-class IdentityHandler(Handler):
+class IdentityHandler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *_args):
+        pass
+
     def do_POST(self):
         self.server.received_headers.append(dict(self.headers))
-        super().do_POST()
+        if self.path != '/v1/chat/completions':
+            self.send_error(404)
+            return
+        body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+        auxiliary = not body.get('tools')
+        self.server.requests.append({'auxiliary': auxiliary, 'body': body})
+        if len(self.server.requests) > 12:
+            self.server.error = 'request limit exceeded'
+            self.send_error(422, self.server.error)
+            return
+        content = ('{"summary":"No durable change justified","rationale":"Fixture only",'
+                   '"expectedOutcome":"No change","edits":[]}')
+        def chunk(value, reason=None):
+            return {'id': 'refine-headers', 'object': 'chat.completion.chunk', 'created': 1,
+                    'model': 'parity-1', 'choices': [{'index': 0, 'delta': value,
+                                                      'finish_reason': reason}]}
+        wire = ''.join('data: ' + json.dumps(item) + '\n\n' for item in (
+            chunk({'role': 'assistant', 'content': content}), chunk({}, 'stop'))) + 'data: [DONE]\n\n'
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/event-stream')
+        self.send_header('Content-Length', str(len(wire.encode())))
+        self.end_headers()
+        self.wfile.write(wire.encode())
+
+
+class Server(http.server.ThreadingHTTPServer):
+    daemon_threads = True
+
+    def __init__(self, scenario):
+        super().__init__(('127.0.0.1', 0), IdentityHandler)
+        self.scenario = scenario
+        self.requests = []
+        self.error = None
 
 
 def observe(binary, root, receipt):

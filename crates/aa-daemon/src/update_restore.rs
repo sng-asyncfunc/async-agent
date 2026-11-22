@@ -8,13 +8,13 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Mutex;
 
-use anyhow::{Context, Result};
 use aa_types::daemon::update_flow::DaemonUpdateResume;
 use aa_types::daemon::update_flow::{
     legacy_update_restart_status, legacy_update_restarts_dir, socket_update_dir, UpdateRoster,
     UpdateRosterSession, UpdateStatusCounts, UpdateStatusFailure, UPDATE_ROSTER_ENV,
 };
 use aa_types::daemon::{DaemonCommand, UpdateId};
+use anyhow::{Context, Result};
 use serde_json::json;
 use tokio::sync::Notify;
 

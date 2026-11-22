@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
 use aa_types::daemon::DaemonWorkerDescriptor;
+use anyhow::{anyhow, Result};
 use serde_json::Value;
 use tokio::sync::{Mutex, OwnedMutexGuard};
 
