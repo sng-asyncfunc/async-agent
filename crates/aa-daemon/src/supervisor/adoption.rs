@@ -90,7 +90,7 @@ impl Supervisor {
         failed: usize,
     ) {
         if let Some(client) = &*self.telemetry.lock().unwrap() {
-            pa_core::session_engine::telemetry::track_worker_adoption(
+            aa_core::session_engine::telemetry::track_worker_adoption(
                 client,
                 boot,
                 adopted_live,

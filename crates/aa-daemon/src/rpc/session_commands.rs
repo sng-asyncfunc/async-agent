@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use pa_types::session::FileEntry;
-use pa_types::usage::{calculate_context_tokens, estimate_tokens, valid_assistant_usage};
+use aa_types::session::FileEntry;
+use aa_types::usage::{calculate_context_tokens, estimate_tokens, valid_assistant_usage};
 
 use super::commands::RpcState;
 use super::protocol::ResponseData;
@@ -125,7 +125,7 @@ async fn fork(state: &Arc<RpcState>, payload: &Value) -> Result<ResponseData, St
             return Err("Invalid entry ID for forking".to_string());
         };
         let FileEntry::Message {
-            message: pa_types::session::AgentMessage::User(user),
+            message: aa_types::session::AgentMessage::User(user),
             ..
         } = entry
         else {
@@ -271,7 +271,7 @@ async fn fork_at(
 /// The active-branch entries from the root down to `leaf` (a `None` leaf
 /// is the root fork's empty branch); cycle-protected parent-chain walk.
 fn branch_entries_to_leaf(
-    manager: &pa_core::session::manager::SessionManager,
+    manager: &aa_core::session::manager::SessionManager,
     leaf: Option<&str>,
 ) -> Vec<FileEntry> {
     let Some(leaf_id) = leaf else {
@@ -312,7 +312,7 @@ async fn get_fork_messages(state: &Arc<RpcState>) -> Result<ResponseData, String
     let mut messages = Vec::new();
     for entry in manager.get_all_entries() {
         let FileEntry::Message {
-            message: pa_types::session::AgentMessage::User(user),
+            message: aa_types::session::AgentMessage::User(user),
             base,
             ..
         } = entry
@@ -438,7 +438,7 @@ async fn export_html(state: &Arc<RpcState>, payload: &Value) -> Result<ResponseD
             })
         })
         .collect();
-    let data = pa_core::export_html::SessionExportData {
+    let data = aa_core::export_html::SessionExportData {
         header,
         entries,
         leaf_id: {
@@ -451,7 +451,7 @@ async fn export_html(state: &Arc<RpcState>, payload: &Value) -> Result<ResponseD
         rendered_tools: None,
     };
     drop(handle);
-    let path = pa_core::export_html::export_session_to_html(
+    let path = aa_core::export_html::export_session_to_html(
         &data,
         None,
         &state.agent_dir,
@@ -504,20 +504,20 @@ async fn get_session_stats(state: &Arc<RpcState>) -> Result<ResponseData, String
             _ => {}
         }
     }
-    let mut spend = pa_types::ai::Usage::default();
+    let mut spend = aa_types::ai::Usage::default();
     for entry in manager.get_branch(None) {
         let usage = match entry {
             FileEntry::Message {
-                message: pa_types::session::AgentMessage::Assistant(assistant),
+                message: aa_types::session::AgentMessage::Assistant(assistant),
                 ..
             } => Some(assistant.usage),
-            _ => pa_core::session::billed_row::billed_file_entry(entry).map(|row| row.usage),
+            _ => aa_core::session::billed_row::billed_file_entry(entry).map(|row| row.usage),
         };
         if let Some(usage) = usage {
-            pa_core::session_engine::compaction_exec::add_assistant_usage(&mut spend, &usage);
+            aa_core::session_engine::compaction_exec::add_assistant_usage(&mut spend, &usage);
         }
     }
-    let pa_types::ai::Usage {
+    let aa_types::ai::Usage {
         input,
         output,
         cache_read,
@@ -608,14 +608,14 @@ async fn get_commands(state: &Arc<RpcState>) -> Result<ResponseData, String> {
 }
 
 /// The concatenated text blocks of one assistant message.
-fn assistant_text(message: &pa_types::session::AgentMessage) -> Option<String> {
+fn assistant_text(message: &aa_types::session::AgentMessage) -> Option<String> {
     match message {
-        pa_types::session::AgentMessage::Assistant(assistant) => Some(
+        aa_types::session::AgentMessage::Assistant(assistant) => Some(
             assistant
                 .content
                 .iter()
                 .filter_map(|block| match block {
-                    pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+                    aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
                     _ => None,
                 })
                 .collect::<String>(),

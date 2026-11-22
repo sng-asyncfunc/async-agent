@@ -1,6 +1,6 @@
 //! The staged activation (spec §4 `Activating`): the `.activation-state`
 //! rollback pointer, the `bin/previous` symlink, and the atomic
-//! `bin/prime-agent` repoint.
+//! `bin/async-agent` repoint.
 
 use std::path::Path;
 use std::time::Duration;
@@ -30,7 +30,7 @@ impl ActivationState {
 
 /// Repoint the launcher symlinks for one activation (spec §4): record the
 /// recovery state, move the old target to `bin/previous`, then atomically
-/// point `bin/prime-agent` at the candidate. Every symlink write is
+/// point `bin/async-agent` at the candidate. Every symlink write is
 /// create-tmp + rename (a reader never observes a missing launcher).
 ///
 /// # Errors
@@ -54,15 +54,15 @@ pub fn activate(
     // the write and the repoint would leave a truncated state file that
     // `read_rollback_installation` trusts over the valid `bin/previous`.
     std::fs::File::open(&state_path)?.sync_all()?;
-    pa_core::update::install::sync_directory(root)?;
+    aa_core::update::install::sync_directory(root)?;
     write_launcher(
         root,
-        pa_core::update::install::PREVIOUS_LAUNCHER,
+        aa_core::update::install::PREVIOUS_LAUNCHER,
         current_target,
     )?;
     write_launcher(
         root,
-        pa_core::update::install::CURRENT_LAUNCHER,
+        aa_core::update::install::CURRENT_LAUNCHER,
         candidate_target,
     )?;
     Ok(())
@@ -76,7 +76,7 @@ pub fn activate(
 pub fn restore_previous(root: &Path, previous_target: &str) -> Result<()> {
     write_launcher(
         root,
-        pa_core::update::install::CURRENT_LAUNCHER,
+        aa_core::update::install::CURRENT_LAUNCHER,
         previous_target,
     )
 }
@@ -106,7 +106,7 @@ fn write_launcher(root: &Path, link: &str, target: &str) -> Result<()> {
         std::fs::rename(&temporary, &launcher)
             .with_context(|| format!("point the {link} launcher at {target}"))?;
         if let Some(bin) = launcher.parent() {
-            pa_core::update::install::sync_directory(bin)?;
+            aa_core::update::install::sync_directory(bin)?;
         }
         Ok(())
     }
@@ -141,7 +141,7 @@ pub fn launcher_target(root: &Path, link: &str) -> Result<String> {
 pub async fn validate_candidate(exe: &Path, version: &str) -> Result<()> {
     // The release name and the binary it holds must agree: a directory claiming
     // a version its binary does not report is never a candidate.
-    let reported = pa_core::update::download::binary_reported_version(exe).await?;
+    let reported = aa_core::update::download::binary_reported_version(exe).await?;
     if reported != version {
         anyhow::bail!("the staged binary reports version {reported:?}, expected {version:?}");
     }
@@ -179,10 +179,10 @@ mod tests {
         std::fs::create_dir_all(root.join("bin")).unwrap();
         std::fs::create_dir_all(root.join("releases").join("0.1.0-linux-x64-0")).unwrap();
         std::fs::create_dir_all(root.join("releases").join("0.2.0-linux-x64-0")).unwrap();
-        std::fs::write(root.join(".managed"), "prime-agent-native-v1").unwrap();
+        std::fs::write(root.join(".managed"), "async-agent-native-v1").unwrap();
         std::os::unix::fs::symlink(
-            "../releases/0.1.0-linux-x64-0/prime-agent",
-            root.join("bin").join("prime-agent"),
+            "../releases/0.1.0-linux-x64-0/async-agent",
+            root.join("bin").join("async-agent"),
         )
         .unwrap();
         root
@@ -194,26 +194,26 @@ mod tests {
         let root = managed_root(dir.path());
         activate(
             &root,
-            "../releases/0.1.0-linux-x64-0/prime-agent",
-            "../releases/0.2.0-linux-x64-0/prime-agent",
+            "../releases/0.1.0-linux-x64-0/async-agent",
+            "../releases/0.2.0-linux-x64-0/async-agent",
             "u1",
         )
         .unwrap();
         assert_eq!(
-            launcher_target(&root, "prime-agent").unwrap(),
-            "../releases/0.2.0-linux-x64-0/prime-agent"
+            launcher_target(&root, "async-agent").unwrap(),
+            "../releases/0.2.0-linux-x64-0/async-agent"
         );
         assert_eq!(
             launcher_target(&root, "previous").unwrap(),
-            "../releases/0.1.0-linux-x64-0/prime-agent"
+            "../releases/0.1.0-linux-x64-0/async-agent"
         );
         let state = std::fs::read_to_string(root.join(".activation-state")).unwrap();
-        assert!(state.starts_with("../releases/0.1.0-linux-x64-0/prime-agent\n"));
+        assert!(state.starts_with("../releases/0.1.0-linux-x64-0/async-agent\n"));
         assert!(state.ends_with("u1\n"));
-        restore_previous(&root, "../releases/0.1.0-linux-x64-0/prime-agent").unwrap();
+        restore_previous(&root, "../releases/0.1.0-linux-x64-0/async-agent").unwrap();
         assert_eq!(
-            launcher_target(&root, "prime-agent").unwrap(),
-            "../releases/0.1.0-linux-x64-0/prime-agent"
+            launcher_target(&root, "async-agent").unwrap(),
+            "../releases/0.1.0-linux-x64-0/async-agent"
         );
         clear_activation_state(&root).unwrap();
         assert!(!root.join(".activation-state").exists());

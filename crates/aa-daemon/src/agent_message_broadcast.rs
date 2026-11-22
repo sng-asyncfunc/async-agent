@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use pa_types::daemon::DaemonWorkerLifecycle;
+use aa_types::daemon::DaemonWorkerLifecycle;
 
 use crate::backpressure::RouteAdmission;
 use crate::protocol::{
@@ -49,7 +49,7 @@ impl Supervisor {
     async fn forward_client_command(
         &self,
         resident: &Arc<ResidentWorker>,
-        command: &pa_types::daemon::DaemonCommand,
+        command: &aa_types::daemon::DaemonCommand,
         client_id: &str,
     ) -> DaemonResponse {
         match client_command_payload(command, client_id) {
@@ -78,7 +78,7 @@ impl Supervisor {
     /// empty-status object.
     pub(crate) async fn handle_agent_messages_status_broadcast(
         &self,
-        command: &pa_types::daemon::DaemonCommand,
+        command: &aa_types::daemon::DaemonCommand,
         client_id: &str,
         command_id: &str,
         type_name: &str,
@@ -104,7 +104,7 @@ impl Supervisor {
     /// success's data (`data: null` when none answered).
     pub(crate) async fn handle_agent_messages_pause_resume_broadcast(
         &self,
-        command: &pa_types::daemon::DaemonCommand,
+        command: &aa_types::daemon::DaemonCommand,
         client_id: &str,
         command_id: &str,
         type_name: &str,

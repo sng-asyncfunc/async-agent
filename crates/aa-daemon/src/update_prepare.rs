@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
-use pa_types::daemon::{
+use aa_types::daemon::{
     is_daemon_mutating_command, is_update_drain_command, socket_update_dir,
     update_prepared_dir as prepared_dir_of, UpdateId, UpdatePreparedMarker, UpdateRoster,
     UpdateTimeoutBudget,
@@ -451,8 +451,8 @@ fn take_locked(
 }
 
 /// TS message for a mutating command refused by the admission gate
-/// (owned by `pa_types::daemon` for the TUI's exact-message fallback).
-pub(crate) use pa_types::daemon::UPDATE_RESTART_PREPARING_MESSAGE as UPDATE_PREPARING_MESSAGE;
+/// (owned by `aa_types::daemon` for the TUI's exact-message fallback).
+pub(crate) use aa_types::daemon::UPDATE_RESTART_PREPARING_MESSAGE as UPDATE_PREPARING_MESSAGE;
 
 /// The admission gate verdict (spec §5): mutating commands are refused
 /// while `Draining..Prepared`, except the abort-family drain commands,
@@ -562,7 +562,7 @@ mod tests {
     use std::task::{Context, Wake, Waker};
 
     use super::*;
-    use pa_types::daemon::{update_marker_path, update_roster_path, UpdateSupervisorIdentity};
+    use aa_types::daemon::{update_marker_path, update_roster_path, UpdateSupervisorIdentity};
     use serde_json::Map;
 
     fn budget() -> UpdateTimeoutBudget {
@@ -895,22 +895,22 @@ mod tests {
             marker_expires_at_iso(now, &budget),
             iso_from_unix_ms(now + budget.prepared_expiry_ms)
         );
-        // The written marker's expires_at must make the pa-types verdict flip
+        // The written marker's expires_at must make the aa-types verdict flip
         // exactly at the same instant.
         let expires_at = marker_expires_at_iso(now, &budget);
         assert_eq!(
-            pa_types::daemon::prepared_marker_expiry(
+            aa_types::daemon::prepared_marker_expiry(
                 &expires_at,
                 &iso_from_unix_ms(now + budget.prepared_expiry_ms - 1)
             ),
-            pa_types::daemon::PreparedMarkerExpiry::Active
+            aa_types::daemon::PreparedMarkerExpiry::Active
         );
         assert_eq!(
-            pa_types::daemon::prepared_marker_expiry(
+            aa_types::daemon::prepared_marker_expiry(
                 &expires_at,
                 &iso_from_unix_ms(now + budget.prepared_expiry_ms)
             ),
-            pa_types::daemon::PreparedMarkerExpiry::Expired
+            aa_types::daemon::PreparedMarkerExpiry::Expired
         );
     }
 
@@ -931,12 +931,12 @@ mod tests {
             rest: Map::default(),
         };
         let roster = UpdateRoster {
-            format_version: pa_types::daemon::UPDATE_ROSTER_FORMAT_VERSION,
+            format_version: aa_types::daemon::UPDATE_ROSTER_FORMAT_VERSION,
             update_id: id("u1"),
             socket_path: String::from("/sock"),
             created_at: iso_from_unix_ms(now),
             supervisor: marker.supervisor.clone(),
-            binary: pa_types::daemon::UpdateRosterBinary {
+            binary: aa_types::daemon::UpdateRosterBinary {
                 from_version: String::from("0.1.0"),
                 to_version: String::from("0.2.0"),
             },

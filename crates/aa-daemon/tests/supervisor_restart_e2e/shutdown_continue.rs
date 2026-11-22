@@ -146,7 +146,7 @@ fn a_lost_shutdown_verdict_never_archives_the_session() {
     let shutdown = call(&mut client, &json!({ "type": "shutdown" }));
     assert_eq!(shutdown["success"], true, "shutdown failed: {shutdown}");
     let descriptor_path =
-        pa_daemon::descriptor::descriptor_dir(&agent_dir, &socket).join(format!("{session}.json"));
+        aa_daemon::descriptor::descriptor_dir(&agent_dir, &socket).join(format!("{session}.json"));
     wait_for("the shutdown never persisted its stop tombstone", || {
         std::fs::read_to_string(&descriptor_path)
             .ok()
@@ -212,10 +212,10 @@ fn a_revived_user_parked_queue_stays_parked() {
         .status()
         .expect("kill -9 the worker");
 
-    let restart_before = pa_daemon::util::now_iso();
+    let restart_before = aa_daemon::util::now_iso();
     let mut daemon = spawn_supervisor(&socket, &agent_dir);
     wait_socket_ready(&socket);
-    let log_path = pa_daemon::paths::daemon_log_path(&socket, &agent_dir);
+    let log_path = aa_daemon::paths::daemon_log_path(&socket, &agent_dir);
     wait_for("the parked session was not revived", || {
         distinct(workers_registered_since(&log_path, &restart_before)) == vec![session.clone()]
     });

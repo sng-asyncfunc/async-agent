@@ -1,8 +1,8 @@
 use super::*;
-use pa_agent::agent::{AgentInitialState, AgentOptions};
-use pa_agent::scripted::ScriptedProvider;
+use aa_agent::agent::{AgentInitialState, AgentOptions};
+use aa_agent::scripted::ScriptedProvider;
 
-fn test_model() -> pa_agent::types::Model {
+fn test_model() -> aa_agent::types::Model {
     serde_json::from_value(serde_json::json!({
         "id": "m", "name": "m", "api": "openai-completions", "provider": "test",
         "baseUrl": "http://localhost", "reasoning": false, "input": ["text"],
@@ -100,7 +100,7 @@ async fn a_skill_command_prompt_expands_into_the_skill_block() {
             _ => None,
         })
         .expect("user message persisted");
-    let parsed = pa_types::skill_blocks::parse_skill_block(&user_text)
+    let parsed = aa_types::skill_blocks::parse_skill_block(&user_text)
         .expect("the persisted user message is a skill block");
     assert_eq!(parsed.name, "web-search");
     assert_eq!(
@@ -183,7 +183,7 @@ pub(super) async fn resumed_digest_session(
 ) -> AgentSession {
     let provider = Arc::new(ScriptedProvider::new(test_model()));
     let context = crate::session::build_session_context(&entries, None);
-    let loop_messages: Vec<pa_agent::types::AgentMessage> =
+    let loop_messages: Vec<aa_agent::types::AgentMessage> =
         crate::session_engine::messages::convert_to_llm(&context.messages)
             .into_iter()
             .filter_map(|message| {
@@ -423,17 +423,17 @@ fn digest_of_entries(entries: &[FileEntry]) -> String {
         .expect("a digest custom entry")
 }
 
-fn user_text(message: &pa_agent::types::Message) -> String {
-    let pa_agent::types::Message::User(user) = message else {
+fn user_text(message: &aa_agent::types::Message) -> String {
+    let aa_agent::types::Message::User(user) = message else {
         panic!("expected user message");
     };
     match &user.content {
-        pa_agent::types::UserContent::Text(text) => text.clone(),
-        pa_agent::types::UserContent::Parts(parts) => parts
+        aa_agent::types::UserContent::Text(text) => text.clone(),
+        aa_agent::types::UserContent::Parts(parts) => parts
             .iter()
             .filter_map(|part| match part {
-                pa_agent::types::UserPart::Text(text) => Some(text.text.clone()),
-                pa_agent::types::UserPart::Image(_) => None,
+                aa_agent::types::UserPart::Text(text) => Some(text.text.clone()),
+                aa_agent::types::UserPart::Image(_) => None,
             })
             .collect::<Vec<_>>()
             .join(" "),
@@ -490,7 +490,7 @@ async fn prompt_rides_digest_row_into_the_run() {
     };
     let roles: Vec<&str> = end_messages
         .iter()
-        .map(pa_agent::types::AgentMessage::role)
+        .map(aa_agent::types::AgentMessage::role)
         .collect();
     assert_eq!(roles, vec!["custom", "user", "assistant"]);
     let AgentMessage::Custom(custom) = &end_messages[0] else {
@@ -585,9 +585,9 @@ async fn prompt_injected_message_persists_one_custom_row() {
     provider.push_text_turn("notice acknowledged");
     let (session, _tmp) = digest_session(Arc::clone(&provider)).await;
     let notice_text = "[child-exited: no-reply child:lane]";
-    let notice = pa_types::session::CustomMessage {
+    let notice = aa_types::session::CustomMessage {
         custom_type: "rlm_child_terminal_notice".to_string(),
-        content: pa_types::ai::UserContent::Text(notice_text.to_string()),
+        content: aa_types::ai::UserContent::Text(notice_text.to_string()),
         display: true,
         details: Some(serde_json::json!({
             "kind": "completed_without_reply",
@@ -609,7 +609,7 @@ async fn prompt_injected_message_persists_one_custom_row() {
     let user_texts: Vec<String> = calls[0]
         .messages
         .iter()
-        .filter(|message| matches!(message, pa_agent::types::Message::User(_)))
+        .filter(|message| matches!(message, aa_agent::types::Message::User(_)))
         .map(user_text)
         .collect();
     assert_eq!(user_texts.len(), 2, "digest plus notice: {calls:?}");
@@ -672,9 +672,9 @@ async fn an_agent_message_custom_row_matches_the_plain_prompt_context() {
     let row_provider = Arc::new(ScriptedProvider::new(test_model()));
     row_provider.push_text_turn("ack");
     let (row_session, _row_tmp) = digest_session(Arc::clone(&row_provider)).await;
-    let row = pa_types::session::CustomMessage {
+    let row = aa_types::session::CustomMessage {
         custom_type: crate::session_engine::agent_messaging::AGENT_MESSAGE_CUSTOM_TYPE.to_string(),
-        content: pa_types::ai::UserContent::Text(prompt.to_string()),
+        content: aa_types::ai::UserContent::Text(prompt.to_string()),
         display: true,
         details: Some(serde_json::json!({
             "id": "agentmsg_golden",
@@ -705,7 +705,7 @@ async fn an_agent_message_custom_row_matches_the_plain_prompt_context() {
 
 /// The provider request with the per-run timestamps zeroed (every
 /// other byte is compared).
-fn normalized_context(context: &pa_agent::stream::LlmContext) -> serde_json::Value {
+fn normalized_context(context: &aa_agent::stream::LlmContext) -> serde_json::Value {
     let mut value = serde_json::to_value(context).unwrap();
     for message in value["messages"].as_array_mut().unwrap() {
         if let Some(timestamp) = message.get_mut("timestamp") {
@@ -718,7 +718,7 @@ fn normalized_context(context: &pa_agent::stream::LlmContext) -> serde_json::Val
 #[tokio::test]
 async fn prompt_persists_tool_results() {
     struct EchoTool;
-    impl pa_agent::types::AgentTool for EchoTool {
+    impl aa_agent::types::AgentTool for EchoTool {
         fn name(&self) -> &'static str {
             "echo"
         }
@@ -733,10 +733,10 @@ async fn prompt_persists_tool_results() {
             self: Arc<Self>,
             _tool_call_id: String,
             _params: serde_json::Value,
-            _signal: pa_agent::abort::AbortSignal,
-            _on_update: pa_agent::types::AgentToolUpdateCallback,
-        ) -> pa_agent::BoxFut<'static, anyhow::Result<pa_agent::types::AgentToolResult>> {
-            Box::pin(async { Ok(pa_agent::types::AgentToolResult::text("tool output")) })
+            _signal: aa_agent::abort::AbortSignal,
+            _on_update: aa_agent::types::AgentToolUpdateCallback,
+        ) -> aa_agent::BoxFut<'static, anyhow::Result<aa_agent::types::AgentToolResult>> {
+            Box::pin(async { Ok(aa_agent::types::AgentToolResult::text("tool output")) })
         }
     }
     let provider = Arc::new(ScriptedProvider::new(test_model()));
@@ -841,7 +841,7 @@ async fn prompt_persists_tool_results() {
 #[tokio::test]
 async fn long_tool_call_persists_started_tick_and_duration_rows() {
     struct SlowTool;
-    impl pa_agent::types::AgentTool for SlowTool {
+    impl aa_agent::types::AgentTool for SlowTool {
         fn name(&self) -> &'static str {
             "slow"
         }
@@ -856,15 +856,15 @@ async fn long_tool_call_persists_started_tick_and_duration_rows() {
             self: Arc<Self>,
             _tool_call_id: String,
             _params: serde_json::Value,
-            _signal: pa_agent::abort::AbortSignal,
-            _on_update: pa_agent::types::AgentToolUpdateCallback,
-        ) -> pa_agent::BoxFut<'static, anyhow::Result<pa_agent::types::AgentToolResult>> {
+            _signal: aa_agent::abort::AbortSignal,
+            _on_update: aa_agent::types::AgentToolUpdateCallback,
+        ) -> aa_agent::BoxFut<'static, anyhow::Result<aa_agent::types::AgentToolResult>> {
             Box::pin(async {
                 let started = std::time::Instant::now();
                 // Staged long call: ~5s run with the tick threshold pinned
                 // at 1s, so the heartbeat fires well before completion.
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-                let mut result = pa_agent::types::AgentToolResult::text("done");
+                let mut result = aa_agent::types::AgentToolResult::text("done");
                 result.details = serde_json::json!({
                     "status": "ok",
                     "durationMs": started.elapsed().as_millis() as u64,
@@ -889,7 +889,7 @@ async fn long_tool_call_persists_started_tick_and_duration_rows() {
             ..Default::default()
         },
         stream_fn: Some(provider.stream_fn()),
-        tool_progress: Some(pa_agent::types::ToolProgressCadence {
+        tool_progress: Some(aa_agent::types::ToolProgressCadence {
             after_ms: 1_000,
             every_ms: 1_000,
         }),
@@ -920,7 +920,7 @@ async fn long_tool_call_persists_started_tick_and_duration_rows() {
         serde_json::json!({ "command": "grep -rli training ~/" })
     );
 
-    let ticks: Vec<pa_types::session::ToolProgressEntry> = entries
+    let ticks: Vec<aa_types::session::ToolProgressEntry> = entries
         .iter()
         .filter_map(|entry| match entry {
             FileEntry::ToolProgress { payload, .. } => Some(payload.clone()),
@@ -996,7 +996,7 @@ async fn long_tool_call_persists_started_tick_and_duration_rows() {
 #[tokio::test]
 async fn short_tool_call_persists_started_row_without_progress() {
     struct FastTool;
-    impl pa_agent::types::AgentTool for FastTool {
+    impl aa_agent::types::AgentTool for FastTool {
         fn name(&self) -> &'static str {
             "fast"
         }
@@ -1011,10 +1011,10 @@ async fn short_tool_call_persists_started_row_without_progress() {
             self: Arc<Self>,
             _tool_call_id: String,
             _params: serde_json::Value,
-            _signal: pa_agent::abort::AbortSignal,
-            _on_update: pa_agent::types::AgentToolUpdateCallback,
-        ) -> pa_agent::BoxFut<'static, anyhow::Result<pa_agent::types::AgentToolResult>> {
-            Box::pin(async { Ok(pa_agent::types::AgentToolResult::text("done")) })
+            _signal: aa_agent::abort::AbortSignal,
+            _on_update: aa_agent::types::AgentToolUpdateCallback,
+        ) -> aa_agent::BoxFut<'static, anyhow::Result<aa_agent::types::AgentToolResult>> {
+            Box::pin(async { Ok(aa_agent::types::AgentToolResult::text("done")) })
         }
     }
     let provider = Arc::new(ScriptedProvider::new(test_model()));
@@ -1029,7 +1029,7 @@ async fn short_tool_call_persists_started_row_without_progress() {
             ..Default::default()
         },
         stream_fn: Some(provider.stream_fn()),
-        tool_progress: Some(pa_agent::types::ToolProgressCadence {
+        tool_progress: Some(aa_agent::types::ToolProgressCadence {
             after_ms: 1_000,
             every_ms: 1_000,
         }),
@@ -1074,7 +1074,7 @@ async fn short_tool_call_persists_started_row_without_progress() {
 #[tokio::test]
 async fn aborted_tool_call_result_carries_elapsed_duration() {
     struct StalledTool(Arc<std::sync::atomic::AtomicBool>);
-    impl pa_agent::types::AgentTool for StalledTool {
+    impl aa_agent::types::AgentTool for StalledTool {
         fn name(&self) -> &'static str {
             "stalled"
         }
@@ -1089,16 +1089,16 @@ async fn aborted_tool_call_result_carries_elapsed_duration() {
             self: Arc<Self>,
             _tool_call_id: String,
             _params: serde_json::Value,
-            _signal: pa_agent::abort::AbortSignal,
-            _on_update: pa_agent::types::AgentToolUpdateCallback,
-        ) -> pa_agent::BoxFut<'static, anyhow::Result<pa_agent::types::AgentToolResult>> {
+            _signal: aa_agent::abort::AbortSignal,
+            _on_update: aa_agent::types::AgentToolUpdateCallback,
+        ) -> aa_agent::BoxFut<'static, anyhow::Result<aa_agent::types::AgentToolResult>> {
             let entered = Arc::clone(&self.0);
             Box::pin(async move {
                 entered.store(true, std::sync::atomic::Ordering::SeqCst);
                 // The recursive-scan shape: unbounded runtime, only the
                 // abort ends it.
                 tokio::time::sleep(std::time::Duration::from_mins(10)).await;
-                Ok(pa_agent::types::AgentToolResult::text("done"))
+                Ok(aa_agent::types::AgentToolResult::text("done"))
             })
         }
     }
@@ -1161,7 +1161,7 @@ async fn aborted_tool_call_result_carries_elapsed_duration() {
         .expect("aborted toolResult entry persisted");
     assert!(tool_result.is_error);
     match &tool_result.content[..] {
-        [pa_types::ai::UserContentBlock::Text(text)] => {
+        [aa_types::ai::UserContentBlock::Text(text)] => {
             assert_eq!(text.text, "Tool execution aborted");
         }
         other => panic!("expected the abort error text: {other:?}"),
@@ -1184,7 +1184,7 @@ async fn aborted_tool_call_result_carries_elapsed_duration() {
 async fn javascript_tool_dispatches_by_exact_name() {
     let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let definition = crate::tools::tool_definition::ToolDefinition {
-        name: pa_types::ai::JAVASCRIPT_TOOL_NAME.to_string(),
+        name: aa_types::ai::JAVASCRIPT_TOOL_NAME.to_string(),
         label: "Bun".to_string(),
         description: "Echoes its input".to_string(),
         prompt_snippet: String::new(),
@@ -1251,7 +1251,7 @@ async fn javascript_tool_dispatches_by_exact_name() {
         })
         .map(|result| {
             let text = match &result.content[..] {
-                [pa_types::ai::UserContentBlock::Text(text)] => text.text.as_str(),
+                [aa_types::ai::UserContentBlock::Text(text)] => text.text.as_str(),
                 _ => panic!("expected a single text block: {result:?}"),
             };
             (text, result.is_error)
@@ -1295,7 +1295,7 @@ fn ts_toolresult_entry_round_trips() {
         Some(serde_json::json!({
             "durationMs": 10,
             "status": "ok",
-            "stdout": "/root/prime-agent-rs\n['.git', 'MISSION.md', 'README.md', 'WATCHDOG.md']\nTrue\n",
+            "stdout": "/root/async-agent\n['.git', 'MISSION.md', 'README.md', 'WATCHDOG.md']\nTrue\n",
             "stderr": "",
             "kernelRestarted": false
         }))
@@ -1427,12 +1427,12 @@ async fn run_boundaries_record_git_state() {
     assert_eq!(
         git_states,
         vec![
-            pa_types::session::GitContext {
+            aa_types::session::GitContext {
                 repo_url: None,
                 commit: Some(second_sha.clone()),
                 branch: Some("main".to_string()),
             },
-            pa_types::session::GitContext {
+            aa_types::session::GitContext {
                 repo_url: None,
                 commit: Some(second_sha),
                 branch: Some("feature".to_string()),
@@ -1458,15 +1458,15 @@ async fn a_resolved_model_bill_survives_its_callers_cancellation() {
     impl rlm_usage::RlmChildUsageStore for GatedStore {
         fn last_assistant(
             &self,
-        ) -> rlm_usage::RlmChildUsageFuture<'_, Option<(String, pa_types::ai::Usage)>> {
+        ) -> rlm_usage::RlmChildUsageFuture<'_, Option<(String, aa_types::ai::Usage)>> {
             self.inner.last_assistant()
         }
         fn append_attribution(
             &self,
             row_id: &str,
             target_id: &str,
-            child_usage: pa_types::ai::Usage,
-            origin: Option<pa_types::session::ChildUsageOrigin>,
+            child_usage: aa_types::ai::Usage,
+            origin: Option<aa_types::session::ChildUsageOrigin>,
         ) -> rlm_usage::RlmChildUsageFuture<'_, std::io::Result<rlm_usage::ChildUsageAppendResult>>
         {
             self.inner
@@ -1505,7 +1505,7 @@ async fn a_resolved_model_bill_survives_its_callers_cancellation() {
         "compaction_discarded",
         "test",
         "m",
-        pa_types::ai::Usage {
+        aa_types::ai::Usage {
             input: 11,
             output: 7,
             total_tokens: 18,

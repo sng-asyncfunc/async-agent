@@ -76,7 +76,7 @@ pub(crate) fn fake_supervisor(
                 let (reader, mut writer) = stream.into_split();
                 writer
                     .write_all(
-                        b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"prime-agent.daemon\",\"version\":7}}\n",
+                        b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"async-agent.daemon\",\"version\":7}}\n",
                     )
                     .await
                     .unwrap();
@@ -117,7 +117,7 @@ pub(crate) fn fake_supervisor(
 /// compaction), once each, and nothing about a plain message.
 #[tokio::test]
 async fn the_worker_store_reports_each_billed_row_once() {
-    use pa_core::session_engine::rlm_usage::RlmChildUsageStore;
+    use aa_core::session_engine::rlm_usage::RlmChildUsageStore;
     let dir = tempfile::tempdir().unwrap();
     let session_dir = dir.path().join("sessions");
     std::fs::create_dir_all(&session_dir).unwrap();
@@ -151,12 +151,12 @@ async fn the_worker_store_reports_each_billed_row_once() {
     let sink_seen = Arc::clone(&seen);
     store
         .observe_billed_rows(Arc::new(
-            move |row: &pa_core::session::billed_row::BilledRow| {
+            move |row: &aa_core::session::billed_row::BilledRow| {
                 sink_seen.lock().unwrap().push(row.usage.total_tokens);
             },
         ))
         .await;
-    let usage = |tokens: u64| pa_types::ai::Usage {
+    let usage = |tokens: u64| aa_types::ai::Usage {
         input: tokens,
         total_tokens: tokens,
         ..Default::default()
@@ -164,7 +164,7 @@ async fn the_worker_store_reports_each_billed_row_once() {
     store
         .append_model_usage(
             session_id,
-            pa_core::session_engine::model_usage::ModelUsage::new(
+            aa_core::session_engine::model_usage::ModelUsage::new(
                 "side_question",
                 "p",
                 "m",
@@ -251,7 +251,7 @@ async fn background_refinement_event_is_fenced_to_its_review_session() {
 /// to: once `core.store` holds the replacement, the store refuses it.
 #[tokio::test]
 async fn a_bill_made_before_a_session_replace_never_lands_in_the_replacement() {
-    use pa_core::session_engine::rlm_usage::RlmChildUsageStore as _;
+    use aa_core::session_engine::rlm_usage::RlmChildUsageStore as _;
     let dir = std::env::temp_dir().join(format!("pa-bill-fence-{}", uuid::Uuid::new_v4()));
     let worker = Worker::new(
         WorkerConfig {
@@ -268,11 +268,11 @@ async fn a_bill_made_before_a_session_replace_never_lands_in_the_replacement() {
         None,
     );
     let bill = || {
-        pa_core::session_engine::model_usage::ModelUsage::new(
+        aa_core::session_engine::model_usage::ModelUsage::new(
             "compaction_discarded",
             "p",
             "m",
-            pa_types::ai::Usage {
+            aa_types::ai::Usage {
                 input: 5,
                 total_tokens: 5,
                 ..Default::default()

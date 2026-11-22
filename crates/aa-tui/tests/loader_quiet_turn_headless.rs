@@ -9,7 +9,7 @@
 
 mod support;
 
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, UiMode,
 };
 use serde_json::{json, Value};

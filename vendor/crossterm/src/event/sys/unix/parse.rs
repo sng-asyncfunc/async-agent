@@ -214,13 +214,13 @@ pub(crate) fn parse_csi(buffer: &[u8]) -> io::Result<Option<InternalEvent>> {
     Ok(input_event.map(InternalEvent::Event))
 }
 
-/// Prime Agent patch: the OSC 7501 detection reply's fixed head.
+/// Async Agent patch: the OSC 7501 detection reply's fixed head.
 const PROGRAM_STATUS_REPLY_HEAD: &[u8] = b"\x1B]7501;";
 /// The protocol's cap on a whole sequence, OSC through ST: a reply that never
 /// terminates is dropped instead of swallowing the keys typed after it.
 const PROGRAM_STATUS_SEQUENCE_MAX: usize = 4096;
 
-/// Prime Agent patch: the OSC 7501 (Program Status Protocol) detection reply
+/// Async Agent patch: the OSC 7501 (Program Status Protocol) detection reply
 /// `ESC ] 7501 ; ? [: key=value]* ST`, with ST as `ESC \` or BEL.
 /// Unrecognized pairs are ignored and whitespace around keys and values is
 /// removed (the protocol's syntax). Any other `ESC ]` stays upstream's Alt+]

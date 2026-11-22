@@ -5,8 +5,8 @@
 //! close.
 
 use anyhow::{anyhow, Context, Result};
-use pa_types::daemon::DaemonPeerTransportTicket;
-use pa_types::platform::transport::connect_transport;
+use aa_types::daemon::DaemonPeerTransportTicket;
+use aa_types::platform::transport::connect_transport;
 use serde_json::{json, Value};
 use tokio::io::AsyncWriteExt;
 
@@ -111,8 +111,8 @@ async fn deliver_once(
 
 /// One command frame with a fresh request id, then the matching response.
 async fn request(
-    writer: &mut Box<dyn pa_types::platform::transport::AsyncWriteHalf>,
-    reader: &mut PrivateFrameReader<Box<dyn pa_types::platform::transport::AsyncReadHalf>>,
+    writer: &mut Box<dyn aa_types::platform::transport::AsyncWriteHalf>,
+    reader: &mut PrivateFrameReader<Box<dyn aa_types::platform::transport::AsyncReadHalf>>,
     command_type: &str,
     payload: &Value,
 ) -> Result<DaemonResponse> {
@@ -149,7 +149,7 @@ async fn request(
 
 /// Read one private frame; a clean EOF between requests is a broken link.
 async fn read_frame(
-    reader: &mut PrivateFrameReader<Box<dyn pa_types::platform::transport::AsyncReadHalf>>,
+    reader: &mut PrivateFrameReader<Box<dyn aa_types::platform::transport::AsyncReadHalf>>,
 ) -> Result<crate::framing::PrivateFrame> {
     reader
         .read_frame()

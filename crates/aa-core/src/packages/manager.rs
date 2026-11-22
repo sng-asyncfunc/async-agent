@@ -1,6 +1,6 @@
 //! `PackageManager`: install/remove/list/update of package sources against
 //! the settings store. `user` installs into the agent directory and global
-//! npm root; `project` into `.prime/agent` and the project npm prefix;
+//! npm root; `project` into `.async-agent` and the project npm prefix;
 //! local sources bind by path, persisted relative to their settings base.
 
 use std::path::{Path, PathBuf};
@@ -652,7 +652,7 @@ pub(super) fn split_entry(entry: &serde_json::Value) -> (String, bool) {
 
 /// Expand `~`/`~/` against the home directory (a tilde path is absolute).
 fn expand_tilde(input: &str) -> Option<PathBuf> {
-    let home = pa_types::platform::home_dir()?;
+    let home = aa_types::platform::home_dir()?;
     if input == "~" {
         return Some(home);
     }
@@ -824,7 +824,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             project["packages"],
-            serde_json::json!(["../../project-pkg"])
+            serde_json::json!(["../project-pkg"])
         );
         // Global settings are never created by a project-scoped install.
         assert!(!dir.path().join("agent").join("settings.json").exists());

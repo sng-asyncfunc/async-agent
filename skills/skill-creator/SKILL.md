@@ -1,11 +1,11 @@
 ---
 name: skill-creator
-description: Create, validate, and install Prime Agent skills - both markdown skills and JavaScript-backed skills callable from the Bun REPL. Use when the user asks to create a skill, turn a workflow, script, or prompt into a reusable skill, add a JavaScript skill the agent can call, or asks how to write a SKILL.md and where skills live.
+description: Create, validate, and install Async Agent skills - both markdown skills and JavaScript-backed skills callable from the Bun REPL. Use when the user asks to create a skill, turn a workflow, script, or prompt into a reusable skill, add a JavaScript skill the agent can call, or asks how to write a SKILL.md and where skills live.
 ---
 
 # Skill Creator
 
-A skill is a directory with a `SKILL.md` file (YAML frontmatter + markdown instructions). At startup Prime Agent reads only each skill's name and description into the system prompt; the full file loads on demand when a task matches. Prime Agent follows the [Agent Skills standard](https://agentskills.io/specification) and extends it with JavaScript-backed skills.
+A skill is a directory with a `SKILL.md` file (YAML frontmatter + markdown instructions). At startup Async Agent reads only each skill's name and description into the system prompt; the full file loads on demand when a task matches. Async Agent follows the [Agent Skills standard](https://agentskills.io/specification) and extends it with JavaScript-backed skills.
 
 | Kind | What it is | When to use |
 |---|---|---|
@@ -18,13 +18,13 @@ Before writing a JavaScript-backed skill, read [references/javascript-skills.md]
 
 1. **Pick the kind.** Default to markdown. Use JavaScript only when the agent should *call* the capability (`await mySkill(...)`) instead of following instructions.
 2. **Pick the location.** Ask the user when it is not obvious from context:
-   - Project skill, shared via the repo: `.prime/agent/skills/<name>/` (note: project-scoped JavaScript skills are demoted to markdown-only so untrusted repository code never auto-executes on session start)
-   - Personal global skill: `~/.prime/agent/skills/<name>/` (use this for executable JavaScript skills)
+   - Project skill, shared via the repo: `.async-agent/skills/<name>/` (note: project-scoped JavaScript skills are demoted to markdown-only so untrusted repository code never auto-executes on session start)
+   - Personal global skill: `~/.async-agent/skills/<name>/` (use this for executable JavaScript skills)
    - Shipped with an npm package: a `skills/` directory in the package, or `pi.skills` paths in its `package.json`
 3. **Scaffold and write** the directory using the layout and frontmatter rules below.
 4. **Verify** the skill loads (see Verification).
 
-On a name collision, **bundled skills win by default**. To override a bundled skill, disable it with `"skills": ["-<name>"]` in `~/.prime/agent/settings.json`. Among non-bundled skills, the first skill found wins: explicit `--skill` paths and `skills` settings entries, then project, then global, then package.
+On a name collision, **bundled skills win by default**. To override a bundled skill, disable it with `"skills": ["-<name>"]` in `~/.async-agent/settings.json`. Among non-bundled skills, the first skill found wins: explicit `--skill` paths and `skills` settings entries, then project, then global, then package.
 
 ## Layout
 

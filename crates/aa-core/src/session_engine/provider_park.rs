@@ -3,7 +3,7 @@
 //! exceeds the quick-retry wait cap ends the chain with `ExceedsCap`, the park seam; one
 //! without a reported reset keeps aborting — a blind park would guess a wake time.
 
-use pa_agent::types::AssistantMessage;
+use aa_agent::types::AssistantMessage;
 
 use super::provider_retry::{provider_stream_failure_kind, provider_stream_failure_retry_after_ms};
 
@@ -150,9 +150,9 @@ pub enum BranchParkScan {
 
 /// The park this branch ended on: the newest `provider_quota_park`
 /// entry not followed by a `provider_quota_resume` entry.
-pub fn scan_quota_park_entries(entries: &[pa_types::session::FileEntry]) -> BranchParkScan {
+pub fn scan_quota_park_entries(entries: &[aa_types::session::FileEntry]) -> BranchParkScan {
     for entry in entries.iter().rev() {
-        let pa_types::session::FileEntry::Custom { payload, .. } = entry else {
+        let aa_types::session::FileEntry::Custom { payload, .. } = entry else {
             continue;
         };
         if payload.custom_type == PROVIDER_QUOTA_RESUME_ENTRY {
@@ -212,11 +212,11 @@ pub fn quota_parked_final_error(abort: &str, resume_at_ms: u64, error: &str) -> 
 mod tests {
     use super::*;
     use crate::session_engine::provider_retry::provider_stream_failure_details;
-    use pa_agent::types::{
+    use aa_agent::types::{
         AssistantContent, AssistantMessage, AssistantMessageDiagnostic, StopReason, TextContent,
         Usage,
     };
-    use pa_types::session::{CustomEntry, EntryBase, FileEntry};
+    use aa_types::session::{CustomEntry, EntryBase, FileEntry};
 
     fn policy() -> ProviderParkPolicy {
         DEFAULT_PROVIDER_PARK_POLICY
@@ -227,13 +227,13 @@ mod tests {
             payload: CustomEntry {
                 custom_type: custom_type.to_string(),
                 data,
-                rest: pa_types::JsonMap::new(),
+                rest: aa_types::JsonMap::new(),
             },
             base: EntryBase {
                 id: Some("e1".to_string()),
                 parent_id: None,
                 timestamp: None,
-                rest: pa_types::JsonMap::new(),
+                rest: aa_types::JsonMap::new(),
             },
         }
     }

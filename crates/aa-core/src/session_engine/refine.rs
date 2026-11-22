@@ -3,8 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
-use pa_types::ai::{UserContent, UserMessage};
-use pa_types::session::{AgentMessage, CustomMessage, FileEntry};
+use aa_types::ai::{UserContent, UserMessage};
+use aa_types::session::{AgentMessage, CustomMessage, FileEntry};
 use serde_json::json;
 
 use super::model_usage::ModelUsage;
@@ -19,7 +19,7 @@ use crate::refinement::{
 };
 use crate::session::manager::SessionManager;
 
-pub const REFINEMENT_AUDIT_CUSTOM_TYPE: &str = "prime-agent.refinement";
+pub const REFINEMENT_AUDIT_CUSTOM_TYPE: &str = "async-agent.refinement";
 pub const REFINEMENT_OUTCOME_CUSTOM_TYPE: &str = "refinement_outcome";
 /// Model-facing notice custom type (display=false).
 pub const REFINEMENT_NOTICE_CUSTOM_TYPE: &str = "refinement_notice";
@@ -279,10 +279,10 @@ pub struct RefinementTranscript<'a> {
 #[allow(clippy::too_many_arguments)]
 pub async fn execute_refinement(
     session: &tokio::sync::Mutex<SessionManager>,
-    agent: &pa_agent::agent::Agent,
+    agent: &aa_agent::agent::Agent,
     transcript: RefinementTranscript<'_>,
     stores: &RefinementStores,
-    model: &pa_types::ai::Model,
+    model: &aa_types::ai::Model,
     options: &RefineOptions,
     source: RefinementSource,
     refine_call: crate::refinement::executor::RefinerFn,
@@ -305,7 +305,7 @@ pub async fn execute_refinement(
         source,
         agent_dir,
         /*compaction_flight*/ None,
-        &pa_agent::abort::AbortSignal::never(),
+        &aa_agent::abort::AbortSignal::never(),
     )
     .await?
     .result)
@@ -333,19 +333,19 @@ impl Drop for RefinementFlightGuard {
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn run_refinement(
     session: std::sync::Arc<tokio::sync::Mutex<SessionManager>>,
-    agent: std::sync::Arc<pa_agent::agent::Agent>,
+    agent: std::sync::Arc<aa_agent::agent::Agent>,
     compaction_flight: std::sync::Arc<tokio::sync::Mutex<()>>,
     refinements_in_flight: std::sync::Arc<std::sync::atomic::AtomicUsize>,
-    cancel: pa_agent::abort::AbortSignal,
+    cancel: aa_agent::abort::AbortSignal,
     agent_dir: Option<PathBuf>,
     options: RefineOptions,
     source: RefinementSource,
-    model: pa_types::ai::Model,
+    model: aa_types::ai::Model,
     refine_call: crate::refinement::executor::RefinerFn,
     stores: RefinementStores,
 ) -> anyhow::Result<CommittedRefinement> {
     let _flight = RefinementFlightGuard::enter(refinements_in_flight);
-    let ready = pa_agent::abort::race_with_abort(
+    let ready = aa_agent::abort::race_with_abort(
         async {
             // The transcript's consumed artifacts are extracted under this first
             // lock straight from the retained rows: no second clone of the rows.
@@ -399,7 +399,7 @@ pub(crate) async fn prepare_refinement(
     agent_dir: Option<&Path>,
     transcript: RefinementTranscript<'_>,
     stores: &RefinementStores,
-    model: &pa_types::ai::Model,
+    model: &aa_types::ai::Model,
     options: &RefineOptions,
     refine_call: crate::refinement::executor::RefinerFn,
 ) -> anyhow::Result<ReadyRefinement> {
@@ -555,7 +555,7 @@ type RefinementCommitGuards<'a> = (
 
 async fn reserve_refinement_commit<'a>(
     session: &'a tokio::sync::Mutex<SessionManager>,
-    agent: &'a pa_agent::agent::Agent,
+    agent: &'a aa_agent::agent::Agent,
     target_dir: &Path,
     compaction_flight: Option<&'a tokio::sync::Mutex<()>>,
 ) -> anyhow::Result<RefinementCommitGuards<'a>> {
@@ -616,12 +616,12 @@ async fn reserve_refinement_commit<'a>(
 
 pub(crate) async fn commit_refinement(
     session: &tokio::sync::Mutex<SessionManager>,
-    agent: &pa_agent::agent::Agent,
+    agent: &aa_agent::agent::Agent,
     ready: ReadyRefinement,
     source: RefinementSource,
     agent_dir: Option<&Path>,
     compaction_flight: Option<&tokio::sync::Mutex<()>>,
-    cancel: &pa_agent::abort::AbortSignal,
+    cancel: &aa_agent::abort::AbortSignal,
 ) -> anyhow::Result<CommittedRefinement> {
     let ReadyRefinement {
         plan,
@@ -632,12 +632,12 @@ pub(crate) async fn commit_refinement(
         global_harness_dir,
         settings,
     } = ready;
-    let (_admission, _flight, mut session, lock) = pa_agent::abort::race_with_abort(
+    let (_admission, _flight, mut session, lock) = aa_agent::abort::race_with_abort(
         reserve_refinement_commit(session, agent, &target_dir, compaction_flight),
         cancel,
     )
     .await??;
-    pa_agent::abort::throw_if_aborted(cancel)?;
+    aa_agent::abort::throw_if_aborted(cancel)?;
     // From this point the commit completes even if the session closes: dropping
     // planning is safe, dropping between the durable save and audit append is not.
     // The factory opt-in resolves HERE — immediately before the apply,
@@ -764,7 +764,7 @@ pub(crate) enum AutoRefineRound {
 /// headers (the Prime team header) the session's own requests send.
 pub(super) async fn session_refiner_call(
     auxiliary: Option<super::auxiliary_model::AuxiliaryModelContext>,
-    model: &pa_types::ai::Model,
+    model: &aa_types::ai::Model,
     api_key: Option<String>,
     session_id: String,
 ) -> anyhow::Result<crate::refinement::executor::RefinerFn> {
@@ -805,11 +805,11 @@ pub(crate) fn recorded_refiner_call(
                 let recording = tokio::spawn(async move {
                     let session_id = session.lock().await.get_session_id().to_string();
                     if let Err(error) = usage_store.append_model_usage(session_id, usage).await {
-                        eprintln!("pa-core: model usage row not persisted: {error}");
+                        eprintln!("aa-core: model usage row not persisted: {error}");
                     }
                 });
                 if let Err(error) = recording.await {
-                    eprintln!("pa-core: model usage recording task failed: {error}");
+                    eprintln!("aa-core: model usage recording task failed: {error}");
                 }
             }
             Ok(reply)
@@ -823,7 +823,7 @@ async fn review_compact_refinement(
     branch_state: &std::sync::Mutex<super::auto_refine_trigger::CompactAutoRefineState>,
     auxiliary: Option<super::auxiliary_model::AuxiliaryModelContext>,
     usage_store: std::sync::Arc<dyn super::rlm_usage::RlmChildUsageStore>,
-    model: &pa_types::ai::Model,
+    model: &aa_types::ai::Model,
     api_key: Option<String>,
     stores: &RefinementStores,
     turns_since_last_review: u32,
@@ -925,7 +925,7 @@ impl AgentSession {
     /// Panics if the billed-call slot's mutex is poisoned.
     pub async fn review_compact_auto_refine(
         &self,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         api_key: Option<String>,
         turns_since_last_review: u32,
         branch_version: u64,
@@ -934,7 +934,7 @@ impl AgentSession {
             return Ok(None);
         }
         let stores = self.refinement_stores()?;
-        pa_agent::abort::race_with_abort(
+        aa_agent::abort::race_with_abort(
             review_compact_refinement(
                 &self.session,
                 &self.compact_auto_refine,
@@ -956,7 +956,7 @@ impl AgentSession {
     /// as [`Self::start_refinement`].
     pub fn start_auto_refine_after_compaction(
         &self,
-        model: pa_types::ai::Model,
+        model: aa_types::ai::Model,
         api_key: Option<String>,
         turns_since_last_review: u32,
         branch_version: u64,
@@ -974,7 +974,7 @@ impl AgentSession {
             return tokio::spawn(async { Err(refinement_stores_missing_error()) });
         };
         tokio::spawn(async move {
-            let Some(review) = pa_agent::abort::race_with_abort(
+            let Some(review) = aa_agent::abort::race_with_abort(
                 review_compact_refinement(
                     &session,
                     &branch_state,
@@ -1026,9 +1026,9 @@ impl AgentSession {
     pub(crate) async fn run_approved_refine(
         &self,
         review: &AutoRefineReview,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         api_key: Option<String>,
-        cancel: pa_agent::abort::AbortSignal,
+        cancel: aa_agent::abort::AbortSignal,
     ) -> anyhow::Result<RefinementResult> {
         let stores = self.refinement_stores()?;
         let options = RefineOptions {
@@ -1067,7 +1067,7 @@ impl AgentSession {
     }
 }
 
-/// The default model seam over pa-ai completion.
+/// The default model seam over aa-ai completion.
 #[must_use]
 pub fn default_refiner_call(
     api_key: Option<String>,
@@ -1076,9 +1076,9 @@ pub fn default_refiner_call(
 ) -> crate::refinement::executor::RefinerFn {
     Box::new(move |model, system_prompt, prompt| {
         Box::pin(async move {
-            let context = pa_types::ai::Context {
+            let context = aa_types::ai::Context {
                 system_prompt: Some(system_prompt.to_string()),
-                messages: vec![pa_types::ai::Message::User(UserMessage {
+                messages: vec![aa_types::ai::Message::User(UserMessage {
                     content: UserContent::Text(prompt),
                     timestamp: 0,
                     rest: serde_json::Map::default(),
@@ -1086,18 +1086,18 @@ pub fn default_refiner_call(
                 tools: None,
             };
             let mut stream_options =
-                pa_ai::types::SimpleStreamOptions::from_base(pa_ai::types::StreamOptions {
+                aa_ai::types::SimpleStreamOptions::from_base(aa_ai::types::StreamOptions {
                     api_key,
                     headers: headers.map(|headers| headers.into_iter().collect()),
                     session_id: Some(session_id),
                     // One-off prompts ride SSE: they keep the conversation id (cache key,
                     // opencode routing) but never take or replace the session's Codex
                     // WebSocket and its continuation.
-                    transport: Some(pa_ai::types::Transport::Sse),
+                    transport: Some(aa_ai::types::Transport::Sse),
                     ..Default::default()
                 });
-            stream_options.reasoning = pa_types::ai::minimum_reasoning(&model);
-            Ok(pa_ai::complete_simple(&model, &context, Some(stream_options)).await?)
+            stream_options.reasoning = aa_types::ai::minimum_reasoning(&model);
+            Ok(aa_ai::complete_simple(&model, &context, Some(stream_options)).await?)
         })
     })
 }
@@ -1106,8 +1106,8 @@ pub fn default_refiner_call(
 mod tests {
     use super::*;
     use crate::refinement::executor::RefinerFn;
-    use pa_agent::agent::{Agent, AgentOptions};
-    use pa_types::ai::{AssistantContentBlock, AssistantMessage, Model, StopReason, TextContent};
+    use aa_agent::agent::{Agent, AgentOptions};
+    use aa_types::ai::{AssistantContentBlock, AssistantMessage, Model, StopReason, TextContent};
     use std::sync::Arc;
     use tempfile::TempDir;
 
@@ -1124,7 +1124,7 @@ mod tests {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
+            usage: aa_types::ai::Usage::default(),
             stop_reason: StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
@@ -1162,7 +1162,7 @@ mod tests {
             reasoning: false,
             thinking_level_map: None,
             input: vec![],
-            cost: pa_types::ai::ModelCost {
+            cost: aa_types::ai::ModelCost {
                 input: 0.0.into(),
                 output: 0.0.into(),
                 cache_read: 0.0.into(),
@@ -1726,7 +1726,7 @@ Reviewer instructions: record it"
             rows.push(serde_json::json!({"type":"message","id":id.clone(),"parentId":parent,"message":{"role":"user","content":format!("hello {i}"),"timestamp":0}}));
             parent = Some(id);
         }
-        rows.push(serde_json::json!({"type":"custom","id":"audit","parentId":parent,"customType":"prime-agent.refinement","data":{"id":"refine_0","summary":"seed","rationale":"seeded rationale","expectedOutcome":"seeded outcome","appliedEdits":[],"harnessStatePath":""}}));
+        rows.push(serde_json::json!({"type":"custom","id":"audit","parentId":parent,"customType":"async-agent.refinement","data":{"id":"refine_0","summary":"seed","rationale":"seeded rationale","expectedOutcome":"seeded outcome","appliedEdits":[],"harnessStatePath":""}}));
         rows.into_iter().map(|row| row.to_string() + "\n").collect()
     }
 
@@ -1857,7 +1857,7 @@ Reviewer instructions: record it"
             .open(&path)
             .unwrap();
         file.write_all(
-            br#"{"type":"custom","id":"oob-audit","parentId":"audit","customType":"prime-agent.refinement","data":{"id":"refine_oob","summary":"oob","rationale":"r","expectedOutcome":"o","appliedEdits":[],"harnessStatePath":""}}"#
+            br#"{"type":"custom","id":"oob-audit","parentId":"audit","customType":"async-agent.refinement","data":{"id":"refine_oob","summary":"oob","rationale":"r","expectedOutcome":"o","appliedEdits":[],"harnessStatePath":""}}"#
         )
         .unwrap();
         file.write_all(b"\n").unwrap();

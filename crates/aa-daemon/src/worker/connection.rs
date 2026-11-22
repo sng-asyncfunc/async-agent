@@ -105,7 +105,7 @@ impl EventPump {
 /// a command's events precede its response.
 pub(crate) struct ConnectionSink {
     pub(crate) writer:
-        Arc<tokio::sync::Mutex<Box<dyn pa_types::platform::transport::AsyncWriteHalf>>>,
+        Arc<tokio::sync::Mutex<Box<dyn aa_types::platform::transport::AsyncWriteHalf>>>,
     /// The fan-out's flush position; `FLUSH_CLOSED` once the fan-out ended
     /// (the sink's permanent receiver keeps watch sends from dropping).
     flushed: tokio::sync::watch::Sender<u64>,
@@ -121,7 +121,7 @@ const FLUSH_CLOSED: u64 = u64::MAX;
 
 impl ConnectionSink {
     pub(crate) fn new(
-        writer: Arc<tokio::sync::Mutex<Box<dyn pa_types::platform::transport::AsyncWriteHalf>>>,
+        writer: Arc<tokio::sync::Mutex<Box<dyn aa_types::platform::transport::AsyncWriteHalf>>>,
         entry_seq: u64,
     ) -> Self {
         let (flushed, flushed_anchor) = tokio::sync::watch::channel(0);
@@ -290,7 +290,7 @@ impl Worker {
             let worker = Arc::clone(&self);
             tokio::spawn(async move {
                 if let Err(error) = worker.handle_connection(stream).await {
-                    eprintln!("pa-daemon worker connection error: {error:#}");
+                    eprintln!("aa-daemon worker connection error: {error:#}");
                 }
             });
         };
@@ -696,7 +696,7 @@ impl Worker {
 
     pub(crate) async fn write_frame(
         &self,
-        writer: &Arc<tokio::sync::Mutex<Box<dyn pa_types::platform::transport::AsyncWriteHalf>>>,
+        writer: &Arc<tokio::sync::Mutex<Box<dyn aa_types::platform::transport::AsyncWriteHalf>>>,
         header: &Value,
         payload: &[u8],
     ) -> Result<()> {
@@ -710,7 +710,7 @@ impl Worker {
     /// response path serializes its payload once, straight to the socket.
     pub(crate) async fn write_frame_segments(
         &self,
-        writer: &Arc<tokio::sync::Mutex<Box<dyn pa_types::platform::transport::AsyncWriteHalf>>>,
+        writer: &Arc<tokio::sync::Mutex<Box<dyn aa_types::platform::transport::AsyncWriteHalf>>>,
         header: &Value,
         payload: &[u8],
     ) -> Result<()> {
@@ -759,14 +759,14 @@ impl Worker {
             .write_frame_segments(&sink.writer, &header, &payload)
             .await
         {
-            eprintln!("pa-daemon worker response write failed: {error:#}");
+            eprintln!("aa-daemon worker response write failed: {error:#}");
         }
         // The frame is out and the payload bytes and the response's own trees
         // are freed, so return their freed heap to the OS instead of letting
         // the arenas hold the phase's peak.
         drop(payload);
         drop(response);
-        pa_types::memory_release::trim_freed_heap_if_large(payload_len);
+        aa_types::memory_release::trim_freed_heap_if_large(payload_len);
     }
 }
 
@@ -846,7 +846,7 @@ impl Worker {
         let (mut messages, history_before_entry_id, last_user_prompt_ms) = match core.store.as_ref()
         {
             Some(store) if windowed => store
-                .transcript_page(&pa_types::daemon::TranscriptPage::End {
+                .transcript_page(&aa_types::daemon::TranscriptPage::End {
                     before: None,
                     limit: ATTACH_TAIL_MESSAGE_BUDGET,
                 })
@@ -906,7 +906,7 @@ impl Worker {
         // order (the wire byte order), so non-slim keys insert at their TS
         // positions, not appended.
         let mut result = json!({
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "activeSessionId": active_session_id,
         });
         if !slim {

@@ -899,12 +899,12 @@ mod tests {
     }
 
     /// An editor completing `@` tokens over a base holding the
-    /// `prime-agent/` directory with two children beside an unrelated file.
+    /// `async-agent/` directory with two children beside an unrelated file.
     fn at_editor() -> (tempfile::TempDir, Editor) {
         let base = tempfile::TempDir::new().expect("temp dir");
-        std::fs::create_dir_all(base.path().join("prime-agent")).expect("mkdir");
-        std::fs::write(base.path().join("prime-agent/a.rs"), "x").expect("write");
-        std::fs::write(base.path().join("prime-agent/b.rs"), "x").expect("write");
+        std::fs::create_dir_all(base.path().join("async-agent")).expect("mkdir");
+        std::fs::write(base.path().join("async-agent/a.rs"), "x").expect("write");
+        std::fs::write(base.path().join("async-agent/b.rs"), "x").expect("write");
         std::fs::write(base.path().join("other.md"), "x").expect("write");
         let mut e = Editor::new();
         e.set_autocomplete_provider(Box::new(
@@ -926,46 +926,46 @@ mod tests {
     #[test]
     fn applying_a_directory_completion_lists_its_children() {
         let children = Some(vec![
-            "@prime-agent/a.rs".to_string(),
-            "@prime-agent/b.rs".to_string(),
+            "@async-agent/a.rs".to_string(),
+            "@async-agent/b.rs".to_string(),
         ]);
         // Tab on the open menu applies the directory item.
         let (_base, mut e) = at_editor();
-        for ch in "@prime-ag".chars() {
+        for ch in "@async-ag".chars() {
             e.handle_input(&ch.to_string());
         }
         assert_eq!(
             settled_menu(&mut e),
-            Some(vec!["@prime-agent/".to_string()])
+            Some(vec!["@async-agent/".to_string()])
         );
         e.handle_input("tab");
-        assert_eq!(e.get_text(), "@prime-agent/");
+        assert_eq!(e.get_text(), "@async-agent/");
         assert_eq!(settled_menu(&mut e), children);
         // Tab before the menu opens applies the single match inline.
         let (_base, mut e) = at_editor();
-        for ch in "@prime-ag".chars() {
+        for ch in "@async-ag".chars() {
             e.handle_input(&ch.to_string());
         }
         e.handle_input("tab");
         assert_eq!(settled_menu(&mut e), children);
-        assert_eq!(e.get_text(), "@prime-agent/");
+        assert_eq!(e.get_text(), "@async-agent/");
     }
 
     #[test]
     fn confirming_a_stale_menu_replaces_the_whole_typed_token() {
         let (_base, mut e) = at_editor();
-        for ch in "@pr".chars() {
+        for ch in "@as".chars() {
             e.handle_input(&ch.to_string());
         }
         assert!(settled_menu(&mut e).is_some());
-        // Typing on parks a refresh: the open menu still answers `@pr`.
-        for ch in "ime-ag".chars() {
+        // Typing on parks a refresh: the open menu still answers `@as`.
+        for ch in "ync-ag".chars() {
             e.handle_input(&ch.to_string());
         }
         e.handle_input("down");
         e.handle_input("up");
         e.handle_input("enter");
-        assert_eq!(e.get_text(), "@prime-agent/");
+        assert_eq!(e.get_text(), "@async-agent/");
     }
 
     #[test]
@@ -1033,7 +1033,7 @@ mod tests {
     #[test]
     fn a_slash_typed_while_the_search_runs_lists_the_children() {
         let (_base, mut e) = at_editor();
-        for ch in "@prime-agent".chars() {
+        for ch in "@async-agent".chars() {
             e.handle_input(&ch.to_string());
         }
         e.materialize_autocomplete();
@@ -1045,8 +1045,8 @@ mod tests {
         assert_eq!(
             settled_menu(&mut e),
             Some(vec![
-                "@prime-agent/a.rs".to_string(),
-                "@prime-agent/b.rs".to_string(),
+                "@async-agent/a.rs".to_string(),
+                "@async-agent/b.rs".to_string(),
             ])
         );
     }

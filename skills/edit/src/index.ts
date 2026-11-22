@@ -1,7 +1,7 @@
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { emitDisplay, expandPath, requireString, type SkillContext } from "../../_shared/context.ts";
 
-const DIFF_DISPLAY_MIME = "application/vnd.prime-agent.diff+json";
+const DIFF_DISPLAY_MIME = "application/vnd.async-agent.diff+json";
 
 interface EditRequest {
 	path: string;

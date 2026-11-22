@@ -49,7 +49,7 @@ impl SettingsManager {
             .compaction
             .as_ref()
             .and_then(|settings| settings.threshold_percent)
-            .filter(|percent| pa_types::compaction::is_valid_threshold_percent(*percent))
+            .filter(|percent| aa_types::compaction::is_valid_threshold_percent(*percent))
             .unwrap_or(crate::session_engine::compaction::DEFAULT_THRESHOLD_PERCENT)
     }
 
@@ -58,7 +58,7 @@ impl SettingsManager {
     /// # Errors
     /// Returns an error for values outside 1–100%, non-finite values, or a failed save.
     pub fn set_compaction_threshold_percent(&mut self, percent: f64) -> Result<()> {
-        if !pa_types::compaction::is_valid_threshold_percent(percent) {
+        if !aa_types::compaction::is_valid_threshold_percent(percent) {
             return Err(anyhow!(
                 "Auto-compact threshold must be a number from 1 to 100 percent"
             ));
@@ -388,7 +388,7 @@ impl SettingsManager {
     /// `/factory on`. The read is GLOBAL SCOPE ONLY, exactly the agent-dir
     /// document `set_factory_enabled` writes and the kernel's factory gate
     /// reads, so no project-scope override can flip the gate out from
-    /// under the kernel (a project `.prime/agent/settings.json` with
+    /// under the kernel (a project `.async-agent/settings.json` with
     /// `factory.enabled` never diverges the daemon's lane advertisement
     /// or the client's `/factory status` from what the kernel will do).
     #[must_use]

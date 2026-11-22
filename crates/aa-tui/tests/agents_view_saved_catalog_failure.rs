@@ -12,8 +12,8 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use pa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
-use pa_tui::interactive::SessionSelection;
+use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
+use aa_tui::interactive::SessionSelection;
 use serde_json::{json, Value};
 
 use support::{respond, respond_failure, write_json};
@@ -47,7 +47,7 @@ impl MockSupervisor {
         let mut reader = BufReader::new(stream);
         let hello = json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": [],
         });
         write_json(&mut writer, &hello);
@@ -169,7 +169,7 @@ async fn a_terminal_saved_catalog_failure_settles_the_anchor_wait() {
         width: 120,
         height: 36,
     };
-    let outcome = pa_tui::agents_view::run_agents_view(
+    let outcome = aa_tui::agents_view::run_agents_view(
         view_options(&socket),
         AgentsViewUiMode::Headless(plan),
         None,
@@ -235,7 +235,7 @@ async fn a_failed_fetch_rearms_on_the_next_query_change() {
         width: 120,
         height: 36,
     };
-    let outcome = pa_tui::agents_view::run_agents_view(
+    let outcome = aa_tui::agents_view::run_agents_view(
         view_options(&socket),
         AgentsViewUiMode::Headless(plan),
         None,

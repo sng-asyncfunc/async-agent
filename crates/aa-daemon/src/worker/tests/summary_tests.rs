@@ -138,20 +138,20 @@ fn running_subagents_keep_an_idle_session_working() {
         .unwrap()
     };
     let classify =
-        |summary: &Value| pa_types::daemon::agent_roster::classify_summary_value(summary, false);
+        |summary: &Value| aa_types::daemon::agent_roster::classify_summary_value(summary, false);
     let waiting = summary(true);
     assert_eq!(waiting["activity"], "working");
     assert_eq!(waiting["hasRunningSubagents"], true);
     assert_eq!(waiting["isSessionActive"], false);
     assert_eq!(
         classify(&waiting),
-        pa_types::daemon::agent_roster::AgentRosterStatus::Running
+        aa_types::daemon::agent_roster::AgentRosterStatus::Running
     );
     let done = summary(false);
     assert_eq!(done["activity"], "idle");
     assert_eq!(
         classify(&done),
-        pa_types::daemon::agent_roster::AgentRosterStatus::Idle
+        aa_types::daemon::agent_roster::AgentRosterStatus::Idle
     );
 }
 

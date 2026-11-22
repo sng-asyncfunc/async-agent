@@ -1,7 +1,7 @@
 //! Session-tree operations over the worker's session store: leaf moves
 //! (`branch`/`resetLeaf`), the `branch_summary` and `label` entries, the flat
 //! tree the `/tree` view reads, and the branched-file creation behind `fork`.
-//! Typed-entry queries round-trip through `pa_types::session::FileEntry`.
+//! Typed-entry queries round-trip through `aa_types::session::FileEntry`.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -10,7 +10,7 @@ use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
 
 use crate::session_store::{new_entry_id, session_file_name, SessionEntry, SessionFile};
-use pa_types::session::FileEntry;
+use aa_types::session::FileEntry;
 
 /// The active label state: latest `label` entry per target (TS `labelsById`/`labelTimestampsById`).
 #[derive(Debug, Default)]
@@ -46,7 +46,7 @@ impl LabelState {
     }
 }
 
-/// The full entry list as typed pa-types entries (wire-identical JSON
+/// The full entry list as typed aa-types entries (wire-identical JSON
 /// round-trip; unknown kinds degrade to `FileEntry::Unknown`).
 #[must_use]
 pub fn file_entries(store: &SessionFile) -> Vec<FileEntry> {
@@ -241,7 +241,7 @@ impl SessionFile {
             self.header.rlm_depth.unwrap_or(0) as u32,
         );
         forked.header.git =
-            pa_core::session::manager::capture_git_context(Path::new(&self.header.cwd));
+            aa_core::session::manager::capture_git_context(Path::new(&self.header.cwd));
         // Same directory as the source session, like TS `createUniqueSessionFileTarget`.
         let file = session_dir.join(session_file_name(forked.session_id()));
         forked.set_path(file);

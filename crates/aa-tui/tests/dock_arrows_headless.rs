@@ -12,8 +12,8 @@ mod support;
 use std::os::unix::net::UnixListener;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::agents_view::AgentsViewScope;
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use aa_tui::agents_view::AgentsViewScope;
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 use serde_json::{json, Value};
 
 use support::{
@@ -202,7 +202,7 @@ fn run_plan(
     steps: Vec<HeadlessStep>,
     heartbeats: Option<Value>,
     goal: Option<Value>,
-) -> pa_tui::interactive::InteractiveOutcome {
+) -> aa_tui::interactive::InteractiveOutcome {
     run_plan_with_roster(steps, heartbeats, goal, Vec::new(), Vec::new())
 }
 
@@ -214,7 +214,7 @@ fn run_plan_with_roster(
     goal: Option<Value>,
     roster: Vec<Value>,
     pushes: Vec<Value>,
-) -> pa_tui::interactive::InteractiveOutcome {
+) -> aa_tui::interactive::InteractiveOutcome {
     run_scenario(
         steps,
         heartbeats,
@@ -222,7 +222,7 @@ fn run_plan_with_roster(
         roster,
         pushes,
         false,
-        pa_tui::keybindings::KeybindingsManager::new(),
+        aa_tui::keybindings::KeybindingsManager::new(),
     )
 }
 
@@ -234,8 +234,8 @@ fn run_scenario(
     roster: Vec<Value>,
     pushes: Vec<Value>,
     factory_lane: bool,
-    keybindings: pa_tui::keybindings::KeybindingsManager,
-) -> pa_tui::interactive::InteractiveOutcome {
+    keybindings: aa_tui::keybindings::KeybindingsManager,
+) -> aa_tui::interactive::InteractiveOutcome {
     run_headless(
         HeadlessPlan {
             steps,
@@ -379,7 +379,7 @@ fn enter_and_right_open_every_rows_page_and_down_wraps_to_the_top() {
             Vec::new(),
             Vec::new(),
             true,
-            pa_tui::keybindings::KeybindingsManager::new(),
+            aa_tui::keybindings::KeybindingsManager::new(),
         );
         let all = outcome.frames.join("\n");
         for page in [
@@ -424,7 +424,7 @@ fn up_from_a_lower_row_steps_to_the_row_above() {
 /// heartbeats row steps up to the subagents row instead of opening the heartbeats page.
 #[test]
 fn a_rebound_right_keeps_its_configured_action() {
-    let keybindings = pa_tui::keybindings::KeybindingsManager::with_user_bindings(
+    let keybindings = aa_tui::keybindings::KeybindingsManager::with_user_bindings(
         [("tui.select.up".to_string(), vec!["right".to_string()])]
             .into_iter()
             .collect(),

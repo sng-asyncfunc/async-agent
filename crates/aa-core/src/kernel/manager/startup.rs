@@ -238,11 +238,11 @@ impl Inner {
         let cwd = self.options.cwd.clone();
         let mut env = kernel_spawn_env(&self.options.env);
         env.insert(
-            "PRIME_AGENT_KERNEL_BUN".into(),
+            "ASYNC_AGENT_KERNEL_BUN".into(),
             runtime.bun_path.as_os_str().to_os_string(),
         );
         env.insert(
-            "PRIME_AGENT_KERNEL_BUN_DIR".into(),
+            "ASYNC_AGENT_KERNEL_BUN_DIR".into(),
             runtime.kernel_dir.as_os_str().to_os_string(),
         );
         let mut command = tokio::process::Command::new(&runtime.bun_path);
@@ -325,7 +325,7 @@ impl Inner {
             crate::kernel::bootstrap::invalidate_runtime_probe_cache();
             return Err(anyhow!(
                 "Kernel runtime speaks protocol {protocol}, expected {REPL_PROTOCOL_VERSION}. \
-                 Update prime-agent-runtime in the Bun kernel (PRIME_AGENT_KERNEL_BUN / PRIME_AGENT_KERNEL_BUN_DIR) to match this prime-agent."
+                 Update async-agent-runtime in the Bun kernel (ASYNC_AGENT_KERNEL_BUN / ASYNC_AGENT_KERNEL_BUN_DIR) to match this async-agent."
             ));
         }
         {
@@ -637,7 +637,7 @@ fn kernel_spawn_env(
         env.insert(key.into(), value.into());
     }
     env.insert(
-        "PRIME_AGENT_KERNEL_OWNER_PID".into(),
+        "ASYNC_AGENT_KERNEL_OWNER_PID".into(),
         std::process::id().to_string().into(),
     );
     crate::kernel::bun_env::sanitize_bun_env(&mut env);
@@ -681,7 +681,7 @@ mod tests {
         assert!(!env.contains_key(std::ffi::OsStr::new("NODE_PATH")));
         assert!(!env.contains_key(std::ffi::OsStr::new("BUN_PRELOAD")));
         assert_eq!(
-            env.get(std::ffi::OsStr::new("PRIME_AGENT_KERNEL_OWNER_PID"))
+            env.get(std::ffi::OsStr::new("ASYNC_AGENT_KERNEL_OWNER_PID"))
                 .and_then(|value| value.to_str()),
             Some(std::process::id().to_string().as_str())
         );
@@ -700,7 +700,7 @@ mod tests {
         let options_env = HashMap::new();
         let env = kernel_spawn_env(&options_env);
         assert_eq!(
-            env.get(std::ffi::OsStr::new("PRIME_AGENT_KERNEL_OWNER_PID"))
+            env.get(std::ffi::OsStr::new("ASYNC_AGENT_KERNEL_OWNER_PID"))
                 .and_then(|value| value.to_str()),
             Some(std::process::id().to_string().as_str())
         );

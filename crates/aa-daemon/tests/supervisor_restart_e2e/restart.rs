@@ -131,11 +131,11 @@ fn supervisor_kill9_restart_sessions_re_register_and_survive() {
         );
     }
 
-    let restart_before = pa_daemon::util::now_iso();
+    let restart_before = aa_daemon::util::now_iso();
     let mut daemon2 = spawn_supervisor(&socket, &agent_dir);
     wait_socket_ready(&socket);
 
-    let log_path = pa_daemon::paths::daemon_log_path(&socket, &agent_dir);
+    let log_path = aa_daemon::paths::daemon_log_path(&socket, &agent_dir);
     let deadline = Instant::now() + Duration::from_secs(15);
     let registered = loop {
         let registered = distinct(workers_registered_since(&log_path, &restart_before));

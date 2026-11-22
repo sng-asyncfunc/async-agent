@@ -6,7 +6,7 @@
 
 mod support;
 
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, UiMode,
 };
 use serde_json::{json, Value};
@@ -55,7 +55,7 @@ impl MockBoot {
         let mut reader = BufReader::new(stream);
         let hello = json!({
             "type": "daemon_hello",
-            "protocol": {"name": "prime-agent.daemon", "version": 7},
+            "protocol": {"name": "async-agent.daemon", "version": 7},
             "serverCapabilities": [],
             "clientId": "mock"
         });
@@ -96,7 +96,7 @@ impl MockBoot {
                                 json!({
                                     "type": "response", "id": value["id"], "command": "attach",
                                     "success": true,
-                                    "data": {"protocol": {"name": "prime-agent.daemon", "version": 7},
+                                    "data": {"protocol": {"name": "async-agent.daemon", "version": 7},
                                              "activeSessionId": "s1",
                                              "snapshot": {"activeSessionId": "s1",
                                                           "summary": {"id": "s1", "cwd": "/tmp"},
@@ -122,7 +122,7 @@ impl MockBoot {
     }
 }
 
-fn run_boot_plan(steps: Vec<HeadlessStep>) -> pa_tui::interactive::InteractiveOutcome {
+fn run_boot_plan(steps: Vec<HeadlessStep>) -> aa_tui::interactive::InteractiveOutcome {
     std::env::remove_var("TMUX");
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket: PathBuf = dir.path().join("tui.sock");

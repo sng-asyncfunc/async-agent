@@ -120,7 +120,7 @@ class TheFoldContracts(FoldTestCase):
         self.fold("0.10.0")
         changelog = (self.root / "CHANGELOG.md").read_text()
         self.assertIn("# Changelog", changelog)
-        self.assertIn("packages/*/CHANGELOG.md", changelog)
+        self.assertIn("Async Agent", changelog)
         self.assertIn("## [0.10.0] - ", changelog)
         self.assertIn("- the first feature", changelog)
 

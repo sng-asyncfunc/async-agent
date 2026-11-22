@@ -47,11 +47,11 @@ impl Drop for Daemon {
     }
 }
 
-/// The kernel Bun binary (`PA_E2E_KERNEL_BUN` / `PRIME_AGENT_KERNEL_BUN`,
+/// The kernel Bun binary (`PA_E2E_KERNEL_BUN` / `ASYNC_AGENT_KERNEL_BUN`,
 /// PATH, or `~/.bun/bin/bun`). Skipped (with a note) on machines without Bun.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) =
-        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("PRIME_AGENT_KERNEL_BUN"))
+        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("ASYNC_AGENT_KERNEL_BUN"))
     {
         let explicit = PathBuf::from(explicit);
         assert!(
@@ -94,7 +94,7 @@ fn spawn_supervisor(
     kernel_bun: &Path,
     herdr_socket: &Path,
 ) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let log_file = std::fs::File::create(socket.with_extension("daemon.log")).expect("log file");
     let log_err = log_file.try_clone().expect("clone log file");
     let child = Command::new(binary)
@@ -103,8 +103,8 @@ fn spawn_supervisor(
         .arg(socket)
         .arg("--agent-dir")
         .arg(agent_dir)
-        .env("PRIME_AGENT_KERNEL_BUN", kernel_bun)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", agent_dir)
+        .env("ASYNC_AGENT_KERNEL_BUN", kernel_bun)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", agent_dir)
         .env_remove("PRIME_API_KEY")
         // THE HOSTILE BOOT CONTEXT: a Herdr pane identity in the daemon's
         // own process env. If the reporter ever read the ambient env (the
@@ -116,13 +116,13 @@ fn spawn_supervisor(
         // into later test binaries: the worker's supervisor-lost exit runs
         // on this short window instead of the 5-minute default.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .stdout(Stdio::null())
         .stderr(Stdio::from(log_err))
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     Daemon { child }
 }
 
@@ -213,7 +213,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": {"name": "prime-agent.daemon", "version": 7},
+            "protocol": {"name": "async-agent.daemon", "version": 7},
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize");
@@ -329,13 +329,13 @@ fn the_session_reports_its_payload_pane_across_the_lifecycle() {
     let params = &report["params"];
     assert_eq!(params["pane_id"], "w1:payload");
     assert_eq!(params["source"], "herdr:pi");
-    assert_eq!(params["agent"], "prime-agent");
+    assert_eq!(params["agent"], "async-agent");
     assert_eq!(params["state"], "idle");
     assert!(params.get("message").is_none(), "idle carries no message");
     assert_eq!(params["agent_session_path"], session_file);
     assert_eq!(
         params["resume_argv"],
-        json!(["prime-agent", "--resume", session_file])
+        json!(["async-agent", "--resume", session_file])
     );
     assert!(params["seq"].as_u64().expect("seq") > 0);
     assert_no_boot_pane(&requests, "w1:payload");

@@ -24,7 +24,7 @@ interface ReplClient {
 const activeClients: ReplClient[] = [];
 const tempDirs: string[] = [];
 
-function makeTempDir(prefix = "prime-repl-test-"): string {
+function makeTempDir(prefix = "async-repl-test-"): string {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 	tempDirs.push(dir);
 	return dir;
@@ -237,7 +237,7 @@ describe("Protocol v3 REPL E2E", () => {
 				"const small = { a: 1, b: [2, 3] };\n" +
 				"const big = 'x'.repeat(2000);\n" +
 				"function doubleIt(n) { return n * 2; }\n" +
-				'process.env.PRIME_TEST_SNAP_VAR = "persisted";\n',
+				'process.env.ASYNC_TEST_SNAP_VAR = "persisted";\n',
 		);
 
 		c1.send({
@@ -286,7 +286,7 @@ describe("Protocol v3 REPL E2E", () => {
 
 		const checkEv = await c2.exec(
 			"check1",
-			'({ sum: small.a + small.b[1], fn: doubleIt(7), joined: join("a", "b"), env: process.env.PRIME_TEST_SNAP_VAR })',
+			'({ sum: small.a + small.b[1], fn: doubleIt(7), joined: join("a", "b"), env: process.env.ASYNC_TEST_SNAP_VAR })',
 		);
 		const checkText = String(checkEv.find((e) => e.event === "result")?.text ?? "");
 		expect(checkText).toContain("sum: 4");
@@ -295,7 +295,7 @@ describe("Protocol v3 REPL E2E", () => {
 		expect(checkText).toContain('env: "persisted"');
 	});
 
-	test("supports host_request/host_reply, rlm APIs, display emit, and __primeLoadSkills", async () => {
+	test("supports host_request/host_reply, rlm APIs, display emit, and __asyncLoadSkills", async () => {
 		const dir = makeTempDir();
 		const okSkillPath = path.join(dir, "ok-skill.ts");
 		fs.writeFileSync(
@@ -303,7 +303,7 @@ describe("Protocol v3 REPL E2E", () => {
 			`export function createSkill(ctx) {
   return {
     async ping(msg) {
-      ctx.display("application/vnd.prime-agent.test+json", { msg });
+      ctx.display("application/vnd.async-agent.test+json", { msg });
       return await ctx.hostRequest("test.ping", { msg });
     },
   };
@@ -315,7 +315,7 @@ describe("Protocol v3 REPL E2E", () => {
 		// Load skills (one valid, one unavailable, one runtime-collision)
 		const loadEv = await client.exec(
 			"load1",
-			`await __primeLoadSkills([
+			`await __asyncLoadSkills([
 				{ name: "ok-skill", globalName: "okSkill", entryPath: ${JSON.stringify(okSkillPath)} },
 				{ name: "bad-skill", globalName: "badSkill", entryPath: "/nonexistent", unavailableReason: "missing deps" },
 				{ name: "clash", globalName: "fs", entryPath: ${JSON.stringify(okSkillPath)} },
@@ -325,7 +325,7 @@ describe("Protocol v3 REPL E2E", () => {
 			.filter((e) => e.event === "stdout")
 			.map((e) => String(e.text))
 			.join("");
-		expect(loadStdout).toContain("__PRIME_AGENT_JAVASCRIPT_SKILL_IMPORT_ERRORS__");
+		expect(loadStdout).toContain("__ASYNC_AGENT_JAVASCRIPT_SKILL_IMPORT_ERRORS__");
 		expect(loadStdout).toContain("badSkill");
 		expect(loadStdout).toContain("conflicts with runtime global fs");
 
@@ -342,7 +342,7 @@ describe("Protocol v3 REPL E2E", () => {
 			(e) =>
 				e.event === "display" &&
 				e.id === "ping1" &&
-				Boolean((e.data as Record<string, unknown>)["application/vnd.prime-agent.test+json"]),
+				Boolean((e.data as Record<string, unknown>)["application/vnd.async-agent.test+json"]),
 		);
 		expect(dispEvt).toBeDefined();
 		const resEvt = client.events.find((e) => e.event === "result" && e.id === "ping1");
@@ -372,7 +372,7 @@ describe("Protocol v3 REPL E2E", () => {
 		const snapPath = path.join(dir, "eof-state.bin");
 		const manifestPath = path.join(dir, "eof-state.json");
 
-		const { client } = await startRepl({ PRIME_AGENT_CODING_AGENT_DIR: agentDir });
+		const { client } = await startRepl({ ASYNC_AGENT_CODING_AGENT_DIR: agentDir });
 
 		// Out-of-band factory_activity while disabled returns clean error reason
 		client.send({ type: "factory_activity", id: "fa1", action: "graph" });
@@ -397,7 +397,7 @@ describe("Protocol v3 REPL E2E", () => {
 		await new Promise<void>((resolve) => client.proc.once("exit", () => resolve()));
 
 		// Fresh worker restores and sees afterSnap flushed on EOF!
-		const { client: c2 } = await startRepl({ PRIME_AGENT_CODING_AGENT_DIR: agentDir });
+		const { client: c2 } = await startRepl({ ASYNC_AGENT_CODING_AGENT_DIR: agentDir });
 		c2.send({ type: "restore", id: "r-eof", path: snapPath });
 		const rDone = await c2.waitForEvent((e) => e.event === "done" && e.id === "r-eof");
 		expect(rDone.status).toBe("ok");

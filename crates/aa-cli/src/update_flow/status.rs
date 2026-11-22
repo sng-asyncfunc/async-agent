@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use pa_types::daemon::update_flow::{
+use aa_types::daemon::update_flow::{
     UpdateId, UpdateProcessIdentity, UpdateState, UpdateStatus, UpdateStatusCounts,
     UPDATE_STATUS_FORMAT_VERSION,
 };
@@ -97,14 +97,14 @@ impl StatusWriter {
         Ok(writer)
     }
 
-    /// Move to `state` (illegal moves are a driver bug — pa-types owns
+    /// Move to `state` (illegal moves are a driver bug — aa-types owns
     /// the table) and persist before acting.
     ///
     /// # Errors
     /// Returns an error when the status record cannot be written to disk.
     pub fn set_state(&mut self, state: UpdateState) -> Result<()> {
         debug_assert!(
-            pa_types::daemon::update_flow::update_transition_allowed(self.status.state, state),
+            aa_types::daemon::update_flow::update_transition_allowed(self.status.state, state),
             "illegal coordinator transition {:?} -> {:?}",
             self.status.state,
             state
@@ -155,7 +155,7 @@ impl StatusWriter {
     /// Returns an error when the status record cannot be written to disk.
     pub fn set_failures(
         &mut self,
-        failures: Vec<pa_types::daemon::update_flow::UpdateStatusFailure>,
+        failures: Vec<aa_types::daemon::update_flow::UpdateStatusFailure>,
     ) -> Result<()> {
         self.status.failures = failures;
         self.touch();
@@ -222,7 +222,7 @@ pub fn coordinator_identity() -> UpdateProcessIdentity {
     let pid = std::process::id();
     UpdateProcessIdentity {
         pid: u64::from(pid),
-        process_start_id: pa_daemon::lease::get_process_start_id(pid),
+        process_start_id: aa_daemon::lease::get_process_start_id(pid),
         supervisor_generation: None,
         supervisor_owner_token: None,
         rest: serde_json::Map::default(),

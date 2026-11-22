@@ -4,8 +4,8 @@
 //! summary's usage fields (the TS test port).
 
 use super::*;
-use pa_agent::stream::{event_stream, LlmContext};
-use pa_agent::types::{
+use aa_agent::stream::{event_stream, LlmContext};
+use aa_agent::types::{
     AgentMessage, AssistantContent, Message, TextContent, UsageCost, UserContent, UserMessage,
 };
 use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
@@ -14,8 +14,8 @@ use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 /// the process env is global across parallel test threads.
 static REQUEST_TIMING_ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-fn test_model() -> pa_agent::types::Model {
-    pa_agent::types::Model {
+fn test_model() -> aa_agent::types::Model {
+    aa_agent::types::Model {
         id: "bench/bench-model".to_string(),
         name: "Bench".to_string(),
         api: "openai-completions".to_string(),
@@ -36,16 +36,16 @@ fn payload() -> Value {
 }
 
 /// TS `finalMessage()`: the usage the summary must account.
-fn final_message(model: &pa_agent::types::Model) -> pa_agent::types::AssistantMessage {
+fn final_message(model: &aa_agent::types::Model) -> aa_agent::types::AssistantMessage {
     let mut message = empty_partial(model);
     message.content = vec![AssistantContent::Thinking(
-        pa_agent::types::ThinkingContent {
+        aa_agent::types::ThinkingContent {
             thinking: "hm".to_string(),
             thinking_signature: None,
             redacted: None,
         },
     )];
-    message.usage = pa_agent::types::Usage {
+    message.usage = aa_agent::types::Usage {
         input: 800_000,
         output: 12,
         cache_read: 790_000,
@@ -56,8 +56,8 @@ fn final_message(model: &pa_agent::types::Model) -> pa_agent::types::AssistantMe
     message
 }
 
-fn empty_partial(model: &pa_agent::types::Model) -> pa_agent::types::AssistantMessage {
-    pa_agent::types::AssistantMessage {
+fn empty_partial(model: &aa_agent::types::Model) -> aa_agent::types::AssistantMessage {
+    aa_agent::types::AssistantMessage {
         content: Vec::new(),
         api: model.api.clone(),
         provider: model.provider.clone(),
@@ -65,7 +65,7 @@ fn empty_partial(model: &pa_agent::types::Model) -> pa_agent::types::AssistantMe
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_agent::types::Usage::zero(),
+        usage: aa_agent::types::Usage::zero(),
         stop_reason: StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,
@@ -111,7 +111,7 @@ async fn drain(mut stream: Box<dyn ModelStream>) {
 /// provider reports one) after the response gate, then start /
 /// first-token / done behind their gates.
 fn scripted_provider(
-    model: pa_agent::types::Model,
+    model: aa_agent::types::Model,
     response_gate: tokio::sync::oneshot::Receiver<()>,
     first_token_gate: tokio::sync::oneshot::Receiver<()>,
     done_gate: tokio::sync::oneshot::Receiver<()>,
@@ -154,7 +154,7 @@ fn scripted_provider(
                 if with_response_hook {
                     if let Some(on_response) = options.on_response.as_ref() {
                         on_response(
-                            pa_agent::stream::ProviderResponse {
+                            aa_agent::stream::ProviderResponse {
                                 status: 200,
                                 headers: std::collections::BTreeMap::default(),
                             },
@@ -204,7 +204,7 @@ async fn run_timed_request(
     );
     let input = vec![AgentMessage::user("hello")];
     let llm_messages =
-        convert(transform(input, pa_agent::abort::AbortSignal::default()).await?).await?;
+        convert(transform(input, aa_agent::abort::AbortSignal::default()).await?).await?;
     let options = StreamRequestOptions {
         session_id: Some("sess-timing".to_string()),
         ..Default::default()
@@ -662,15 +662,15 @@ async fn a_call_dropped_mid_resolution_gets_a_timing_summary() {
     };
 
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             api: Some("timing-dropped-call-test".to_owned()),
             ..Default::default()
         });
     registration.set_repeat_last_response(true);
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-        pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+        aa_ai::faux::faux_assistant_text_message(
             "ok",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
     )]);
     let dir = tempfile::tempdir().unwrap();
@@ -802,24 +802,24 @@ async fn engine_sessions_emit_the_timeline_only_when_the_flag_is_on() {
     .unwrap();
 
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             api: Some("request-timing-faux".to_string()),
             provider: Some("faux-bench".to_string()),
-            models: Some(vec![pa_ai::faux::FauxModelDefinition {
+            models: Some(vec![aa_ai::faux::FauxModelDefinition {
                 id: "faux-1".to_string(),
                 name: Some("Faux".to_string()),
                 reasoning: Some(false),
-                input: Some(vec![pa_types::ai::ModelInput::Text]),
+                input: Some(vec![aa_types::ai::ModelInput::Text]),
                 cost: None,
                 context_window: Some(100_000),
                 max_tokens: Some(4_096),
             }]),
             ..Default::default()
         });
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-        pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+        aa_ai::faux::faux_assistant_text_message(
             "ok",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
     )]);
     let model = registration.get_model();
@@ -876,10 +876,10 @@ async fn engine_sessions_emit_the_timeline_only_when_the_flag_is_on() {
 
     // Flag off: no entries at all (the registration stays live for the
     // second session's request; it unregisters below).
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-        pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+        aa_ai::faux::faux_assistant_text_message(
             "ok",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
     )]);
     let off_dir = tempfile::tempdir().unwrap();

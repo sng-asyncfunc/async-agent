@@ -82,7 +82,7 @@ impl SessionNavigation {
         rebuild_engine_context(
             &self.engine,
             branch_entries,
-            pa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch,
+            aa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch,
         )
         .await
     }
@@ -266,7 +266,7 @@ impl SessionNavigation {
                 .map_err(|error| response_failure(None, command, &error.to_string(), None))?,
         };
         if lease.is_some() {
-            pa_core::session::manager::repair_jsonl_damage(std::path::Path::new(path));
+            aa_core::session::manager::repair_jsonl_damage(std::path::Path::new(path));
         }
         let mut file = SessionFile::open(std::path::Path::new(path))
             .map_err(|error| response_failure(None, command, &error.to_string(), None))?;
@@ -309,8 +309,8 @@ impl SessionNavigation {
 /// helper `branch_navigation` runs for forks).
 async fn rebuild_engine_context(
     engine: &Arc<dyn SessionEngine>,
-    branch_entries: Vec<pa_types::session::FileEntry>,
-    goal_reload: pa_core::session_engine::goal_driver::GoalBranchReload,
+    branch_entries: Vec<aa_types::session::FileEntry>,
+    goal_reload: aa_core::session_engine::goal_driver::GoalBranchReload,
 ) -> Result<(), String> {
     let engine = Arc::clone(engine);
     tokio::task::spawn_blocking(move || engine.rebuild_session_context(branch_entries, goal_reload))
@@ -989,8 +989,8 @@ mod trace_replacement_tests {
         let old_path = blocked.join("old.jsonl");
         let agent_dir = dir.path().join("agent");
         let (_, consent) =
-            pa_core::agent_traces::ContinuousTraceUpload::load_settings(dir.path(), &agent_dir);
-        let controller = pa_core::agent_traces::ContinuousTraceUpload::install(
+            aa_core::agent_traces::ContinuousTraceUpload::load_settings(dir.path(), &agent_dir);
+        let controller = aa_core::agent_traces::ContinuousTraceUpload::install(
             dir.path(),
             &agent_dir,
             Some(&old_path),

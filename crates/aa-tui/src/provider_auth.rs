@@ -117,13 +117,13 @@ impl std::fmt::Debug for ProviderAuthCommandsHandle {
     }
 }
 
-/// The Prime Inference provider's id (pa-core's `PRIME_INFERENCE_PROVIDER_ID`).
+/// The Prime Inference provider's id (aa-core's `PRIME_INFERENCE_PROVIDER_ID`).
 pub const PRIME_INFERENCE_PROVIDER_ID: &str = "prime-inference";
 /// The Prime Inference default model's id: the model the onboarding flow
 /// applies after the sign-in when the home has no current model.
 pub const PRIME_INFERENCE_DEFAULT_MODEL_ID: &str = "z-ai/glm-5.3";
 
-/// The Codex Subscription provider's id (the wire identifier pa-core's
+/// The Codex Subscription provider's id (the wire identifier aa-core's
 /// auth exports; carried here because the TUI does not link the session engine).
 pub const OPENAI_CODEX_PROVIDER_ID: &str = "openai-codex";
 
@@ -540,7 +540,7 @@ mod tests {
     }
 
     fn theme() -> Theme {
-        crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor)
+        crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor)
     }
 
     fn anthropic() -> ProviderRow {

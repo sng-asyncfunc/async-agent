@@ -1,7 +1,7 @@
 //! `compat` validation for catalog entries: keys must match the schema
 //! the model's `api` selects, values their declared type. The check is
 //! structural per the TS validators, deliberately independent of the
-//! permissive `pa_types` wire structs.
+//! permissive `aa_types` wire structs.
 
 use serde_json::Value;
 

@@ -22,7 +22,7 @@ async fn split_turn_compaction_runs_two_summarizer_calls_and_merges_the_turn_con
     let tmp = tempfile::tempdir().unwrap();
     let mut session = SessionManager::in_memory(tmp.path());
     let user = |text: &str| {
-        AgentMessage::User(pa_types::ai::UserMessage {
+        AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -30,8 +30,8 @@ async fn split_turn_compaction_runs_two_summarizer_calls_and_merges_the_turn_con
     };
     let reply = |text: &str| {
         AgentMessage::Assistant(AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: text.to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -43,8 +43,8 @@ async fn split_turn_compaction_runs_two_summarizer_calls_and_merges_the_turn_con
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -79,14 +79,14 @@ async fn split_turn_compaction_runs_two_summarizer_calls_and_merges_the_turn_con
     let make_step = |response: &'static str| {
         let seen = seen.clone();
         let expected_session_id = expected_session_id.clone();
-        pa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
-            move |context: &pa_types::ai::Context,
-                  options: Option<&pa_ai::types::StreamOptions>,
+        aa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
+            move |context: &aa_types::ai::Context,
+                  options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  _model: &pa_types::ai::Model| {
+                  _model: &aa_types::ai::Model| {
                 let actual = options.and_then(|o| o.session_id.as_deref());
                 let transport = options.and_then(|o| o.transport);
-                if transport != Some(pa_ai::types::Transport::Sse) {
+                if transport != Some(aa_ai::types::Transport::Sse) {
                     return Err(format!(
                         "expected the SSE transport, received {transport:?}"
                     ));
@@ -97,13 +97,13 @@ async fn split_turn_compaction_runs_two_summarizer_calls_and_merges_the_turn_con
                     ));
                 }
                 let text = match &context.messages[0] {
-                    pa_types::ai::Message::User(user) => user.content.text(),
+                    aa_types::ai::Message::User(user) => user.content.text(),
                     _ => panic!("expected a user request"),
                 };
                 seen.lock().unwrap().push((text, response.to_string()));
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     response,
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ))
@@ -181,13 +181,13 @@ async fn split_turn_compaction_runs_two_summarizer_calls_and_merges_the_turn_con
             let input = est(&prompt) - cache_read;
             previous_prompt = prompt;
             let output = est(response);
-            pa_types::ai::Usage {
+            aa_types::ai::Usage {
                 input,
                 output,
                 cache_read,
                 cache_write,
                 total_tokens: input + output + cache_read + cache_write,
-                cost: pa_types::ai::UsageCost::default(),
+                cost: aa_types::ai::UsageCost::default(),
             }
         };
         let mut expected = usage_of(first.0, first.1);
@@ -236,7 +236,7 @@ async fn injected_custom_turn_cuts_whole_turns_the_double_row_splits() {
     let tmp = tempfile::tempdir().unwrap();
     let mut session = SessionManager::in_memory(tmp.path());
     let user = |text: &str| {
-        AgentMessage::User(pa_types::ai::UserMessage {
+        AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -244,8 +244,8 @@ async fn injected_custom_turn_cuts_whole_turns_the_double_row_splits() {
     };
     let reply = |text: &str| {
         AgentMessage::Assistant(AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: text.to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -257,8 +257,8 @@ async fn injected_custom_turn_cuts_whole_turns_the_double_row_splits() {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -275,19 +275,19 @@ async fn injected_custom_turn_cuts_whole_turns_the_double_row_splits() {
     };
     let seen: std::sync::Arc<std::sync::Mutex<Vec<String>>> = std::sync::Arc::default();
     let record_summary = |recorder: std::sync::Arc<std::sync::Mutex<Vec<String>>>| {
-        pa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
-            move |context: &pa_types::ai::Context,
-                  _options: Option<&pa_ai::types::StreamOptions>,
+        aa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
+            move |context: &aa_types::ai::Context,
+                  _options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  _model: &pa_types::ai::Model| {
+                  _model: &aa_types::ai::Model| {
                 let text = match &context.messages[0] {
-                    pa_types::ai::Message::User(user) => user.content.text(),
+                    aa_types::ai::Message::User(user) => user.content.text(),
                     _ => panic!("expected a user request"),
                 };
                 recorder.lock().unwrap().push(text);
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     "## Summary\nthe session story",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ))
@@ -401,20 +401,20 @@ async fn split_turn_without_history_makes_only_the_prefix_call() {
     let model = registration.get_model();
     let seen: std::sync::Arc<std::sync::Mutex<Vec<String>>> = std::sync::Arc::default();
     let recorder = seen.clone();
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Factory(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Factory(
         std::sync::Arc::new(
-            move |context: &pa_types::ai::Context,
-                  _options: Option<&pa_ai::types::StreamOptions>,
+            move |context: &aa_types::ai::Context,
+                  _options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  _model: &pa_types::ai::Model| {
+                  _model: &aa_types::ai::Model| {
                 let text = match &context.messages[0] {
-                    pa_types::ai::Message::User(user) => user.content.text(),
+                    aa_types::ai::Message::User(user) => user.content.text(),
                     _ => panic!("expected a user request"),
                 };
                 recorder.lock().unwrap().push(text);
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     "the turn prefix summary",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ),
@@ -422,7 +422,7 @@ async fn split_turn_without_history_makes_only_the_prefix_call() {
     let tmp = tempfile::tempdir().unwrap();
     let mut session = SessionManager::in_memory(tmp.path());
     let user = |text: &str| {
-        AgentMessage::User(pa_types::ai::UserMessage {
+        AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -430,8 +430,8 @@ async fn split_turn_without_history_makes_only_the_prefix_call() {
     };
     let reply = |text: &str| {
         AgentMessage::Assistant(AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: text.to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -443,8 +443,8 @@ async fn split_turn_without_history_makes_only_the_prefix_call() {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -510,13 +510,13 @@ async fn split_turn_without_history_makes_only_the_prefix_call() {
     let output = est("the turn prefix summary");
     assert_eq!(
         run.result.usage,
-        Some(pa_types::ai::Usage {
+        Some(aa_types::ai::Usage {
             input,
             output,
             cache_read: 0,
             cache_write: input,
             total_tokens: input * 2 + output,
-            cost: pa_types::ai::UsageCost::default(),
+            cost: aa_types::ai::UsageCost::default(),
         })
     );
     registration.unregister();
@@ -566,7 +566,7 @@ async fn a_split_turn_compaction_commits_both_summary_slices_before_its_entry() 
     let tmp = tempfile::tempdir().unwrap();
     let mut session = SessionManager::in_memory(tmp.path());
     let user = |text: &str| {
-        AgentMessage::User(pa_types::ai::UserMessage {
+        AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -574,8 +574,8 @@ async fn a_split_turn_compaction_commits_both_summary_slices_before_its_entry() 
     };
     let reply = |text: &str| {
         AgentMessage::Assistant(AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: text.to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -587,8 +587,8 @@ async fn a_split_turn_compaction_commits_both_summary_slices_before_its_entry() 
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -612,19 +612,19 @@ async fn a_split_turn_compaction_commits_both_summary_slices_before_its_entry() 
         Arc::default();
     let make_step = |response: &'static str| {
         let seen_headers = seen_headers.clone();
-        pa_ai::faux::FauxResponseStep::Factory(Arc::new(
-            move |_context: &pa_types::ai::Context,
-                  options: Option<&pa_ai::types::StreamOptions>,
+        aa_ai::faux::FauxResponseStep::Factory(Arc::new(
+            move |_context: &aa_types::ai::Context,
+                  options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  _model: &pa_types::ai::Model| {
+                  _model: &aa_types::ai::Model| {
                 seen_headers.lock().unwrap().push(
                     options
                         .and_then(|options| options.headers.clone())
                         .unwrap_or_default(),
                 );
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     response,
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ))
@@ -718,14 +718,14 @@ async fn an_aborted_compaction_fails_its_slices_and_records_cancelled() {
     let model = registration.get_model();
     // The delayed response resolves after the abort lands, so the slice
     // succeeded but never committed when the abort cancels the run.
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Delayed {
-        message: pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Delayed {
+        message: aa_ai::faux::faux_assistant_text_message(
             "## Goal\nsummarized goal",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
         delay_ms: 200,
     }]);
-    let controller = pa_agent::abort::AbortController::new();
+    let controller = aa_agent::abort::AbortController::new();
     let signal = controller.signal();
     let aborter = {
         let controller = controller.clone();
@@ -757,7 +757,7 @@ async fn an_aborted_compaction_fails_its_slices_and_records_cancelled() {
     .await
     .unwrap_err();
     aborter.await.unwrap();
-    assert!(pa_agent::abort::is_abort_error(&error), "{error:#}");
+    assert!(aa_agent::abort::is_abort_error(&error), "{error:#}");
     let events = ledger_events(&identity);
     let compaction_id = begun_compaction_id(&events);
     let slice_id = events

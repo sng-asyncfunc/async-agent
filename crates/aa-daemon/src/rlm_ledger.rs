@@ -28,7 +28,7 @@ use serde_json::{json, Value};
 
 use crate::lease::canonical_session_path;
 use crate::util::now_iso;
-pub use pa_core::session_engine::rlm_host::RlmFactoryTag;
+pub use aa_core::session_engine::rlm_host::RlmFactoryTag;
 
 mod replay;
 

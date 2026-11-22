@@ -31,7 +31,7 @@ pub(crate) const PRIME_LOGIN_HEADING: &str = "Login with Prime Intellect";
 pub(crate) const API_KEY_PROMPT: &str = "Enter API key:";
 
 const WELCOME_DESCRIPTION_PARAGRAPHS: [&str; 2] = [
-    "A self-improving RLM harness with persistent context, recursive subagents, and direct swarm communication.",
+    "A Bun-native JS REPL harness with persistent context, recursive subagents, and direct swarm communication.",
     "It learns from its history by refining its own memories, skills, prompts, and subagent specifications.",
 ];
 const WELCOME_DESCRIPTION_WIDTH: usize = 56;
@@ -525,7 +525,7 @@ mod tests {
     use crate::theme::{ColorMode, Theme};
 
     fn theme() -> Theme {
-        Theme::builtin("prime", ColorMode::TrueColor)
+        Theme::builtin("async", ColorMode::TrueColor)
     }
 
     fn options(count: usize) -> Vec<ProviderPickerOption> {

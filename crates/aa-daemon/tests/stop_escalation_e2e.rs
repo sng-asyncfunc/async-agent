@@ -49,7 +49,7 @@ impl Drop for Daemon {
 #[allow(clippy::zombie_processes)]
 fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
     std::fs::create_dir_all(agent_dir).expect("agent dir");
-    let child = Command::new(env!("CARGO_BIN_EXE_pa-daemon"))
+    let child = Command::new(env!("CARGO_BIN_EXE_aa-daemon"))
         .arg("supervisor")
         .arg("--socket")
         .arg(socket)
@@ -59,9 +59,9 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .env_remove("PRIME_API_KEY")
-        .env_remove("PRIME_AGENT_CODING_AGENT_DIR")
+        .env_remove("ASYNC_AGENT_CODING_AGENT_DIR")
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if UnixStream::connect(socket).is_ok() {
@@ -165,7 +165,7 @@ impl Client {
         let mut line = serde_json::to_string(&json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }))
         .expect("serialize command");
@@ -252,7 +252,7 @@ fn session_file_of(client: &mut Client, active_id: &str) -> PathBuf {
 /// The descriptor's path and the worker pid it names (the retirement
 /// removes the file when the stop proves the process gone).
 fn worker_descriptor_of(agent_dir: &Path, socket: &Path, session_id: &str) -> (PathBuf, u32) {
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(agent_dir, socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(agent_dir, socket);
     let found = std::fs::read_dir(&descriptor_dir)
         .expect("descriptor dir readable")
         .filter_map(Result::ok)
@@ -302,7 +302,7 @@ fn a_hung_worker_is_killed_within_the_escalation_window_and_its_lease_frees() {
     let (descriptor, worker_pid) = worker_descriptor_of(&agent_dir, &socket, &session.session_id);
 
     assert!(
-        pa_daemon::lease::acquire_runtime_session_lease(&session_file, &agent_dir).is_err(),
+        aa_daemon::lease::acquire_runtime_session_lease(&session_file, &agent_dir).is_err(),
         "the live worker must hold the session lease"
     );
 
@@ -348,7 +348,7 @@ fn a_hung_worker_is_killed_within_the_escalation_window_and_its_lease_frees() {
     );
     assert_eq!(session_state(&session_file), "archived");
 
-    let lease = pa_daemon::lease::acquire_runtime_session_lease(&session_file, &agent_dir)
+    let lease = aa_daemon::lease::acquire_runtime_session_lease(&session_file, &agent_dir)
         .expect("the dead worker's lease must be reclaimable");
     drop(lease);
     let reopened = client.request(
@@ -422,13 +422,13 @@ fn a_well_behaved_worker_keeps_the_clean_stop() {
         "the cleanly stopped worker's descriptor must be gone"
     );
     assert_eq!(session_state(&session_file), "archived");
-    let log = std::fs::read_to_string(pa_daemon::paths::daemon_log_path(&socket, &agent_dir))
+    let log = std::fs::read_to_string(aa_daemon::paths::daemon_log_path(&socket, &agent_dir))
         .unwrap_or_default();
     assert!(
         !log.contains("survived the shutdown escalation"),
         "the clean stop must not log a survivor: {log}"
     );
-    let lease = pa_daemon::lease::acquire_runtime_session_lease(&session_file, &agent_dir)
+    let lease = aa_daemon::lease::acquire_runtime_session_lease(&session_file, &agent_dir)
         .expect("the stopped session's lease must be free");
     drop(lease);
     let reopened = client.request(

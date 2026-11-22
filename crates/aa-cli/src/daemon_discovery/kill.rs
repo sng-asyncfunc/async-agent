@@ -3,8 +3,8 @@
 
 use std::path::Path;
 
-use pa_core::platform::process::{kill_pid, Signal};
-use pa_types::platform::process::{is_process_alive, process_start_id};
+use aa_core::platform::process::{kill_pid, Signal};
+use aa_types::platform::process::{is_process_alive, process_start_id};
 
 use super::{evaluate_shutdown_quiet_period, DaemonStateRoot, DiscoveredDaemonProcess};
 

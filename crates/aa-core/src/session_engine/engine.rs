@@ -5,10 +5,10 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use pa_agent::agent::{Agent, AgentInitialState, AgentOptions};
-use pa_agent::stream::StreamFn;
-use pa_agent::types::{Model, ThinkingLevel};
-use pa_types::ai::JAVASCRIPT_TOOL_NAME;
+use aa_agent::agent::{Agent, AgentInitialState, AgentOptions};
+use aa_agent::stream::StreamFn;
+use aa_agent::types::{Model, ThinkingLevel};
+use aa_types::ai::JAVASCRIPT_TOOL_NAME;
 
 use crate::resources::{load_resources, ResourceLoaderOptions};
 use crate::session::manager::SessionManager;
@@ -30,7 +30,7 @@ pub struct SessionEngineConfig {
     pub model: Option<Model>,
     pub thinking_level: Option<ThinkingLevel>,
     pub stream_fn: Option<StreamFn>,
-    pub tools: Vec<Arc<dyn pa_agent::types::AgentTool>>,
+    pub tools: Vec<Arc<dyn aa_agent::types::AgentTool>>,
     pub custom_system_prompt: Option<String>,
     /// Explicit append-system-prompt sources from the host; overrides file discovery.
     pub prompt_guidelines: Vec<String>,
@@ -65,7 +65,7 @@ pub struct SessionEngineConfig {
     pub daemonless: bool,
     /// The full registry model (input modalities for `model.info`); the
     /// engine derives minimal facts from `model` when absent.
-    pub model_info: Option<pa_types::ai::Model>,
+    pub model_info: Option<aa_types::ai::Model>,
     /// Session telemetry wiring (the telemetry client + execution mode). `None`
     /// (opt-out) installs nothing; non-depth-0 sessions never install.
     pub telemetry: Option<super::telemetry::TelemetryWiring>,
@@ -77,10 +77,10 @@ pub struct SessionEngineConfig {
     pub queued_steering_probe: Option<std::sync::Arc<dyn Fn() -> bool + Send + Sync>>,
     /// Embedding-owned turn boundary, consulted after queued steering.
     /// Returning true yields the run; the embedding owns any continuation.
-    pub should_stop_after_turn: Option<pa_agent::agent_loop::ShouldStopAfterTurnFn>,
+    pub should_stop_after_turn: Option<aa_agent::agent_loop::ShouldStopAfterTurnFn>,
     /// `None` keeps the TS default ("one-at-a-time").
-    pub steering_mode: Option<pa_agent::agent::QueueMode>,
-    pub follow_up_mode: Option<pa_agent::agent::QueueMode>,
+    pub steering_mode: Option<aa_agent::agent::QueueMode>,
+    pub follow_up_mode: Option<aa_agent::agent::QueueMode>,
     /// Boot the kernel in the background at creation, depth-0 gated; boot
     /// failures surface on the next `ensure()`.
     pub prewarm_javascript_kernel: Option<bool>,
@@ -414,7 +414,7 @@ pub async fn create_session(mut config: SessionEngineConfig) -> anyhow::Result<S
     // A boot's `onRestore`/`onUnavailableSkills` can settle before the AgentSession
     // exists, so the rows park in a mailbox it adopts once constructed.
     let boot_notice_rows = std::sync::Arc::new(std::sync::Mutex::new(Vec::<
-        pa_types::session::CustomMessage,
+        aa_types::session::CustomMessage,
     >::new()));
     let on_restore = {
         let boot_notice_rows = std::sync::Arc::clone(&boot_notice_rows);
@@ -554,7 +554,7 @@ pub async fn create_session(mut config: SessionEngineConfig) -> anyhow::Result<S
     }
 
     let prompt_model_selector = format!("{}/{}", model_info.provider, model_info.id);
-    let prompt_vision_capable = Some(model_info.input.contains(&pa_types::ai::ModelInput::Image));
+    let prompt_vision_capable = Some(model_info.input.contains(&aa_types::ai::ModelInput::Image));
     let model_prompts = crate::prompts::model_prompts::load_model_prompts(
         Some(&prompt_model_selector),
         &config.agent_dir,
@@ -873,7 +873,7 @@ pub async fn create_session(mut config: SessionEngineConfig) -> anyhow::Result<S
                 let router = router.clone();
                 let agent_at_end = agent_at_end.clone();
                 Box::pin(async move {
-                    if matches!(event, pa_agent::types::AgentEvent::AgentEnd { .. }) {
+                    if matches!(event, aa_agent::types::AgentEvent::AgentEnd { .. }) {
                         (router.swap_target)(None);
                         // A leftover override would leak into a later
                         // `continue_run`'s loop config.
@@ -981,7 +981,7 @@ pub async fn create_session(mut config: SessionEngineConfig) -> anyhow::Result<S
 impl SessionEngine {
     /// After a model switch, the `model.info` handler and the usage
     /// estimate's context window follow the model the session now runs.
-    pub fn update_model_facts(&self, model: &pa_types::ai::Model) {
+    pub fn update_model_facts(&self, model: &aa_types::ai::Model) {
         super::turn_boundary::TurnBoundaryRequests::rebind_model_facts(
             &self.turn_boundary,
             super::turn_boundary::ModelInfo {
@@ -1081,7 +1081,7 @@ impl SessionEngine {
             .expect("refinement cancellation lock")
             .abort();
         if let Some(session_id) = self.session.agent().session_id() {
-            pa_ai::codex_debug::close_websocket_sessions(Some(session_id));
+            aa_ai::codex_debug::close_websocket_sessions(Some(session_id));
         }
         self.provisioner.dispose(None).await;
     }

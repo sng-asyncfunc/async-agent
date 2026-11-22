@@ -14,7 +14,7 @@
 //! JSON-RPC surface over stdio on the daemon-attached transport (a
 //! sandboxed supervisor hosting a scripted faux worker), and the emitted
 //! frames are checked against the TS capture corpus
-//! (`crates/pa-daemon/testdata/acp`).
+//! (`crates/aa-daemon/testdata/acp`).
 
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
@@ -81,7 +81,7 @@ impl AcpChild {
 
     /// The daemon-attached transport: the child spawns its own sandboxed
     /// supervisor on `<home>/daemon.sock` and hosts the scripted worker
-    /// through the `PRIME_AGENT_FAUX_SCRIPT` create-config seam;
+    /// through the `ASYNC_AGENT_FAUX_SCRIPT` create-config seam;
     /// the drop shuts the supervisor down. The socket sits on the struct
     /// for tests that speak raw daemon commands alongside the ACP frames.
     fn spawn(args: &[&str], script: &serde_json::Value) -> AcpChild {
@@ -105,14 +105,14 @@ impl AcpChild {
         let socket = home.path().join("daemon.sock");
         std::fs::write(home.path().join("worker-script.json"), script.to_string()).unwrap();
         let child = daemon_attached_command(home.path(), &socket, args)
-            .env("PRIME_AGENT_KERNEL_BUN", kernel_bun)
+            .env("ASYNC_AGENT_KERNEL_BUN", kernel_bun)
             .spawn()
             .expect("binary present");
         Self::wrap(child, Some(home), socket)
     }
 
     /// The daemon-attached lane whose `rlm.spawn` children are scripted:
-    /// `<home>/child-script.json` rides the `PRIME_AGENT_FAUX_CHILD_SCRIPT`
+    /// `<home>/child-script.json` rides the `ASYNC_AGENT_FAUX_CHILD_SCRIPT`
     /// create-config seam (the worker already consumes the key), and the
     /// parent worker's kernel runs the given Bun binary (the env flows
     /// ACP -> supervisor -> worker).
@@ -128,8 +128,8 @@ impl AcpChild {
         std::fs::write(home.path().join("worker-script.json"), script.to_string()).unwrap();
         std::fs::write(&child_script_path, child_script.to_string()).unwrap();
         let child = daemon_attached_command(home.path(), &socket, args)
-            .env("PRIME_AGENT_FAUX_CHILD_SCRIPT", &child_script_path)
-            .env("PRIME_AGENT_KERNEL_BUN", kernel_bun)
+            .env("ASYNC_AGENT_FAUX_CHILD_SCRIPT", &child_script_path)
+            .env("ASYNC_AGENT_KERNEL_BUN", kernel_bun)
             .spawn()
             .expect("binary present");
         Self::wrap(child, Some(home), socket)
@@ -235,15 +235,15 @@ fn daemon_attached_command(
     socket: &std::path::Path,
     args: &[&str],
 ) -> Command {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(args)
         .arg("--daemon-socket")
         .arg(socket)
         .env("HOME", home)
-        .env("PRIME_AGENT_FAUX_SCRIPT", home.join("worker-script.json"))
+        .env("ASYNC_AGENT_FAUX_SCRIPT", home.join("worker-script.json"))
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .current_dir(home)
@@ -255,7 +255,7 @@ fn daemon_attached_command(
 
 /// The sandbox's single worker descriptor.
 fn worker_descriptor(home: &std::path::Path) -> Value {
-    std::fs::read_dir(home.join(".prime/agent/daemon-workers"))
+    std::fs::read_dir(home.join(".async-agent/daemon-workers"))
         .expect("descriptor instances")
         .flatten()
         .flat_map(|instance| {
@@ -298,7 +298,7 @@ const TIMEOUT: Duration = Duration::from_mins(1);
 
 /// Assert a settled turn's stop reason, printing the whole response
 /// envelope on mismatch: an `internal_error`'s failure text (the
-/// `prime-agent turn failed: <failure>` message) is otherwise lost — the
+/// `async-agent turn failed: <failure>` message) is otherwise lost — the
 /// `stopReason: null` arms of `assert_eq!` show only the null.
 fn assert_end_turn(response: &Value) {
     assert_eq!(
@@ -331,11 +331,11 @@ fn acp_initialize_matches_the_ts_golden() {
     // ACP MCP server admission is served, so the http capability is advertised.
     assert_eq!(capabilities["mcpCapabilities"], json!({ "http": true }));
     let info = &result["agentInfo"];
-    assert_eq!(info["name"], "prime-agent");
-    assert_eq!(info["title"], "Prime Agent");
+    assert_eq!(info["name"], "async-agent");
+    assert_eq!(info["title"], "Async Agent");
     assert_eq!(
         result["_meta"],
-        json!({ "ai.primeintellect.prime-agent": {} })
+        json!({ "ai.asyncfunc.async-agent": {} })
     );
 }
 
@@ -373,7 +373,7 @@ fn acp_prompt_stream_completion_envelope_and_stop_reason_match_ts() {
     let mut shapes = Vec::new();
     for update in &updates {
         let body = &update["params"]["update"];
-        let meta = &body["_meta"]["ai.primeintellect.prime-agent"];
+        let meta = &body["_meta"]["ai.asyncfunc.async-agent"];
         shapes.push((
             body["sessionUpdate"]
                 .as_str()
@@ -419,7 +419,7 @@ fn acp_prompt_stream_completion_envelope_and_stop_reason_match_ts() {
     let mut sequences: Vec<u64> = Vec::new();
     for update in &updates {
         sequences.push(
-            update["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"]["eventSequence"]
+            update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["eventSequence"]
                 .as_u64()
                 .unwrap(),
         );
@@ -458,14 +458,14 @@ fn acp_prompt_chunk_carries_the_assistant_message_id() {
         .expect("a message chunk");
     assert_eq!(
         chunk["params"]["update"]["messageId"],
-        "prime-agent-assistant-1"
+        "async-agent-assistant-1"
     );
     assert_eq!(
         chunk["params"]["update"]["content"],
         json!({ "type": "text", "text": "ACP-OK" })
     );
     assert_eq!(
-        chunk["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"],
+        chunk["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"],
         json!({ "promptTurnId": 1, "eventSequence": 1, "phase": "event" })
     );
 }
@@ -478,7 +478,7 @@ fn acp_cwd_mismatch_is_reported_not_adopted() {
     let _ = client.wait_response(init, TIMEOUT);
     let new = client.request("session/new", &json!({ "cwd": "/tmp", "mcpServers": [] }));
     let (new_response, _) = client.wait_response(new, TIMEOUT);
-    let meta = &new_response["result"]["_meta"]["ai.primeintellect.prime-agent"]["cwd"];
+    let meta = &new_response["result"]["_meta"]["ai.asyncfunc.async-agent"]["cwd"];
     assert_eq!(meta["requested"], "/tmp");
     // The actual cwd is the temp dir the client runs in; only the mismatch shape is asserted here
     // (the value is tempdir-random).
@@ -527,7 +527,7 @@ fn acp_error_shapes_match_the_ts_goldens() {
     assert_eq!(response["error"]["code"], -32603);
     assert_eq!(
         response["error"]["data"]["details"],
-        "prime-agent ACP mode hosts one session per connection; start another prime-agent process for a second session"
+        "async-agent ACP mode hosts one session per connection; start another async-agent process for a second session"
     );
 
     // Unknown method (ts-errors.jsonl).
@@ -659,7 +659,7 @@ fn acp_mcp_admission_rejects_a_second_session_only_when_open() {
     assert_eq!(second_response["error"]["message"], "Internal error");
     assert_eq!(
         second_response["error"]["data"]["details"],
-        "prime-agent ACP mode hosts one session per connection; start another prime-agent process for a second session"
+        "async-agent ACP mode hosts one session per connection; start another async-agent process for a second session"
     );
     let close = client.request("session/close", &json!({ "sessionId": session_id }));
     let (close_response, _) = client.wait_response(close, TIMEOUT);
@@ -881,7 +881,7 @@ fn acp_mode_daemon_unreachable_exits_1_without_fallback() {
         "the startup failure is an error line: {stderr}"
     );
     assert!(
-        stderr.contains("Timed out waiting for the Prime Agent daemon to start"),
+        stderr.contains("Timed out waiting for the Async Agent daemon to start"),
         "the daemon never became reachable: {stderr}"
     );
 }
@@ -1126,7 +1126,7 @@ fn acp_daemon_attached_default_session_persists_and_resumes() {
     assert!(
         std::path::Path::new(&session_file)
             .parent()
-            .is_some_and(|dir| dir.ends_with("agent/sessions")),
+            .is_some_and(|dir| dir.ends_with(".async-agent/sessions")),
         "the session is saved in the session dir: {session_file}"
     );
     assert!(std::fs::read_to_string(&session_file)
@@ -1236,7 +1236,7 @@ fn acp_session_load_refused_by_a_busy_worker_keeps_the_startup_binding() {
 
 #[test]
 fn acp_session_list_and_load_restore_a_saved_session_in_a_new_process() {
-    // The first process's resident session is listed by its prime-agent
+    // The first process's resident session is listed by its async-agent
     // session id and loads in a second process: the conversation replays
     // before the load response, and the next prompt runs on the same live
     // worker (the script's second answer).
@@ -1440,7 +1440,7 @@ fn acp_daemon_attached_close_keeps_the_worker_and_new_rebinds_it() {
     assert_eq!(sessions[0]["activeSessionId"], active_session_id);
 
     let second = new_session(&mut client);
-    // The ACP session id is the daemon session's prime-agent session id.
+    // The ACP session id is the daemon session's async-agent session id.
     assert_eq!(second, first);
     let updates = assert_prompt_ends_turn(&mut client, &second, "Name a mountain.");
     let chunk = updates
@@ -1450,7 +1450,7 @@ fn acp_daemon_attached_close_keeps_the_worker_and_new_rebinds_it() {
     // The event mapping restarts with the session, like TS.
     assert_eq!(
         chunk["params"]["update"]["messageId"],
-        "prime-agent-assistant-1"
+        "async-agent-assistant-1"
     );
     let sessions = live_sessions(&socket);
     assert_eq!(sessions.len(), 1, "{sessions:?}");
@@ -1569,7 +1569,7 @@ fn acp_daemon_attached_failed_turn_publishes_only_the_error_boundary() {
     let mut boundaries = 0;
     for update in &updates {
         let body = &update["params"]["update"];
-        let meta = &body["_meta"]["ai.primeintellect.prime-agent"];
+        let meta = &body["_meta"]["ai.asyncfunc.async-agent"];
         assert_ne!(
             meta["phase"], "terminalQuiescence",
             "a failed turn never publishes a terminal frame: {updates:?}"
@@ -1734,7 +1734,7 @@ fn acp_daemon_attached_supervisor_loss_fails_the_prompt() {
     // Crash the supervisor (no graceful drain, so the in-flight response
     // can never arrive). Its pid comes from the hello frame every new
     // connection receives.
-    let probe = pa_types::platform::transport::connect_blocking(&socket).expect("daemon socket");
+    let probe = aa_types::platform::transport::connect_blocking(&socket).expect("daemon socket");
     let reader = probe.try_clone_box().expect("daemon socket clone");
     let _ = reader.set_read_timeout(Duration::from_mins(2));
     let hello = BufReader::new(reader)
@@ -1832,12 +1832,12 @@ fn acp_daemon_attached_image_only_prompt_reaches_the_session() {
 /// product behavior leaves it running; a test owns its sandbox).
 fn shutdown_sandboxed_daemon(socket: &std::path::Path) {
     use std::io::Write as _;
-    let Ok(mut stream) = pa_types::platform::transport::connect_blocking(socket) else {
+    let Ok(mut stream) = aa_types::platform::transport::connect_blocking(socket) else {
         return;
     };
     let frame = format!(
-            "{{\"type\":\"command\",\"id\":\"shutdown-test\",\"protocol\":{{\"name\":\"prime-agent.daemon\",\"version\":{}}},\"command\":{{\"type\":\"shutdown\"}}}}\n",
-            pa_types::daemon::DAEMON_PROTOCOL_VERSION
+            "{{\"type\":\"command\",\"id\":\"shutdown-test\",\"protocol\":{{\"name\":\"async-agent.daemon\",\"version\":{}}},\"command\":{{\"type\":\"shutdown\"}}}}\n",
+            aa_types::daemon::DAEMON_PROTOCOL_VERSION
         );
     let _ = stream.write_all(frame.as_bytes());
     let _ = stream.flush();
@@ -1870,11 +1870,11 @@ fn acp_compact_command_publishes_the_compaction_meta_and_end_turn() {
     let compaction = updates
         .iter()
         .find(|update| {
-            let meta = &update["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"];
+            let meta = &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"];
             meta.get("compaction").is_some_and(|value| !value.is_null())
         })
         .expect("a compaction meta frame");
-    let meta = &compaction["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"];
+    let meta = &compaction["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"];
     assert_eq!(
         meta["compaction"],
         json!({}),
@@ -1883,7 +1883,7 @@ fn acp_compact_command_publishes_the_compaction_meta_and_end_turn() {
     assert_eq!(meta["phase"], "event");
 
     let boundary = updates.iter().any(|update| {
-        let meta = &update["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"];
+        let meta = &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"];
         meta["phase"] == "responseBoundary" && meta["terminalQuiescenceExpected"] == true
     });
     assert!(boundary, "updates: {updates:?}");
@@ -1923,13 +1923,13 @@ fn acp_goal_command_publishes_goal_meta_and_runs_the_continuation() {
     let goal_frames: Vec<&Value> = updates
         .iter()
         .filter(|update| {
-            let meta = &update["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"];
+            let meta = &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"];
             meta.get("goal").is_some_and(|value| !value.is_null())
         })
         .collect();
     assert!(!goal_frames.is_empty(), "updates: {updates:?}");
     let first =
-        &goal_frames[0]["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"]["goal"];
+        &goal_frames[0]["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["goal"];
     assert_eq!(first["status"], "active");
     assert_eq!(first["objective"], "reply with exactly: GOAL-PROGRESS");
     assert_eq!(first["tokenBudget"], 5);
@@ -1938,7 +1938,7 @@ fn acp_goal_command_publishes_goal_meta_and_runs_the_continuation() {
     // steer segment runs.
     assert!(goal_frames.len() >= 2, "goal frames: {goal_frames:?}");
     let second =
-        &goal_frames[1]["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"]["goal"];
+        &goal_frames[1]["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["goal"];
     assert_eq!(second["status"], "budget_limited");
     assert!(second["tokensUsed"].as_u64().unwrap_or(0) > 0);
     // The steer's streamed answer is the second scripted response; the faux
@@ -1990,16 +1990,16 @@ fn acp_autonomous_token_limit_maps_to_max_tokens_stop_reason() {
     let completion = updates
         .iter()
         .find(|update| {
-            let meta = &update["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"];
+            let meta = &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"];
             meta["phase"] == "event" && meta.get("autonomous").is_some_and(|v| !v.is_null())
         })
         .expect("an autonomous completion meta");
     let autonomous =
-        &completion["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"]["autonomous"];
+        &completion["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["autonomous"];
     assert_eq!(autonomous["enabled"], true);
     assert_eq!(autonomous["turnsUsed"], 1);
     let quiescence =
-        &completion["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"]["quiescence"];
+        &completion["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["quiescence"];
     assert_eq!(quiescence["outstandingSubagents"], 0);
 
     assert_eq!(
@@ -2029,7 +2029,7 @@ fn acp_autonomous_disabled_reports_end_turn_without_accounting() {
     );
     let (prompt_response, updates) = client.wait_response(prompt, TIMEOUT);
     for update in &updates {
-        let meta = &update["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"];
+        let meta = &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"];
         assert!(
             meta.get("autonomous")
                 .is_none_or(serde_json::Value::is_null),
@@ -2162,7 +2162,7 @@ fn acp_daemon_attached_reports_autonomous_accounting_and_limit_stop_reason() {
     // The enabled accounting is already visible on the command turn's completion envelope.
     let enabled_meta = updates.iter().find_map(|update| {
         let meta =
-            &update["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"]["autonomous"];
+            &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["autonomous"];
         (!meta.is_null()).then(|| meta.clone())
     });
     let enabled_meta = enabled_meta.expect("the enabled run's accounting reached the surface");
@@ -2182,7 +2182,7 @@ fn acp_daemon_attached_reports_autonomous_accounting_and_limit_stop_reason() {
     );
     let accounted = updates.iter().find_map(|update| {
         let meta =
-            &update["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"]["autonomous"];
+            &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["autonomous"];
         (meta["enabled"] == json!(true) && meta["turnsUsed"] == json!(1)).then(|| meta.clone())
     });
     let accounted = accounted.expect("the limited turn's accounting reached the surface");
@@ -2191,7 +2191,7 @@ fn acp_daemon_attached_reports_autonomous_accounting_and_limit_stop_reason() {
     // unlimited sentinel (TS parseAutonomousCommand budget fill).
     let remaining = updates.iter().find_map(|update| {
         let quiescence =
-            &update["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"]["quiescence"];
+            &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]["quiescence"];
         (!quiescence.is_null()).then(|| quiescence["remainingAutonomousContinuations"].clone())
     });
     assert_eq!(
@@ -2209,10 +2209,10 @@ fn acp_daemon_attached_reports_autonomous_accounting_and_limit_stop_reason() {
 fn daemon_request(socket: &std::path::Path, id: &str, command: &Value) -> Value {
     use std::io::{BufRead as _, BufReader, Write as _};
     let mut writer =
-        pa_types::platform::transport::connect_blocking(socket).expect("daemon socket");
+        aa_types::platform::transport::connect_blocking(socket).expect("daemon socket");
     let reader = writer.try_clone_box().expect("daemon socket clone");
     let _ = reader.set_read_timeout(Duration::from_mins(2));
-    let protocol = json!({ "name": "prime-agent.daemon", "version": pa_types::daemon::DAEMON_PROTOCOL_VERSION });
+    let protocol = json!({ "name": "async-agent.daemon", "version": aa_types::daemon::DAEMON_PROTOCOL_VERSION });
     let frame = json!({ "type": "command", "id": id, "protocol": protocol, "command": command });
     writeln!(writer, "{frame}").expect("daemon frame");
     writer.flush().expect("daemon flush");
@@ -2285,7 +2285,7 @@ fn acp_daemon_attached_forwards_cli_session_options() {
 }
 
 /// Spawn with compaction settings written into the worker's agent dir
-/// (`<home>/.prime/agent`: the worker inherits the child's HOME).
+/// (`<home>/.async-agent`: the worker inherits the child's HOME).
 fn spawn_with_compaction_settings(
     args: &[&str],
     script: &serde_json::Value,
@@ -2293,9 +2293,9 @@ fn spawn_with_compaction_settings(
     keep_recent_tokens: u64,
 ) -> AcpChild {
     let home = tempfile::TempDir::new().unwrap();
-    std::fs::create_dir_all(home.path().join(".prime/agent")).expect("agent dir");
+    std::fs::create_dir_all(home.path().join(".async-agent")).expect("agent dir");
     std::fs::write(
-        home.path().join(".prime/agent/settings.json"),
+        home.path().join(".async-agent/settings.json"),
         json!({
             "compaction": {
                 "enabled": true,
@@ -2320,7 +2320,7 @@ fn compaction_metas(updates: &[Value]) -> Vec<Value> {
     updates
         .iter()
         .filter_map(|update| {
-            let meta = &update["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"];
+            let meta = &update["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"];
             Some(meta["compaction"].clone()).filter(|value| !value.is_null())
         })
         .collect()
@@ -2566,11 +2566,11 @@ fn acp_overflow_recovery_recovers_from_the_live_413_body() {
     assert_eq!(metas[0]["summary"], "the summary");
 }
 
-/// The kernel Bun binary; set `PA_E2E_KERNEL_BUN` / `PRIME_AGENT_KERNEL_BUN`
+/// The kernel Bun binary; set `PA_E2E_KERNEL_BUN` / `ASYNC_AGENT_KERNEL_BUN`
 /// to point at an explicit binary instead.
 fn kernel_bun() -> Option<std::path::PathBuf> {
     if let Some(explicit) =
-        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("PRIME_AGENT_KERNEL_BUN"))
+        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("ASYNC_AGENT_KERNEL_BUN"))
     {
         let explicit = std::path::PathBuf::from(explicit);
         assert!(
@@ -2603,9 +2603,9 @@ fn kernel_bun() -> Option<std::path::PathBuf> {
     None
 }
 
-/// The namespaced prime-agent payload of one session/update frame.
+/// The namespaced async-agent payload of one session/update frame.
 fn update_meta(frame: &Value) -> &Value {
-    &frame["params"]["update"]["_meta"]["ai.primeintellect.prime-agent"]
+    &frame["params"]["update"]["_meta"]["ai.asyncfunc.async-agent"]
 }
 
 /// The kernel cell of the spawn turn (the worker's
@@ -2966,7 +2966,7 @@ fn acp_user_bash_maps_to_a_synthetic_tool_call() {
     });
     assert_eq!(
         start["params"]["update"]["toolCallId"],
-        "prime-agent-bash-r1"
+        "async-agent-bash-r1"
     );
     assert_eq!(start["params"]["update"]["title"], "printf hi");
     assert_eq!(start["params"]["update"]["kind"], "execute");
@@ -2976,7 +2976,7 @@ fn acp_user_bash_maps_to_a_synthetic_tool_call() {
     );
     let output = client.wait_frame(TIMEOUT, |frame| {
         frame["params"]["update"]["sessionUpdate"] == "tool_call_update"
-            && frame["params"]["update"]["toolCallId"] == "prime-agent-bash-r1"
+            && frame["params"]["update"]["toolCallId"] == "async-agent-bash-r1"
             && frame["params"]["update"]["status"] == "in_progress"
     });
     assert_eq!(
@@ -2985,7 +2985,7 @@ fn acp_user_bash_maps_to_a_synthetic_tool_call() {
     );
     let end = client.wait_frame(TIMEOUT, |frame| {
         frame["params"]["update"]["sessionUpdate"] == "tool_call_update"
-            && frame["params"]["update"]["toolCallId"] == "prime-agent-bash-r1"
+            && frame["params"]["update"]["toolCallId"] == "async-agent-bash-r1"
             && frame["params"]["update"]["status"] == "completed"
     });
     assert!(end["params"]["update"].get("content").is_none(), "{end}");
@@ -3000,7 +3000,7 @@ fn acp_daemon_attached_close_stop_failure_fences_the_session() {
     );
     let session_id = initialize_and_new_session(&mut client);
     let probe =
-        pa_types::platform::transport::connect_blocking(&client.socket).expect("daemon socket");
+        aa_types::platform::transport::connect_blocking(&client.socket).expect("daemon socket");
     let reader = probe.try_clone_box().expect("daemon socket clone");
     let _ = reader.set_read_timeout(Duration::from_mins(2));
     let hello = BufReader::new(reader)
@@ -3048,7 +3048,7 @@ fn acp_daemon_attached_close_stop_failure_fences_the_session() {
     let (refused_response, _) = client.wait_response(refused, TIMEOUT);
     assert_eq!(
         refused_response["error"]["data"]["details"],
-        "prime-agent ACP mode hosts one session per connection; start another prime-agent process for a second session",
+        "async-agent ACP mode hosts one session per connection; start another async-agent process for a second session",
         "the close-failed session keeps the single-session slot: {refused_response}"
     );
 

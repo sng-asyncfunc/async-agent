@@ -8,14 +8,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 use serde_json::{json, Map, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
 
 use crate::protocol::current_protocol_info;
 use crate::worker::WorkerConfig;
-use pa_types::platform::transport::{
+use aa_types::platform::transport::{
     connect_transport, AsyncReadHalf, AsyncWriteHalf, TransportStream,
 };
 
@@ -317,7 +317,7 @@ fn debug_log(message: &str) {
 mod tests {
     use super::*;
     use crate::protocol::{DAEMON_PROTOCOL_NAME, DAEMON_PROTOCOL_VERSION};
-    use pa_types::platform::transport::{bind_transport, TransportStream};
+    use aa_types::platform::transport::{bind_transport, TransportStream};
 
     /// Only the supervisor's unknown-worker verdict is definitive: the
     /// transient failures stay retryable, and the loop's own
@@ -366,7 +366,7 @@ mod tests {
         let mut reader = BufReader::new(read_half);
         write_half
             .write_all(
-                b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"prime-agent.daemon\",\"version\":7}}\n",
+                b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"async-agent.daemon\",\"version\":7}}\n",
             )
             .await?;
         write_half.flush().await?;
@@ -544,7 +544,7 @@ mod tests {
                     let mut reader = BufReader::new(read_half);
                     write_half
                         .write_all(
-                            b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"prime-agent.daemon\",\"version\":7}}\n",
+                            b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"async-agent.daemon\",\"version\":7}}\n",
                         )
                         .await
                         .expect("hello");
@@ -603,7 +603,7 @@ mod tests {
         let mut reader = BufReader::new(reader);
         writer
             .write_all(
-                b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"prime-agent.daemon\",\"version\":7}}\n",
+                b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"async-agent.daemon\",\"version\":7}}\n",
             )
             .await
             .expect("hello");
@@ -642,7 +642,7 @@ mod tests {
         let mut reader = BufReader::new(reader);
         writer
             .write_all(
-                b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"prime-agent.daemon\",\"version\":7}}\n",
+                b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"async-agent.daemon\",\"version\":7}}\n",
             )
             .await
             .expect("hello");

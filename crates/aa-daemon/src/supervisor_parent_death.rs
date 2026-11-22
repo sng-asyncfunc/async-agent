@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use crate::backpressure::RouteAdmission;
 use crate::registry::ResidentWorker;
 use crate::supervisor::{Supervisor, ROUTE_TIMEOUT_MS};
-use pa_types::daemon::DaemonWorkerDescriptor;
+use aa_types::daemon::DaemonWorkerDescriptor;
 
 /// Retries for a child that could not be closed at death time (the kill route can
 /// arrive before the worker's socket exists).

@@ -62,7 +62,7 @@ fn normalize_at_prefix(file_path: &str) -> &str {
 
 /// Expand a leading `~` (and, on Windows, `~\\`) to the user's home directory.
 pub fn expand_path(file_path: &str) -> String {
-    let home = pa_types::platform::home_dir().map(|home| home.to_string_lossy().into_owned());
+    let home = aa_types::platform::home_dir().map(|home| home.to_string_lossy().into_owned());
     expand_path_platform(file_path, home.as_deref())
 }
 

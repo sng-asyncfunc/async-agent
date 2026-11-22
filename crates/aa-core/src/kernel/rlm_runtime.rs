@@ -4,7 +4,7 @@
 use serde_json::Value;
 
 /// Thinking levels the RLM surface accepts, matching the TS
-/// `THINKING_LEVELS`; the values live in `pa-types`.
+/// `THINKING_LEVELS`; the values live in `aa-types`.
 pub const THINKING_LEVELS: [&str; 7] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 const RLM_SUBAGENT_SESSION_NAME_MAX_LENGTH: usize = 64;

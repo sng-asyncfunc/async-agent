@@ -12,7 +12,7 @@ pub struct AgentEngineConfig {
     /// Requested thinking level from the process-level fallback; the
     /// create command (`--thinking`) overrides it via
     /// [`SessionEngine::configure_model`].
-    pub thinking: Option<pa_types::ai::ModelThinkingLevel>,
+    pub thinking: Option<aa_types::ai::ModelThinkingLevel>,
     /// Session persistence directory (JSONL sessions live under it).
     pub session_dir: Option<std::path::PathBuf>,
     /// Conversation-log path for the system prompt: the daemon worker
@@ -33,7 +33,7 @@ pub struct AgentEngineConfig {
     /// the kernel `rlm_heartbeat.*` host requests read and write, so
     /// agent-created heartbeats reach the catalog the `heartbeats_list`
     /// command reads. Enriched per build from the session identity.
-    pub cron_store: Option<pa_core::session_engine::runtime_wiring::KernelCronWiring>,
+    pub cron_store: Option<aa_core::session_engine::runtime_wiring::KernelCronWiring>,
     /// TS `_steeringStopPending` (the session's stop hooks): `true` while
     /// the steering lane holds a queued item, so the running turn stops at
     /// the next boundary and the steer delivers next (the follow-up lane
@@ -62,9 +62,9 @@ pub(crate) type AutonomousAdmission = std::sync::Arc<dyn Fn(String) + Send + Syn
 #[derive(Clone)]
 pub(crate) struct GoalRuntimeHandles {
     pub(crate) driver:
-        std::sync::Arc<tokio::sync::Mutex<pa_core::session_engine::goal_driver::GoalDriver>>,
+        std::sync::Arc<tokio::sync::Mutex<aa_core::session_engine::goal_driver::GoalDriver>>,
     pub(crate) session:
-        std::sync::Arc<tokio::sync::Mutex<pa_core::session::manager::SessionManager>>,
+        std::sync::Arc<tokio::sync::Mutex<aa_core::session::manager::SessionManager>>,
 }
 
 /// The session-model restore decision for one session file: the pinned
@@ -86,7 +86,7 @@ pub(crate) struct CreateSessionResources {
     pub(crate) append_system_prompt: Vec<String>,
     pub(crate) skills: Vec<String>,
     pub(crate) prompt_templates: Vec<String>,
-    pub(crate) autonomous: Option<pa_core::autonomous::AgentAutonomousConfig>,
+    pub(crate) autonomous: Option<aa_core::autonomous::AgentAutonomousConfig>,
     /// The creating client's mode (`interactive`, `acp`, ...) for the
     /// session's telemetry; absent reports `unknown` (TS parity).
     pub(crate) execution_mode: Option<String>,
@@ -97,7 +97,7 @@ pub(crate) struct CreateSessionResources {
 /// fresh session; a continuing session keeps its own model.
 #[derive(Clone, Default)]
 pub(super) struct StartupScope {
-    pub(super) scoped_models: Vec<pa_core::models::ScopedModel>,
+    pub(super) scoped_models: Vec<aa_core::models::ScopedModel>,
     pub(super) patterns: Vec<String>,
     pub(super) is_continuing: bool,
 }
@@ -106,13 +106,13 @@ pub(super) struct StartupScope {
 /// children registry's observation sites deliver per-origin batches
 /// through this sink.
 pub(super) struct ProducerUsageSink(
-    pub(super) std::sync::Arc<pa_core::session_engine::rlm_usage::RlmChildUsageAttributions>,
+    pub(super) std::sync::Arc<aa_core::session_engine::rlm_usage::RlmChildUsageAttributions>,
 );
 
-impl pa_core::session_engine::rlm_usage::RlmChildUsageSink for ProducerUsageSink {
+impl aa_core::session_engine::rlm_usage::RlmChildUsageSink for ProducerUsageSink {
     fn record(
         &self,
-        report: pa_core::session_engine::rlm_usage::RlmChildUsageReport,
+        report: aa_core::session_engine::rlm_usage::RlmChildUsageReport,
     ) -> std::pin::Pin<std::boxed::Box<dyn std::future::Future<Output = bool> + Send + '_>> {
         let producer = std::sync::Arc::clone(&self.0);
         Box::pin(async move { producer.record_child_usage(report).await })

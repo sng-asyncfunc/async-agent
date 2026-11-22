@@ -20,12 +20,12 @@ mod common;
 use std::path::Path;
 use std::sync::Arc;
 
-use pa_core::auth::{AuthStorage, NoOAuth};
-use pa_core::models::{
+use aa_core::auth::{AuthStorage, NoOAuth};
+use aa_core::models::{
     find_session_model_with_readiness_wait, install_catalog, startup_refresh, ModelRegistry,
     SESSION_MODEL_RESTORE_READINESS_TIMEOUT_MS,
 };
-use pa_models::ModelCatalog;
+use aa_models::ModelCatalog;
 use serde_json::{json, Value};
 
 /// A catalog-repo entry the compiled fallback provably lacks (asserted as
@@ -61,7 +61,7 @@ fn file_registry(agent_dir: &Path) -> ModelRegistry {
 
 fn prime_auth(api_key: &str, team_id: &str) -> AuthStorage {
     AuthStorage::in_memory_without_env(
-        &pa_core::auth::AuthStorageData(
+        &aa_core::auth::AuthStorageData(
             json!({
                 "prime-inference": {
                     "type": "api_key",
@@ -92,7 +92,7 @@ fn install_mock_catalog(agent_dir: &Path, bundled_dir: &Path, server: &common::M
 /// A layer-A (provider catalog) entry riding a compiled transport tuple
 /// (the pinning invariant keeps fetched entries to compiled transports).
 fn layer_a_entry(id: &str, input: f64) -> Value {
-    let compiled = pa_models::transports::compiled_models();
+    let compiled = aa_models::transports::compiled_models();
     assert!(
         !compiled.iter().any(|model| model.id == id),
         "the layer-A probe {id} is in the compiled catalog; pick another id"
@@ -115,7 +115,7 @@ fn layer_a_entry(id: &str, input: f64) -> Value {
 /// (`repriced_id` carries the marker price), a live-only public entry,
 /// and the private `internal/glm-5.3-fast` the compiled fallback lacks.
 fn pi_payload(repriced_id: &str, repriced_input: f64) -> String {
-    let compiled = pa_models::transports::prime_inference_offline_entries();
+    let compiled = aa_models::transports::prime_inference_offline_entries();
     let mut data: Vec<Value> = compiled
         .iter()
         .map(|model| {
@@ -280,13 +280,13 @@ async fn without_credentials_the_compiled_fallback_serves_unchanged() {
     install_mock_catalog(agent_dir.path(), bundled_dir.path(), &server);
 
     let auth = AuthStorage::in_memory_without_env(
-        &pa_core::auth::AuthStorageData(json!({}).as_object().cloned().unwrap_or_default()),
+        &aa_core::auth::AuthStorageData(json!({}).as_object().cloned().unwrap_or_default()),
         Arc::new(NoOAuth),
     );
     let mut registry = ModelRegistry::create(auth, agent_dir.path().join("models.json"));
     registry.refresh_available_models().await;
 
-    let compiled = pa_models::transports::prime_inference_offline_entries();
+    let compiled = aa_models::transports::prime_inference_offline_entries();
     let compiled_glm = compiled
         .iter()
         .find(|model| model.id == "z-ai/glm-5.3")
@@ -300,7 +300,7 @@ async fn without_credentials_the_compiled_fallback_serves_unchanged() {
     assert!(!all.iter().any(|model| model.id == LAYER_A_PROBE_ID));
     assert!(!all
         .iter()
-        .any(pa_core::models::is_private_prime_inference_model));
+        .any(aa_core::models::is_private_prime_inference_model));
 }
 
 #[tokio::test]
@@ -318,7 +318,7 @@ async fn layer_a_fetch_adds_entries_the_compiled_fallback_lacks() {
     install_mock_catalog(agent_dir.path(), bundled_dir.path(), &server);
 
     let auth = AuthStorage::in_memory_without_env(
-        &pa_core::auth::AuthStorageData(json!({}).as_object().cloned().unwrap_or_default()),
+        &aa_core::auth::AuthStorageData(json!({}).as_object().cloned().unwrap_or_default()),
         Arc::new(NoOAuth),
     );
     let mut registry = ModelRegistry::create(auth, agent_dir.path().join("models.json"));

@@ -1,5 +1,5 @@
 //! The first-run onboarding concern: the startup-model probe, the settings sink
-//! behind the pa-tui onboarding trait, and the startup task assembly.
+//! behind the aa-tui onboarding trait, and the startup task assembly.
 
 use super::{PathBuf, Result, RunOptions};
 
@@ -22,21 +22,21 @@ pub(super) struct StartupModelProbe {
 
 impl StartupModelProbe {
     /// The startup model, and whether it carries configured auth.
-    fn resolve(&self) -> (Option<pa_types::ai::Model>, bool) {
-        let settings = pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir);
-        let auth = pa_core::auth::AuthStorage::create(&self.agent_dir);
+    fn resolve(&self) -> (Option<aa_types::ai::Model>, bool) {
+        let settings = aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir);
+        let auth = aa_core::auth::AuthStorage::create(&self.agent_dir);
         let registry =
-            pa_core::models::ModelRegistry::create(auth, self.agent_dir.join("models.json"));
-        let all: Vec<pa_types::ai::Model> = registry.get_all().to_vec();
-        let available: Vec<pa_types::ai::Model> =
+            aa_core::models::ModelRegistry::create(auth, self.agent_dir.join("models.json"));
+        let all: Vec<aa_types::ai::Model> = registry.get_all().to_vec();
+        let available: Vec<aa_types::ai::Model> =
             registry.get_available().into_iter().cloned().collect();
         let scoped = self
             .models
             .as_deref()
-            .map(|patterns| pa_core::models::resolve_model_scope_from_models(patterns, &available))
+            .map(|patterns| aa_core::models::resolve_model_scope_from_models(patterns, &available))
             .unwrap_or_default();
         let startup_model =
-            pa_core::models::find_initial_model(&pa_core::models::InitialModelOptions {
+            aa_core::models::find_initial_model(&aa_core::models::InitialModelOptions {
                 cli_provider: self.cli_provider.as_deref(),
                 cli_model: self.cli_model.as_deref(),
                 scoped_models: &scoped,
@@ -57,13 +57,13 @@ impl StartupModelProbe {
     /// provider category and the credential source's auth category. A model the
     /// storage cannot explain is ready through a models.json key or `--api-key`.
     fn telemetry_categories(&self) -> (String, String) {
-        use pa_core::auth::AuthSource;
+        use aa_core::auth::AuthSource;
         let Some(model) = self.resolve().0 else {
             return ("none".to_string(), "unknown".to_string());
         };
         let provider_category =
-            pa_core::session_engine::telemetry::provider_category(Some(&model.provider));
-        let auth = pa_core::auth::AuthStorage::create(&self.agent_dir);
+            aa_core::session_engine::telemetry::provider_category(Some(&model.provider));
+        let auth = aa_core::auth::AuthStorage::create(&self.agent_dir);
         let status = auth.get_auth_status(&model.provider);
         let credential = auth.get_all().credential(&model.provider);
         let auth_category = match status.source {
@@ -86,7 +86,7 @@ impl StartupModelProbe {
                 if self.api_key.is_some() {
                     "runtime_api_key".to_string()
                 } else {
-                    let mut registry = pa_core::models::ModelRegistry::create(
+                    let mut registry = aa_core::models::ModelRegistry::create(
                         auth,
                         self.agent_dir.join("models.json"),
                     );
@@ -130,8 +130,8 @@ impl SettingsOnboardingSink {
     /// The `onboarding completed` properties (TS
     /// `captureOnboardingCompleted`): the auth and provider categories read
     /// the resolved startup model (`getCurrentModel` + its auth status).
-    fn completed_properties(&self, outcome: &str, duration_ms: u64) -> pa_telemetry::Properties {
-        let mut properties = pa_telemetry::base_properties("interactive");
+    fn completed_properties(&self, outcome: &str, duration_ms: u64) -> aa_telemetry::Properties {
+        let mut properties = aa_telemetry::base_properties("interactive");
         properties.set("duration_ms", serde_json::Value::from(duration_ms));
         properties.set("outcome", serde_json::Value::from(outcome));
         let (auth_category, provider_category) = self.probe.telemetry_categories();
@@ -149,7 +149,7 @@ impl SettingsOnboardingSink {
 
     /// Track `onboarding completed` with an unfinished `outcome` on a fresh
     /// client and return it, or `None` when nothing is reported.
-    pub(super) fn track_incomplete(&self, outcome: &str) -> Option<pa_telemetry::TelemetryClient> {
+    pub(super) fn track_incomplete(&self, outcome: &str) -> Option<aa_telemetry::TelemetryClient> {
         // A completed flow whose marker failed to persist already reported
         // its success.
         if self
@@ -158,11 +158,11 @@ impl SettingsOnboardingSink {
         {
             return None;
         }
-        let settings = pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir);
+        let settings = aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir);
         if crate::mode::telemetry_disabled(&settings) {
             return None;
         }
-        let client = pa_core::session_engine::telemetry::build_client(&settings, &self.agent_dir);
+        let client = aa_core::session_engine::telemetry::build_client(&settings, &self.agent_dir);
         let duration_ms = self.created_at.elapsed().as_millis() as u64;
         client.track(
             "onboarding completed",
@@ -172,24 +172,24 @@ impl SettingsOnboardingSink {
     }
 }
 
-impl pa_tui::interactive::OnboardingSink for SettingsOnboardingSink {
+impl aa_tui::interactive::OnboardingSink for SettingsOnboardingSink {
     fn onboarding_shown(&self) -> bool {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
             .get_onboarding_shown()
     }
 
     fn agent_traces_choice_written(&self) -> bool {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
             .agent_traces_choice_written()
     }
 
     fn set_agent_traces_enabled(&self, enabled: bool) -> Result<()> {
-        let mut settings = pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir);
+        let mut settings = aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir);
         settings.set_agent_traces_enabled(enabled)
     }
 
     fn mark_onboarding_complete(&self) -> Result<()> {
-        let mut settings = pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir);
+        let mut settings = aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir);
         settings.set_onboarding_shown(true)?;
         // `onboarding completed` (schema v1) with the success outcome: the
         // marker writes only on a completed flow. Best-effort like all
@@ -198,7 +198,7 @@ impl pa_tui::interactive::OnboardingSink for SettingsOnboardingSink {
             .store(true, std::sync::atomic::Ordering::SeqCst);
         if !crate::mode::telemetry_disabled(&settings) {
             let client =
-                pa_core::session_engine::telemetry::build_client(&settings, &self.agent_dir);
+                aa_core::session_engine::telemetry::build_client(&settings, &self.agent_dir);
             let duration_ms = self.created_at.elapsed().as_millis() as u64;
             client.track(
                 "onboarding completed",
@@ -217,7 +217,7 @@ impl pa_tui::interactive::OnboardingSink for SettingsOnboardingSink {
             {
                 self.ready_emitted
                     .store(true, std::sync::atomic::Ordering::SeqCst);
-                pa_telemetry::OnboardingStage {
+                aa_telemetry::OnboardingStage {
                     onboarding_id: self.onboarding_id.clone(),
                     stage: "ready",
                     outcome: "configured",
@@ -228,7 +228,7 @@ impl pa_tui::interactive::OnboardingSink for SettingsOnboardingSink {
                 }
                 .track(&client);
             }
-            pa_telemetry::OnboardingStage {
+            aa_telemetry::OnboardingStage {
                 onboarding_id: self.onboarding_id.clone(),
                 stage: "exit",
                 outcome: "completed",
@@ -265,13 +265,13 @@ impl pa_tui::interactive::OnboardingSink for SettingsOnboardingSink {
 /// signs in through.
 pub(super) fn onboarding_task(
     options: &RunOptions,
-    provider_auth: Option<pa_tui::provider_auth::ProviderAuthCommandsHandle>,
+    provider_auth: Option<aa_tui::provider_auth::ProviderAuthCommandsHandle>,
 ) -> (
-    Option<pa_tui::interactive::OnboardingTask>,
-    Vec<pa_telemetry::OnboardingStage>,
+    Option<aa_tui::interactive::OnboardingTask>,
+    Vec<aa_telemetry::OnboardingStage>,
 ) {
     let config = &options.config;
-    let settings = pa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
     if settings.get_onboarding_shown() {
         return (None, Vec::new());
     }
@@ -299,7 +299,7 @@ pub(super) fn onboarding_task(
     let pending_stages = if crate::mode::telemetry_disabled(&settings) {
         Vec::new()
     } else {
-        let mut stages = vec![pa_telemetry::OnboardingStage {
+        let mut stages = vec![aa_telemetry::OnboardingStage {
             onboarding_id: onboarding_id.clone(),
             stage: "entry",
             outcome: "initiated",
@@ -309,7 +309,7 @@ pub(super) fn onboarding_task(
             timing_scope: None,
         }];
         if mount_ready {
-            stages.push(pa_telemetry::OnboardingStage {
+            stages.push(aa_telemetry::OnboardingStage {
                 onboarding_id: onboarding_id.clone(),
                 stage: "ready",
                 outcome: "configured",
@@ -321,7 +321,7 @@ pub(super) fn onboarding_task(
         }
         stages
     };
-    let task = pa_tui::interactive::OnboardingTask {
+    let task = aa_tui::interactive::OnboardingTask {
         sink: std::sync::Arc::new(SettingsOnboardingSink {
             cwd: config.cwd.clone(),
             agent_dir: config.agent_dir.clone(),

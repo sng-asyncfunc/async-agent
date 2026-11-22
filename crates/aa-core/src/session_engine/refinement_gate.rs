@@ -1,6 +1,6 @@
 //! The live master switch and model-boundary filtering. Durable history is untouched.
 
-use pa_types::session::AgentMessage;
+use aa_types::session::AgentMessage;
 
 /// The single live policy read for scheduling, planning, apply, and context delivery.
 pub(crate) fn enabled(settings: Option<&crate::settings::SettingsManager>) -> bool {
@@ -45,7 +45,7 @@ pub(crate) fn without_refinements(messages: Vec<AgentMessage>) -> Vec<AgentMessa
 /// I/O runs off the async worker. Filtering precedes conversion while provenance is typed.
 pub(crate) fn convert_to_llm(
     settings: crate::settings::SettingsManager,
-) -> pa_agent::agent_loop::ConvertToLlmFn {
+) -> aa_agent::agent_loop::ConvertToLlmFn {
     let settings = std::sync::Arc::new(settings);
     std::sync::Arc::new(move |messages| {
         let settings = std::sync::Arc::clone(&settings);
@@ -57,7 +57,7 @@ pub(crate) fn convert_to_llm(
                 messages
                     .into_iter()
                     .filter_map(|message| match message {
-                        pa_agent::types::AgentMessage::Custom(custom) => {
+                        aa_agent::types::AgentMessage::Custom(custom) => {
                             let typed =
                                 serde_json::from_value(serde_json::to_value(custom).ok()?).ok()?;
                             without_refinements(vec![typed])
@@ -65,7 +65,7 @@ pub(crate) fn convert_to_llm(
                                 .next()
                                 .and_then(|row| super::session_message_to_loop(&row))
                         }
-                        message @ pa_agent::types::AgentMessage::Standard(_) => Some(message),
+                        message @ aa_agent::types::AgentMessage::Standard(_) => Some(message),
                     })
                     .collect()
             };
@@ -78,7 +78,7 @@ pub(crate) fn convert_to_llm(
 mod tests {
     use super::*;
     use crate::settings::SettingsManager;
-    use pa_types::ai::{UserContent, UserMessage};
+    use aa_types::ai::{UserContent, UserMessage};
 
     fn user(text: &str) -> AgentMessage {
         AgentMessage::User(UserMessage {
@@ -113,7 +113,7 @@ mod tests {
         let agent_dir = tmp.path().join("agent");
         let mut settings = SettingsManager::create(tmp.path(), &agent_dir);
         settings.set_harness_refinements(false).unwrap();
-        let model: pa_agent::types::Model = serde_json::from_value(serde_json::json!({
+        let model: aa_agent::types::Model = serde_json::from_value(serde_json::json!({
             "id":"m", "name":"m", "api":"test", "provider":"test", "baseUrl":"http://localhost",
             "reasoning":false, "cost":{"input":0,"output":0,"cacheRead":0,"cacheWrite":0},
             "contextWindow":10000, "maxTokens":100
@@ -138,7 +138,7 @@ mod tests {
                 manager.append_message(user("Continue my work")).unwrap();
             }
             let provider =
-                std::sync::Arc::new(pa_agent::scripted::ScriptedProvider::new(model.clone()));
+                std::sync::Arc::new(aa_agent::scripted::ScriptedProvider::new(model.clone()));
             let engine =
                 super::super::engine::create_session(super::super::engine::SessionEngineConfig {
                     cwd: tmp.path().to_path_buf(),
@@ -194,14 +194,14 @@ mod tests {
             // The history remains inspectable even though it is absent from model context.
             if resumed {
                 assert!(engine.session.entries().await.iter().any(|entry| matches!(entry,
-                    pa_types::session::FileEntry::CustomMessage { payload, .. } if payload.custom_type == "harness_digest")));
+                    aa_types::session::FileEntry::CustomMessage { payload, .. } if payload.custom_type == "harness_digest")));
             }
         }
     }
 
     #[test]
     fn disabled_context_removes_compaction_digest_but_keeps_the_summary() {
-        let summary = pa_types::session::CompactionSummaryMessage {
+        let summary = aa_types::session::CompactionSummaryMessage {
             summary: "Earlier decisions still apply".to_string(),
             tokens_before: 10,
             retained_message_count: None,

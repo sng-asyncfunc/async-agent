@@ -1,4 +1,4 @@
-# pa-daemon
+# aa-daemon
 
 Session supervision and wire serving.
 
@@ -11,7 +11,7 @@ wire-protocol serving is its area; the worker turn loop owns compaction
 arms, auto-refine, and goal continuation. The compact-trigger
 auto-refine scheduling owns its surface here (`compact_autorefine.rs`
 for the daemon worker: every compaction arm plus the manual `compact`
-command arm the pa-core trigger, and the quiescent turn boundaries /
+command arm the aa-core trigger, and the quiescent turn boundaries /
 the command path consume the gated review - TS
 `_scheduleAutoRefineAfterCompaction` plus the background
 `_maybeAutoRefine("compact")`).
@@ -78,7 +78,7 @@ files), so passivated children stay roster-visible (TS
 session scan (`session_store.rs`) folds each file once into the durable
 catalog row.
 Supervisor-backed RLM child sessions
-(`rlm_children.rs`, the daemon side of the pa-core `RlmSubagentHost` seam):
+(`rlm_children.rs`, the daemon side of the aa-core `RlmSubagentHost` seam):
 `rlm.spawn`/`rlm.create_session` create real daemon sessions through the
 worker's supervisor link - one supervised worker process per child - and the
 parent-side registry serves `rlm.list_subagents`/`rlm.collect`/
@@ -125,7 +125,7 @@ branch-navigation interrupt-and-settle waits, shutdown, kill, and the
 mirror), so an abort landing mid-provider-wait cancels the in-flight fetch
 immediately and the aborted turn settles on its zero-usage aborted message
 (the usage-accounting parity of the #238 adjacent gap 3 fix; the transport
-half is pa-core's provider-adapter cancellation token).
+half is aa-core's provider-adapter cancellation token).
 Queued-input suspension (TS `_sessionInputPumpSuspended`, the #227/#233
 ruling): `abort`/`abort_and_clear_queue`/manual
 `compact` suspend queued-input admission indefinitely; while suspended a
@@ -165,9 +165,9 @@ walk (and the live loop context) reads the full durable history instead
 of a fresh engine's empty branch skipping "Session is too short to
 compact". Platform wall
 (`platform`): per-OS endpoint naming and socket identity; the transport itself
-is the shared trait in `pa_types::platform::transport`, and the private-frame
+is the shared trait in `aa_types::platform::transport`, and the private-frame
 codec plus command planes are the shared wire contract in
-`pa_types::daemon` (clients in pa-tui/pa-cli speak them).
+`aa_types::daemon` (clients in aa-tui/aa-cli speak them).
 
 Live token-stream rendering
 (`streaming`): turn events forward from the hosted engine to the worker's
@@ -183,7 +183,7 @@ supervisor-routed).
 Autonomous
 continuation driving in the worker's engine: per-message usage accounting
 runs in the agent-loop subscription, and the in-run continuation hook
-(`autonomous_continuation.rs`) consults the pa-core `AutonomousDriver`
+(`autonomous_continuation.rs`) consults the aa-core `AutonomousDriver`
 policy at the agent loop's natural turn end (product default: shell
 quality gates in the session cwd; deterministic drivers injectable for
 eval harnesses) — continuations mint as durable user rows churned
@@ -222,7 +222,7 @@ supervisor resumes `Serving`, refused sessions untouched, stopped workers
 relaunched — never a kill), or the update exit when all workers stopped
 (descriptors survive for the new supervisor's create-or-adopt restore).
 The new supervisor's boot owns the update's restore side
-(`update_restore.rs`, spec §6): it consumes `PRIME_AGENT_UPDATE_ROSTER`
+(`update_restore.rs`, spec §6): it consumes `ASYNC_AGENT_UPDATE_ROSTER`
 from its spawn env before the unconditional scratch-dir sweep (this
 socket's `update-restarts/` subtree plus the TS-era legacy names — no
 liveness checks, no exceptions), then restores the roster rows bottom-up
@@ -244,14 +244,14 @@ to every client, so any heartbeat mutation anywhere in the daemon reaches
 attached UIs daemon-wide).
 
 ## Non-goals
-No agent behavior inside workers beyond hosting a pa-core engine; no UI.
+No agent behavior inside workers beyond hosting a aa-core engine; no UI.
 
 ## Public API
-Supervisor entrypoint, worker entrypoint, `mcp_login::{WorkerMcpLoginUi, wire_worker_mcp_login}` (the worker's browser+callback login behind `mcp.begin_login`; wired by the agent engine before sessions register host handlers), client connection API for pa-tui/pa-cli, `acp::daemon::{run_daemon_attached_acp_mode, DaemonAcpOptions}` (pa-cli dispatches `--mode acp` through it), `agent_messaging::LinkAgentMessageController` + `rlm_children::{SupervisorChildSessions, ParentIdentity, RlmChildIdentity}` (e2e verifiers construct the worker-side family controller and the children registry; the engine wires the same types), `agent_engine::AgentSessionEngine::dispose_kernel` (the session-end kernel teardown the worker invokes at kill/shutdown/orphan exit — the engine outlives the session, so the pa-core engine-drop teardown cannot run there), the worker's `get_mcp_connections` command (`mcp_connections.rs`: the `/mcp` view's roster from the session's MCP manager overlaid with the session kernel's per-server tool listing, plus the api-key credential rows the same response serves — Rust-native session-plane extension; the TS daemon has no counterpart). Supervision internals `pub(crate)`.
+Supervisor entrypoint, worker entrypoint, `mcp_login::{WorkerMcpLoginUi, wire_worker_mcp_login}` (the worker's browser+callback login behind `mcp.begin_login`; wired by the agent engine before sessions register host handlers), client connection API for aa-tui/aa-cli, `acp::daemon::{run_daemon_attached_acp_mode, DaemonAcpOptions}` (aa-cli dispatches `--mode acp` through it), `agent_messaging::LinkAgentMessageController` + `rlm_children::{SupervisorChildSessions, ParentIdentity, RlmChildIdentity}` (e2e verifiers construct the worker-side family controller and the children registry; the engine wires the same types), `agent_engine::AgentSessionEngine::dispose_kernel` (the session-end kernel teardown the worker invokes at kill/shutdown/orphan exit — the engine outlives the session, so the aa-core engine-drop teardown cannot run there), the worker's `get_mcp_connections` command (`mcp_connections.rs`: the `/mcp` view's roster from the session's MCP manager overlaid with the session kernel's per-server tool listing, plus the api-key credential rows the same response serves — Rust-native session-plane extension; the TS daemon has no counterpart). Supervision internals `pub(crate)`.
 
 
 ## Depends on
-pa-types, pa-core (one-way).
+aa-types, aa-core (one-way).
 
 The composition root initializes the packaged product version with
 `protocol::configure_app_version` before entering daemon or worker mode.

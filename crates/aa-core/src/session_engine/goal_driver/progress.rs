@@ -31,19 +31,19 @@ pub const GOAL_BACKOFF_WAKE_MARKER_TEXT: &str = "<goal_backoff_wake>\nThe goal c
 /// Whether the turn produced any output: an EMPTY content block list OR one
 /// whose every block is empty (the abort corpse's single empty text part).
 #[must_use]
-pub fn turn_produced_no_output(message: &pa_agent::types::AssistantMessage) -> bool {
+pub fn turn_produced_no_output(message: &aa_agent::types::AssistantMessage) -> bool {
     message.content.iter().all(|part| match part {
-        pa_agent::types::AssistantContent::Text(text) => text.text.is_empty(),
-        pa_agent::types::AssistantContent::Thinking(thinking) => thinking.thinking.is_empty(),
-        pa_agent::types::AssistantContent::ToolCall(_) => false,
+        aa_agent::types::AssistantContent::Text(text) => text.text.is_empty(),
+        aa_agent::types::AssistantContent::Thinking(thinking) => thinking.thinking.is_empty(),
+        aa_agent::types::AssistantContent::ToolCall(_) => false,
     })
 }
 
 /// The just-settled turn's provider-failure text on a terminal failure (stop
 /// reason `error`, a stream failure outside the quota-park class).
 #[must_use]
-pub fn terminal_provider_failure(message: &pa_agent::types::AssistantMessage) -> Option<String> {
-    if message.stop_reason != pa_agent::types::StopReason::Error {
+pub fn terminal_provider_failure(message: &aa_agent::types::AssistantMessage) -> Option<String> {
+    if message.stop_reason != aa_agent::types::StopReason::Error {
         return None;
     }
     // The diagnostic is consulted ONLY to exclude the quota-park
@@ -71,7 +71,7 @@ impl GoalDriver {
     pub(super) fn progress_gate(
         &mut self,
         session: &mut SessionManager,
-        turn: &pa_agent::types::AssistantMessage,
+        turn: &aa_agent::types::AssistantMessage,
     ) -> anyhow::Result<bool> {
         // Only a turn THIS goal's lifetime produced can judge it: a leftover
         // corpse from BEFORE the goal began must not finish the fresh goal.
@@ -92,7 +92,7 @@ impl GoalDriver {
             if let Some(error) = terminal_provider_failure(turn) {
                 self.finish_for_terminal_message(
                     session,
-                    pa_types::ai::StopReason::Error,
+                    aa_types::ai::StopReason::Error,
                     Some(&error),
                 )?;
                 return Ok(false);

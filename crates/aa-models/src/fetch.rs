@@ -7,11 +7,11 @@ use thiserror::Error;
 
 /// The provider model catalog aggregate (models side of the catalog repo).
 pub const MODEL_CATALOG_URL: &str =
-    "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent-catalog/main/models/catalog.v1.json";
+    "https://raw.githubusercontent.com/sng-asyncfunc/async-agent-catalog/main/models/catalog.v1.json";
 
 /// The MCP service catalog aggregate (plugins side of the catalog repo).
 pub const MCP_SERVICE_CATALOG_URL: &str =
-    "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent-catalog/main/plugins/catalog.v2.json";
+    "https://raw.githubusercontent.com/sng-asyncfunc/async-agent-catalog/main/plugins/catalog.v2.json";
 
 pub const FETCH_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -84,7 +84,7 @@ impl CatalogFetcher {
 
     fn client(&self) -> &reqwest::Client {
         self.client.get_or_init(|| {
-            pa_ai::utils::tls::http_client_builder()
+            aa_ai::utils::tls::http_client_builder()
                 // A moved catalog must be a client change, never a silent hop.
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
@@ -211,11 +211,11 @@ mod tests {
     fn catalog_urls_are_the_frozen_contract() {
         assert_eq!(
             MODEL_CATALOG_URL,
-            "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent-catalog/main/models/catalog.v1.json"
+            "https://raw.githubusercontent.com/sng-asyncfunc/async-agent-catalog/main/models/catalog.v1.json"
         );
         assert_eq!(
             MCP_SERVICE_CATALOG_URL,
-            "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent-catalog/main/plugins/catalog.v2.json"
+            "https://raw.githubusercontent.com/sng-asyncfunc/async-agent-catalog/main/plugins/catalog.v2.json"
         );
     }
 }

@@ -1,4 +1,4 @@
-//! The interaction-telemetry concern: the pa-tui interactive loop reports
+//! The interaction-telemetry concern: the aa-tui interactive loop reports
 //! through the `InteractionTelemetry` trait. Interactions only count into
 //! the session run's counters, which ride its one `tui exit` event. The
 //! standalone events remain their own (TS parity, plus upstream additions):
@@ -38,17 +38,17 @@ impl CliInteractionTelemetry {
         }
     }
 
-    fn settings(&self) -> pa_core::settings::SettingsManager {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+    fn settings(&self) -> aa_core::settings::SettingsManager {
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
     }
 
     /// A one-shot client, or `None` when telemetry is opted out.
-    fn client(&self) -> Option<pa_telemetry::TelemetryClient> {
+    fn client(&self) -> Option<aa_telemetry::TelemetryClient> {
         let settings = self.settings();
         if crate::mode::telemetry_disabled(&settings) {
             return None;
         }
-        Some(pa_core::session_engine::telemetry::build_client(
+        Some(aa_core::session_engine::telemetry::build_client(
             &settings,
             &self.agent_dir,
         ))
@@ -73,14 +73,14 @@ impl CliInteractionTelemetry {
     }
 }
 
-impl pa_tui::interactive::InteractionTelemetry for CliInteractionTelemetry {
+impl aa_tui::interactive::InteractionTelemetry for CliInteractionTelemetry {
     fn feature_outcome(
         &self,
         feature: &'static str,
         outcome: &'static str,
         _duration_ms: Option<u64>,
     ) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        if let Some(key) = pa_telemetry::feature_outcome_key(feature, outcome) {
+        if let Some(key) = aa_telemetry::feature_outcome_key(feature, outcome) {
             self.with(|counters| *counters.counts.entry(key).or_default() += 1);
         }
         Box::pin(std::future::ready(()))
@@ -93,7 +93,7 @@ impl pa_tui::interactive::InteractionTelemetry for CliInteractionTelemetry {
         _outcome: &'static str,
         duration_ms: u64,
     ) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        if let Some(prefix) = pa_telemetry::input_stage_key(stage) {
+        if let Some(prefix) = aa_telemetry::input_stage_key(stage) {
             self.with(|counters| {
                 *counters
                     .counts
@@ -163,7 +163,7 @@ impl pa_tui::interactive::InteractionTelemetry for CliInteractionTelemetry {
             let Some(client) = self.client() else {
                 return;
             };
-            let mut properties = pa_telemetry::base_properties("interactive");
+            let mut properties = aa_telemetry::base_properties("interactive");
             properties.set("bash_lines", serde_json::Value::from(bash_lines));
             properties.set("cell_lines", serde_json::Value::from(cell_lines));
             properties.set("count", serde_json::Value::from(count));
@@ -300,7 +300,7 @@ impl pa_tui::interactive::InteractionTelemetry for CliInteractionTelemetry {
             let Some(client) = self.client() else {
                 return;
             };
-            let mut properties = pa_telemetry::base_properties("interactive");
+            let mut properties = aa_telemetry::base_properties("interactive");
             properties.set("exit_reason", serde_json::Value::from(reason));
             properties.set("turn_active", serde_json::Value::from(turn_active));
             for (key, count) in &counters.counts {
@@ -322,7 +322,7 @@ impl pa_tui::interactive::InteractionTelemetry for CliInteractionTelemetry {
             let Some(client) = self.client() else {
                 return;
             };
-            let mut properties = pa_telemetry::base_properties("interactive");
+            let mut properties = aa_telemetry::base_properties("interactive");
             properties.set("command_name", serde_json::Value::from(command));
             client.track("agent command used", properties);
             let _ = client.shutdown().await;
@@ -332,7 +332,7 @@ impl pa_tui::interactive::InteractionTelemetry for CliInteractionTelemetry {
 
 #[cfg(test)]
 mod tests {
-    use pa_tui::interactive::InteractionTelemetry as _;
+    use aa_tui::interactive::InteractionTelemetry as _;
 
     use super::CliInteractionTelemetry;
 
@@ -348,7 +348,7 @@ mod tests {
     async fn count_interactions_while_off() {
         let dir = tempfile::TempDir::new().unwrap();
         let agent_dir = dir.path().join("agent");
-        pa_core::settings::SettingsManager::create(dir.path(), &agent_dir)
+        aa_core::settings::SettingsManager::create(dir.path(), &agent_dir)
             .set_telemetry_enabled(false)
             .unwrap();
         let telemetry = CliInteractionTelemetry::new(dir.path().to_path_buf(), agent_dir);
@@ -362,7 +362,7 @@ mod tests {
             assert!(counters.counts.is_empty());
             assert!(counters.flags.is_empty());
         }
-        pa_core::settings::SettingsManager::create(dir.path(), dir.path().join("agent"))
+        aa_core::settings::SettingsManager::create(dir.path(), dir.path().join("agent"))
             .set_telemetry_enabled(true)
             .unwrap();
         telemetry.scroll_used("page", false).await;

@@ -7,9 +7,9 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use pa_agent::agent::Agent;
-use pa_agent::types::AgentMessage;
-use pa_types::session::CustomMessage;
+use aa_agent::agent::Agent;
+use aa_agent::types::AgentMessage;
+use aa_types::session::CustomMessage;
 
 use crate::kernel::provisioner::JavaScriptKernelProvisioner;
 use crate::session::manager::SessionManager;
@@ -181,7 +181,7 @@ Your Bun JavaScript kernel persisted through compaction; its remaining variables
 pub fn notice_message(content: String) -> CustomMessage {
     CustomMessage {
         custom_type: JAVASCRIPT_STATE_CUSTOM_TYPE.to_string(),
-        content: pa_types::ai::UserContent::Text(content),
+        content: aa_types::ai::UserContent::Text(content),
         display: false,
         details: None,
         timestamp: now_millis(),
@@ -257,7 +257,7 @@ pub async fn sync_after_compaction(
         )?;
     }
     let Some(loop_message) = crate::session_engine::session_message_to_loop(
-        &pa_types::session::AgentMessage::Custom(row.clone()),
+        &aa_types::session::AgentMessage::Custom(row.clone()),
     ) else {
         return Ok(Some(row));
     };
@@ -273,8 +273,8 @@ pub async fn sync_after_compaction(
     });
     let insert_before_error = matches!(
         messages.last(),
-        Some(AgentMessage::Standard(pa_agent::types::Message::Assistant(assistant)))
-            if assistant.stop_reason == pa_agent::types::StopReason::Error
+        Some(AgentMessage::Standard(aa_agent::types::Message::Assistant(assistant)))
+            if assistant.stop_reason == aa_agent::types::StopReason::Error
     );
     if insert_before_error {
         messages.insert(messages.len() - 1, loop_message);
@@ -288,7 +288,7 @@ pub async fn sync_after_compaction(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::session::AgentMessage as SessionAgentMessage;
+    use aa_types::session::AgentMessage as SessionAgentMessage;
 
     /// A scripted kernel probe.
     struct ScriptedProbe {
@@ -439,22 +439,22 @@ mod tests {
 
     use crate::session_engine::compact_session::{CompactOutcome, CompactSkip};
     use crate::session_engine::AgentSession;
-    use pa_agent::agent::AgentOptions;
-    use pa_types::ai::UserContent;
-    use pa_types::session::FileEntry;
+    use aa_agent::agent::AgentOptions;
+    use aa_types::ai::UserContent;
+    use aa_types::session::FileEntry;
 
     /// The faux provider with scripted summarizer responses. The faux seam
     /// is process-global, so every registration unregisters on drop.
     fn faux_registration(
-        responses: Vec<pa_ai::faux::FauxResponseStep>,
-    ) -> pa_ai::faux::FauxProviderRegistration {
+        responses: Vec<aa_ai::faux::FauxResponseStep>,
+    ) -> aa_ai::faux::FauxProviderRegistration {
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
-                models: Some(vec![pa_ai::faux::FauxModelDefinition {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
+                models: Some(vec![aa_ai::faux::FauxModelDefinition {
                     id: "ipython-state-m".to_string(),
                     name: Some("Notice Model".to_string()),
                     reasoning: Some(false),
-                    input: Some(vec![pa_types::ai::ModelInput::Text]),
+                    input: Some(vec![aa_types::ai::ModelInput::Text]),
                     cost: None,
                     context_window: Some(100_000),
                     max_tokens: Some(256),
@@ -470,27 +470,27 @@ mod tests {
     fn recording_step(
         seen: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
         response: &'static str,
-    ) -> pa_ai::faux::FauxResponseStep {
-        pa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
-            move |context: &pa_types::ai::Context,
-                  _options: Option<&pa_ai::types::StreamOptions>,
+    ) -> aa_ai::faux::FauxResponseStep {
+        aa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
+            move |context: &aa_types::ai::Context,
+                  _options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  _model: &pa_types::ai::Model| {
+                  _model: &aa_types::ai::Model| {
                 let text = match &context.messages[0] {
-                    pa_types::ai::Message::User(user) => user.content.text(),
+                    aa_types::ai::Message::User(user) => user.content.text(),
                     _ => panic!("expected a user request"),
                 };
                 seen.lock().unwrap().push(text);
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     response,
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ))
     }
 
     fn user_turn(text: &str) -> SessionAgentMessage {
-        SessionAgentMessage::User(pa_types::ai::UserMessage {
+        SessionAgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -518,17 +518,17 @@ mod tests {
 
     async fn compact_once(
         engine: &AgentSession,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
     ) -> anyhow::Result<CompactOutcome> {
         engine.compact(None, model, None, None).await
     }
 
     #[tokio::test]
     async fn compaction_with_a_running_kernel_appends_the_notice_after_the_entry() {
-        let registration = faux_registration(vec![pa_ai::faux::FauxResponseStep::Message(
-            pa_ai::faux::faux_assistant_text_message(
+        let registration = faux_registration(vec![aa_ai::faux::FauxResponseStep::Message(
+            aa_ai::faux::faux_assistant_text_message(
                 "the compaction summary",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ),
         )]);
         let model = registration.get_model();
@@ -663,9 +663,9 @@ mod tests {
     async fn repeated_compaction_keeps_one_notice_in_context() {
         let summaries = (0..4)
             .map(|_| {
-                pa_ai::faux::FauxResponseStep::Message(pa_ai::faux::faux_assistant_text_message(
+                aa_ai::faux::FauxResponseStep::Message(aa_ai::faux::faux_assistant_text_message(
                     "the compaction summary",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             })
             .collect();
@@ -750,10 +750,10 @@ mod tests {
 
     #[tokio::test]
     async fn back_to_back_compact_without_a_kernel_still_skips() {
-        let registration = faux_registration(vec![pa_ai::faux::FauxResponseStep::Message(
-            pa_ai::faux::faux_assistant_text_message(
+        let registration = faux_registration(vec![aa_ai::faux::FauxResponseStep::Message(
+            aa_ai::faux::faux_assistant_text_message(
                 "the compaction summary",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ),
         )]);
         let model = registration.get_model();

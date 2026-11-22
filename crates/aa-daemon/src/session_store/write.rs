@@ -38,10 +38,10 @@ impl SessionFile {
         }
         match &self.lease {
             Some(lease) => lease.append(&self.path, &bytes)?,
-            None => pa_core::session::window::append_cached(
+            None => aa_core::session::window::append_cached(
                 &self.path,
                 &bytes,
-                pa_core::session::window::AppendOwnership::Unleased,
+                aa_core::session::window::AppendOwnership::Unleased,
             )?,
         }
         if let Some(traces) = &self.trace_upload {
@@ -129,7 +129,7 @@ impl SessionFile {
         {
             let mut options = fs::OpenOptions::new();
             options.create(true).write(true).truncate(true);
-            pa_core::platform::perms::set_private_mode(&mut options);
+            aa_core::platform::perms::set_private_mode(&mut options);
             let file = options
                 .open(&temp)
                 .with_context(|| format!("create {}", temp.display()))?;
@@ -141,7 +141,7 @@ impl SessionFile {
             writer.flush()?;
             writer.get_ref().sync_all()?;
         }
-        pa_core::platform::rename_onto(&temp, path)
+        aa_core::platform::rename_onto(&temp, path)
             .with_context(|| format!("persist {}", path.display()))?;
         if let Some(traces) = &self.trace_upload {
             traces.persisted(&self.path);
@@ -164,7 +164,7 @@ impl SessionFile {
     /// Durably mark that this session has drawn the Anthropic subscription
     /// ban-risk warning (the once-per-session-lifecycle gate, operator
     /// directive 2026-09-29): append the
-    /// [`pa_core::session::ANTHROPIC_WARNING_SHOWN_CUSTOM_TYPE`] custom row
+    /// [`aa_core::session::ANTHROPIC_WARNING_SHOWN_CUSTOM_TYPE`] custom row
     /// and arm the in-memory flag, so a reattach, a resume, or a worker
     /// replacement rebuild reads the row and the gate holds.
     ///
@@ -177,7 +177,7 @@ impl SessionFile {
         self.persist_entry(
             "custom",
             json!({
-                "customType": pa_core::session::ANTHROPIC_WARNING_SHOWN_CUSTOM_TYPE,
+                "customType": aa_core::session::ANTHROPIC_WARNING_SHOWN_CUSTOM_TYPE,
                 "data": { "shown": true },
             }),
         )?;
@@ -258,10 +258,10 @@ impl SessionFile {
             }
             match &self.lease {
                 Some(lease) => lease.append(&self.path, &bytes)?,
-                None => pa_core::session::window::append_cached(
+                None => aa_core::session::window::append_cached(
                     &self.path,
                     &bytes,
-                    pa_core::session::window::AppendOwnership::Unleased,
+                    aa_core::session::window::AppendOwnership::Unleased,
                 )
                 .with_context(|| format!("append to {}", self.path.display()))?,
             }

@@ -289,7 +289,7 @@ impl SessionUi {
                 }),
                 _ => view.push_entry(crate::chat::ChatEntry::Status {
                     text: format!(
-                        "Reconnected to Prime Agent (update {update_id}) — your session and queued work resumed."
+                        "Reconnected to Async Agent (update {update_id}) — your session and queued work resumed."
                     ),
                     kind: crate::chat::StatusKind::Info,
                 }),
@@ -342,7 +342,7 @@ impl SessionUi {
         // tip shape).
         let client_env = {
             let env =
-                pa_types::daemon::herdr_env::collect_client_env(|key| std::env::var(key).ok());
+                aa_types::daemon::herdr_env::collect_client_env(|key| std::env::var(key).ok());
             (!env.is_empty()).then_some(env)
         };
         let attach_command = |session_id: &str| DaemonCommand::Attach {
@@ -528,7 +528,7 @@ impl SessionUi {
         self.bind_prompt_stash_session(&stash_session_id);
         // The attach fold's wire frame and decoded tree drop here: return their freed heap to the
         // OS instead of keeping the load's peak resident for the TUI's lifetime.
-        pa_types::memory_release::trim_freed_heap();
+        aa_types::memory_release::trim_freed_heap();
         // The rebuild's first frame materializes the visible window; arm the
         // post-frame trim so its wrap/render churn returns too.
         self.trim_after_frame = true;
@@ -836,7 +836,7 @@ mod backfill_tests {
         let server = tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
             let (read, mut write) = stream.into_split();
-            write.write_all(b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"prime-agent.daemon\",\"version\":7},\"serverCapabilities\":[],\"clientId\":\"mock\"}\n").await.unwrap();
+            write.write_all(b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"async-agent.daemon\",\"version\":7},\"serverCapabilities\":[],\"clientId\":\"mock\"}\n").await.unwrap();
             let mut lines = BufReader::new(read).lines();
             while let Some(line) = lines.next_line().await.unwrap() {
                 let request: Value = serde_json::from_str(&line).unwrap();
@@ -903,7 +903,7 @@ mod backfill_tests {
             let socket = dir.path().join("panel.sock");
             let (mut session, server) = mock_session(&socket, mpsc::unbounded_channel().0).await;
             let mut view = AgentView::new(crate::theme::Theme::builtin(
-                "prime",
+                "async",
                 crate::theme::ColorMode::TrueColor,
             ));
             session.open_agents_view_panel(
@@ -945,7 +945,7 @@ mod backfill_tests {
             ]});
             for preloaded in [true, false] {
                 let theme =
-                    || crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+                    || crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
                 let mut view = AgentView::new(theme());
                 session.bash_activities = if preloaded {
                     shells.clone()
@@ -1027,7 +1027,7 @@ mod backfill_tests {
         let server = tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
             let (read, mut write) = stream.into_split();
-            write.write_all(b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"prime-agent.daemon\",\"version\":7},\"serverCapabilities\":[],\"clientId\":\"mock\"}\n").await.unwrap();
+            write.write_all(b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"async-agent.daemon\",\"version\":7},\"serverCapabilities\":[],\"clientId\":\"mock\"}\n").await.unwrap();
             let mut lines = BufReader::new(read).lines();
             while let Some(line) = lines.next_line().await.unwrap() {
                 let request: Value = serde_json::from_str(&line).unwrap();
@@ -1085,7 +1085,7 @@ mod backfill_tests {
         .await
         .unwrap();
         let mut view = AgentView::new(crate::theme::Theme::builtin(
-            "prime",
+            "async",
             crate::theme::ColorMode::TrueColor,
         ));
         session.rebuild_view(&mut view, &RebuildKind::Rebind);

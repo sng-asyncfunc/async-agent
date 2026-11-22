@@ -106,7 +106,7 @@ pub fn parse_line(line: &str) -> ParsedLine {
 
 /// The image attachment of a prompt-family command (TS `ImageContent`: `{type: "image", data,
 /// mimeType}`); entries without payload data or a mime type are dropped, not failed.
-pub fn command_images(payload: &Value) -> Vec<pa_agent::types::ImageContent> {
+pub fn command_images(payload: &Value) -> Vec<aa_agent::types::ImageContent> {
     let Some(images) = payload.get("images").and_then(Value::as_array) else {
         return Vec::new();
     };
@@ -118,7 +118,7 @@ pub fn command_images(payload: &Value) -> Vec<pa_agent::types::ImageContent> {
             }
             let data = image.get("data").and_then(Value::as_str)?;
             let mime_type = image.get("mimeType").and_then(Value::as_str)?;
-            Some(pa_agent::types::ImageContent {
+            Some(aa_agent::types::ImageContent {
                 data: data.to_string(),
                 mime_type: mime_type.to_string(),
             })
@@ -129,10 +129,10 @@ pub fn command_images(payload: &Value) -> Vec<pa_agent::types::ImageContent> {
 /// The `streamingBehavior` of a prompt command: `"steer"` or `"followUp"`.
 pub fn command_streaming_behavior(
     payload: &Value,
-) -> Option<pa_core::session_engine::StreamingBehavior> {
+) -> Option<aa_core::session_engine::StreamingBehavior> {
     match payload.get("streamingBehavior").and_then(Value::as_str) {
-        Some("steer") => Some(pa_core::session_engine::StreamingBehavior::Steer),
-        Some("followUp") => Some(pa_core::session_engine::StreamingBehavior::FollowUp),
+        Some("steer") => Some(aa_core::session_engine::StreamingBehavior::Steer),
+        Some("followUp") => Some(aa_core::session_engine::StreamingBehavior::FollowUp),
         _ => None,
     }
 }
@@ -200,7 +200,7 @@ mod tests {
         assert_eq!(command.command, "prompt");
         assert_eq!(
             command_streaming_behavior(&command.payload),
-            Some(pa_core::session_engine::StreamingBehavior::Steer)
+            Some(aa_core::session_engine::StreamingBehavior::Steer)
         );
     }
 }

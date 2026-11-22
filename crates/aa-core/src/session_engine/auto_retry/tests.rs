@@ -2,7 +2,7 @@
 //! park seam, and the stream-drop retry pins.
 use super::super::provider_retry::UNBOUNDED_BACKOFF_MS;
 use super::*;
-use pa_agent::types::{AssistantContent, AssistantMessageDiagnostic, TextContent, Usage};
+use aa_agent::types::{AssistantContent, AssistantMessageDiagnostic, TextContent, Usage};
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -729,7 +729,7 @@ async fn cancelled_wait_aborts_with_retry_cancelled() {
 
 #[tokio::test]
 async fn aborted_signal_racing_failure_stops_aborted() {
-    let controller = pa_agent::abort::AbortController::new();
+    let controller = aa_agent::abort::AbortController::new();
     let events = Arc::new(Mutex::new(Vec::new()));
     let message = run_turn_with_auto_retry(
         &fast_policy(),

@@ -1,5 +1,5 @@
 //! The compiled transport table.
-//! `pa_ai::models_generated` is the hand-maintained table of transports
+//! `aa_ai::models_generated` is the hand-maintained table of transports
 //! the client implements; it only changes with a client release — the
 //! catalog can select among these but never introduce one.
 
@@ -12,9 +12,9 @@ use crate::Model;
 #[must_use]
 pub fn compiled_models() -> &'static [Model] {
     static COMPILED: LazyLock<Vec<Model>> = LazyLock::new(|| {
-        let mut models: Vec<Model> = pa_ai::models_generated::get_providers()
+        let mut models: Vec<Model> = aa_ai::models_generated::get_providers()
             .into_iter()
-            .flat_map(pa_ai::models_generated::get_models)
+            .flat_map(aa_ai::models_generated::get_models)
             .cloned()
             .collect();
         models.shrink_to_fit();

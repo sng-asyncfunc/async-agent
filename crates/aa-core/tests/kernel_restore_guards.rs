@@ -17,13 +17,13 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use pa_core::kernel::bootstrap::build_rlm_bootstrap_code;
-use pa_core::kernel::manager::{KernelStartOptions, ReplKernelManager};
-use pa_core::kernel::shared::{
+use aa_core::kernel::bootstrap::build_rlm_bootstrap_code;
+use aa_core::kernel::manager::{KernelStartOptions, ReplKernelManager};
+use aa_core::kernel::shared::{
     ExecuteOptions, ExecuteStatus, HostRequestHandlers, KernelManagerOptions,
     KernelShutdownOptions, KernelSnapshotConfig,
 };
-use pa_core::kernel::state_snapshot::{manifest_path_in, snapshot_path_in};
+use aa_core::kernel::state_snapshot::{manifest_path_in, snapshot_path_in};
 
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) = std::env::var_os("PA_CORE_KERNEL_BUN") {
@@ -35,20 +35,20 @@ fn kernel_bun() -> Option<PathBuf> {
         );
         return Some(explicit);
     }
-    let runtime_ready = pa_core::kernel::bootstrap::kernel_worker_entry(
-        &pa_core::kernel::bootstrap::kernel_bun_dir(),
+    let runtime_ready = aa_core::kernel::bootstrap::kernel_worker_entry(
+        &aa_core::kernel::bootstrap::kernel_bun_dir(),
     )
     .is_file()
         || Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(2)
-            .is_some_and(|root| root.join("prime-agent-runtime/src/repl.ts").is_file());
+            .is_some_and(|root| root.join("async-agent-runtime/src/repl.ts").is_file());
     if !runtime_ready {
-        eprintln!("prime-agent-runtime/src/repl.ts not found; skipping live restore test");
+        eprintln!("async-agent-runtime/src/repl.ts not found; skipping live restore test");
         return None;
     }
     for candidate in [
-        std::env::var_os("PRIME_AGENT_KERNEL_BUN").map(PathBuf::from),
+        std::env::var_os("ASYNC_AGENT_KERNEL_BUN").map(PathBuf::from),
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".bun/bin/bun")),
         Some(PathBuf::from("/usr/local/bin/bun")),
         Some(PathBuf::from("/usr/bin/bun")),
@@ -96,7 +96,7 @@ fn test_options(
 async fn execute(
     manager: &ReplKernelManager,
     code: &str,
-) -> pa_core::kernel::shared::ExecuteResult {
+) -> aa_core::kernel::shared::ExecuteResult {
     let result = manager
         .execute(code, ExecuteOptions::default())
         .await

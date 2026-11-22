@@ -1,11 +1,12 @@
-//! The Prime Intellect analytics sink (the default product sink).
+//! Opt-in HTTP analytics sink.
 //!
-//! Wire format is the TS product's (`core/telemetry.ts` `TelemetryClient`):
-//! `POST <endpoint>` with `{"installation_id", "events": [{"id", "name",
-//! "timestamp", "properties"}]}`, `content-type: application/json`,
-//! `user-agent: prime-agent/<version>`, no credentials. The platform backend
-//! forwards each event to `PostHog` with `distinct_id = installation_id`
-//! and `uuid = id`, so Rust and TS installs count as the same users.
+//! Disabled by default: remote delivery only occurs when an explicit endpoint is
+//! configured via [`TELEMETRY_ENDPOINT_ENV`] (`ASYNC_AGENT_TELEMETRY_ENDPOINT`)
+//! or passed directly to [`AnalyticsSink::new`] in tests.
+//!
+//! Wire format: `POST <endpoint>` with `{"installation_id", "events": [{"id",
+//! "name", "timestamp", "properties"}]}`, `content-type: application/json`,
+//! `user-agent: async-agent/<version>`, no credentials.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -16,17 +17,32 @@ use serde_json::{json, Value};
 use crate::event::TelemetryEvent;
 use crate::sink::{SinkOutcome, TelemetrySink};
 
-/// The TS product's endpoint: the one destination for product telemetry.
-pub const ANALYTICS_ENDPOINT: &str = "https://api.primeintellect.ai/api/v1/agent-analytics/events";
+/// Environment variable that opts into a remote telemetry endpoint.
+/// Unset or blank means telemetry stays local/no-op (no remote phone-home).
+pub const TELEMETRY_ENDPOINT_ENV: &str = "ASYNC_AGENT_TELEMETRY_ENDPOINT";
 
-/// TS parity: requests time out after 1.5s so telemetry never holds the agent.
+/// Parse a raw endpoint override value: empty/whitespace strings mean disabled.
+#[must_use]
+pub fn parse_endpoint(raw: Option<&str>) -> Option<String> {
+    raw.map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+/// Resolve the configured remote telemetry endpoint from [`TELEMETRY_ENDPOINT_ENV`].
+/// Returns `None` by default so Async Agent never phones home unless explicitly configured.
+#[must_use]
+pub fn configured_endpoint() -> Option<String> {
+    parse_endpoint(std::env::var(TELEMETRY_ENDPOINT_ENV).ok().as_deref())
+}
+
+/// Requests time out after 1.5s so telemetry never holds the agent.
 pub const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_millis(1500);
 
-/// Batches to the analytics endpoint. Best-effort: a transport error,
-/// timeout, non-2xx status, or a 2xx that accepted nothing (the backend
-/// answers `{"accepted": 0}` when its `PostHog` delivery failed) reports
-/// [`SinkOutcome::Dropped`], and the client's bounded retry re-sends the
-/// same event ids.
+/// Batches to a configured analytics endpoint. Best-effort: a transport error,
+/// timeout, non-2xx status, or a 2xx that accepted nothing (`{"accepted": 0}`)
+/// reports [`SinkOutcome::Dropped`], and the client's bounded retry re-sends
+/// the same event ids.
 #[derive(Clone)]
 pub struct AnalyticsSink {
     http: reqwest::Client,
@@ -34,8 +50,7 @@ pub struct AnalyticsSink {
 }
 
 impl AnalyticsSink {
-    /// Sink posting to `endpoint` (the product passes [`ANALYTICS_ENDPOINT`];
-    /// tests pass a local stub) with the TS-parity 1.5s request timeout.
+    /// Sink posting to `endpoint` with the 1.5s request timeout.
     #[must_use]
     pub fn new(endpoint: impl Into<String>) -> Self {
         Self::with_timeout(endpoint, DEFAULT_REQUEST_TIMEOUT)
@@ -51,8 +66,8 @@ impl AnalyticsSink {
         Self::with_timeout_and_builder(endpoint, timeout, reqwest::Client::builder())
     }
 
-    /// Sink using the caller's HTTP trust configuration and the TS-parity
-    /// 1.5s request timeout. Product composition supplies its extra CA roots.
+    /// Sink using the caller's HTTP trust configuration and the 1.5s request
+    /// timeout. Product composition supplies its extra CA roots.
     ///
     /// # Panics
     ///
@@ -104,7 +119,7 @@ impl TelemetrySink for AnalyticsSink {
                 .http
                 .post(&self.endpoint)
                 .header("content-type", "application/json")
-                .header("user-agent", format!("prime-agent/{}", crate::version()))
+                .header("user-agent", format!("async-agent/{}", crate::version()))
                 .json(&Self::batch_body(install_id, &events))
                 .send()
                 .await;
@@ -139,5 +154,21 @@ impl TelemetrySink for AnalyticsSink {
                 }
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_endpoint_defaults_to_none_and_trims_explicit_values() {
+        assert_eq!(parse_endpoint(None), None);
+        assert_eq!(parse_endpoint(Some("")), None);
+        assert_eq!(parse_endpoint(Some("   \t\n ")), None);
+        assert_eq!(
+            parse_endpoint(Some(" https://telemetry.example.com/v1/events ")),
+            Some("https://telemetry.example.com/v1/events".to_string())
+        );
     }
 }

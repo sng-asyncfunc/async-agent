@@ -5,7 +5,7 @@ use super::*;
 use serde_json::json;
 
 fn temp_dir() -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("pa-daemon-test-{}", uuid::Uuid::new_v4()));
+    let dir = std::env::temp_dir().join(format!("aa-daemon-test-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -39,7 +39,7 @@ fn rewrite_keeps_the_transcript_owner_only() {
     let path = dir.join(session_file_name(session.session_id()));
     session.set_path(path.clone());
     session.rewrite().unwrap();
-    let mode = pa_core::platform::perms::file_mode(&path).unwrap();
+    let mode = aa_core::platform::perms::file_mode(&path).unwrap();
     assert_eq!(mode & 0o077, 0, "transcript mode {mode:o}");
 }
 
@@ -253,13 +253,13 @@ fn the_depth_two_chain_reports_the_folded_aggregate() {
     assert_eq!(next, store.entries().len(), "the walk consumes the file");
     let spawn = batches
         .iter()
-        .find(|(origin, _)| matches!(origin, pa_types::session::ChildUsageOrigin::SpawnTask))
+        .find(|(origin, _)| matches!(origin, aa_types::session::ChildUsageOrigin::SpawnTask))
         .expect("the spawning turn's batch");
     assert_eq!(
         spawn.1.input, 1_500,
         "the folded aggregate rides the report"
     );
-    assert_eq!(spawn.1.cost.total, pa_types::JsNumber(0.15));
+    assert_eq!(spawn.1.cost.total, aa_types::JsNumber(0.15));
 }
 
 /// The Anthropic subscription warning's once-per-session-lifecycle gate
@@ -884,13 +884,13 @@ fn skips_malformed_lines() {
 /// tokensBefore, details, fromHook, customInstructions?, usage, harnessDigest.
 #[test]
 fn durable_compaction_row_serializes_in_the_ts_key_order() {
-    let entry = pa_types::session::CompactionEntry {
+    let entry = aa_types::session::CompactionEntry {
         summary: "pre-compaction reply 6".to_string(),
         first_kept_entry_id: "ebd5e444".to_string(),
         tokens_before: 110,
         details: Some(
             serde_json::to_value(
-                &pa_core::session_engine::compaction_exec::CompactionDetails {
+                &aa_core::session_engine::compaction_exec::CompactionDetails {
                     read_files: vec!["a.rs".to_string()],
                     modified_files: vec!["b.rs".to_string()],
                 },
@@ -899,13 +899,13 @@ fn durable_compaction_row_serializes_in_the_ts_key_order() {
         ),
         from_hook: Some(false),
         custom_instructions: None,
-        usage: Some(pa_types::ai::Usage {
+        usage: Some(aa_types::ai::Usage {
             input: 20,
             output: 10,
             cache_read: 80,
             cache_write: 0,
             total_tokens: 110,
-            cost: pa_types::ai::UsageCost::default(),
+            cost: aa_types::ai::UsageCost::default(),
         }),
         harness_digest: Some("# Continual Harness State".to_string()),
         harness_state_fingerprint: None,
@@ -1040,9 +1040,9 @@ fn hydrating_full_history_preserves_the_trace_controller() {
     original.rewrite().unwrap();
     let mut windowed = SessionFile::open_windowed(&path).unwrap();
     assert!(windowed.window.is_some());
-    let (_, consent) = pa_core::agent_traces::ContinuousTraceUpload::load_settings(&dir, &dir);
+    let (_, consent) = aa_core::agent_traces::ContinuousTraceUpload::load_settings(&dir, &dir);
     let controller =
-        pa_core::agent_traces::ContinuousTraceUpload::install(&dir, &dir, Some(&path), consent)
+        aa_core::agent_traces::ContinuousTraceUpload::install(&dir, &dir, Some(&path), consent)
             .unwrap();
     windowed.trace_upload = Some(controller.clone());
     windowed.ensure_full_history().unwrap();

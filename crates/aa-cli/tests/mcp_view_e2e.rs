@@ -21,13 +21,13 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 use serde_json::{json, Value};
 
 /// The committed stdio echo fixture (pure stdlib; any Python 3 runs it).
 fn echo_fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../pa-daemon/tests/fixtures/mcp_echo_server.py")
+        .join("../aa-daemon/tests/fixtures/mcp_echo_server.py")
         .canonicalize()
         .expect("echo fixture")
 }
@@ -150,7 +150,7 @@ fn child_pids_of(ppid: u32) -> Vec<u32> {
 /// Liveness without `/proc`: the platform probe, which also reads zombies as dead.
 #[cfg(not(target_os = "linux"))]
 fn process_alive(pid: u32) -> bool {
-    pa_types::platform::process::is_process_alive(pid).unwrap_or(false)
+    aa_types::platform::process::is_process_alive(pid).unwrap_or(false)
 }
 
 fn graceful_shutdown(socket: &Path) {
@@ -170,7 +170,7 @@ fn graceful_shutdown(socket: &Path) {
     let command = json!({
         "type": "command",
         "id": "test-shutdown",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "shutdown" },
     });
     let mut line = serde_json::to_string(&command).expect("serialize");
@@ -207,30 +207,30 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
         .to_string(),
     )
     .expect("write settings");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
-        .env("PRIME_AGENT_KERNEL_BUN_DIR", dir.join("kernel-bun"))
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_KERNEL_BUN_DIR", dir.join("kernel-bun"))
         .env("PI_OFFLINE", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
-    for provider in pa_ai::models_generated::get_providers() {
-        if let Some(vars) = pa_ai::env_api_keys::get_api_key_env_vars(provider) {
+    for provider in aa_ai::models_generated::get_providers() {
+        if let Some(vars) = aa_ai::env_api_keys::get_api_key_env_vars(provider) {
             for var in vars {
                 command.env_remove(var);
             }
@@ -239,10 +239,10 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     command.env_remove("PRIME_TEAM_ID");
     command.env_remove("PRIME_API_KEY");
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -255,25 +255,25 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
 
 /// The headless run's interactive options (`client_auth` stays `None` so
 /// the login/logout arms answer through the client path).
-fn headless_options(socket: &Path, dir: &Path) -> pa_tui::interactive::InteractiveOptions {
-    pa_tui::interactive::InteractiveOptions {
+fn headless_options(socket: &Path, dir: &Path) -> aa_tui::interactive::InteractiveOptions {
+    aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: socket.to_path_buf(),
         cwd: dir.to_path_buf(),
         session_dir: Some(dir.join("agent").join("sessions")),
         script_path: Some(scripted_engine(dir)),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         client_settings: None,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -285,7 +285,7 @@ fn headless_options(socket: &Path, dir: &Path) -> pa_tui::interactive::Interacti
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -294,8 +294,8 @@ fn headless_options(socket: &Path, dir: &Path) -> pa_tui::interactive::Interacti
 }
 
 /// The empty `PromptInput` (the struct carries no `Default`).
-fn empty_prompt_input() -> pa_types::daemon::PromptInput {
-    pa_types::daemon::PromptInput {
+fn empty_prompt_input() -> aa_types::daemon::PromptInput {
+    aa_types::daemon::PromptInput {
         content: None,
         images: None,
         streaming_behavior: None,
@@ -318,7 +318,7 @@ async fn create_session(socket: &Path, dir: &Path) -> String {
 
 /// Create a live session driven by the given script.
 async fn create_session_with(socket: &Path, dir: &Path, script: &Path) -> String {
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(socket)
         .await
         .expect("connect supervisor");
     let data = client
@@ -355,7 +355,7 @@ async fn create_session_with(socket: &Path, dir: &Path, script: &Path) -> String
 /// the interactive deadline (the old handler froze `/mcp` for seconds).
 async fn assert_roster_answers_fast(socket: &Path, dir: &Path) {
     let session = create_session(socket, dir).await;
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(socket)
         .await
         .expect("connect supervisor");
     // A fresh supervisor can still be settling: retry within the
@@ -448,26 +448,26 @@ async fn mcp_view_lists_the_configured_mock_connection() {
 
     // Part B: the rendered surface. Esc closes; a second open plus Enter
     // resolves to the login command (no auth hook wired, so it lands in the not-available note).
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/mcp".to_string()),
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Submit("/mcp".to_string()),
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Esc,
                 crossterm::event::KeyModifiers::NONE,
             )),
-            pa_tui::interactive::HeadlessStep::Submit("/mcp".to_string()),
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Submit("/mcp".to_string()),
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Enter,
                 crossterm::event::KeyModifiers::NONE,
             )),
-            pa_tui::interactive::HeadlessStep::Submit("/mcp logout fixture-echo".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/mcp logout fixture-echo".to_string()),
         ],
         width: 110,
         height: 30,
     };
     let options = headless_options(&supervisor.socket, dir.path());
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     assert!(!outcome.frames.is_empty(), "frames were captured");
@@ -522,7 +522,7 @@ async fn get_mcp_connections_answers_instantly_mid_turn() {
     let supervisor = spawn_supervisor(dir.path());
     let script = held_engine(dir.path());
     let session = create_session_with(&supervisor.socket, dir.path(), &script).await;
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect supervisor");
     client

@@ -1,7 +1,7 @@
 //! Kernel client for the REPL runtime: the kernel is a JSON-lines subprocess
 //! (`bun run src/repl.ts`) — requests on stdin, events on stdout, stderr kept
 //! as a diagnostics tail. The protocol is documented in
-//! `prime-agent-runtime/src/repl.md` (protocol version 3).
+//! `async-agent-runtime/src/repl.md` (protocol version 3).
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};

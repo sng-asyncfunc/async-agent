@@ -10,7 +10,7 @@ use std::os::unix::net::UnixListener;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use pa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewUiMode};
+use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewUiMode};
 use serde_json::{json, Value};
 
 use support::{read_line, respond, view_options, write_json};
@@ -30,7 +30,7 @@ fn serve(listener: &UnixListener, saved_requests: &Mutex<Vec<Value>>) {
         &mut writer,
         &json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": [],
         }),
     );
@@ -128,7 +128,7 @@ async fn the_catalog_pages_on_scroll_and_a_search_walks_the_rest() {
         width: 120,
         height: 36,
     };
-    let outcome = pa_tui::agents_view::run_agents_view(
+    let outcome = aa_tui::agents_view::run_agents_view(
         view_options(&socket),
         AgentsViewUiMode::Headless(plan),
         None,

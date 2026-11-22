@@ -146,7 +146,7 @@ fn resolve_resource_path(input: &str, cwd: &Path) -> PathBuf {
 }
 
 fn home_dir() -> PathBuf {
-    pa_types::platform::home_dir().unwrap_or_else(|| PathBuf::from("."))
+    aa_types::platform::home_dir().unwrap_or_else(|| PathBuf::from("."))
 }
 
 /// The full resolve step of resource loading: package-manager resolution,

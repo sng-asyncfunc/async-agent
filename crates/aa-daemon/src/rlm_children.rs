@@ -9,22 +9,22 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail, Context, Result};
-use pa_core::kernel::rlm_runtime::create_default_rlm_subagent_session_name;
-use pa_core::session_engine::rlm_host::{
+use aa_core::kernel::rlm_runtime::create_default_rlm_subagent_session_name;
+use aa_core::session_engine::rlm_host::{
     RlmChildResult, RlmCreateSessionHandle, RlmCreateSessionRequest, RlmDeleteSubagentResult,
     RlmHostFuture, RlmSpawnHandle, RlmSpawnRequest, RlmSubagentActivity, RlmSubagentEntry,
     RlmSubagentHost,
 };
-use pa_core::session_engine::rlm_notices::{
+use aa_core::session_engine::rlm_notices::{
     create_rlm_child_failure_message, create_rlm_child_terminal_notice, RlmChildTerminalNotice,
 };
-use pa_core::session_engine::rlm_usage::{RlmChildUsageReport, RlmChildUsageSink};
-use pa_types::daemon::{DaemonCommand, DaemonSessionLifecycle, PromptInput};
-use pa_types::session::CustomMessage;
+use aa_core::session_engine::rlm_usage::{RlmChildUsageReport, RlmChildUsageSink};
+use aa_types::daemon::{DaemonCommand, DaemonSessionLifecycle, PromptInput};
+use aa_types::session::CustomMessage;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
-use pa_core::session_engine::rlm_host::{
+use aa_core::session_engine::rlm_host::{
     rlm_child_session_dir, rlm_depth_limit_error, spawn_name_unavailable_error,
 };
 
@@ -38,7 +38,7 @@ use crate::rlm_child_model::{
 use crate::supervisor_link::SupervisorLink;
 use crate::util::now_ms;
 
-pub use pa_core::session_engine::rlm_host::DEFAULT_RLM_MAX_DEPTH;
+pub use aa_core::session_engine::rlm_host::DEFAULT_RLM_MAX_DEPTH;
 
 /// Close reasons: `Killed` — jobs cancel, the session file archives;
 /// `Shutdown` — the resume entry survives, so a later scheduled wake can
@@ -401,7 +401,7 @@ struct SupervisorChildSessionsInner {
     /// committed request into it). `None` until the build or for sessions
     /// without a semantic identity.
     semantic_edges: std::sync::Mutex<
-        Option<std::sync::Arc<pa_core::session_engine::semantic_edges::SemanticEdgeRecorder>>,
+        Option<std::sync::Arc<aa_core::session_engine::semantic_edges::SemanticEdgeRecorder>>,
     >,
 }
 
@@ -519,7 +519,7 @@ impl SupervisorChildSessions {
     pub fn set_semantic_edges(
         &self,
         recorder: Option<
-            std::sync::Arc<pa_core::session_engine::semantic_edges::SemanticEdgeRecorder>,
+            std::sync::Arc<aa_core::session_engine::semantic_edges::SemanticEdgeRecorder>,
         >,
     ) {
         *self

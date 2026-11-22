@@ -322,7 +322,7 @@ pub fn autonomous_status(state: &AutonomousRuntimeState) -> AgentAutonomousStatu
 /// Account one settled assistant message (per-message usage accounting).
 pub fn add_autonomous_usage(
     state: &mut AutonomousRuntimeState,
-    usage: Option<&pa_types::ai::Usage>,
+    usage: Option<&aa_types::ai::Usage>,
 ) {
     if !state.enabled {
         return;
@@ -341,7 +341,7 @@ pub fn add_autonomous_continuation(state: &mut AutonomousRuntimeState) {
 /// Cache-read tokens are repeated context served from the provider cache;
 /// count input + output + cache-write only.
 #[must_use]
-pub fn autonomous_token_delta(usage: Option<&pa_types::ai::Usage>) -> u64 {
+pub fn autonomous_token_delta(usage: Option<&aa_types::ai::Usage>) -> u64 {
     match usage {
         Some(usage) => usage.input + usage.output + usage.cache_write,
         None => 0,
@@ -435,11 +435,11 @@ pub fn autonomous_continuation_text(state: &AutonomousRuntimeState) -> String {
 pub fn autonomous_continuation_loop_row(
     text: &str,
     timestamp: u64,
-) -> pa_agent::types::AgentMessage {
-    pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::User(
-        pa_agent::types::UserMessage {
-            content: pa_agent::types::UserContent::Parts(vec![pa_agent::types::UserPart::Text(
-                pa_agent::types::TextContent {
+) -> aa_agent::types::AgentMessage {
+    aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::User(
+        aa_agent::types::UserMessage {
+            content: aa_agent::types::UserContent::Parts(vec![aa_agent::types::UserPart::Text(
+                aa_agent::types::TextContent {
                     text: text.to_string(),
                     text_signature: None,
                 },
@@ -519,8 +519,8 @@ mod tests {
         }
     }
 
-    fn usage(input: u64, output: u64) -> pa_types::ai::Usage {
-        pa_types::ai::Usage {
+    fn usage(input: u64, output: u64) -> aa_types::ai::Usage {
+        aa_types::ai::Usage {
             input,
             output,
             cache_read: 0,

@@ -14,7 +14,7 @@ fn sink() -> crate::clipboard::OscSink {
 }
 
 fn theme() -> Theme {
-    Theme::builtin("prime", crate::theme::ColorMode::TrueColor)
+    Theme::builtin("async", crate::theme::ColorMode::TrueColor)
 }
 
 fn acme() -> PrimeTeamOption {

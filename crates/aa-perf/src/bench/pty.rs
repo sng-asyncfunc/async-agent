@@ -82,7 +82,7 @@ impl PtyChild {
             .stdin(slave_as_stdio(&pty.slave))
             .stdout(slave_as_stdio(&pty.slave))
             .stderr(slave_as_stdio(&pty.slave));
-        pa_core::platform::process::set_new_session(&mut command);
+        aa_core::platform::process::set_new_session(&mut command);
         let fd = pty.master.as_raw_fd();
         fcntl(fd, F_SETFL(OFlag::O_NONBLOCK))?;
         let child = command.spawn()?;
@@ -314,9 +314,9 @@ impl PtyChild {
         if self.child.try_wait().is_ok_and(|status| status.is_some()) {
             return;
         }
-        let _ = pa_core::platform::process::kill_pid(
+        let _ = aa_core::platform::process::kill_pid(
             self.pid(),
-            pa_core::platform::process::Signal::Term,
+            aa_core::platform::process::Signal::Term,
         );
         let deadline = Instant::now() + Duration::from_secs(2);
         while Instant::now() < deadline {
@@ -325,9 +325,9 @@ impl PtyChild {
             }
             std::thread::sleep(Duration::from_millis(25));
         }
-        let _ = pa_core::platform::process::kill_pid(
+        let _ = aa_core::platform::process::kill_pid(
             self.pid(),
-            pa_core::platform::process::Signal::Kill,
+            aa_core::platform::process::Signal::Kill,
         );
         let _ = self.child.wait();
     }

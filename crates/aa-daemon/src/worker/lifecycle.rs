@@ -140,7 +140,7 @@ impl Worker {
             .close_rlm_children(crate::rlm_children::ChildCloseReason::Shutdown)
             .await
         {
-            eprintln!("pa-daemon: RLM child close at shutdown failed: {error:#}");
+            eprintln!("aa-daemon: RLM child close at shutdown failed: {error:#}");
         }
         if let Some(agent_engine) = &self.agent_engine {
             agent_engine.dispose_kernel().await;
@@ -181,7 +181,7 @@ impl Worker {
             .is_err()
         {
             eprintln!(
-                "pa-daemon: shutdown proceeds with a client's frames unflushed after {SHUTDOWN_FLUSH_BUDGET:?}"
+                "aa-daemon: shutdown proceeds with a client's frames unflushed after {SHUTDOWN_FLUSH_BUDGET:?}"
             );
         }
         response_success(None, "shutdown", None)
@@ -368,7 +368,7 @@ impl Worker {
                 factory_child: false,
             }) {
             Ok(()) => self.reseed_rlm_children().await,
-            Err(error) => eprintln!("pa-daemon: replacement identity rebind failed: {error:#}"),
+            Err(error) => eprintln!("aa-daemon: replacement identity rebind failed: {error:#}"),
         }
         if let Ok(summary_value) = serde_json::to_value(&summary) {
             self.engine.set_session_summary(summary_value);
@@ -423,7 +423,7 @@ impl Worker {
                     &lanes.follow_up,
                     /*suspended*/ false,
                 ) {
-                    eprintln!("pa-daemon: queue resume checkpoint failed: {error:#}");
+                    eprintln!("aa-daemon: queue resume checkpoint failed: {error:#}");
                     return response_failure(
                         None,
                         "resume_queue",
@@ -526,7 +526,7 @@ impl Worker {
                     .await
                     .unwrap_or_else(|error| {
                         eprintln!(
-                            "pa-daemon: post-compaction goal continuation mint failed: {error}"
+                            "aa-daemon: post-compaction goal continuation mint failed: {error}"
                         );
                         // A join failure releases the mint's own captured
                         // handle, so a later boundary may mint.
@@ -545,7 +545,7 @@ impl Worker {
                                     let _ = store.persist_entry(
                                         "custom",
                                         json!({
-                                            "customType": pa_core::goals::GOAL_STATE_CUSTOM_TYPE,
+                                            "customType": aa_core::goals::GOAL_STATE_CUSTOM_TYPE,
                                             "data": goal,
                                         }),
                                     );
@@ -611,22 +611,22 @@ impl Worker {
                 match refined {
                     Ok(Some(result)) => {
                         let outcome_row =
-                            pa_core::session_engine::refine::create_refinement_outcome_message(
+                            aa_core::session_engine::refine::create_refinement_outcome_message(
                                 &result,
                             );
                         if let Ok(value) = serde_json::to_value(
-                            pa_types::session::AgentMessage::Custom(outcome_row),
+                            aa_types::session::AgentMessage::Custom(outcome_row),
                         ) {
                             self.emit_custom_row(&value);
                         }
                         if result.applied_edits.iter().any(|edit| edit.applied) {
                             let notice =
-                                pa_core::session_engine::refine::create_refinement_notice_message(
+                                aa_core::session_engine::refine::create_refinement_notice_message(
                                     &result,
-                                    pa_core::session_engine::refine::RefinementSource::Auto,
+                                    aa_core::session_engine::refine::RefinementSource::Auto,
                                 );
                             if let Ok(value) = serde_json::to_value(
-                                pa_types::session::AgentMessage::Custom(notice),
+                                aa_types::session::AgentMessage::Custom(notice),
                             ) {
                                 self.emit_custom_row(&value);
                             }
@@ -639,7 +639,7 @@ impl Worker {
                     }
                     Ok(None) => {}
                     Err(error) => {
-                        eprintln!("pa-daemon: auto-refinement after compaction failed: {error:#}");
+                        eprintln!("aa-daemon: auto-refinement after compaction failed: {error:#}");
                         self.emit_worker_event(json!({
                             "type": "refine_failed",
                             "error": format!("{error:#}"),
@@ -769,7 +769,7 @@ impl Worker {
             .engine
             .autonomous_status()
             .await
-            .unwrap_or_else(pa_core::autonomous::disabled_autonomous_status);
+            .unwrap_or_else(aa_core::autonomous::disabled_autonomous_status);
         // The bash quiescence count rides the status data as an additive
         // key (the ACP quiescence observation reads it; a degraded status
         // still answers).

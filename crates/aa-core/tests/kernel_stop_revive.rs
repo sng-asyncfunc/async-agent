@@ -23,14 +23,14 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use pa_core::kernel::provisioner::{
+use aa_core::kernel::provisioner::{
     JavaScriptKernelProvisioner, JavaScriptKernelProvisionerOptions,
 };
-use pa_core::kernel::shared::{
+use aa_core::kernel::shared::{
     host_handler, ExecuteOptions, ExecuteStatus, HostRequestHandlers, KernelShutdownOptions,
 };
 
-/// The kernel Bun binary with `prime-agent-runtime` available; skipped with a note when absent.
+/// The kernel Bun binary with `async-agent-runtime` available; skipped with a note when absent.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) = std::env::var_os("PA_CORE_KERNEL_BUN") {
         let explicit = PathBuf::from(explicit);
@@ -41,20 +41,20 @@ fn kernel_bun() -> Option<PathBuf> {
         );
         return Some(explicit);
     }
-    let runtime_ready = pa_core::kernel::bootstrap::kernel_worker_entry(
-        &pa_core::kernel::bootstrap::kernel_bun_dir(),
+    let runtime_ready = aa_core::kernel::bootstrap::kernel_worker_entry(
+        &aa_core::kernel::bootstrap::kernel_bun_dir(),
     )
     .is_file()
         || std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(2)
-            .is_some_and(|root| root.join("prime-agent-runtime/src/repl.ts").is_file());
+            .is_some_and(|root| root.join("async-agent-runtime/src/repl.ts").is_file());
     if !runtime_ready {
-        eprintln!("prime-agent-runtime/src/repl.ts not found; skipping live stop-revive test");
+        eprintln!("async-agent-runtime/src/repl.ts not found; skipping live stop-revive test");
         return None;
     }
     for candidate in [
-        std::env::var_os("PRIME_AGENT_KERNEL_BUN").map(PathBuf::from),
+        std::env::var_os("ASYNC_AGENT_KERNEL_BUN").map(PathBuf::from),
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".bun/bin/bun")),
         Some(PathBuf::from("/usr/local/bin/bun")),
         Some(PathBuf::from("/usr/bin/bun")),
@@ -223,7 +223,7 @@ async fn revival_waits_for_in_flight_stop_before_booting() {
     let released = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let (waiting_tx, waiting_rx) = tokio::sync::oneshot::channel();
     let waiting_tx = Arc::new(Mutex::new(Some(waiting_tx)));
-    let progress: pa_core::kernel::bootstrap::KernelBootstrapProgressHandler = Arc::new({
+    let progress: aa_core::kernel::bootstrap::KernelBootstrapProgressHandler = Arc::new({
         let boot_saw_release = Arc::clone(&boot_saw_release);
         let released = Arc::clone(&released);
         move |message| match message {
@@ -312,7 +312,7 @@ async fn superseding_stop_after_kill_cannot_deadlock_the_revival_gate() {
     // and the handshake runs for seconds after it).
     let (stage_tx, stage_rx) = tokio::sync::oneshot::channel();
     let stage_tx = Arc::new(Mutex::new(Some(stage_tx)));
-    let progress: pa_core::kernel::bootstrap::KernelBootstrapProgressHandler =
+    let progress: aa_core::kernel::bootstrap::KernelBootstrapProgressHandler =
         Arc::new(move |message| {
             if !message.starts_with("Waiting for the previous kernel to stop") {
                 if let Some(tx) = stage_tx.lock().unwrap().take() {

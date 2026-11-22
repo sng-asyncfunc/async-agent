@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
-use pa_types::daemon::{
+use aa_types::daemon::{
     is_session_plane_daemon_command, DaemonCommand, DaemonCommandEnvelope, DaemonCommandFrameType,
     DaemonProtocolInfo, DaemonResponse, DAEMON_PROTOCOL_NAME, DAEMON_PROTOCOL_VERSION,
 };
@@ -334,18 +334,18 @@ impl DaemonClient {
     ) -> Result<(Self, mpsc::UnboundedReceiver<DaemonClientEvent>)> {
         let connect = tokio::time::timeout(
             Duration::from_millis(CONNECT_TIMEOUT_MS),
-            pa_types::platform::transport::connect_transport(socket_path),
+            aa_types::platform::transport::connect_transport(socket_path),
         )
         .await
         .map_err(|_| {
             anyhow!(
-                "Timed out after {CONNECT_TIMEOUT_MS}ms connecting to the Prime Agent daemon. Socket: {}.",
+                "Timed out after {CONNECT_TIMEOUT_MS}ms connecting to the Async Agent daemon. Socket: {}.",
                 socket_path.display()
             )
         })?
         .with_context(|| {
             format!(
-                "Failed to connect to the Prime Agent daemon. Socket: {}.",
+                "Failed to connect to the Async Agent daemon. Socket: {}.",
                 socket_path.display()
             )
         })?;
@@ -427,7 +427,7 @@ impl DaemonClient {
             .map_err(|_| {
                 reader_task.abort();
                 anyhow!(
-                    "Timed out after {HELLO_TIMEOUT_MS}ms waiting for the Prime Agent daemon handshake. Socket: {}.",
+                    "Timed out after {HELLO_TIMEOUT_MS}ms waiting for the Async Agent daemon handshake. Socket: {}.",
                     socket_path.display()
                 )
             })?
@@ -674,13 +674,13 @@ impl DaemonClient {
             // The reader task died before resolving this request: the
             // connection was already gone.
             Ok(Err(_)) => Err(anyhow!(
-                "Connection to the Prime Agent daemon closed. Socket: {}.",
+                "Connection to the Async Agent daemon closed. Socket: {}.",
                 self.socket_path.display()
             )),
             Err(_) => {
                 self.shared.pending.lock().unwrap().remove(&id);
                 Err(anyhow!(
-                    "Timed out after {timeout_ms}ms waiting for the Prime Agent daemon response. Socket: {}.",
+                    "Timed out after {timeout_ms}ms waiting for the Async Agent daemon response. Socket: {}.",
                     self.socket_path.display()
                 ))
             }
@@ -727,14 +727,14 @@ impl DaemonClient {
         let payload = self
             .direct_command_payload(command)
             .map_err(|_| DirectRequestError::NotSent)?;
-        let frame = pa_types::daemon::framing::encode_private_frame(
+        let frame = aa_types::daemon::framing::encode_private_frame(
             &serde_json::json!({
                 "kind": "command",
                 "requestId": id,
                 "commandType": command_type_debug(command),
             }),
             &serde_json::to_vec(&payload).unwrap_or_default(),
-            pa_types::daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+            aa_types::daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
         )
         .map_err(|_| DirectRequestError::NotSent)?;
         let (reply_tx, reply_rx) = oneshot::channel::<Result<DaemonResponse>>();

@@ -39,7 +39,7 @@ fn write_catalog(dir: &Path) {
     std::fs::write(dir.join("models.json"), MODELS_JSON).unwrap();
 }
 
-fn session_model() -> pa_agent::types::Model {
+fn session_model() -> aa_agent::types::Model {
     serde_json::from_value(json!({
         "id": "session-model", "name": "Session Model", "api": "openai-completions",
         "provider": "testprov", "base_url": "http://localhost:9", "reasoning": false,
@@ -131,7 +131,7 @@ fn inline_machine(model: &str) -> serde_json::Value {
 
 fn host(
     dir: &Path,
-    session_model: Option<pa_agent::types::Model>,
+    session_model: Option<aa_agent::types::Model>,
     allowed_models: Option<Vec<String>>,
     local: bool,
 ) -> FactoryHost {

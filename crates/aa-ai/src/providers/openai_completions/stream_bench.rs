@@ -2,7 +2,7 @@ use super::*;
 use std::time::Instant;
 
 #[test]
-#[ignore = "run with cargo test -p pa-ai --release stream_delta_benchmark -- --ignored --nocapture"]
+#[ignore = "run with cargo test -p aa-ai --release stream_delta_benchmark -- --ignored --nocapture"]
 fn stream_delta_benchmark() {
     let model: Model = serde_json::from_value(json!({
         "id": "benchmark", "name": "benchmark", "api": "openai-completions",

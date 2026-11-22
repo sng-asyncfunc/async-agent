@@ -17,7 +17,7 @@ interface SearchOptions {
 	numResults?: number;
 }
 
-// Per provider id (the host passes the /settings choice as PRIME_AGENT_WEBSEARCH_PROVIDER;
+// Per provider id (the host passes the /settings choice as ASYNC_AGENT_WEBSEARCH_PROVIDER;
 // the id is also the key's auth.json slot): the key's env var, the provider's name (its
 // /mcp row is "<name> (web search)"), and where to get a key.
 const PROVIDERS: Record<WebSearchProvider, ProviderConfig> = {
@@ -34,7 +34,7 @@ const PROVIDERS: Record<WebSearchProvider, ProviderConfig> = {
 };
 
 function resolveProvider(): WebSearchProvider {
-	const raw = process.env.PRIME_AGENT_WEBSEARCH_PROVIDER?.trim();
+	const raw = process.env.ASYNC_AGENT_WEBSEARCH_PROVIDER?.trim();
 	if (!raw || raw === "serper") return "serper";
 	if (raw === "eco") return "eco";
 	throw new Error(`Unsupported web search provider: ${raw}`);
@@ -47,9 +47,9 @@ function environmentInteger(name: string, fallback: number): number {
 
 function agentDir(): string {
 	const configured =
-		process.env.PRIME_AGENT_CODING_AGENT_DIR ||
+		process.env.ASYNC_AGENT_CODING_AGENT_DIR ||
 		process.env.PI_CODING_AGENT_DIR ||
-		resolve(homedir(), ".prime", "agent");
+		resolve(homedir(), ".async-agent");
 	return resolve(configured.replace(/^~(?=\/|$)/, homedir()));
 }
 
@@ -174,13 +174,13 @@ export function createSkill(_context: SkillContext) {
 				`Web search is not set up yet: no ${name} API key is configured.\n` +
 				"Tell the user how to enable it:\n" +
 				`  1. Get a free API key at ${signupUrl} (sign up, copy the key).\n` +
-				`  2. In Prime Agent, run /mcp, choose "${name} (web search)", and paste the key.\n` +
+				`  2. In Async Agent, run /mcp, choose "${name} (web search)", and paste the key.\n` +
 				"Do not ask the user to set environment variables. Once the key is saved, web search works automatically."
 			);
 		}
 		const maxOutput = options.maxOutput ?? 8192;
-		const timeout = options.timeout ?? environmentInteger("PRIME_AGENT_WEBSEARCH_TIMEOUT", 45);
-		const numResults = options.numResults ?? environmentInteger("PRIME_AGENT_WEBSEARCH_NUM_RESULTS", 5);
+		const timeout = options.timeout ?? environmentInteger("ASYNC_AGENT_WEBSEARCH_TIMEOUT", 45);
+		const numResults = options.numResults ?? environmentInteger("ASYNC_AGENT_WEBSEARCH_NUM_RESULTS", 5);
 		let result: string;
 		try {
 			const fetcher = provider === "eco" ? fetchEco : fetchSerper;

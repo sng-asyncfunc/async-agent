@@ -9,12 +9,12 @@ use std::sync::{Arc, Mutex};
 use serde_json::{json, Value};
 use tokio::sync::{oneshot, Notify};
 
-use pa_core::cron::scheduler::{AgentCronScheduler, AgentCronSchedulerHooks};
-use pa_core::cron::store::{
+use aa_core::cron::scheduler::{AgentCronScheduler, AgentCronSchedulerHooks};
+use aa_core::cron::store::{
     AgentCronJobStore, CancelJobsFilter, CreateAgentCronJobInput, HeartbeatManagementAction,
     SessionBinding,
 };
-use pa_core::cron::{
+use aa_core::cron::{
     is_heartbeat_cron_job, normalize_heartbeat_delivery_mode, normalize_heartbeat_schedule,
     should_defer_heartbeat_cron_job, AgentCronJob, DeliveryMode, HeartbeatSessionActivity,
     JobStatus,
@@ -138,7 +138,7 @@ impl AgentCronSchedulerHooks for QueueHooks {
             // A heartbeat fire delivers through `promptHeartbeat`: the turn IS
             // the injected `heartbeat_prompt` custom row, a plain cron job a regular prompt.
             let (message, preview, custom_message) = if heartbeat {
-                let row = pa_core::session_engine::messages::create_heartbeat_prompt_message(
+                let row = aa_core::session_engine::messages::create_heartbeat_prompt_message(
                     job,
                     crate::util::now_ms(),
                 );
@@ -147,7 +147,7 @@ impl AgentCronSchedulerHooks for QueueHooks {
                 // active-action label keeps the raw content.
                 let preview = format!(
                     "{}: {content}",
-                    pa_core::session_engine::messages::HEARTBEAT_PROMPT_PREVIEW_LABEL
+                    aa_core::session_engine::messages::HEARTBEAT_PROMPT_PREVIEW_LABEL
                 );
                 (
                     content,
@@ -296,7 +296,7 @@ impl ScheduledJobs {
     /// without the wake, a heartbeat created after the bind never fires.
     pub(crate) fn mutation_hook(
         self: &std::sync::Arc<Self>,
-    ) -> pa_core::session_engine::host_requests::RlmHeartbeatMutationHook {
+    ) -> aa_core::session_engine::host_requests::RlmHeartbeatMutationHook {
         let scheduled = std::sync::Arc::clone(self);
         std::sync::Arc::new(move |mutation| {
             let scheduled = std::sync::Arc::clone(&scheduled);
@@ -393,7 +393,7 @@ impl Worker {
             )
         };
         let cancelled = self.scheduled.store().cancel_jobs_for_session(
-            &pa_core::cron::store::CancelJobsFilter {
+            &aa_core::cron::store::CancelJobsFilter {
                 active_session_id: Some(active_session_id),
                 session_id: Some(session_id),
                 session_file: Some(session_file),
@@ -454,7 +454,7 @@ impl Worker {
             return;
         };
         if !dir
-            .join(pa_core::cron::store::SESSION_SCHEDULED_JOBS_FILENAME)
+            .join(aa_core::cron::store::SESSION_SCHEDULED_JOBS_FILENAME)
             .is_file()
         {
             return;
@@ -463,7 +463,7 @@ impl Worker {
             .store()
             .register_session_artifact(session_id, &dir);
         if let Err(error) = self.scheduled.store().cancel_jobs_for_session(
-            &pa_core::cron::store::CancelJobsFilter {
+            &aa_core::cron::store::CancelJobsFilter {
                 active_session_id: None,
                 session_id: None,
                 session_file: Some(session_file.to_string_lossy().to_string()),

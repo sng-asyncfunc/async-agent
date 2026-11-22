@@ -1,5 +1,5 @@
 //! Environment-variable parsing for the opt-out switch (TS
-//! `parseBooleanOverride`); the precedence lives with the switch in pa-core
+//! `parseBooleanOverride`); the precedence lives with the switch in aa-core
 //! (`session_engine::telemetry::telemetry_switch`).
 
 /// Parse a truthy/falsy string per the TS product: `1/true/yes/on` and

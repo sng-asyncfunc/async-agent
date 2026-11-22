@@ -19,7 +19,7 @@ impl AgentSession {
     /// re-evaluates the route, so the next image-free batch returns to the session model.
     pub(super) async fn apply_image_model_routing(
         &self,
-        images: &[pa_agent::types::ImageContent],
+        images: &[aa_agent::types::ImageContent],
         batch: &[PromptBatchRow],
     ) -> anyhow::Result<()> {
         let Some(router) = self.image_model_router.as_ref() else {
@@ -55,7 +55,7 @@ impl AgentSession {
             return Err(anyhow::anyhow!("model conversion failed"));
         };
         self.agent
-            .set_model_override(Some(pa_agent::agent::AgentModelOverride {
+            .set_model_override(Some(aa_agent::agent::AgentModelOverride {
                 model: agent_model,
                 thinking_level: crate::session_engine::provider_adapter::map_thinking_level(
                     resolved.thinking_level,
@@ -125,11 +125,11 @@ impl AgentSession {
         let recording = tokio::spawn(async move {
             let session_id = session.lock().await.get_session_id().to_string();
             if let Err(error) = store.append_model_usage(session_id, usage).await {
-                eprintln!("pa-core: model usage row not persisted: {error}");
+                eprintln!("aa-core: model usage row not persisted: {error}");
             }
         });
         if let Err(error) = recording.await {
-            eprintln!("pa-core: model usage recording task failed: {error}");
+            eprintln!("aa-core: model usage recording task failed: {error}");
         }
     }
 
@@ -239,7 +239,7 @@ impl AgentSession {
     /// Install the pre-semantic stream fn calls outside session history run
     /// on (TS `unwrapSemanticEdgeStreamFn`; the engine wires the
     /// timing-instrumented fn it wrapped semantic edges around).
-    pub fn set_side_question_stream_fn(&self, stream_fn: pa_agent::stream::StreamFn) {
+    pub fn set_side_question_stream_fn(&self, stream_fn: aa_agent::stream::StreamFn) {
         *self
             .side_question_stream_fn
             .lock()
@@ -249,7 +249,7 @@ impl AgentSession {
     /// The pre-semantic stream fn for calls outside session history (side
     /// questions carry no request id).
     #[must_use]
-    pub fn side_question_stream_fn(&self) -> Option<pa_agent::stream::StreamFn> {
+    pub fn side_question_stream_fn(&self) -> Option<aa_agent::stream::StreamFn> {
         self.side_question_stream_fn
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

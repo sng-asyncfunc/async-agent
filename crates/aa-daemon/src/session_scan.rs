@@ -218,7 +218,7 @@ mod tests {
     use std::time::SystemTime;
 
     fn temp_dir() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("pa-daemon-scan-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("aa-daemon-scan-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -353,14 +353,14 @@ mod tests {
     }
 
     #[test]
-    // Runs on demand: `cargo test -p pa-daemon --release -- --ignored roster_scan_wall_clock
+    // Runs on demand: `cargo test -p aa-daemon --release -- --ignored roster_scan_wall_clock
     // --nocapture`.
     #[ignore = "wall-clock probe, not a correctness test: prints timings of a real sessions dir (PA_ROSTER_BENCH_DIR)"]
     fn roster_scan_wall_clock() {
         let dir = match std::env::var_os("PA_ROSTER_BENCH_DIR") {
             Some(dir) => PathBuf::from(dir),
             None => Path::new(&std::env::var_os("HOME").unwrap_or_default())
-                .join(".prime/agent/sessions"),
+                .join(".async-agent/sessions"),
         };
         let warm = list_sessions(&dir);
         eprintln!("roster_scan_wall_clock: {} rows (warm pass)", warm.len());

@@ -10,7 +10,7 @@ use proptest::test_runner::RngSeed;
 /// so these tests serialize through the crate-wide
 /// `test_support::TELEMETRY_ENV_MUTEX` (shared with `agent_engine`'s
 /// `telemetry_opt_in`) while they hold it.
-const TELEMETRY_ENV_VARS: [&str; 3] = ["DO_NOT_TRACK", "PI_OFFLINE", "PRIME_AGENT_TELEMETRY"];
+const TELEMETRY_ENV_VARS: [&str; 3] = ["DO_NOT_TRACK", "PI_OFFLINE", "ASYNC_AGENT_TELEMETRY"];
 
 struct CleanTelemetryEnv {
     saved: Vec<(&'static str, Option<String>)>,
@@ -863,7 +863,7 @@ async fn saved_session_rows_count_the_sessions_stored_factory_specs() {
     assert!(saved_session_row(&info, &shells, &specs)
         .get("factorySpecs")
         .is_none());
-    let harness = pa_core::refinement::get_local_harness_state_dir(
+    let harness = aa_core::refinement::get_local_harness_state_dir(
         crate::scheduled_jobs::session_artifact_dir(&path, &info.id).as_deref(),
     )
     .unwrap();
@@ -877,7 +877,7 @@ async fn saved_session_rows_count_the_sessions_stored_factory_specs() {
     );
     #[cfg(unix)]
     {
-        let state_path = pa_core::refinement::get_harness_state_path(&harness);
+        let state_path = aa_core::refinement::get_harness_state_path(&harness);
         let specs = crate::test_support::assert_async_file_read(
             &state_path,
             super::sessions::stored_factory_specs(vec![info.clone()]),
@@ -906,13 +906,13 @@ async fn a_saved_session_listing_reads_each_sessions_harness_store_once() {
         let path = sessions.join(format!("{}.jsonl", session.session_id()));
         session.set_path(path.clone());
         session.rewrite().unwrap();
-        let harness = pa_core::refinement::get_local_harness_state_dir(
+        let harness = aa_core::refinement::get_local_harness_state_dir(
             crate::scheduled_jobs::session_artifact_dir(&path, session.session_id()).as_deref(),
         )
         .unwrap();
         crate::test_support::write_factory_specs(&harness, specs);
         counters.push(crate::test_support::count_file_reads(
-            &pa_core::refinement::get_harness_state_path(&harness),
+            &aa_core::refinement::get_harness_state_path(&harness),
         ));
     }
     std::fs::create_dir_all(root.join("agent")).unwrap();
@@ -980,7 +980,7 @@ async fn a_saved_session_listing_skips_stored_factory_specs_while_the_factory_is
     let path = sessions.join(format!("{}.jsonl", session.session_id()));
     session.set_path(path.clone());
     session.rewrite().unwrap();
-    let harness = pa_core::refinement::get_local_harness_state_dir(
+    let harness = aa_core::refinement::get_local_harness_state_dir(
         crate::scheduled_jobs::session_artifact_dir(&path, session.session_id()).as_deref(),
     )
     .unwrap();
@@ -1223,7 +1223,7 @@ async fn worker_probe_accepts_a_live_socket() {
     let dir = Path::new("/tmp").join(format!("pa-probe-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&dir).unwrap();
     let socket = dir.join("live.sock");
-    let listener = pa_types::platform::transport::bind_transport(&socket)
+    let listener = aa_types::platform::transport::bind_transport(&socket)
         .await
         .unwrap();
     let deadline = worker_connect_deadline();
@@ -1268,7 +1268,7 @@ async fn adoption_settles_then_seeds_the_roster_once() {
             factory: None,
         })
         .unwrap();
-    let descriptor = pa_types::daemon::DaemonWorkerDescriptor {
+    let descriptor = aa_types::daemon::DaemonWorkerDescriptor {
         version: 1,
         worker_id: "w-root".to_string(),
         pid: 4242,
@@ -1288,7 +1288,7 @@ async fn adoption_settles_then_seeds_the_roster_once() {
         created_at: "t".to_string(),
         updated_at: "t".to_string(),
         lifecycle: DaemonWorkerLifecycle::Ready,
-        create_command: pa_types::daemon::DurableDaemonCreateCommand {
+        create_command: aa_types::daemon::DurableDaemonCreateCommand {
             session_path: None,
             no_session: None,
             rest: Map::default(),
@@ -1413,7 +1413,7 @@ async fn a_failed_stop_persist_gates_the_kill_stop_belt() {
         })
         .expect("supervisor"),
     );
-    let descriptor = pa_types::daemon::DaemonWorkerDescriptor {
+    let descriptor = aa_types::daemon::DaemonWorkerDescriptor {
         version: 1,
         worker_id: "w-live".to_string(),
         pid: 4242,
@@ -1433,7 +1433,7 @@ async fn a_failed_stop_persist_gates_the_kill_stop_belt() {
         created_at: "t".to_string(),
         updated_at: "t".to_string(),
         lifecycle: DaemonWorkerLifecycle::Ready,
-        create_command: pa_types::daemon::DurableDaemonCreateCommand {
+        create_command: aa_types::daemon::DurableDaemonCreateCommand {
             session_path: None,
             no_session: None,
             rest: Map::default(),
@@ -1486,7 +1486,7 @@ async fn an_existing_tombstone_carries_the_stop_past_its_failed_re_write() {
         })
         .expect("supervisor"),
     );
-    let descriptor = pa_types::daemon::DaemonWorkerDescriptor {
+    let descriptor = aa_types::daemon::DaemonWorkerDescriptor {
         version: 1,
         worker_id: "w-live".to_string(),
         pid: 4242,
@@ -1506,7 +1506,7 @@ async fn an_existing_tombstone_carries_the_stop_past_its_failed_re_write() {
         created_at: "t".to_string(),
         updated_at: "t".to_string(),
         lifecycle: DaemonWorkerLifecycle::Ready,
-        create_command: pa_types::daemon::DurableDaemonCreateCommand {
+        create_command: aa_types::daemon::DurableDaemonCreateCommand {
             session_path: None,
             no_session: None,
             rest: Map::default(),
@@ -1910,7 +1910,7 @@ async fn idle_passivation_refuses_a_client_owned_worker() {
         })
         .expect("supervisor"),
     );
-    let descriptor = pa_types::daemon::DaemonWorkerDescriptor {
+    let descriptor = aa_types::daemon::DaemonWorkerDescriptor {
         version: 1,
         worker_id: "w-owned".to_string(),
         pid: 4242,
@@ -1930,7 +1930,7 @@ async fn idle_passivation_refuses_a_client_owned_worker() {
         created_at: "t".to_string(),
         updated_at: "t".to_string(),
         lifecycle: DaemonWorkerLifecycle::Ready,
-        create_command: pa_types::daemon::DurableDaemonCreateCommand {
+        create_command: aa_types::daemon::DurableDaemonCreateCommand {
             session_path: None,
             no_session: None,
             rest: Map::default(),
@@ -1942,7 +1942,7 @@ async fn idle_passivation_refuses_a_client_owned_worker() {
         last_error: None,
         rest: Map::default(),
     };
-    let idle = pa_types::daemon::DaemonWorkerDescriptor {
+    let idle = aa_types::daemon::DaemonWorkerDescriptor {
         worker_id: "w-idle".to_string(),
         authentication_token: "idle-token".to_string(),
         owner_client_id: None,
@@ -2026,7 +2026,7 @@ async fn a_passivated_row_prompt_joins_an_already_hosting_resident() {
         false,
     );
     // The concurrent revival's resident: already hosting the row's file.
-    let descriptor = pa_types::daemon::DaemonWorkerDescriptor {
+    let descriptor = aa_types::daemon::DaemonWorkerDescriptor {
         version: 1,
         worker_id: "w-revived".to_string(),
         pid: 4243,
@@ -2046,7 +2046,7 @@ async fn a_passivated_row_prompt_joins_an_already_hosting_resident() {
         created_at: "t".to_string(),
         updated_at: "t".to_string(),
         lifecycle: DaemonWorkerLifecycle::Ready,
-        create_command: pa_types::daemon::DurableDaemonCreateCommand {
+        create_command: aa_types::daemon::DurableDaemonCreateCommand {
             session_path: None,
             no_session: None,
             rest: Map::default(),
@@ -2525,7 +2525,7 @@ async fn a_ledger_child_wake_joins_an_already_hosting_resident() {
         })
         .expect("the spawn edge appends");
     // The concurrent revival's resident already hosting the child's file.
-    let descriptor = pa_types::daemon::DaemonWorkerDescriptor {
+    let descriptor = aa_types::daemon::DaemonWorkerDescriptor {
         version: 1,
         worker_id: "w-kid".to_string(),
         pid: 4244,
@@ -2545,7 +2545,7 @@ async fn a_ledger_child_wake_joins_an_already_hosting_resident() {
         created_at: "t".to_string(),
         updated_at: "t".to_string(),
         lifecycle: DaemonWorkerLifecycle::Ready,
-        create_command: pa_types::daemon::DurableDaemonCreateCommand {
+        create_command: aa_types::daemon::DurableDaemonCreateCommand {
             session_path: None,
             no_session: None,
             rest: Map::default(),
@@ -2595,11 +2595,11 @@ async fn the_exit_flush_sends_the_partial_daemon_event_summary() {
         agent_dir: dir.path().join("agent"),
     })
     .expect("supervisor");
-    let mock = Arc::new(pa_telemetry::MockSink::new());
-    let mut config = pa_telemetry::TelemetryClientConfig::new("install-1");
-    config.sinks = vec![mock.clone() as Arc<dyn pa_telemetry::TelemetrySink>];
+    let mock = Arc::new(aa_telemetry::MockSink::new());
+    let mut config = aa_telemetry::TelemetryClientConfig::new("install-1");
+    config.sinks = vec![mock.clone() as Arc<dyn aa_telemetry::TelemetrySink>];
     *supervisor.telemetry.lock().unwrap() =
-        Some(pa_telemetry::TelemetryClient::spawn(config).unwrap());
+        Some(aa_telemetry::TelemetryClient::spawn(config).unwrap());
     supervisor.note_daemon_event("attach", None);
     supervisor.note_daemon_event("attach", None);
     assert!(mock.events().is_empty(), "the window is still open");
@@ -2626,18 +2626,18 @@ async fn off_window_daemon_events_never_count_into_the_summary() {
     let _env = CleanTelemetryEnv::default();
     let dir = tempfile::TempDir::new().unwrap();
     let agent_dir = dir.path().join("agent");
-    let mut settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let mut settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     settings.set_telemetry_enabled(false).unwrap();
     let supervisor = Supervisor::new(SupervisorOptions {
         socket_path: dir.path().join("daemon.sock"),
         agent_dir: agent_dir.clone(),
     })
     .expect("supervisor");
-    let mock = Arc::new(pa_telemetry::MockSink::new());
-    let mut config = pa_telemetry::TelemetryClientConfig::new("install-1");
-    config.sinks = vec![mock.clone() as Arc<dyn pa_telemetry::TelemetrySink>];
+    let mock = Arc::new(aa_telemetry::MockSink::new());
+    let mut config = aa_telemetry::TelemetryClientConfig::new("install-1");
+    config.sinks = vec![mock.clone() as Arc<dyn aa_telemetry::TelemetrySink>];
     *supervisor.telemetry.lock().unwrap() =
-        Some(pa_telemetry::TelemetryClient::spawn(config).unwrap());
+        Some(aa_telemetry::TelemetryClient::spawn(config).unwrap());
     // Off: the event skips, so nothing counts.
     supervisor.note_daemon_event("attach", None);
     settings.set_telemetry_enabled(true).unwrap();

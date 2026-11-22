@@ -8,10 +8,10 @@
 
 use std::sync::Arc;
 
-use pa_agent::agent::Agent;
-use pa_agent::types::AgentMessage;
-use pa_core::session_engine::engine::SessionEngine;
-use pa_types::ai::Model;
+use aa_agent::agent::Agent;
+use aa_agent::types::AgentMessage;
+use aa_core::session_engine::engine::SessionEngine;
+use aa_types::ai::Model;
 
 use crate::headless_autonomous::HeadlessAutonomous;
 use crate::print_goal::{NaturalContinuation, PrintGoalSurface};
@@ -96,11 +96,11 @@ pub(crate) fn wire_continuation_hook(
                     }
                 }
             }
-        }) as pa_agent::BoxFut<'static, anyhow::Result<Vec<AgentMessage>>>
+        }) as aa_agent::BoxFut<'static, anyhow::Result<Vec<AgentMessage>>>
     })));
 }
 
 /// The continuation user row for the agent loop.
 fn autonomous_continuation_row(text: &str) -> AgentMessage {
-    pa_core::autonomous::autonomous_continuation_loop_row(text, pa_core::autonomous::now_millis())
+    aa_core::autonomous::autonomous_continuation_loop_row(text, aa_core::autonomous::now_millis())
 }

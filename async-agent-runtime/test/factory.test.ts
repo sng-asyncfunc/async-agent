@@ -21,7 +21,7 @@ const FACTORY_CLI = path.join(RUNTIME_DIR, "src", "factory-cli.ts");
 const tempDirs: string[] = [];
 const savedEnv: Record<string, string | undefined> = {};
 
-function makeTempDir(prefix = "prime-factory-test-"): string {
+function makeTempDir(prefix = "async-factory-test-"): string {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 	tempDirs.push(dir);
 	return dir;
@@ -84,7 +84,7 @@ describe("Factory spec validation & machine library", () => {
 	test("lists, resolves, exports, and imports bundled MACHINE.md seeds via cliDispatch and factory-cli.ts", () => {
 		const agentDir = makeTempDir("agent-");
 		const exportDir = makeTempDir("export-");
-		setEnv("PRIME_AGENT_CODING_AGENT_DIR", agentDir);
+		setEnv("ASYNC_AGENT_CODING_AGENT_DIR", agentDir);
 
 		const machines = listMachines();
 		expect(machines.map((m) => m.name)).toEqual(["builder", "pr-manager", "review-sweep"]);
@@ -117,7 +117,7 @@ describe("Factory spec validation & machine library", () => {
 			cwd: RUNTIME_DIR,
 			input: JSON.stringify({ op: "list" }),
 			encoding: "utf8",
-			env: { ...process.env, PRIME_AGENT_CODING_AGENT_DIR: agentDir },
+			env: { ...process.env, ASYNC_AGENT_CODING_AGENT_DIR: agentDir },
 		});
 		const cliJson = JSON.parse(stdout) as { ok: boolean; machines: Array<{ name: string }> };
 		expect(cliJson.ok).toBe(true);
@@ -129,7 +129,7 @@ describe("FactoryExecutor", () => {
 	test("runs guarded review/fix loop to completion with mocked spawn/collect and emits factory.progress", async () => {
 		const agentDir = makeTempDir("agent-");
 		const localDir = makeTempDir("local-");
-		setEnv("PRIME_AGENT_CODING_AGENT_DIR", agentDir);
+		setEnv("ASYNC_AGENT_CODING_AGENT_DIR", agentDir);
 		setEnv("RLM_HARNESS_STATE_DIR", localDir);
 		fs.writeFileSync(path.join(agentDir, "settings.json"), JSON.stringify({ factory: { enabled: true } }));
 
@@ -226,7 +226,7 @@ describe("FactoryExecutor", () => {
 		const agentDir = makeTempDir("agent-");
 		const localDir = makeTempDir("local-");
 		const modDir = makeTempDir("js-state-");
-		setEnv("PRIME_AGENT_CODING_AGENT_DIR", agentDir);
+		setEnv("ASYNC_AGENT_CODING_AGENT_DIR", agentDir);
 		setEnv("RLM_HARNESS_STATE_DIR", localDir);
 		fs.writeFileSync(path.join(agentDir, "settings.json"), JSON.stringify({ factory: { enabled: true } }));
 
@@ -293,7 +293,7 @@ describe("FactoryExecutor", () => {
 	test("pauses on escalate failure and re-admits on resume", async () => {
 		const agentDir = makeTempDir("agent-");
 		const localDir = makeTempDir("local-");
-		setEnv("PRIME_AGENT_CODING_AGENT_DIR", agentDir);
+		setEnv("ASYNC_AGENT_CODING_AGENT_DIR", agentDir);
 		setEnv("RLM_HARNESS_STATE_DIR", localDir);
 		fs.writeFileSync(path.join(agentDir, "settings.json"), JSON.stringify({ factory: { enabled: true } }));
 

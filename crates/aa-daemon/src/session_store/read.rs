@@ -197,14 +197,14 @@ impl SessionFile {
     /// Returns an error when the windowed load fails or holds no header; a
     /// malformed retained row falls back to [`SessionFile::open`].
     pub fn open_windowed(path: &Path) -> Result<Self> {
-        let Some(mut window) = pa_core::session::window::WindowedSessionStore::open(path)? else {
+        let Some(mut window) = aa_core::session::window::WindowedSessionStore::open(path)? else {
             return Self::open(path);
         };
         let header = window
             .entries()
             .iter()
             .find_map(|entry| match entry {
-                pa_types::session::FileEntry::Header { header } => Some(header.clone()),
+                aa_types::session::FileEntry::Header { header } => Some(header.clone()),
                 _ => None,
             })
             .ok_or_else(|| anyhow!("window has no session header"))?;

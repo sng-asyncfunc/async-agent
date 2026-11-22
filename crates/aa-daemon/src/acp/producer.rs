@@ -10,8 +10,8 @@ use tokio::sync::Mutex;
 
 use super::jsonrpc;
 use super::meta::{
-    prime_agent_meta, PrimeAgentEventPhase, PrimeAgentOutcome, PrimeAgentSessionMeta,
-    PRIME_AGENT_META_NAMESPACE,
+    async_agent_meta, AsyncAgentEventPhase, AsyncAgentOutcome, AsyncAgentSessionMeta,
+    ASYNC_AGENT_META_NAMESPACE,
 };
 use super::types::AcpSessionUpdate;
 use serde_json::{json, Value};
@@ -113,8 +113,8 @@ impl UpdateProducer {
         &self,
         update: &AcpSessionUpdate,
         turn_id: u64,
-        phase: PrimeAgentEventPhase,
-        outcome: Option<PrimeAgentOutcome>,
+        phase: AsyncAgentEventPhase,
+        outcome: Option<AsyncAgentOutcome>,
     ) -> bool {
         // Stamp and send under one lock hold so `eventSequence` order is
         // delivery order.
@@ -139,12 +139,12 @@ impl UpdateProducer {
         &self,
         update: &AcpSessionUpdate,
         turn_id: u64,
-        phase: PrimeAgentEventPhase,
-        outcome: Option<PrimeAgentOutcome>,
+        phase: AsyncAgentEventPhase,
+        outcome: Option<AsyncAgentOutcome>,
         event_sequence: u64,
     ) -> Value {
         let mut value = update.to_bare_value();
-        let correlation = PrimeAgentSessionMeta {
+        let correlation = AsyncAgentSessionMeta {
             prompt_turn_id: Some(turn_id),
             event_sequence: Some(event_sequence),
             phase: Some(phase),
@@ -158,14 +158,14 @@ impl UpdateProducer {
             .as_object_mut()
             .expect("session updates are objects")
             .entry("_meta")
-            .or_insert_with(|| prime_agent_meta(&PrimeAgentSessionMeta::default()));
+            .or_insert_with(|| async_agent_meta(&AsyncAgentSessionMeta::default()));
         let namespace = meta
             .as_object_mut()
             .expect("_meta is a namespaced object")
-            .entry(PRIME_AGENT_META_NAMESPACE.to_string())
+            .entry(ASYNC_AGENT_META_NAMESPACE.to_string())
             .or_insert_with(|| json!({}));
         let mut payload =
-            serde_json::from_value::<PrimeAgentSessionMeta>(namespace.clone()).unwrap_or_default();
+            serde_json::from_value::<AsyncAgentSessionMeta>(namespace.clone()).unwrap_or_default();
         payload.prompt_turn_id = correlation.prompt_turn_id;
         payload.event_sequence = correlation.event_sequence;
         payload.phase = correlation.phase;

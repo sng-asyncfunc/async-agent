@@ -21,29 +21,29 @@ impl SessionEngine for WindowedEngine {
     fn run_side_question(
         &self,
         request: crate::engine::SideQuestionRequest,
-        signal: &pa_agent::abort::AbortSignal,
-        sink: &pa_core::session_engine::side_question::SideQuestionSink,
+        signal: &aa_agent::abort::AbortSignal,
+        sink: &aa_core::session_engine::side_question::SideQuestionSink,
     ) -> crate::engine::SideQuestionOutcome {
         crate::engine::ScriptedEngine::default().run_side_question(request, signal, sink)
     }
     fn run_compaction(
         &self,
         request: crate::engine::CompactionRequest,
-        signal: &pa_agent::abort::AbortSignal,
+        signal: &aa_agent::abort::AbortSignal,
     ) -> crate::engine::CompactionOutcome {
         crate::engine::ScriptedEngine::default().run_compaction(request, signal)
     }
     fn run_branch_summary(
         &self,
         request: crate::engine::BranchSummaryRequest,
-        signal: &pa_agent::abort::AbortSignal,
+        signal: &aa_agent::abort::AbortSignal,
     ) -> crate::engine::BranchSummaryOutcome {
         crate::engine::ScriptedEngine::default().run_branch_summary(request, signal)
     }
     fn rebuild_session_context(
         &self,
-        _: Vec<pa_types::session::FileEntry>,
-        _: pa_core::session_engine::goal_driver::GoalBranchReload,
+        _: Vec<aa_types::session::FileEntry>,
+        _: aa_core::session_engine::goal_driver::GoalBranchReload,
     ) -> anyhow::Result<()> {
         Ok(())
     }
@@ -72,29 +72,29 @@ impl SessionEngine for SwitchingEngine {
     fn run_side_question(
         &self,
         request: crate::engine::SideQuestionRequest,
-        signal: &pa_agent::abort::AbortSignal,
-        sink: &pa_core::session_engine::side_question::SideQuestionSink,
+        signal: &aa_agent::abort::AbortSignal,
+        sink: &aa_core::session_engine::side_question::SideQuestionSink,
     ) -> crate::engine::SideQuestionOutcome {
         WindowedEngine.run_side_question(request, signal, sink)
     }
     fn run_compaction(
         &self,
         request: crate::engine::CompactionRequest,
-        signal: &pa_agent::abort::AbortSignal,
+        signal: &aa_agent::abort::AbortSignal,
     ) -> crate::engine::CompactionOutcome {
         WindowedEngine.run_compaction(request, signal)
     }
     fn run_branch_summary(
         &self,
         request: crate::engine::BranchSummaryRequest,
-        signal: &pa_agent::abort::AbortSignal,
+        signal: &aa_agent::abort::AbortSignal,
     ) -> crate::engine::BranchSummaryOutcome {
         WindowedEngine.run_branch_summary(request, signal)
     }
     fn rebuild_session_context(
         &self,
-        entries: Vec<pa_types::session::FileEntry>,
-        reload: pa_core::session_engine::goal_driver::GoalBranchReload,
+        entries: Vec<aa_types::session::FileEntry>,
+        reload: aa_core::session_engine::goal_driver::GoalBranchReload,
     ) -> anyhow::Result<()> {
         WindowedEngine.rebuild_session_context(entries, reload)
     }

@@ -49,7 +49,7 @@ impl AgentSessionEngine {
         }));
     }
 
-    pub(crate) fn set_late_agent_message_sink(&self, sink: pa_core::LateSentAgentMessageHandler) {
+    pub(crate) fn set_late_agent_message_sink(&self, sink: aa_core::LateSentAgentMessageHandler) {
         *self
             .late_agent_message_sink
             .lock()
@@ -86,11 +86,11 @@ impl AgentSessionEngine {
             let mut session = handles.session.lock().await;
             if let Err(persist_error) = driver.finish_for_terminal_message(
                 &mut session,
-                pa_types::ai::StopReason::Error,
+                aa_types::ai::StopReason::Error,
                 Some(error),
             ) {
                 // The best-effort terminal hook must not reject the caller.
-                eprintln!("pa-daemon: goal terminal finish persist failed: {persist_error:#}");
+                eprintln!("aa-daemon: goal terminal finish persist failed: {persist_error:#}");
             }
         });
     }
@@ -147,9 +147,9 @@ impl AgentSessionEngine {
         let last_turn = self.last_loop_assistant_message_async().await;
         if last_turn
             .as_ref()
-            .is_some_and(|turn: &pa_agent::types::AssistantMessage| {
-                turn.stop_reason == pa_agent::types::StopReason::Error
-                    || pa_core::session_engine::goal_driver::turn_produced_no_output(turn)
+            .is_some_and(|turn: &aa_agent::types::AssistantMessage| {
+                turn.stop_reason == aa_agent::types::StopReason::Error
+                    || aa_core::session_engine::goal_driver::turn_produced_no_output(turn)
             })
         {
             self.drop_failed_goal_continuation_pair().await;
@@ -173,7 +173,7 @@ impl AgentSessionEngine {
             }
             Err(error) => {
                 // A failed persist drops the deferral without minting.
-                eprintln!("pa-daemon: owed goal continuation mint persist failed: {error:#}");
+                eprintln!("aa-daemon: owed goal continuation mint persist failed: {error:#}");
                 return;
             }
         };
@@ -190,7 +190,7 @@ impl AgentSessionEngine {
         if self.session_input_queued() || self.session_is_closed() {
             if let Err(error) = driver.rollback_continuation_mint(&mut session) {
                 // Warn, do not reject: a re-owed mint would double-charge.
-                eprintln!("pa-daemon: goal mint rollback persist failed: {error:#}");
+                eprintln!("aa-daemon: goal mint rollback persist failed: {error:#}");
             } else {
                 driver.mark_continuation_owed();
             }
@@ -306,9 +306,9 @@ impl AgentSessionEngine {
             // corpse's verdict for the check below).
             if last_turn
                 .as_ref()
-                .is_some_and(|turn: &pa_agent::types::AssistantMessage| {
-                    turn.stop_reason == pa_agent::types::StopReason::Error
-                        || pa_core::session_engine::goal_driver::turn_produced_no_output(turn)
+                .is_some_and(|turn: &aa_agent::types::AssistantMessage| {
+                    turn.stop_reason == aa_agent::types::StopReason::Error
+                        || aa_core::session_engine::goal_driver::turn_produced_no_output(turn)
                 })
             {
                 drop(driver);
@@ -327,7 +327,7 @@ impl AgentSessionEngine {
                 Err(error) => {
                     // The hook must not reject: a failed persist ends the
                     // boundary without a continuation.
-                    eprintln!("pa-daemon: goal continuation mint persist failed: {error:#}");
+                    eprintln!("aa-daemon: goal continuation mint persist failed: {error:#}");
                     return GoalBoundary::End;
                 }
             };
@@ -356,7 +356,7 @@ impl AgentSessionEngine {
                     // Warn, do not reject: re-owing would re-mint and
                     // double-charge the eventual turn, so the cancelled
                     // boundary absorbs the spent slot.
-                    eprintln!("pa-daemon: goal mint rollback persist failed: {error:#}");
+                    eprintln!("aa-daemon: goal mint rollback persist failed: {error:#}");
                 } else if was_owed {
                     driver.mark_continuation_owed();
                 }
@@ -382,12 +382,12 @@ impl AgentSessionEngine {
         let message = self.runtime.block_on(async {
             let driver = handles.driver.lock().await;
             let state = driver.state_with_creation_elapsed();
-            if state.status != pa_core::goals::GoalStatus::BudgetLimited {
+            if state.status != aa_core::goals::GoalStatus::BudgetLimited {
                 return None;
             }
-            pa_core::goals::create_goal_context_message(
+            aa_core::goals::create_goal_context_message(
                 &state,
-                pa_core::goals::GoalContextKind::BudgetLimit,
+                aa_core::goals::GoalContextKind::BudgetLimit,
                 &[],
             )
             .ok()
@@ -419,7 +419,7 @@ impl AgentSessionEngine {
         if let Some(sink) = sink {
             sink(work);
         } else {
-            eprintln!("pa-daemon: goal follow-up dropped: no admission sink wired");
+            eprintln!("aa-daemon: goal follow-up dropped: no admission sink wired");
             AgentSessionEngine::release_goal_work_continuation(&work);
         }
     }
@@ -428,7 +428,7 @@ impl AgentSessionEngine {
 /// The minted goal-context row as one admitted turn request: the
 /// continuation text drives the model turn, the durable row rides as
 /// the injected custom message.
-fn goal_prompt_request(message: &pa_types::session::CustomMessage) -> PromptRequest {
+fn goal_prompt_request(message: &aa_types::session::CustomMessage) -> PromptRequest {
     PromptRequest {
         message: message.content.text(),
         images: Vec::new(),

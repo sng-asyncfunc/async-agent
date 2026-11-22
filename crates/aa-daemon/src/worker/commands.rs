@@ -229,7 +229,7 @@ impl Worker {
                 None,
             );
         }
-        let servers: Vec<pa_core::mcp::AcpMcpServerConfig> = payload
+        let servers: Vec<aa_core::mcp::AcpMcpServerConfig> = payload
             .get("servers")
             .cloned()
             .map(|servers| serde_json::from_value(servers).unwrap_or_default())
@@ -568,7 +568,7 @@ impl Worker {
         }
         // The hydrated full file was a transient whole-file copy on
         // top of the installed history: release its freed heap.
-        pa_types::memory_release::trim_freed_heap();
+        aa_types::memory_release::trim_freed_heap();
         Ok(())
     }
 
@@ -675,7 +675,7 @@ impl Worker {
         let timeout = std::time::Duration::from_millis(crate::messaging::WORKER_REQUEST_TIMEOUT_MS);
         tokio::spawn(async move {
             if let Err(error) = link.request_success(command, timeout).await {
-                eprintln!("pa-daemon: cleared agent-message bounce to {sender} failed: {error:#}");
+                eprintln!("aa-daemon: cleared agent-message bounce to {sender} failed: {error:#}");
             }
         });
     }
@@ -752,7 +752,7 @@ impl Worker {
             KillCloseReason::Replaced => crate::rlm_children::ChildCloseReason::Replaced,
         };
         if let Err(error) = self.close_rlm_children(child_reason).await {
-            eprintln!("pa-daemon: RLM child close at kill failed: {error:#}");
+            eprintln!("aa-daemon: RLM child close at kill failed: {error:#}");
         }
         // The `archived` entry lands before the turn's aborted row (the abort flag
         // below gates the aborted row), so the file order stays the TS one.
@@ -805,7 +805,7 @@ impl Worker {
         let _ = self.emit_session_closed(&active_session_id, reason.session_closed_reason());
         let _ = self.record_recovery(false, reason.recovery_operation());
         self.release_session_lease();
-        // The session runtime ended (TS `prime-agent stop <agent>`): the
+        // The session runtime ended (TS `async-agent stop <agent>`): the
         // pane reporter releases its pane as the last write on the wire —
         // no report may reclaim it afterwards. The slot is taken out
         // first (swapped to the disabled no-op) so a later attach can
@@ -876,7 +876,7 @@ impl Worker {
             .map(|previous| {
                 let content = if payload.get("renamedBy").and_then(Value::as_str)
                     == Some(
-                        pa_core::session_engine::agent_messaging::AgentFamilyRelationship::Parent
+                        aa_core::session_engine::agent_messaging::AgentFamilyRelationship::Parent
                             .as_str(),
                     ) {
                     format!("Session renamed `{previous}` -> `{name}` by parent")
@@ -884,7 +884,7 @@ impl Worker {
                     format!("Session renamed `{previous}` -> `{name}`")
                 };
                 json!({
-                    "customType": pa_core::session_engine::messages::SESSION_RENAMED_CUSTOM_TYPE,
+                    "customType": aa_core::session_engine::messages::SESSION_RENAMED_CUSTOM_TYPE,
                     "content": content,
                     "display": true,
                 })
@@ -918,7 +918,7 @@ impl Worker {
 /// truncated so the whole notice stays inside the delivery size limit the
 /// receiving `worker_deliver_message` enforces.
 fn cleared_agent_message_bounce_text(receiver: &str, message: &str) -> String {
-    let limit = pa_core::session_engine::agent_messaging::DEFAULT_AGENT_MESSAGE_MAX_CHARS;
+    let limit = aa_core::session_engine::agent_messaging::DEFAULT_AGENT_MESSAGE_MAX_CHARS;
     let opening = "Your agent message was cleared from ";
     let ending = "'s queue before delivery: ";
     // Session names are unbounded. Reserve the notice itself before fitting
@@ -932,14 +932,14 @@ fn cleared_agent_message_bounce_text(receiver: &str, message: &str) -> String {
 }
 
 /// The display-transcript page a `get_messages` payload asks for, if any.
-fn transcript_page(payload: &Value) -> Option<pa_types::daemon::TranscriptPage> {
+fn transcript_page(payload: &Value) -> Option<aa_types::daemon::TranscriptPage> {
     serde_json::from_value(payload.get("page")?.clone()).ok()
 }
 
 #[cfg(test)]
 mod bounce_text_tests {
     use super::cleared_agent_message_bounce_text;
-    use pa_core::session_engine::agent_messaging::DEFAULT_AGENT_MESSAGE_MAX_CHARS;
+    use aa_core::session_engine::agent_messaging::DEFAULT_AGENT_MESSAGE_MAX_CHARS;
 
     #[test]
     fn bounce_text_limits_receiver_and_body_without_losing_the_notice() {

@@ -11,7 +11,7 @@ async fn supervisor_with_registered_worker(dir: &Path) -> Supervisor {
         agent_dir: dir.join("agent"),
     })
     .expect("supervisor");
-    let descriptor = pa_types::daemon::DaemonWorkerDescriptor {
+    let descriptor = aa_types::daemon::DaemonWorkerDescriptor {
         version: 1,
         worker_id: "w-delta".to_string(),
         pid: 4242,
@@ -30,8 +30,8 @@ async fn supervisor_with_registered_worker(dir: &Path) -> Supervisor {
         telemetry_disabled: Some(true),
         created_at: "t".to_string(),
         updated_at: "t".to_string(),
-        lifecycle: pa_types::daemon::DaemonWorkerLifecycle::Ready,
-        create_command: pa_types::daemon::DurableDaemonCreateCommand {
+        lifecycle: aa_types::daemon::DaemonWorkerLifecycle::Ready,
+        create_command: aa_types::daemon::DurableDaemonCreateCommand {
             session_path: None,
             no_session: None,
             rest: Map::default(),
@@ -130,7 +130,7 @@ async fn worker_roster_delta_drops_stale_sequences() {
         })
         .expect("supervisor"),
     );
-    let descriptor: pa_types::daemon::DaemonWorkerDescriptor =
+    let descriptor: aa_types::daemon::DaemonWorkerDescriptor =
         serde_json::from_value(serde_json::json!({
             "version": 2,
             "workerId": "seq-worker",
@@ -474,7 +474,7 @@ async fn worker_roster_delta_batches_removals_into_the_same_push() {
 /// serialized payloads per flip. Each push serializes twice
 /// supervisor-side (the changed entries and the outbound frame), so
 /// the serialization count is double the push count. Run with
-/// `cargo test -p pa-daemon roster_delta_push_benchmark -- --ignored
+/// `cargo test -p aa-daemon roster_delta_push_benchmark -- --ignored
 /// --nocapture`.
 #[ignore = "manual roster delta push benchmark"]
 #[tokio::test]

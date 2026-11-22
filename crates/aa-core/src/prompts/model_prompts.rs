@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use std::io;
 use std::path::{Component, Path};
 
-use pa_types::session::CustomMessage;
+use aa_types::session::CustomMessage;
 use serde::Deserialize;
 
 pub const MODEL_PROMPTS_TOML: &str = include_str!("layers/model_prompts.toml");
@@ -184,7 +184,7 @@ fn resolve_model_prompts(
     agent_dir: &Path,
 ) -> ModelPromptResolution {
     // Both layers are validated regardless; the selector only gates which
-    // rules match, so `prime-agent prompt` with no `--model` still reports
+    // rules match, so `async-agent prompt` with no `--model` still reports
     // a broken map.
     let segments = selector.map(selector_segments);
     let mut errors = Vec::new();
@@ -262,7 +262,7 @@ pub fn model_prompt_error_message(errors: &[String]) -> CustomMessage {
         .join("\n");
     CustomMessage {
         custom_type: MODEL_PROMPT_ERROR_CUSTOM_TYPE.to_string(),
-        content: pa_types::ai::UserContent::Text(format!(
+        content: aa_types::ai::UserContent::Text(format!(
             "[model-prompt-error]\n\nPer-model system prompt additions were not applied:\n{list}"
         )),
         display: true,

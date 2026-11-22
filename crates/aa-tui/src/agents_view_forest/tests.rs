@@ -1203,10 +1203,10 @@ fn one_dropdown_renders_the_full_fleet_roster() {
 /// too).
 #[test]
 fn a_ledger_child_nests_across_the_windows_path_forms() {
-    let raw_parent = r"C:\Users\kevin\.prime\agent\sessions\0f1e2-parent.jsonl";
-    let verbatim_parent = r"\\?\C:\Users\kevin\.prime\agent\sessions\0f1e2-parent.jsonl";
+    let raw_parent = r"C:\Users\kevin\.async-agent\sessions\0f1e2-parent.jsonl";
+    let verbatim_parent = r"\\?\C:\Users\kevin\.async-agent\sessions\0f1e2-parent.jsonl";
     let verbatim_child =
-        r"\\?\C:\Users\kevin\.prime\agent\session-artifacts\0f1e2-parent\sub-1\c1.jsonl";
+        r"\\?\C:\Users\kevin\.async-agent\session-artifacts\0f1e2-parent\sub-1\c1.jsonl";
     let mut parent = parent_summary("0f1e2-parent");
     parent["sessionFile"] = json!(raw_parent);
     let mut seeded = child_summary("c1", "0f1e2-parent", "worker one");

@@ -1,8 +1,8 @@
-//! `prime-agent factory`: the machine library commands.
+//! `async-agent factory`: the machine library commands.
 //!
 //! Every subcommand — list included — is one `cliDispatch` payload through the
 //! kernel Bun runtime (`src/factory-cli.ts`). The kernel owns the whole library
-//! contract: the bundled seeds ship under `prime-agent-runtime/src/machines`,
+//! contract: the bundled seeds ship under `async-agent-runtime/src/machines`,
 //! the personal library lives under the agent dir, the strict MACHINE.md parser
 //! gates what lists, and the write-time validator gates what persists (an
 //! invalid spec never persists; the exact error sentences reach this command's
@@ -31,7 +31,7 @@ struct MachineListing {
 /// Relative path to the Bun factory CLI entrypoint inside the kernel runtime dir.
 const FACTORY_CLI_ENTRY_REL: &str = "src/factory-cli.ts";
 
-/// The parsed `prime-agent factory` invocation.
+/// The parsed `async-agent factory` invocation.
 #[derive(Debug, PartialEq, Eq)]
 enum FactoryCommand {
     List {
@@ -86,13 +86,13 @@ fn parse_factory_command(args: &[String]) -> Result<FactoryCommand, String> {
     match subcommand.as_str() {
         "list" => {
             if !operands.is_empty() {
-                return Err("Usage: prime-agent factory list [--json]".to_string());
+                return Err("Usage: async-agent factory list [--json]".to_string());
             }
             Ok(FactoryCommand::List { json })
         }
         "import" => {
             if operands.len() != 1 {
-                return Err("Usage: prime-agent factory import <path> [--json]".to_string());
+                return Err("Usage: async-agent factory import <path> [--json]".to_string());
             }
             Ok(FactoryCommand::Import {
                 path: operands.remove(0),
@@ -102,12 +102,12 @@ fn parse_factory_command(args: &[String]) -> Result<FactoryCommand, String> {
         "export" => {
             if operands.len() != 1 {
                 return Err(
-                    "Usage: prime-agent factory export <name> --out <path> [--json]".to_string(),
+                    "Usage: async-agent factory export <name> --out <path> [--json]".to_string(),
                 );
             }
             let Some(out) = out else {
                 return Err(
-                    "Usage: prime-agent factory export <name> --out <path> [--json]".to_string(),
+                    "Usage: async-agent factory export <name> --out <path> [--json]".to_string(),
                 );
             };
             Ok(FactoryCommand::Export {
@@ -126,12 +126,12 @@ pub fn run_factory_command(args: &[String]) -> i32 {
         Ok(command) => command,
         Err(empty_hint) if empty_hint.is_empty() => {
             eprintln!("Missing factory command.");
-            eprintln!("Run \"prime-agent help factory\" for usage.");
+            eprintln!("Run \"async-agent help factory\" for usage.");
             return 1;
         }
         Err(error) => {
             eprintln!("Error: {error}");
-            eprintln!("Run `prime-agent help factory` for usage.");
+            eprintln!("Run `async-agent help factory` for usage.");
             return 1;
         }
     };
@@ -246,21 +246,21 @@ fn listing_row(machine: &MachineListing, name_width: usize) -> String {
 
 /// Resolve the kernel Bun runtime (bootstrapping on first use), the
 /// same runtime the factory gate lives in.
-fn resolve_kernel_bun() -> Result<pa_core::kernel::KernelBunRuntime, String> {
+fn resolve_kernel_bun() -> Result<aa_core::kernel::KernelBunRuntime, String> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .map_err(|error| format!("failed to start the CLI runtime: {error}"))?;
     runtime
-        .block_on(pa_core::kernel::ensure_kernel_bun(
-            pa_core::kernel::EnsureKernelBunOptions::default(),
+        .block_on(aa_core::kernel::ensure_kernel_bun(
+            aa_core::kernel::EnsureKernelBunOptions::default(),
         ))
         .map_err(|error| format!("kernel bun unavailable: {error:#}"))
 }
 
 /// Drive one `cliDispatch` payload through the kernel Bun runtime.
 fn dispatch_via_kernel(
-    kernel: &pa_core::kernel::KernelBunRuntime,
+    kernel: &aa_core::kernel::KernelBunRuntime,
     payload: &Value,
 ) -> Result<Value, String> {
     let entry = kernel.kernel_dir.join(FACTORY_CLI_ENTRY_REL);
@@ -272,9 +272,9 @@ fn dispatch_via_kernel(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .env_clear()
-        .envs(pa_core::kernel::bun_process_environment());
+        .envs(aa_core::kernel::bun_process_environment());
     // Hidden window on Windows, matching the kernel probes.
-    pa_core::platform::process::set_no_window(&mut child);
+    aa_core::platform::process::set_no_window(&mut child);
     let mut child = child
         .spawn()
         .map_err(|error| format!("failed to run the kernel bun: {error}"))?;
@@ -442,7 +442,7 @@ mod tests {
         assert!(missing_out.is_err());
         assert!(missing_out
             .unwrap_err()
-            .starts_with("Usage: prime-agent factory export"));
+            .starts_with("Usage: async-agent factory export"));
         let dangling_out = parse_factory_command(&arg(&["export", "sweep", "--out"]));
         assert!(dangling_out.is_err());
         assert!(dangling_out
@@ -513,7 +513,7 @@ mod tests {
     fn render_list_parses_the_kernel_listing() {
         let result: Value = serde_json::from_str(
             r#"{"ok": true, "machines": [
-                {"name": "review-sweep", "description": "Sweep a branch.", "version": "1", "author": "Prime Agent", "source": "repo", "path": "/rlm/machines/review-sweep/MACHINE.md"},
+                {"name": "review-sweep", "description": "Sweep a branch.", "version": "1", "author": "Async Agent", "source": "repo", "path": "/rlm/machines/review-sweep/MACHINE.md"},
                 {"name": "mine", "description": "Personal.", "version": "", "author": "", "source": "user", "path": "/agent/machines/mine/MACHINE.md"}
             ], "warnings": []}"#,
         )

@@ -107,7 +107,7 @@ mod tests {
     /// A view whose first user row renders on a known window row.
     fn view() -> AgentView {
         let mut view = AgentView::new(crate::theme::Theme::builtin(
-            "prime",
+            "async",
             crate::theme::ColorMode::TrueColor,
         ));
         view.push_entry(ChatEntry::User {

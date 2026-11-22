@@ -1,11 +1,11 @@
 {
-	"name": "@prime-agent/skill-attach-image",
+	"name": "@async-agent/skill-attach-image",
 	"private": true,
 	"type": "module",
 	"dependencies": {
 		"@silvia-odwyer/photon-node": "0.3.4"
 	},
-	"primeAgent": {
+	"asyncAgent": {
 		"entry": "src/index.ts",
 		"global": "attachImage"
 	}

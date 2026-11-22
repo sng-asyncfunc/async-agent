@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, UiMode,
 };
 use serde_json::{json, Value};
@@ -242,7 +242,7 @@ fn accept(listener: &UnixListener, what: &str) -> UnixStream {
 fn daemon_hello(app_version: Option<&str>) -> Value {
     let mut hello = json!({
         "type": "daemon_hello",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "serverCapabilities": [],
         "clientId": "mock",
     });
@@ -323,7 +323,7 @@ fn a_turn_settling_with_the_shutdown_does_not_stall_the_recovery() {
     // TS #2458's waiting row: the announced closing armed the bounded shutdown recovery (not the
     // hiccup loop).
     assert!(
-        all.contains("the Prime Agent daemon shut down; waiting for it to come back"),
+        all.contains("the Async Agent daemon shut down; waiting for it to come back"),
         "the shutdown recovery armed at the notice:\n{all}"
     );
     let equal_banner = format!(
@@ -353,7 +353,7 @@ fn a_turn_settling_with_the_shutdown_does_not_stall_the_recovery() {
         "the reattach reached the successor by durable id: {requests:?}"
     );
     assert!(
-        !all.contains("The Prime Agent daemon shut down while this window was attached"),
+        !all.contains("The Async Agent daemon shut down while this window was attached"),
         "the expiry row must not appear when the daemon came back:\n{all}"
     );
 }

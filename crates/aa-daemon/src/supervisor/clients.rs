@@ -123,7 +123,7 @@ impl Supervisor {
             schema_revision: Some(DAEMON_SCHEMA_REVISION),
             app_version: Some(app_version().to_string()),
             runtime: Some(DaemonRuntimeIdentity {
-                build_id: concat!("pa-daemon-rs-", env!("CARGO_PKG_VERSION")).to_string(),
+                build_id: concat!("aa-daemon-rs-", env!("CARGO_PKG_VERSION")).to_string(),
                 executable_path: std::env::current_exe()
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_default(),
@@ -262,7 +262,7 @@ impl Supervisor {
                         // A large outbound response freed big transients: return the heap to
                         // the OS instead of letting the arenas hold the phase's peak.
                         drop(outbound);
-                        pa_types::memory_release::trim_freed_heap_if_large(bytes);
+                        aa_types::memory_release::trim_freed_heap_if_large(bytes);
                     }
                     if stop {
                         // The initiating client's response and daemon_closing lines are flushed
@@ -567,7 +567,7 @@ impl Supervisor {
                             UPDATE_PREPARING_MESSAGE,
                             // The typed `update_restarting` info rides beside the plain message,
                             // so clients can recognize the transient state and wait through it.
-                            Some(pa_types::daemon::DaemonErrorInfo::UpdateRestarting),
+                            Some(aa_types::daemon::DaemonErrorInfo::UpdateRestarting),
                         )))],
                         false,
                     );
@@ -576,7 +576,7 @@ impl Supervisor {
         }
         // Mutating commands count against the prepare transaction's drain.
         let mutating =
-            !is_update_driver && pa_types::daemon::is_daemon_mutating_command(&type_name);
+            !is_update_driver && aa_types::daemon::is_daemon_mutating_command(&type_name);
         if mutating {
             self.mutation_drain.begin();
         }
@@ -1136,9 +1136,9 @@ mod tests {
     #[cfg(unix)]
     use crate::supervisor::SupervisorOptions;
     #[cfg(unix)]
-    use pa_types::daemon::DaemonWorkerDescriptor;
+    use aa_types::daemon::DaemonWorkerDescriptor;
     #[cfg(unix)]
-    use pa_types::platform::transport::TransportStream;
+    use aa_types::platform::transport::TransportStream;
     #[cfg(unix)]
     use serde_json::json;
     #[cfg(unix)]
@@ -1174,7 +1174,7 @@ mod tests {
                 let connection = Arc::new(crate::input_pause_lease::ClientConnectionState::new());
                 let command = json!({
                     "type": "command", "id": "late-stop",
-                    "protocol": { "name": "prime-agent.daemon", "version": 7 },
+                    "protocol": { "name": "async-agent.daemon", "version": 7 },
                     "command": { "type": "shutdown", "force": true }
                 })
                 .to_string();
@@ -1249,7 +1249,7 @@ mod tests {
         let envelope = json!({
             "type": "command",
             "id": "installer-stop",
-            "protocol": {"name": "prime-agent.daemon", "version": 7},
+            "protocol": {"name": "async-agent.daemon", "version": 7},
             "clientId": "install-rust-sh",
             "command": {"type": "shutdown", "force": true, "id": "installer-stop"},
         });
@@ -1382,7 +1382,7 @@ mod tests {
         let envelope = json!({
             "type": "command",
             "id": format!("{client_id}-command"),
-            "protocol": {"name": "prime-agent.daemon", "version": 7},
+            "protocol": {"name": "async-agent.daemon", "version": 7},
             "clientId": client_id,
             "command": {"type": "roster_unsubscribe", "id": format!("{client_id}-command")},
         });

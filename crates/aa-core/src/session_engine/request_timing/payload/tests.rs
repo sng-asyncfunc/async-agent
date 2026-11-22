@@ -70,15 +70,15 @@ pub(crate) fn payload_envelope(dir: &Path, name: &str) -> Value {
     serde_json::from_str(&content).expect("the capture file is one complete JSON object")
 }
 
-fn agent_model() -> pa_agent::types::Model {
-    pa_agent::types::Model {
+fn agent_model() -> aa_agent::types::Model {
+    aa_agent::types::Model {
         id: "bench/bench-model".to_string(),
         name: "Bench".to_string(),
         api: "openai-completions".to_string(),
         provider: "bench".to_string(),
         base_url: "https://bench.test/v1".to_string(),
         reasoning: true,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 1_000_000,
         max_tokens: 128_000,
         max_tokens_explicit: false,

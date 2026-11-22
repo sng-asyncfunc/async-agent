@@ -1,8 +1,8 @@
 {
-	"name": "@prime-agent/skill-websearch",
+	"name": "@async-agent/skill-websearch",
 	"private": true,
 	"type": "module",
-	"primeAgent": {
+	"asyncAgent": {
 		"entry": "src/index.ts",
 		"global": "websearch"
 	}

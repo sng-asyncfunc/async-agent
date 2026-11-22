@@ -1,8 +1,8 @@
 //! Model helpers: cost calculation over the shared model types.
 
-use pa_types::JsNumber;
+use aa_types::JsNumber;
 
-pub use pa_types::ai::thinking_levels::{
+pub use aa_types::ai::thinking_levels::{
     clamp_thinking_level, get_supported_thinking_levels, models_are_equal, supports_thinking,
     thinking_level_from_str, thinking_level_map, EXTENDED_THINKING_LEVELS,
     SUPPORTED_THINKING_LEVELS,
@@ -51,7 +51,7 @@ pub fn calculate_cost_values(
 mod tests {
     use super::*;
     use crate::types::{ModelCost, ModelInput, ModelThinkingLevel};
-    use pa_types::JsNumber;
+    use aa_types::JsNumber;
 
     fn model(
         reasoning: bool,
@@ -113,7 +113,7 @@ mod tests {
         let m = model(false, None);
         assert_eq!(
             get_supported_thinking_levels(&m),
-            vec![pa_types::ai::ModelThinkingLevel::Off]
+            vec![aa_types::ai::ModelThinkingLevel::Off]
         );
         assert!(models_are_equal(Some(&m), Some(&m)));
     }

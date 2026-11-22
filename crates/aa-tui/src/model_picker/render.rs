@@ -3,7 +3,7 @@
 //! line below the hint (the operator's 2026-09-24 spacing directive).
 //! Geometry is the TS `ModelSelectorComponent` inline path.
 
-use pa_types::ai::{Model, ModelThinkingLevel};
+use aa_types::ai::{Model, ModelThinkingLevel};
 use std::fmt::Write;
 
 use super::{EffortLayout, ModelPicker};

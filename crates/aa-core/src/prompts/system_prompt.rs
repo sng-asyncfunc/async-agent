@@ -158,8 +158,8 @@ pub fn system_prompt_breakdown(options: &BuildSystemPromptOptions) -> SystemProm
     let tools: Vec<&str> = options
         .selected_tools
         .clone()
-        .unwrap_or_else(|| vec![pa_types::ai::JAVASCRIPT_TOOL_NAME]);
-    let has_javascript = tools.contains(&pa_types::ai::JAVASCRIPT_TOOL_NAME);
+        .unwrap_or_else(|| vec![aa_types::ai::JAVASCRIPT_TOOL_NAME]);
+    let has_javascript = tools.contains(&aa_types::ai::JAVASCRIPT_TOOL_NAME);
     let has_file_access = has_javascript || tools.contains(&"bash");
 
     segments.push(PromptSegment::dynamic_segment(
@@ -441,7 +441,7 @@ mod tests {
     fn default_prompt_is_layered_with_static_prefix_first() {
         let breakdown = system_prompt_breakdown(&base_options());
         let prompt = &breakdown.assembled;
-        assert!(prompt.starts_with("# prime-agent harness"));
+        assert!(prompt.starts_with("# async-agent harness"));
         assert_eq!(breakdown.segments[0].kind, SegmentKind::Static);
         assert_eq!(breakdown.segments[0].name, "core");
         let names: Vec<&str> = breakdown
@@ -521,7 +521,7 @@ mod tests {
         assert!(prompt.contains("## AGENTS.md\n\nRule one."));
         assert!(prompt.contains("Working directory: /w"));
         assert!(prompt.contains("Current date: "));
-        assert!(!prompt.contains("# prime-agent harness"));
+        assert!(!prompt.contains("# async-agent harness"));
         assert!(!prompt.contains("Tier-2 guidance."));
     }
 

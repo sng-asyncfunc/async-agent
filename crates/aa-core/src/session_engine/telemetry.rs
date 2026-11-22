@@ -23,9 +23,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use pa_agent::agent::Subscription;
-use pa_agent::types::{AgentEvent, AssistantMessage, StopReason, Usage};
-use pa_telemetry::{
+use aa_agent::agent::Subscription;
+use aa_agent::types::{AgentEvent, AssistantMessage, StopReason, Usage};
+use aa_telemetry::{
     base_properties, Properties, RunTrigger, TelemetryClient, TelemetryClientConfig, ToolCategory,
 };
 use serde_json::Value;
@@ -430,7 +430,7 @@ pub struct SkillCounts {
 ///
 /// Panics if the telemetry state mutex is poisoned.
 pub async fn install_session_telemetry(
-    agent: &Arc<pa_agent::agent::Agent>,
+    agent: &Arc<aa_agent::agent::Agent>,
     wiring: &TelemetryWiring,
     skill_counts: Option<SkillCounts>,
     counters: Arc<SessionCounters>,
@@ -525,7 +525,7 @@ impl SessionTelemetry {
     /// # Panics
     ///
     /// Panics if the telemetry state mutex is poisoned.
-    pub fn note_billed_call(&self, usage: &pa_types::ai::Usage) {
+    pub fn note_billed_call(&self, usage: &aa_types::ai::Usage) {
         let mut state = self.state.lock().expect("telemetry state poisoned");
         if !state.recording {
             sever_off_period_run(&mut state);
@@ -583,7 +583,7 @@ impl SessionTelemetry {
         outcome: &'static str,
         _configuration_choice: Option<&'static str>,
     ) {
-        if let Some(key) = pa_telemetry::feature_outcome_key(feature_name, outcome) {
+        if let Some(key) = aa_telemetry::feature_outcome_key(feature_name, outcome) {
             self.counters
                 .with(|values| *values.feature_outcomes.entry(key).or_default() += 1);
         }
@@ -834,7 +834,7 @@ fn handle_event(
                     if let Some(first_turn) = run.first_turn_started_at {
                         let is_text_delta = matches!(
                             assistant_message_event.as_ref(),
-                            pa_agent::stream::AssistantMessageEvent::TextDelta { delta, .. } if !delta.is_empty()
+                            aa_agent::stream::AssistantMessageEvent::TextDelta { delta, .. } if !delta.is_empty()
                         );
                         if is_text_delta {
                             run.visible_ttft_ms = Some(now.saturating_sub(first_turn));
@@ -844,7 +844,7 @@ fn handle_event(
                 if run.run_to_first_text_ms.is_none() {
                     let is_text_delta = matches!(
                         assistant_message_event.as_ref(),
-                        pa_agent::stream::AssistantMessageEvent::TextDelta { delta, .. } if !delta.is_empty()
+                        aa_agent::stream::AssistantMessageEvent::TextDelta { delta, .. } if !delta.is_empty()
                     );
                     if is_text_delta {
                         run.run_to_first_text_ms = Some(now.saturating_sub(run.started_at));
@@ -853,7 +853,7 @@ fn handle_event(
                 if run.first_reasoning_ms.is_none() {
                     let is_reasoning_delta = matches!(
                         assistant_message_event.as_ref(),
-                        pa_agent::stream::AssistantMessageEvent::ThinkingDelta { delta, .. } if !delta.is_empty()
+                        aa_agent::stream::AssistantMessageEvent::ThinkingDelta { delta, .. } if !delta.is_empty()
                     );
                     if is_reasoning_delta {
                         if let Some(first_turn) = run.first_turn_started_at {
@@ -870,7 +870,7 @@ fn handle_event(
             }
         }
         AgentEvent::MessageEnd { message } => {
-            if let pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::Assistant(
+            if let aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::Assistant(
                 assistant,
             )) = message
             {
@@ -882,7 +882,7 @@ fn handle_event(
                 let category = error_category(Some(&assistant))
                     .as_str()
                     .and_then(|category| {
-                        pa_telemetry::ERROR_CATEGORIES
+                        aa_telemetry::ERROR_CATEGORIES
                             .iter()
                             .find(|known| **known == category)
                             .copied()
@@ -1142,27 +1142,27 @@ fn stop_reason(last_assistant: Option<&AssistantMessage>) -> &'static str {
     }
 }
 
-/// Build the product telemetry client from settings: the Prime Intellect
-/// analytics sink (the TS endpoint and wire format; none in debug builds,
-/// see [`telemetry_endpoint`]) plus the local JSONL transparency mirror
+/// Build the product telemetry client from settings: the opt-in HTTP
+/// analytics sink (disabled by default unless `ASYNC_AGENT_TELEMETRY_ENDPOINT`
+/// is set; see [`telemetry_endpoint`]) plus the local JSONL transparency mirror
 /// (default on, `telemetry.localMirror` disables it), behind the live
 /// [`telemetry_switch`] re-read before every delivery pass. Never fails: a
-/// broken install id falls back to a no-op client (TS parity: capture
-/// disables itself when the installation identity cannot be created).
+/// broken install id falls back to a no-op client (capture disables itself
+/// when the installation identity cannot be created).
 pub fn build_client(
     settings: &crate::settings::SettingsManager,
     agent_dir: &std::path::Path,
 ) -> TelemetryClient {
     let mut config = TelemetryClientConfig::new("disabled");
-    let install_id = pa_telemetry::install_id(agent_dir);
+    let install_id = aa_telemetry::install_id(agent_dir);
     match install_id {
         Ok(id) => {
             config.install_id = id;
-            let mut sinks: Vec<Arc<dyn pa_telemetry::TelemetrySink>> = Vec::new();
+            let mut sinks: Vec<Arc<dyn aa_telemetry::TelemetrySink>> = Vec::new();
             if let Some(endpoint) = telemetry_endpoint() {
-                sinks.push(Arc::new(pa_telemetry::AnalyticsSink::with_http_builder(
+                sinks.push(Arc::new(aa_telemetry::AnalyticsSink::with_http_builder(
                     endpoint,
-                    pa_ai::utils::tls::http_client_builder(),
+                    aa_ai::utils::tls::http_client_builder(),
                 )));
             }
             let local_mirror = settings
@@ -1172,7 +1172,7 @@ pub fn build_client(
                 .and_then(|telemetry| telemetry.local_mirror)
                 .unwrap_or(true);
             if local_mirror {
-                sinks.push(Arc::new(pa_telemetry::FileSink::new(agent_dir)));
+                sinks.push(Arc::new(aa_telemetry::FileSink::new(agent_dir)));
             }
             config.sinks = sinks;
             // `/telemetry off` (or a settings edit) applies to running
@@ -1184,7 +1184,7 @@ pub fn build_client(
         }
         Err(error) => {
             tracing::warn!(error = %error, "telemetry install id unavailable; telemetry disabled");
-            config.sinks = vec![Arc::new(pa_telemetry::NoopSink)];
+            config.sinks = vec![Arc::new(aa_telemetry::NoopSink)];
         }
     }
     TelemetryClient::spawn(config).unwrap_or_else(|error| {

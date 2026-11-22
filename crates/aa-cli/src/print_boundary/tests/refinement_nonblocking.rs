@@ -2,12 +2,12 @@ use super::*;
 use std::sync::Arc;
 
 /// The planner's reply message: the wire `AssistantMessage` fixture (the
-/// pa-ai provider constructors' initial-assistant shape, built directly).
+/// aa-ai provider constructors' initial-assistant shape, built directly).
 fn assistant_fixture(
     model: &Model,
-    content: Vec<pa_types::ai::AssistantContentBlock>,
-) -> pa_types::ai::AssistantMessage {
-    pa_types::ai::AssistantMessage {
+    content: Vec<aa_types::ai::AssistantContentBlock>,
+) -> aa_types::ai::AssistantMessage {
+    aa_types::ai::AssistantMessage {
         content,
         api: model.api.clone(),
         provider: model.provider.clone(),
@@ -15,8 +15,8 @@ fn assistant_fixture(
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_types::ai::Usage::default(),
-        stop_reason: pa_types::ai::StopReason::Stop,
+        usage: aa_types::ai::Usage::default(),
+        stop_reason: aa_types::ai::StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,
         timestamp: 0,
@@ -41,8 +41,8 @@ impl HeldPlanner {
         release: Arc<tokio::sync::Notify>,
         reply: &'static str,
     ) -> Model {
-        let api = pa_ai::faux::random_id("test-held-refinement-host");
-        pa_ai::registry::register_api_provider(
+        let api = aa_ai::faux::random_id("test-held-refinement-host");
+        aa_ai::registry::register_api_provider(
             Arc::new(HeldPlanner {
                 api: api.clone(),
                 started,
@@ -57,7 +57,7 @@ impl HeldPlanner {
     }
 }
 
-impl pa_ai::registry::Provider for HeldPlanner {
+impl aa_ai::registry::Provider for HeldPlanner {
     fn api(&self) -> &str {
         &self.api
     }
@@ -65,16 +65,16 @@ impl pa_ai::registry::Provider for HeldPlanner {
     fn stream(
         &self,
         model: &Model,
-        _context: &pa_ai::types::Context,
-        _options: Option<&pa_ai::types::StreamOptions>,
-    ) -> pa_ai::AssistantMessageEventStream {
-        let (writer, stream) = pa_ai::AssistantMessageEventStream::new();
+        _context: &aa_ai::types::Context,
+        _options: Option<&aa_ai::types::StreamOptions>,
+    ) -> aa_ai::AssistantMessageEventStream {
+        let (writer, stream) = aa_ai::AssistantMessageEventStream::new();
         let started = self.started.clone();
         let release = self.release.clone();
         let message = assistant_fixture(
             model,
-            vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+            vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: self.reply.to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -84,8 +84,8 @@ impl pa_ai::registry::Provider for HeldPlanner {
         tokio::spawn(async move {
             started.notify_one();
             release.notified().await;
-            writer.push(pa_types::ai::AssistantMessageEvent::Done {
-                reason: pa_types::ai::DoneStopReason::Stop,
+            writer.push(aa_types::ai::AssistantMessageEvent::Done {
+                reason: aa_types::ai::DoneStopReason::Stop,
                 message: message.clone(),
             });
             writer.end(Some(message));
@@ -96,9 +96,9 @@ impl pa_ai::registry::Provider for HeldPlanner {
     fn stream_simple(
         &self,
         model: &Model,
-        context: &pa_ai::types::Context,
-        _options: Option<&pa_ai::types::SimpleStreamOptions>,
-    ) -> pa_ai::AssistantMessageEventStream {
+        context: &aa_ai::types::Context,
+        _options: Option<&aa_ai::types::SimpleStreamOptions>,
+    ) -> aa_ai::AssistantMessageEventStream {
         self.stream(model, context, None)
     }
 }
@@ -118,27 +118,27 @@ impl Origin {
         boundary: &mut TurnBoundary,
     ) -> Option<
         tokio::task::JoinHandle<
-            anyhow::Result<pa_core::session_engine::refine::CommittedRefinement>,
+            anyhow::Result<aa_core::session_engine::refine::CommittedRefinement>,
         >,
     > {
         let mut pending = None;
         match self {
             Origin::Slash => {
                 let mut autonomous =
-                    pa_core::autonomous::create_autonomous_runtime_state(None, None);
-                let mut params = pa_core::session_engine::session_commands::SessionCommandParams {
+                    aa_core::autonomous::create_autonomous_runtime_state(None, None);
+                let mut params = aa_core::session_engine::session_commands::SessionCommandParams {
                     model: planner_model,
                     api_key: None,
                     autonomous: &mut autonomous,
                 };
-                let command = pa_core::session_engine::slash_commands::SessionSlashCommand {
+                let command = aa_core::session_engine::slash_commands::SessionSlashCommand {
                     name: "refine",
                     args: String::new(),
                     text: "/refine".to_string(),
                 };
                 let execution = tokio::time::timeout(
                     std::time::Duration::from_secs(5),
-                    pa_core::session_engine::session_commands::execute_session_command(
+                    aa_core::session_engine::session_commands::execute_session_command(
                         engine,
                         &mut params,
                         &command,
@@ -154,7 +154,7 @@ impl Origin {
             Origin::Requested => {
                 engine
                     .turn_boundary
-                    .schedule_refine(pa_core::session_engine::turn_boundary::PendingRefine {
+                    .schedule_refine(aa_core::session_engine::turn_boundary::PendingRefine {
                         instructions: None,
                         global: false,
                     })
@@ -193,14 +193,14 @@ async fn held_refinement_planning_never_blocks_the_next_prompt_or_rebuilds_its_p
         ).await;
         engine
             .session
-            .prompt("seed", pa_core::session_engine::PromptOptions::default())
+            .prompt("seed", aa_core::session_engine::PromptOptions::default())
             .await
             .unwrap();
         engine.session.agent().wait_for_idle().await;
         // A failed assistant retained on disk but dropped from the live retry
         // context must not reappear when the user runs /refine.
         let mut failed = assistant_fixture(&model, Vec::new());
-        failed.stop_reason = pa_types::ai::StopReason::Error;
+        failed.stop_reason = aa_types::ai::StopReason::Error;
         failed.error_message = Some("discarded retry attempt".to_string());
         engine
             .session
@@ -209,7 +209,7 @@ async fn held_refinement_planning_never_blocks_the_next_prompt_or_rebuilds_its_p
             .await
             .append_message(SessionAgentMessage::Assistant(failed))
             .unwrap();
-        let before = pa_core::session_engine::messages::loop_convert_to_llm(
+        let before = aa_core::session_engine::messages::loop_convert_to_llm(
             engine.session.agent().state().await.messages,
         );
         let started = Arc::new(tokio::sync::Notify::new());
@@ -227,7 +227,7 @@ async fn held_refinement_planning_never_blocks_the_next_prompt_or_rebuilds_its_p
             .await
             .expect("planner entered");
         assert_eq!(
-            pa_core::session_engine::messages::loop_convert_to_llm(
+            aa_core::session_engine::messages::loop_convert_to_llm(
                 engine.session.agent().state().await.messages
             ),
             before,
@@ -238,7 +238,7 @@ async fn held_refinement_planning_never_blocks_the_next_prompt_or_rebuilds_its_p
                 .session
                 .prompt(
                     "next user input",
-                    pa_core::session_engine::PromptOptions::default(),
+                    aa_core::session_engine::PromptOptions::default(),
                 )
                 .await
                 .unwrap();
@@ -256,7 +256,7 @@ async fn held_refinement_planning_never_blocks_the_next_prompt_or_rebuilds_its_p
             pending.await.unwrap().unwrap();
         }
         boundary.wait_for_refinement_reports().await;
-        pa_ai::registry::unregister_api_providers(&planner_model.api);
+        aa_ai::registry::unregister_api_providers(&planner_model.api);
     }
 }
 
@@ -274,7 +274,7 @@ async fn disposal_drain_awaits_a_held_refinement_before_the_session_drops() {
     .await;
     engine
         .session
-        .prompt("seed", pa_core::session_engine::PromptOptions::default())
+        .prompt("seed", aa_core::session_engine::PromptOptions::default())
         .await
         .unwrap();
     engine.session.agent().wait_for_idle().await;
@@ -308,7 +308,7 @@ async fn disposal_drain_awaits_a_held_refinement_before_the_session_drops() {
     let rows = refine_rows(&engine).await;
     assert_eq!(rows.len(), 1, "the durable outcome row landed");
     assert_eq!(rows[0].custom_type, "refinement_outcome");
-    pa_ai::registry::unregister_api_providers(&planner_model.api);
+    aa_ai::registry::unregister_api_providers(&planner_model.api);
 }
 
 /// The print `/refine` command's pending refinement is tracked by the same
@@ -325,7 +325,7 @@ async fn a_print_refine_command_is_tracked_by_the_disposal_drain() {
     let engine = Arc::new(engine);
     engine
         .session
-        .prompt("seed", pa_core::session_engine::PromptOptions::default())
+        .prompt("seed", aa_core::session_engine::PromptOptions::default())
         .await
         .unwrap();
     engine.session.agent().wait_for_idle().await;
@@ -340,9 +340,9 @@ async fn a_print_refine_command_is_tracked_by_the_disposal_drain() {
     let mut boundary = TurnBoundary::new(false);
     let goal = Arc::new(crate::print_goal::PrintGoalSurface::new(false));
     let autonomous = Arc::new(tokio::sync::Mutex::new(
-        pa_core::autonomous::create_autonomous_runtime_state(None, None),
+        aa_core::autonomous::create_autonomous_runtime_state(None, None),
     ));
-    let command = pa_core::session_engine::slash_commands::SessionSlashCommand {
+    let command = aa_core::session_engine::slash_commands::SessionSlashCommand {
         name: "refine",
         args: String::new(),
         text: "/refine".to_string(),
@@ -375,7 +375,7 @@ async fn a_print_refine_command_is_tracked_by_the_disposal_drain() {
     let rows = refine_rows(&engine).await;
     assert_eq!(rows.len(), 1, "the durable outcome row landed");
     assert_eq!(rows[0].custom_type, "refinement_outcome");
-    pa_ai::registry::unregister_api_providers(&planner_model.api);
+    aa_ai::registry::unregister_api_providers(&planner_model.api);
 }
 
 /// Every print exit path runs the disposal drain: a `/refine` still planning
@@ -392,7 +392,7 @@ async fn a_failed_print_run_still_drains_an_in_flight_refine() {
     let engine = Arc::new(engine);
     engine
         .session
-        .prompt("seed", pa_core::session_engine::PromptOptions::default())
+        .prompt("seed", aa_core::session_engine::PromptOptions::default())
         .await
         .unwrap();
     engine.session.agent().wait_for_idle().await;
@@ -405,7 +405,7 @@ async fn a_failed_print_run_still_drains_an_in_flight_refine() {
         .subscribe(move |event, _signal| {
             let failed = listener_failed.clone();
             Box::pin(async move {
-                if matches!(event, pa_agent::types::AgentEvent::AgentStart) {
+                if matches!(event, aa_agent::types::AgentEvent::AgentStart) {
                     failed.store(true, std::sync::atomic::Ordering::SeqCst);
                     anyhow::bail!("listener failed");
                 }
@@ -475,19 +475,19 @@ async fn a_failed_print_run_still_drains_an_in_flight_refine() {
         outcomes, 1,
         "the /refine outcome row landed before the run returned"
     );
-    pa_ai::registry::unregister_api_providers(&planner_model.api);
+    aa_ai::registry::unregister_api_providers(&planner_model.api);
 }
 
 /// One `refine.status` round trip through the engine's turn-boundary
 /// handler registration.
 async fn refine_status(engine: &SessionEngine) -> serde_json::Value {
-    let mut handlers = pa_core::kernel::shared::HostRequestHandlers::default();
+    let mut handlers = aa_core::kernel::shared::HostRequestHandlers::default();
     engine.turn_boundary.register_refine_handlers(&mut handlers);
     let status = handlers
         .get("refine.status")
         .expect("the refine surface registered")
         .clone();
-    status(pa_core::kernel::shared::HostRequestPayload { data: json!({}) })
+    status(aa_core::kernel::shared::HostRequestPayload { data: json!({}) })
         .await
         .expect("refine.status answers")
 }
@@ -505,7 +505,7 @@ async fn refine_status_reports_a_user_refine_in_flight() {
     .await;
     engine
         .session
-        .prompt("seed", pa_core::session_engine::PromptOptions::default())
+        .prompt("seed", aa_core::session_engine::PromptOptions::default())
         .await
         .unwrap();
     engine.session.agent().wait_for_idle().await;
@@ -539,7 +539,7 @@ async fn refine_status_reports_a_user_refine_in_flight() {
         status["in_flight"], false,
         "the settled run clears the flight: {status}"
     );
-    pa_ai::registry::unregister_api_providers(&planner_model.api);
+    aa_ai::registry::unregister_api_providers(&planner_model.api);
 }
 
 /// The background completion reporter replays the rows the commit
@@ -555,7 +555,7 @@ async fn background_completion_replays_the_persisted_refinement_rows() {
     .await;
     engine
         .session
-        .prompt("seed", pa_core::session_engine::PromptOptions::default())
+        .prompt("seed", aa_core::session_engine::PromptOptions::default())
         .await
         .unwrap();
     engine.session.agent().wait_for_idle().await;
@@ -613,5 +613,5 @@ async fn background_completion_replays_the_persisted_refinement_rows() {
             "the streamed row must equal the durable transcript row, timestamp included"
         );
     }
-    pa_ai::registry::unregister_api_providers(&planner_model.api);
+    aa_ai::registry::unregister_api_providers(&planner_model.api);
 }

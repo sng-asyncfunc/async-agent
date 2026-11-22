@@ -3,7 +3,7 @@
 //! lost a name collision) shows them once as a warning row. The row is
 //! display-only and never reaches the model.
 
-use pa_types::session::CustomMessage;
+use aa_types::session::CustomMessage;
 
 use crate::resources::SkillStatus;
 
@@ -18,10 +18,10 @@ pub fn notice_message(problems: &[SkillStatus]) -> CustomMessage {
             .iter()
             .map(|status| format!("- {} ({}): {}", status.name, status.path, status.describe())),
     );
-    lines.push("Run `prime-agent skills` to list every skill and its state.".to_string());
+    lines.push("Run `async-agent skills` to list every skill and its state.".to_string());
     CustomMessage {
         custom_type: SKILL_PROBLEMS_CUSTOM_TYPE.to_string(),
-        content: pa_types::ai::UserContent::Text(lines.join("\n")),
+        content: aa_types::ai::UserContent::Text(lines.join("\n")),
         display: true,
         details: None,
         timestamp: crate::session_engine::refine::now_millis(),

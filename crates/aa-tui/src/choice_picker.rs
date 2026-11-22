@@ -141,7 +141,7 @@ mod tests {
     }
 
     fn frame_text(picker: &ChoicePicker) -> Vec<String> {
-        let theme = Theme::builtin("prime", ColorMode::TrueColor);
+        let theme = Theme::builtin("async", ColorMode::TrueColor);
         picker
             .render(&theme, 60, &kb())
             .iter()

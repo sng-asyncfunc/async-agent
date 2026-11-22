@@ -4,12 +4,12 @@ mod resume_settings_tests {
         BranchSummaryOutcome, BranchSummaryRequest, CompactionOutcome, CompactionRequest,
     };
     use crate::worker::*;
-    use pa_agent::abort::AbortSignal;
+    use aa_agent::abort::AbortSignal;
 
     #[derive(Default)]
     struct CaptureEngine {
         selected: Mutex<EngineModelSelection>,
-        tier: Mutex<Option<pa_types::ai::ServiceTier>>,
+        tier: Mutex<Option<aa_types::ai::ServiceTier>>,
     }
     impl SessionEngine for CaptureEngine {
         fn configure_model(&self, selection: EngineModelSelection) {
@@ -27,7 +27,7 @@ mod resume_settings_tests {
         fn configure_create_model(&self, selection: EngineModelSelection) {
             self.configure_model(selection);
         }
-        fn configure_service_tier(&self, tier: Option<pa_types::ai::ServiceTier>) {
+        fn configure_service_tier(&self, tier: Option<aa_types::ai::ServiceTier>) {
             *self.tier.lock().unwrap() = tier;
         }
         fn run_prompt(
@@ -42,7 +42,7 @@ mod resume_settings_tests {
             &self,
             request: crate::engine::SideQuestionRequest,
             signal: &AbortSignal,
-            sink: &pa_core::session_engine::side_question::SideQuestionSink,
+            sink: &aa_core::session_engine::side_question::SideQuestionSink,
         ) -> crate::engine::SideQuestionOutcome {
             ScriptedEngine::default().run_side_question(request, signal, sink)
         }
@@ -62,8 +62,8 @@ mod resume_settings_tests {
         }
         fn rebuild_session_context(
             &self,
-            _: Vec<pa_types::session::FileEntry>,
-            _: pa_core::session_engine::goal_driver::GoalBranchReload,
+            _: Vec<aa_types::session::FileEntry>,
+            _: aa_core::session_engine::goal_driver::GoalBranchReload,
         ) -> anyhow::Result<()> {
             Ok(())
         }
@@ -144,21 +144,21 @@ mod resume_settings_tests {
                     if mode == 4 {
                         (None, None, None)
                     } else if mode == 3 {
-                        (None, None, Some(pa_types::ai::ModelThinkingLevel::Off))
+                        (None, None, Some(aa_types::ai::ModelThinkingLevel::Off))
                     } else if mode == 2 {
                         (
                             None,
                             Some("model-only"),
-                            Some(pa_types::ai::ModelThinkingLevel::High),
+                            Some(aa_types::ai::ModelThinkingLevel::High),
                         )
                     } else if mode == 1 {
                         (
                             Some("explicit"),
                             Some("chosen"),
-                            Some(pa_types::ai::ModelThinkingLevel::Low),
+                            Some(aa_types::ai::ModelThinkingLevel::Low),
                         )
                     } else {
-                        (None, None, Some(pa_types::ai::ModelThinkingLevel::High))
+                        (None, None, Some(aa_types::ai::ModelThinkingLevel::High))
                     }
                 );
                 assert_eq!(*capture.tier.lock().unwrap(), None);
@@ -219,11 +219,11 @@ mod resume_settings_tests {
         {
             let core = worker.core.lock().unwrap();
             assert!(core.store.as_ref().unwrap().window.is_some());
-            assert_eq!(core.service_tier, Some(pa_types::ai::ServiceTier::Default));
+            assert_eq!(core.service_tier, Some(aa_types::ai::ServiceTier::Default));
         }
         assert_eq!(
             *capture.tier.lock().unwrap(),
-            Some(pa_types::ai::ServiceTier::Default)
+            Some(aa_types::ai::ServiceTier::Default)
         );
         let killed = worker.dispatch("kill", &json!({})).await;
         assert!(killed.success, "{killed:?}");

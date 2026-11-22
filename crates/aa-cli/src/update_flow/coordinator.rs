@@ -1,4 +1,4 @@
-//! The coordinator FSM driver (spec §4): the detached pa-cli process that
+//! The coordinator FSM driver (spec §4): the detached aa-cli process that
 //! owns the update from the adopted status to a terminal state; every state
 //! is written to the status file before acting, and `Rollback` is a
 //! first-class path, not an error.
@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use super::phases::{check_marker_fresh, commit_update, prepare_to_prepared, restore_report};
 use anyhow::{Context, Result};
-use pa_types::daemon::update_flow::{
+use aa_types::daemon::update_flow::{
     update_prepared_dir, update_roster_path, UpdateId, UpdateProcessIdentity, UpdateState,
     UpdateStatus, UpdateTimeoutBudget,
 };
@@ -20,7 +20,7 @@ use super::successor::{identity_from_hello, spawn_supervisor, wait_for_exit, wai
 use super::swap;
 
 /// The staged release directory, passed by the invoking CLI through the coordinator's environment.
-pub const UPDATE_CANDIDATE_DIR_ENV: &str = "PRIME_AGENT_UPDATE_CANDIDATE_DIR";
+pub const UPDATE_CANDIDATE_DIR_ENV: &str = "ASYNC_AGENT_UPDATE_CANDIDATE_DIR";
 
 /// One coordinator run's fixed inputs.
 pub struct CoordinatorOptions {
@@ -109,7 +109,7 @@ async fn drive(
     let budget = &options.budget;
     // `Preparing`: connect the old supervisor. An unreachable daemon means a
     // daemon-less update: the successor boots without a roster.
-    let daemon = match pa_tui::daemon_client::DaemonClient::connect(&options.socket_path).await {
+    let daemon = match aa_tui::daemon_client::DaemonClient::connect(&options.socket_path).await {
         Ok((client, _events)) => Some(client),
         Err(_) => None,
     };
@@ -183,7 +183,7 @@ async fn drive(
         .set_state(UpdateState::Stopped)
         .map_err(PhaseFailure::after_stop)?;
     // `Activating`: validate the staged candidate BEFORE the swap, then record
-    // `.activation-state` and repoint `bin/prime-agent` (spec §7).
+    // `.activation-state` and repoint `bin/async-agent` (spec §7).
     writer
         .lock()
         .await
@@ -302,17 +302,17 @@ async fn finish_failure(
         Ok(root) => root,
         Err(error) => {
             fail_hard(format!(
-                "The rollback is unavailable ({error}); the update failed ({reason}). Sessions persist on disk - prime-agent attach recovers them."
+                "The rollback is unavailable ({error}); the update failed ({reason}). Sessions persist on disk - async-agent attach recovers them."
             ))
             .await;
             return Ok(());
         }
     };
-    let previous = match pa_core::update::install::read_rollback_installation(&root) {
+    let previous = match aa_core::update::install::read_rollback_installation(&root) {
         Ok(previous) => previous,
         Err(error) => {
             fail_hard(format!(
-                "No valid previous release to roll back to ({error}); the update failed ({reason}). Sessions persist on disk - prime-agent attach recovers them."
+                "No valid previous release to roll back to ({error}); the update failed ({reason}). Sessions persist on disk - async-agent attach recovers them."
             ))
             .await;
             return Ok(());
@@ -320,12 +320,12 @@ async fn finish_failure(
     };
     let previous_target = match swap::launcher_target(
         &root,
-        pa_core::update::install::PREVIOUS_LAUNCHER,
+        aa_core::update::install::PREVIOUS_LAUNCHER,
     ) {
         Ok(target) => target,
         Err(error) => {
             fail_hard(format!(
-                    "The rollback launcher is missing ({error}); the update failed ({reason}). Sessions persist on disk - prime-agent attach recovers them."
+                    "The rollback launcher is missing ({error}); the update failed ({reason}). Sessions persist on disk - async-agent attach recovers them."
                 ))
                 .await;
             return Ok(());
@@ -333,7 +333,7 @@ async fn finish_failure(
     };
     if let Err(error) = swap::restore_previous(&root, &previous_target) {
         fail_hard(format!(
-            "The rollback repoint failed ({error}); the update failed ({reason}). Sessions persist on disk - prime-agent attach recovers them."
+            "The rollback repoint failed ({error}); the update failed ({reason}). Sessions persist on disk - async-agent attach recovers them."
         ))
         .await;
         return Ok(());
@@ -348,7 +348,7 @@ async fn finish_failure(
     ) {
         writer.lock().await.set_state(UpdateState::Failed)?;
         writer.lock().await.set_message(Some(format!(
-            "The rollback supervisor could not spawn ({error}); the update failed ({reason}). Sessions persist on disk - prime-agent attach recovers them."
+            "The rollback supervisor could not spawn ({error}); the update failed ({reason}). Sessions persist on disk - async-agent attach recovers them."
         )))?;
         return Ok(());
     }
@@ -359,13 +359,13 @@ async fn finish_failure(
         writer.lock().await.set_counts(counts)?;
         writer.lock().await.set_state(UpdateState::Complete)?;
         writer.lock().await.set_message(Some(format!(
-            "Rolled back to the previous Prime Agent version ({reason})"
+            "Rolled back to the previous Async Agent version ({reason})"
         )))?;
         Ok(())
     } else {
         writer.lock().await.set_state(UpdateState::Failed)?;
         writer.lock().await.set_message(Some(format!(
-            "The rollback supervisor did not greet within its boot budget; the update failed ({reason}). Sessions persist on disk - prime-agent attach recovers them."
+            "The rollback supervisor did not greet within its boot budget; the update failed ({reason}). Sessions persist on disk - async-agent attach recovers them."
         )))?;
         Ok(())
     }
@@ -385,18 +385,18 @@ fn activation_plan() -> Result<ActivationPlan> {
     let candidate_dir = std::env::var(UPDATE_CANDIDATE_DIR_ENV)
         .context("the coordinator was spawned without a staged candidate")?;
     let candidate_dir = PathBuf::from(candidate_dir);
-    let executable = candidate_dir.join("prime-agent");
+    let executable = candidate_dir.join("async-agent");
     let root = super::activation_root()?;
     let directory_name = candidate_dir
         .file_name()
         .and_then(|name| name.to_str())
         .context("the staged release directory has no name")?
         .to_string();
-    let version = pa_core::update::install::release_version_of(&directory_name)
+    let version = aa_core::update::install::release_version_of(&directory_name)
         .context("the staged release directory name does not carry a version")?;
     Ok(ActivationPlan {
-        current_target: swap::launcher_target(&root, pa_core::update::install::CURRENT_LAUNCHER)?,
-        candidate_target: format!("../releases/{directory_name}/prime-agent"),
+        current_target: swap::launcher_target(&root, aa_core::update::install::CURRENT_LAUNCHER)?,
+        candidate_target: format!("../releases/{directory_name}/async-agent"),
         executable,
         version,
         root,

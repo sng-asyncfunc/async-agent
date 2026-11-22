@@ -33,7 +33,7 @@ class NpmBridgeTests(unittest.TestCase):
         self.repo.mkdir()
         self.fallback_tarball = self.root / "fallback.tgz"
         fallback_files = {
-            "package/package.json": json.dumps({"name": "prime-agent", "version": "0.9.8",
+            "package/package.json": json.dumps({"name": "async-agent", "version": "0.9.8",
                 "dependencies": {}, "scripts": {"postinstall": "exit 91"}}).encode(),
             "package/dist/bundle/cli-node.js": b'''#!/usr/bin/env node
 if (process.argv[2] === "--version") console.log("0.9.8");
@@ -42,7 +42,7 @@ else if (process.argv[2] === "prefix") console.log(process.env.npm_config_prefix
 else if (process.argv[2] === "descriptor") console.log(require("node:fs").readFileSync(Number(process.env.TEST_DESCRIPTOR), "utf8"));
 else if (process.argv[2] === "ipc") { process.send({fallback:true}); process.disconnect(); }
 else if (process.argv.includes("update") && !process.argv.includes("--print")) {
-  if (process.env.PRIME_AGENT_INTERNAL_TS_UPDATE) throw new Error("delegation flag leaked into the TS updater");
+  if (process.env.ASYNC_AGENT_INTERNAL_TS_UPDATE) throw new Error("delegation flag leaked into the TS updater");
   const {spawnSync}=require("node:child_process");
   let installed={status:0};
   if (process.env.FUTURE_BRIDGE_TARBALL) {
@@ -81,31 +81,31 @@ else console.log(JSON.stringify({fallback:true,args:process.argv.slice(2)}));
         self.fixture.write_text('''#!/usr/bin/env node
 if (process.argv[2] === "wait") { console.log("ready"); setInterval(() => {}, 1000); }
 else if (process.argv[2] === "--version") console.log(require("node:fs").readFileSync(require("node:path").join(__dirname,"version"),"utf8").trim());
-else if (process.argv[2] === "socket") console.log(process.env.PRIME_AGENT_DAEMON_SOCKET);
+else if (process.argv[2] === "socket") console.log(process.env.ASYNC_AGENT_DAEMON_SOCKET);
 else if (process.argv[2] === "signal") process.kill(process.pid, "SIGTERM");
 else { console.log(JSON.stringify(process.argv.slice(2))); process.exitCode = Number(process.env.NATIVE_EXIT || 0); }
 ''')
         self.fixture.chmod(0o755)
-        (self.repo / "install-rust.sh").write_text('''#!/bin/sh
+        (self.repo / "install.sh").write_text('''#!/bin/sh
 set -eu
-test "$PRIME_AGENT_VERSION" = "${EXPECT_VERSION:-1.0.0}"
-test "$PRIME_AGENT_RELEASE_CHANNEL" = "stable"
-test "$PRIME_AGENT_PRESERVE_NPM_BRIDGE" = "1"
-test -f "$PRIME_AGENT_NPM_BRIDGE_ENTRYPOINT"
+test "$ASYNC_AGENT_VERSION" = "${EXPECT_VERSION:-1.0.0}"
+test "$ASYNC_AGENT_RELEASE_CHANNEL" = "stable"
+test "$ASYNC_AGENT_PRESERVE_NPM_BRIDGE" = "1"
+test -f "$ASYNC_AGENT_NPM_BRIDGE_ENTRYPOINT"
 echo install >> "$INSTALL_LOG"
 echo "installer output stays on stderr"
 if [ "${FAIL_INSTALL:-0}" = 1 ]; then exit 23; fi
-test "$PRIME_AGENT_DEFER_DAEMON_STOP" = "${EXPECT_DEFER:-0}"
-test "$PRIME_AGENT_USE_LEGACY_DAEMON_SOCKET" = 1
-mkdir -p "$PRIME_AGENT_RUST_PREFIX/share/prime-agent"
-cp "$FIXTURE_NATIVE" "$PRIME_AGENT_RUST_PREFIX/share/prime-agent/prime-agent"
-printf '%s\\n' "$PRIME_AGENT_VERSION" > "$PRIME_AGENT_RUST_PREFIX/share/prime-agent/version"
-mkdir -p "$PRIME_AGENT_RUST_PREFIX/share/.prime-agent-npm-bridge"
-touch "$PRIME_AGENT_RUST_PREFIX/share/.prime-agent-npm-bridge/legacy-daemon-socket"
+test "$ASYNC_AGENT_DEFER_DAEMON_STOP" = "${EXPECT_DEFER:-0}"
+test "$ASYNC_AGENT_USE_LEGACY_DAEMON_SOCKET" = 1
+mkdir -p "$ASYNC_AGENT_RUST_PREFIX/share/async-agent"
+cp "$FIXTURE_NATIVE" "$ASYNC_AGENT_RUST_PREFIX/share/async-agent/async-agent"
+printf '%s\\n' "$ASYNC_AGENT_VERSION" > "$ASYNC_AGENT_RUST_PREFIX/share/async-agent/version"
+mkdir -p "$ASYNC_AGENT_RUST_PREFIX/share/.async-agent-npm-bridge"
+touch "$ASYNC_AGENT_RUST_PREFIX/share/.async-agent-npm-bridge/legacy-daemon-socket"
 ''')
         self.out = self.root / "out"
         self.metadata = assemble(self.repo, self.out, "1.0.0", "stable", self.fallback_tarball)
-        self.env = {**os.environ, "PRIME_AGENT_RUST_PREFIX": str(self.prefix),
+        self.env = {**os.environ, "ASYNC_AGENT_RUST_PREFIX": str(self.prefix),
                     "INSTALL_LOG": str(self.installs), "FIXTURE_NATIVE": str(self.fixture),
                     "npm_config_cache": str(self.root / "npm-cache")}
         self.env.pop("NODE_OPTIONS", None)
@@ -113,7 +113,7 @@ touch "$PRIME_AGENT_RUST_PREFIX/share/.prime-agent-npm-bridge/legacy-daemon-sock
                         "--prefix", str(self.npm_prefix), str(self.out / self.metadata["tarball"])],
                        env=self.env, capture_output=True, text=True)
         self.assertEqual(installed.returncode, 0, installed.stderr)
-        self.entrypoint = self.npm_prefix / "lib/node_modules/prime-agent/dist/bundle/cli.js"
+        self.entrypoint = self.npm_prefix / "lib/node_modules/async-agent/dist/bundle/cli.js"
 
     def launch(self, *args, **environment):
         return subprocess.run(["node", str(self.entrypoint), *args],
@@ -152,17 +152,17 @@ touch "$PRIME_AGENT_RUST_PREFIX/share/.prime-agent-npm-bridge/legacy-daemon-sock
         self.assertEqual(self.launch("first").returncode, 0)
         # A subsequent native update replaces its payload, but the npm shim
         # must keep forwarding to it without reinstalling the old pinned release.
-        payload = self.prefix / "share/prime-agent"
+        payload = self.prefix / "share/async-agent"
         shutil.rmtree(payload)
         payload.mkdir()
-        shutil.copy2(self.fixture, payload / "prime-agent")
+        shutil.copy2(self.fixture, payload / "async-agent")
         result = self.launch("after-native-update")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.installs.read_text(), "install\n")
 
     def test_completed_migration_launch_does_not_wait_for_migration_lock(self):
         self.assertEqual(self.launch("first").returncode, 0)
-        lock = self.prefix / "share/.prime-agent-npm-bridge/migration.lock"
+        lock = self.prefix / "share/.async-agent-npm-bridge/migration.lock"
         lock.write_text(json.dumps({"pid": os.getpid(), "token": "another-install"}))
         result = self.launch("already-installed")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -185,7 +185,7 @@ touch "$PRIME_AGENT_RUST_PREFIX/share/.prime-agent-npm-bridge/legacy-daemon-sock
         result = self.launch("update", FAIL_INSTALL="1")
         self.assertEqual(result.returncode, 23, result.stderr)
         self.assertEqual(result.stdout, "")
-        self.assertFalse((self.prefix / "share/.prime-agent-npm-bridge/1.0.0").exists())
+        self.assertFalse((self.prefix / "share/.async-agent-npm-bridge/1.0.0").exists())
         self.assertEqual(self.launch("update").returncode, 0)
         self.assertEqual(self.installs.read_text(), "install\ninstall\n")
 
@@ -213,7 +213,7 @@ touch "$PRIME_AGENT_RUST_PREFIX/share/.prime-agent-npm-bridge/legacy-daemon-sock
         self.assertEqual(result.returncode, 0, result.stderr)
         package = json.loads((self.entrypoint.parents[2] / "package.json").read_text())
         self.assertEqual(package["version"], "1.1.0")
-        self.assertTrue((self.prefix / "share/.prime-agent-npm-bridge/1.1.0").exists())
+        self.assertTrue((self.prefix / "share/.async-agent-npm-bridge/1.1.0").exists())
         self.assertEqual(self.launch("--version").stdout.strip(), "1.1.0")
 
     def test_new_bridge_that_still_cannot_install_rust_is_not_reported_as_success(self):
@@ -291,16 +291,16 @@ child.on("exit",code=>{process.exitCode=code;});
 
     def test_missing_native_install_is_repaired(self):
         self.assertEqual(self.launch().returncode, 0)
-        (self.prefix / "share/prime-agent/prime-agent").unlink()
+        (self.prefix / "share/async-agent/async-agent").unlink()
         self.assertEqual(self.launch().returncode, 0)
         self.assertEqual(self.installs.read_text(), "install\ninstall\n")
 
     def test_npm_and_native_prefix_overlap_does_not_recurse(self):
         self.prefix = self.npm_prefix
-        self.env["PRIME_AGENT_RUST_PREFIX"] = str(self.prefix)
+        self.env["ASYNC_AGENT_RUST_PREFIX"] = str(self.prefix)
         self.assertEqual(self.launch("first").returncode, 0)
         # npm owns this link and may replace it during npm install at any time.
-        command = self.prefix / "bin/prime-agent"
+        command = self.prefix / "bin/async-agent"
         self.assertEqual(command.resolve(), self.entrypoint.resolve())
         result = subprocess.run([str(command), "after-npm-reinstall"], env=self.env,
                                 capture_output=True, text=True, timeout=10)
@@ -309,14 +309,14 @@ child.on("exit",code=>{process.exitCode=code;});
         self.assertEqual(self.installs.read_text(), "install\n")
 
     def test_later_launch_keeps_migrated_daemon_socket_namespace(self):
-        self.env.pop("PRIME_AGENT_DAEMON_SOCKET", None)
+        self.env.pop("ASYNC_AGENT_DAEMON_SOCKET", None)
         self.env["TMPDIR"] = str(self.root / "sockets")
         self.assertEqual(self.launch("--internal-update-restart-coordinator", EXPECT_DEFER="1").returncode, 0)
-        expected = str(self.root / "sockets" / f"prime-agent-{os.getuid()}" / "daemon.sock")
+        expected = str(self.root / "sockets" / f"async-agent-{os.getuid()}" / "daemon.sock")
         result = self.launch("socket")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), expected)
-        custom = self.launch("socket", PRIME_AGENT_DAEMON_SOCKET=str(self.root / "custom.sock"))
+        custom = self.launch("socket", ASYNC_AGENT_DAEMON_SOCKET=str(self.root / "custom.sock"))
         self.assertEqual(custom.stdout.strip(), str(self.root / "custom.sock"))
 
     def install_real_launcher(self, **environment):
@@ -324,20 +324,20 @@ child.on("exit",code=>{process.exitCode=code;});
         # installer: an old TUI captures the public symlink path in Node's
         # argv before npm replaces the package, and the launcher this
         # section writes is the file users run after the takeover.
-        installer = (Path(__file__).resolve().parents[2] / "install-rust.sh").read_text()
+        installer = (Path(__file__).resolve().parents[2] / "install.sh").read_text()
         section = installer.split("# --- the launcher (the takeover lives here)", 1)[1]
         section = section.split("# The cmd/PowerShell launcher twin", 1)[0]
         section = "# --- the launcher (the takeover lives here)" + section
-        self.env["PRIME_AGENT_RUST_PREFIX"] = str(self.npm_prefix)
-        payload = self.npm_prefix / "share/prime-agent"
+        self.env["ASYNC_AGENT_RUST_PREFIX"] = str(self.npm_prefix)
+        payload = self.npm_prefix / "share/async-agent"
         payload.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(self.fixture, payload / "prime-agent")
-        (payload / "prime-agent").chmod(0o755)
+        shutil.copyfile(self.fixture, payload / "async-agent")
+        (payload / "async-agent").chmod(0o755)
         (payload / "version").write_text("1.0.0\n")
         return subprocess.run(["sh", "-eu"], input='''
-PREFIX="$PRIME_AGENT_RUST_PREFIX"
+PREFIX="$ASYNC_AGENT_RUST_PREFIX"
 bin_dir="$PREFIX/bin"
-launcher="$bin_dir/prime-agent"
+launcher="$bin_dir/async-agent"
 WINDOWS=no
 say() { :; }; note() { :; }; die() { echo "$*" >&2; exit 1; }
 trap '[ -z "${launcher_tmp:-}" ] || rm -f "$launcher_tmp"' EXIT
@@ -346,10 +346,10 @@ trap '[ -z "${launcher_tmp:-}" ] || rm -f "$launcher_tmp"' EXIT
                     env={**self.env, **environment})
 
     def test_real_installer_preserves_node_relaunch_only_for_its_npm_bridge(self):
-        receipt_dir = self.npm_prefix / "share/.prime-agent-npm-bridge"
+        receipt_dir = self.npm_prefix / "share/.async-agent-npm-bridge"
         receipt_dir.mkdir(parents=True)
         (receipt_dir / "1.0.0").write_text("installed\n")
-        command = self.npm_prefix / "bin/prime-agent"
+        command = self.npm_prefix / "bin/async-agent"
         foreign_entry = self.root / "unrelated.js"
         foreign_entry.write_text(self.entrypoint.read_text())
         for flag, target, preserved in (("1", self.entrypoint, True),
@@ -359,9 +359,9 @@ trap '[ -z "${launcher_tmp:-}" ] || rm -f "$launcher_tmp"' EXIT
                 command.unlink(missing_ok=True)
                 command.symlink_to(target)
                 result = self.install_real_launcher(
-                    PRIME_AGENT_PRESERVE_NPM_BRIDGE=flag,
-                    PRIME_AGENT_NPM_BRIDGE_ENTRYPOINT=str(self.entrypoint),
-                    PRIME_AGENT_USE_LEGACY_DAEMON_SOCKET="1")
+                    ASYNC_AGENT_PRESERVE_NPM_BRIDGE=flag,
+                    ASYNC_AGENT_NPM_BRIDGE_ENTRYPOINT=str(self.entrypoint),
+                    ASYNC_AGENT_USE_LEGACY_DAEMON_SOCKET="1")
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(result.stdout.strip(), "1.0.0")
                 self.assertEqual(command.is_symlink(), preserved)
@@ -370,13 +370,13 @@ trap '[ -z "${launcher_tmp:-}" ] || rm -f "$launcher_tmp"' EXIT
                                             text=True, capture_output=True, timeout=10)
                 self.assertEqual(relaunched.returncode, 0, relaunched.stderr)
                 self.assertEqual(relaunched.stdout.strip(), "1.0.0")
-                self.assertEqual(list(command.parent.glob(".prime-agent.*")), [])
+                self.assertEqual(list(command.parent.glob(".async-agent.*")), [])
 
     def test_real_launcher_pin_respects_the_sun_path_limit(self):
         # The launcher pins the daemon socket env; a TMPDIR whose pin cannot
         # fit the non-Linux 103-byte sun_path limit must pin /tmp instead
-        # (the same fallback pa-daemon socket_dir() gives the binary default).
-        command = self.npm_prefix / "bin/prime-agent"
+        # (the same fallback aa-daemon socket_dir() gives the binary default).
+        command = self.npm_prefix / "bin/async-agent"
         result = self.install_real_launcher()
         self.assertEqual(result.returncode, 0, result.stderr)
         # The PATH shim makes both arms testable on every platform.
@@ -389,24 +389,24 @@ trap '[ -z "${launcher_tmp:-}" ] || rm -f "$launcher_tmp"' EXIT
                 (shim_dir / "uname").chmod(0o755)
                 probe_env = {**self.env, "TMPDIR": str(long_tmp),
                              "PATH": str(shim_dir) + os.pathsep + self.env["PATH"]}
-                probe_env.pop("PRIME_AGENT_DAEMON_SOCKET", None)
+                probe_env.pop("ASYNC_AGENT_DAEMON_SOCKET", None)
                 probe = subprocess.run([str(command), "socket"], env=probe_env,
                                        text=True, capture_output=True, timeout=10)
                 self.assertEqual(probe.returncode, 0, probe.stderr)
                 self.assertEqual(probe.stdout.strip(),
-                                 f"{root}/prime-agent-rust-{os.getuid()}/daemon.sock")
+                                 f"{root}/async-agent-{os.getuid()}/daemon.sock")
 
     def test_utf8_socket_limit_applies_to_launcher_and_stop_probe(self):
         result = self.install_real_launcher()
         self.assertEqual(result.returncode, 0, result.stderr)
-        command = self.npm_prefix / "bin/prime-agent"
-        installer = (Path(__file__).resolve().parents[2] / "install-rust.sh").read_text()
+        command = self.npm_prefix / "bin/async-agent"
+        installer = (Path(__file__).resolve().parents[2] / "install.sh").read_text()
         stop_probe = installer.split('rust_socket="${TMPDIR:-/tmp}', 1)[1]
         stop_probe = 'rust_socket="${TMPDIR:-/tmp}' + stop_probe.split('env_socket=', 1)[0]
         shim_dir = self.root / "utf8-uname-shim"
         shim_dir.mkdir()
         tmp = "/tmp/" + "é" * 40
-        pin = f"{tmp}/prime-agent-rust-{os.getuid()}/daemon.sock"
+        pin = f"{tmp}/async-agent-{os.getuid()}/daemon.sock"
         self.assertLessEqual(len(pin), 103)
         self.assertGreater(len(pin.encode()), 103)
         for system in ("Darwin", "Linux"):
@@ -416,8 +416,8 @@ trap '[ -z "${launcher_tmp:-}" ] || rm -f "$launcher_tmp"' EXIT
                 env = {**self.env, "OS": system, "TMPDIR": tmp,
                        "LC_ALL": "en_US.UTF-8",
                        "PATH": str(shim_dir) + os.pathsep + self.env["PATH"]}
-                env.pop("PRIME_AGENT_DAEMON_SOCKET", None)
-                expected = f"/tmp/prime-agent-rust-{os.getuid()}/daemon.sock" if system == "Darwin" else pin
+                env.pop("ASYNC_AGENT_DAEMON_SOCKET", None)
+                expected = f"/tmp/async-agent-{os.getuid()}/daemon.sock" if system == "Darwin" else pin
                 for shell in ("sh", "bash"):
                     with self.subTest(shell=shell):
                         probe = subprocess.run([shell, str(command), "socket"], env=env,
@@ -431,12 +431,12 @@ trap '[ -z "${launcher_tmp:-}" ] || rm -f "$launcher_tmp"' EXIT
                         self.assertEqual(stop.stdout, expected)
 
     def test_stale_bridge_does_not_downgrade_newer_native_without_receipt(self):
-        payload = self.prefix / "share/prime-agent"
+        payload = self.prefix / "share/async-agent"
         payload.mkdir(parents=True)
-        executable = payload / "prime-agent"
+        executable = payload / "async-agent"
         executable.write_text('''#!/usr/bin/env node
-if (process.argv[2] === "--version") console.log("prime-agent 1.2.0");
-else if (process.argv[2] === "socket") console.log(process.env.PRIME_AGENT_DAEMON_SOCKET);
+if (process.argv[2] === "--version") console.log("async-agent 1.2.0");
+else if (process.argv[2] === "socket") console.log(process.env.ASYNC_AGENT_DAEMON_SOCKET);
 else console.log(JSON.stringify(process.argv.slice(2)));
 ''')
         executable.chmod(0o755)
@@ -444,17 +444,17 @@ else console.log(JSON.stringify(process.argv.slice(2)));
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(self.installs.exists())
         self.assertEqual(json.loads(result.stdout), ["keep-newer"])
-        self.env.pop("PRIME_AGENT_DAEMON_SOCKET", None)
+        self.env.pop("ASYNC_AGENT_DAEMON_SOCKET", None)
         self.env["TMPDIR"] = str(self.root / "sockets")
-        expected = str(self.root / "sockets" / f"prime-agent-rust-{os.getuid()}" / "daemon.sock")
+        expected = str(self.root / "sockets" / f"async-agent-{os.getuid()}" / "daemon.sock")
         self.assertEqual(self.launch("socket").stdout.strip(), expected)
         # A TMPDIR deeper than the non-Linux 103-byte sun_path limit pins
         # /tmp instead (node's platform cannot be shimmed, so the expected
         # value follows the host OS).
         long_tmp = str(self.root / ("t" * 80))
         self.env["TMPDIR"] = long_tmp
-        expected = (f"/tmp/prime-agent-rust-{os.getuid()}/daemon.sock" if sys.platform == "darwin"
-                    else f"{long_tmp}/prime-agent-rust-{os.getuid()}/daemon.sock")
+        expected = (f"/tmp/async-agent-{os.getuid()}/daemon.sock" if sys.platform == "darwin"
+                    else f"{long_tmp}/async-agent-{os.getuid()}/daemon.sock")
         self.assertEqual(self.launch("socket").stdout.strip(), expected)
 
     def test_concurrent_first_launches_install_once(self):
@@ -475,11 +475,11 @@ else console.log(JSON.stringify(process.argv.slice(2)));
 
     def test_coordinator_status_exists_before_install_and_defers_daemon_stop(self):
         status = self.root / "agent/update-restarts/status.json"
-        installer = self.repo / "install-rust.sh"
+        installer = self.repo / "install.sh"
         installer.write_text(installer.read_text() + '\ntest -s "$TEST_RESTART_STATUS"\n')
         assemble(self.repo, self.out, "1.0.0", "stable", self.fallback_tarball)
         # Replace the installed fixture, preserving the real npm entrypoint.
-        shutil.copy2(installer, self.entrypoint.parents[2] / "install-rust.sh")
+        shutil.copy2(installer, self.entrypoint.parents[2] / "install.sh")
         args = ["update", "--internal-update-restart-coordinator", "--internal-update-restart-status",
                 str(status), "--daemon-socket", str(self.root / "old.sock")]
         result = self.launch(*args, EXPECT_DEFER="1", TEST_RESTART_STATUS=str(status))
@@ -495,17 +495,17 @@ else console.log(JSON.stringify(process.argv.slice(2)));
         with tarfile.open(self.out / self.metadata["tarball"]) as archive:
             package = json.load(archive.extractfile("package/package.json"))
         self.assertNotIn("scripts", package)
-        self.assertTrue(package["primeAgentRustBridge"])
+        self.assertTrue(package["asyncAgentRustBridge"])
 
     def test_real_installer_keeps_bridge_but_retires_ts_package(self):
-        installer = (Path(__file__).resolve().parents[2] / "install-rust.sh").read_text()
+        installer = (Path(__file__).resolve().parents[2] / "install.sh").read_text()
         retirement = installer.split("# The TS npm package:", 1)[1].split(
             "# --- the kernel pre-warm:", 1)[0]
         retirement = "# The TS npm package:" + retirement
         fake_bin = self.root / "fake-bin"
         fake_bin.mkdir()
         npm_root = self.root / "npm-root"
-        package_dir = npm_root / "prime-agent"
+        package_dir = npm_root / "async-agent"
         package_dir.mkdir(parents=True)
         uninstalls = self.root / "uninstalls"
         fake_npm = fake_bin / "npm"
@@ -517,8 +517,8 @@ if [ "$1" = root ]; then echo "$TEST_NPM_ROOT"; else echo uninstall >> "$TEST_UN
             with self.subTest(flag=flag, bridge=bridge):
                 uninstalls.unlink(missing_ok=True)
                 (package_dir / "package.json").write_text(json.dumps({
-                    "name": "prime-agent", "version": "1.0.0" if bridge else "0.9.8",
-                    "primeAgentRustBridge": bridge}))
+                    "name": "async-agent", "version": "1.0.0" if bridge else "0.9.8",
+                    "asyncAgentRustBridge": bridge}))
                 result = subprocess.run(["sh", "-eu"], input='''
 WINDOWS=no
 bin_dir="$TEST_NPM_ROOT"
@@ -529,7 +529,7 @@ step_start() { :; }; step_ok() { :; }; step_fail() { :; }; note() { :; }; todo()
 ''' + retirement, text=True, capture_output=True, env={**self.env,
                     "PATH": str(fake_bin) + os.pathsep + self.env["PATH"],
                     "UVPY": sys.executable, "TEST_NPM_ROOT": str(npm_root),
-                    "TEST_UNINSTALL_LOG": str(uninstalls), "PRIME_AGENT_PRESERVE_NPM_BRIDGE": flag})
+                    "TEST_UNINSTALL_LOG": str(uninstalls), "ASYNC_AGENT_PRESERVE_NPM_BRIDGE": flag})
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(uninstalls.exists(), expected)
 
@@ -538,7 +538,7 @@ step_start() { :; }; step_ok() { :; }; step_fail() { :; }; note() { :; }; todo()
                      "requires npm on a historical TypeScript platform")
 class InstallerTakeoverTests(unittest.TestCase):
     def test_npm_retirement_leaves_working_native_launcher(self):
-        installer = (Path(__file__).resolve().parents[2] / "install-rust.sh").read_text()
+        installer = (Path(__file__).resolve().parents[2] / "install.sh").read_text()
         launcher_section = installer.split("# --- the launcher (the takeover lives here)", 1)[1].split(
             "# The cmd/PowerShell launcher twin", 1)[0]
         retirement = installer.split("# The TS npm package:", 1)[1].split(
@@ -549,19 +549,19 @@ class InstallerTakeoverTests(unittest.TestCase):
                 root = Path(temp)
                 prefix = root / "native prefix"
                 npm_prefix = prefix if shared else root / "npm prefix"
-                package = npm_prefix / "lib/node_modules/prime-agent"
+                package = npm_prefix / "lib/node_modules/async-agent"
                 package.mkdir(parents=True)
                 (package / "package.json").write_text(json.dumps({
-                    "name": "prime-agent", "version": "0.9.8", "bin": {"prime-agent": "cli.js"}}))
+                    "name": "async-agent", "version": "0.9.8", "bin": {"async-agent": "cli.js"}}))
                 (package / "cli.js").write_text("#!/usr/bin/env node\nconsole.log('0.9.8');\n")
                 (package / "cli.js").chmod(0o755)
                 (npm_prefix / "bin").mkdir()
-                (npm_prefix / "bin/prime-agent").symlink_to("../lib/node_modules/prime-agent/cli.js")
+                (npm_prefix / "bin/async-agent").symlink_to("../lib/node_modules/async-agent/cli.js")
                 (prefix / "bin").mkdir(parents=True, exist_ok=True)
-                payload = prefix / "share/prime-agent"
+                payload = prefix / "share/async-agent"
                 payload.mkdir(parents=True)
-                (payload / "prime-agent").write_text("#!/bin/sh\nprintf '0.10.0\\n'\n")
-                (payload / "prime-agent").chmod(0o755)
+                (payload / "async-agent").write_text("#!/bin/sh\nprintf '0.10.0\\n'\n")
+                (payload / "async-agent").chmod(0o755)
                 env = {"PATH": os.environ["PATH"], "HOME": temp, "PREFIX": str(prefix),
                        "UVPY": sys.executable, "TEST_UNINSTALL_FAIL": str(uninstall_fails),
                        "npm_config_prefix": str(npm_prefix),
@@ -570,7 +570,7 @@ class InstallerTakeoverTests(unittest.TestCase):
                        "npm_config_globalconfig": str(root / "empty-global-npmrc")}
                 result = subprocess.run(["sh", "-eu"], input='''
 bin_dir="$PREFIX/bin"
-launcher="$bin_dir/prime-agent"
+launcher="$bin_dir/async-agent"
 WINDOWS=no
 say() { :; }; note() { :; }; die() { echo "$*" >&2; exit 1; }
 step_start() { :; }; step_ok() { :; }; step_fail() { :; }; todo() { :; }
@@ -591,16 +591,16 @@ npm() {
                     env=env, text=True, capture_output=True, timeout=30)
                 self.assertFalse(package.exists(), result.stderr)
                 self.assertEqual(result.returncode, 143 if uninstall_fails == 2 else 0, result.stderr)
-                probe = subprocess.run([str(prefix / "bin/prime-agent"), "--version"],
+                probe = subprocess.run([str(prefix / "bin/async-agent"), "--version"],
                                        env=env, text=True, capture_output=True, timeout=10)
                 self.assertEqual((probe.returncode, probe.stdout.strip()), (0, "0.10.0"), probe.stderr)
-                self.assertEqual(list((prefix / "bin").glob(".prime-agent.*")), [])
+                self.assertEqual(list((prefix / "bin").glob(".async-agent.*")), [])
 
     def test_failed_version_probe_is_install_failure(self):
-        installer = (Path(__file__).resolve().parents[2] / "install-rust.sh").read_text()
+        installer = (Path(__file__).resolve().parents[2] / "install.sh").read_text()
         verification = installer.split("# --- verify: the launcher must answer --version", 1)[1].split("\n", 1)[1].split("# --- the summary", 1)[0]
         result = subprocess.run(["sh", "-eu"], input='''
-install_probe_launcher=/nonexistent/prime-agent
+install_probe_launcher=/nonexistent/async-agent
 say() { :; }; die() { echo "$*" >&2; exit 1; }
 ''' + verification, text=True, capture_output=True)
         self.assertNotEqual(result.returncode, 0, "a broken launcher must not certify installation")

@@ -7,7 +7,7 @@ use super::{
 };
 
 /// Persistence for the first-run onboarding answers. The TUI crate owns only the surface; the
-/// composition root (pa-cli) implements the sink, keeping pa-tui decoupled from pa-core.
+/// composition root (aa-cli) implements the sink, keeping aa-tui decoupled from aa-core.
 pub trait OnboardingSink: Send + Sync {
     /// The completion marker, read fresh: the phase's one-shot gate — the agents-view flow
     /// re-runs the phase per session, so a completed flow never shows anything again.
@@ -49,7 +49,7 @@ pub type ModelReadiness = std::sync::Arc<dyn Fn() -> bool + Send + Sync>;
 pub struct OnboardingTask {
     pub sink: std::sync::Arc<dyn OnboardingSink>,
     pub model_ready: ModelReadiness,
-    pub current_model: Option<pa_types::ai::Model>,
+    pub current_model: Option<aa_types::ai::Model>,
     /// The provider auth flows the full branch signs in through; `None` skips its sign-in step.
     pub provider_auth: Option<crate::provider_auth::ProviderAuthCommandsHandle>,
 }
@@ -729,7 +729,7 @@ mod tests {
             .send(UiInput::Timestamp(timing_tx))
             .expect("queued marker");
         let mut view = AgentView::new(crate::theme::Theme::builtin(
-            "prime",
+            "async",
             crate::theme::ColorMode::TrueColor,
         ));
         let mut renderer = Renderer::Headless {

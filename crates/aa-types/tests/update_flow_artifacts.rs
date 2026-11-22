@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use pa_types::daemon::update_flow::{
+use aa_types::daemon::update_flow::{
     prepared_marker_expiry, socket_update_dir, update_intent_path, update_marker_path,
     update_prepared_dir, update_roster_path, update_status_path, update_transition_allowed,
     PreparedMarkerExpiry, UpdateHeartbeatDeliveryMode, UpdateHeartbeatStatus, UpdateId,
@@ -13,7 +13,7 @@ use pa_types::daemon::update_flow::{
     UpdateStatus, UpdateSupervisorIdentity, UpdateTimeoutBudget, UPDATE_ROSTER_FORMAT_VERSION,
     UPDATE_STATUS_FORMAT_VERSION,
 };
-use pa_types::JsonMap;
+use aa_types::JsonMap;
 
 /// Lossless round-trip contract (crate-wide): parse, serialize, re-parse,
 /// require equality with the original JSON value.
@@ -30,7 +30,7 @@ fn rt<T: serde::de::DeserializeOwned + serde::Serialize>(json: &str) {
 const SPEC_ROSTER: &str = r#"{
     "format_version": 1,
     "update_id": "018f-uuidv7",
-    "socket_path": "/tmp/prime-agent-1000/daemon.sock",
+    "socket_path": "/tmp/async-agent-1000/daemon.sock",
     "created_at": "2026-10-01T12:00:00Z",
     "supervisor": {"pid": 4242, "process_start_id": "4242/170000", "generation": "gen-7"},
     "binary": {"from_version": "0.9.5", "to_version": "0.9.6"},
@@ -38,11 +38,11 @@ const SPEC_ROSTER: &str = r#"{
         {
             "session_id": "01a0b4f6-0000-7000-8000-000000000001",
             "active_session_id": "a-1",
-            "session_file": "~/.prime/agent/sessions/01a0b4f6-0000-7000-8000-000000000001.jsonl",
+            "session_file": "~/.async-agent/sessions/01a0b4f6-0000-7000-8000-000000000001.jsonl",
             "name": "worker-1",
             "kind": "top-level",
             "rlm_depth": 1,
-            "cwd": "/home/ubuntu/prime-agent-rs",
+            "cwd": "/home/ubuntu/async-agent",
             "runtime_config": {"model": "glm-5.3"},
             "queue": {
                 "next_turn": [
@@ -62,7 +62,7 @@ const SPEC_ROSTER: &str = r#"{
             "worker_id": "w-1",
             "worker_instance_id": "w-1-abc",
             "sessions": ["01a0b4f6-0000-7000-8000-000000000001"],
-            "launch_env": {"PRIME_AGENT_SESSION_DIR": "/tmp/sess"}
+            "launch_env": {"ASYNC_AGENT_SESSION_DIR": "/tmp/sess"}
         }
     ],
     "subagents": [
@@ -73,8 +73,8 @@ const SPEC_ROSTER: &str = r#"{
             "name": "api-reviewer",
             "status": "completed",
             "depth": 2,
-            "session_file": "~/.prime/agent/sessions/01a0b4f6-0000-7000-8000-000000000002.jsonl",
-            "display_file": "~/.prime/agent/session-artifacts/01a0b4f6-0000-7000-8000-000000000002/rlm-subagent.json"
+            "session_file": "~/.async-agent/sessions/01a0b4f6-0000-7000-8000-000000000002.jsonl",
+            "display_file": "~/.async-agent/session-artifacts/01a0b4f6-0000-7000-8000-000000000002/rlm-subagent.json"
         }
     ],
     "heartbeats": [

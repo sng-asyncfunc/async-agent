@@ -3,7 +3,7 @@ name = "aa-agent"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Agent loop for Prime Agent."
+description = "Agent loop for Async Agent."
 
 [dependencies]
 anyhow.workspace = true

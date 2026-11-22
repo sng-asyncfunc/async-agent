@@ -168,11 +168,11 @@ def run_case(binary, root, observation):
         (root / name).mkdir(parents=True)
     cwd, agent, sessions = root / 'work', root / 'agent', root / 'sessions'
     env = {key: os.environ[key] for key in ('PATH', 'LANG', 'LC_ALL', 'TZ',
-           'PRIME_AGENT_KERNEL_PYTHON', 'PA_E2E_KERNEL_PYTHON') if key in os.environ}
+           'ASYNC_AGENT_KERNEL_PYTHON', 'AA_E2E_KERNEL_PYTHON') if key in os.environ}
     env.update(HOME=str(root / 'home'), TMPDIR=str(root / 'tmp'), DO_NOT_TRACK='1',
                PI_OFFLINE='1', PI_CODING_AGENT_DIR=str(agent),
-               PRIME_AGENT_CODING_AGENT_DIR=str(agent), PI_SESSION_DIR=str(sessions),
-               PRIME_AGENT_SESSION_DIR=str(sessions), XDG_CONFIG_HOME=str(root / 'config'),
+               ASYNC_AGENT_CODING_AGENT_DIR=str(agent), PI_SESSION_DIR=str(sessions),
+               ASYNC_AGENT_SESSION_DIR=str(sessions), XDG_CONFIG_HOME=str(root / 'config'),
                XDG_CACHE_HOME=str(root / 'cache'), XDG_DATA_HOME=str(root / 'data'))
     use_skill_python(root, env)
     server = Server(root)
@@ -250,7 +250,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--receipt', type=Path, required=True)
     args = parser.parse_args()
-    binary = Path(os.environ['PA_RUST_BINARY']).resolve()
+    binary = Path(os.environ['AA_RUST_BINARY']).resolve()
     assert sys.platform == 'linux', 'requires Linux hosted CI'
     result = {'binary': {'path': str(binary), 'sha256': digest(binary)},
               'tool_name_normalization': 'Select offered python_repl or legacy ipython.',

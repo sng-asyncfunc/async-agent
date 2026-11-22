@@ -165,8 +165,8 @@ impl SessionEngine for GateProbeEngine {
     fn run_side_question(
         &self,
         _request: SideQuestionRequest,
-        _signal: &pa_agent::abort::AbortSignal,
-        _sink: &pa_core::session_engine::side_question::SideQuestionSink,
+        _signal: &aa_agent::abort::AbortSignal,
+        _sink: &aa_core::session_engine::side_question::SideQuestionSink,
     ) -> SideQuestionOutcome {
         SideQuestionOutcome::Failed {
             answer: String::new(),
@@ -177,7 +177,7 @@ impl SessionEngine for GateProbeEngine {
     fn run_compaction(
         &self,
         _request: CompactionRequest,
-        _signal: &pa_agent::abort::AbortSignal,
+        _signal: &aa_agent::abort::AbortSignal,
     ) -> CompactionOutcome {
         CompactionOutcome::Skipped {
             message: "nothing to compact".to_string(),
@@ -187,7 +187,7 @@ impl SessionEngine for GateProbeEngine {
     fn run_branch_summary(
         &self,
         _request: crate::engine::BranchSummaryRequest,
-        _signal: &pa_agent::abort::AbortSignal,
+        _signal: &aa_agent::abort::AbortSignal,
     ) -> crate::engine::BranchSummaryOutcome {
         crate::engine::BranchSummaryOutcome::Failed {
             error: "unsupported".to_string(),
@@ -196,8 +196,8 @@ impl SessionEngine for GateProbeEngine {
 
     fn rebuild_session_context(
         &self,
-        _branch_entries: Vec<pa_types::session::FileEntry>,
-        _goal_reload: pa_core::session_engine::goal_driver::GoalBranchReload,
+        _branch_entries: Vec<aa_types::session::FileEntry>,
+        _goal_reload: aa_core::session_engine::goal_driver::GoalBranchReload,
     ) -> anyhow::Result<()> {
         Ok(())
     }
@@ -554,7 +554,7 @@ async fn a_failed_runs_agent_end_follows_its_retry_start() {
                 max_attempts: 3,
                 delay_ms: 1_000,
                 error_message: "down".to_string(),
-                reason: pa_core::session_engine::auto_retry::RetryStartReason::Quick,
+                reason: aa_core::session_engine::auto_retry::RetryStartReason::Quick,
             },
         ],
         false,
@@ -765,14 +765,14 @@ async fn model_transitions_reach_the_worker_owned_session_file() {
             json!({"provider": "primary", "modelId": "model/with/slashes"}),
         ];
         let mut frames = vec![
-            EngineEvent::ModelChange(pa_types::session::ModelChangeEntry {
+            EngineEvent::ModelChange(aa_types::session::ModelChangeEntry {
                 provider: "backup".to_string(),
                 model_id: "model/with/slashes".to_string(),
             }),
             EngineEvent::AssistantMessage(
                 json!({"role": "assistant", "content": [], "stopReason": "toolUse"}),
             ),
-            EngineEvent::ModelChange(pa_types::session::ModelChangeEntry {
+            EngineEvent::ModelChange(aa_types::session::ModelChangeEntry {
                 provider: "primary".to_string(),
                 model_id: "model/with/slashes".to_string(),
             }),

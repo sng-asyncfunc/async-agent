@@ -9,7 +9,7 @@ mod support;
 
 use std::os::unix::net::UnixStream;
 
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep};
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep};
 use serde_json::{json, Value};
 
 use support::{

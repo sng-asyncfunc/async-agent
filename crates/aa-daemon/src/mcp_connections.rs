@@ -123,7 +123,7 @@ impl Worker {
             manager.paste_install_inputs(server)
         };
         let install = match inputs {
-            Ok(inputs) => pa_core::mcp::install_static_token(inputs, token).await,
+            Ok(inputs) => aa_core::mcp::install_static_token(inputs, token).await,
             Err(message) => Err(message),
         };
         if install.is_ok() {
@@ -172,7 +172,7 @@ impl Worker {
             let manager = manager.lock().unwrap();
             manager.connection_handles()
         };
-        match pa_core::mcp::remove_mcp_connection(&handles, server).await {
+        match aa_core::mcp::remove_mcp_connection(&handles, server).await {
             Ok(removed) => response_success(
                 None,
                 "remove_mcp_connection",

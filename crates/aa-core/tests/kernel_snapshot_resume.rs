@@ -15,24 +15,24 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use pa_ai::faux::{
+use aa_ai::faux::{
     faux_assistant_message, register_faux_provider, FauxAssistantMessageOptions,
     FauxModelDefinition, FauxResponseStep, RegisterFauxProviderOptions,
 };
-use pa_core::session::manager::SessionManager;
-use pa_core::session_engine::engine::{create_session, SessionEngineConfig};
-use pa_core::session_engine::provider_adapter::{json_round_trip, real_stream_fn};
-use pa_core::session_engine::state_restore_notice::JAVASCRIPT_STATE_RESTORED_CUSTOM_TYPE;
-use pa_core::session_engine::telemetry::{build_client, TelemetryWiring};
-use pa_core::session_engine::{PromptOptions, PromptOutcome};
-use pa_core::settings::SettingsManager;
-use pa_types::session::FileEntry;
+use aa_core::session::manager::SessionManager;
+use aa_core::session_engine::engine::{create_session, SessionEngineConfig};
+use aa_core::session_engine::provider_adapter::{json_round_trip, real_stream_fn};
+use aa_core::session_engine::state_restore_notice::JAVASCRIPT_STATE_RESTORED_CUSTOM_TYPE;
+use aa_core::session_engine::telemetry::{build_client, TelemetryWiring};
+use aa_core::session_engine::{PromptOptions, PromptOutcome};
+use aa_core::settings::SettingsManager;
+use aa_types::session::FileEntry;
 
 /// The faux provider registry is process-global and the tests drive it:
 /// the std lock serializes them (the only contenders).
 static FAUX_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// The kernel Bun binary with `prime-agent-runtime` available; skipped with a note when absent.
+/// The kernel Bun binary with `async-agent-runtime` available; skipped with a note when absent.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) = std::env::var_os("PA_CORE_KERNEL_BUN") {
         let explicit = PathBuf::from(explicit);
@@ -43,20 +43,20 @@ fn kernel_bun() -> Option<PathBuf> {
         );
         return Some(explicit);
     }
-    let runtime_ready = pa_core::kernel::bootstrap::kernel_worker_entry(
-        &pa_core::kernel::bootstrap::kernel_bun_dir(),
+    let runtime_ready = aa_core::kernel::bootstrap::kernel_worker_entry(
+        &aa_core::kernel::bootstrap::kernel_bun_dir(),
     )
     .is_file()
         || Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(2)
-            .is_some_and(|root| root.join("prime-agent-runtime/src/repl.ts").is_file());
+            .is_some_and(|root| root.join("async-agent-runtime/src/repl.ts").is_file());
     if !runtime_ready {
-        eprintln!("prime-agent-runtime/src/repl.ts not found; skipping live snapshot test");
+        eprintln!("async-agent-runtime/src/repl.ts not found; skipping live snapshot test");
         return None;
     }
     for candidate in [
-        std::env::var_os("PRIME_AGENT_KERNEL_BUN").map(PathBuf::from),
+        std::env::var_os("ASYNC_AGENT_KERNEL_BUN").map(PathBuf::from),
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".bun/bin/bun")),
         Some(PathBuf::from("/usr/local/bin/bun")),
         Some(PathBuf::from("/usr/bin/bun")),
@@ -75,8 +75,8 @@ fn kernel_bun() -> Option<PathBuf> {
 /// One faux provider session: the model and its stream function, with the
 /// scripted responses queued.
 struct FauxSession {
-    model: pa_types::ai::Model,
-    stream_fn: pa_agent::stream::StreamFn,
+    model: aa_types::ai::Model,
+    stream_fn: aa_agent::stream::StreamFn,
 }
 
 fn faux_session(responses: Vec<FauxResponseStep>) -> FauxSession {
@@ -85,7 +85,7 @@ fn faux_session(responses: Vec<FauxResponseStep>) -> FauxSession {
             id: "faux-1".to_string(),
             name: Some("Faux".to_string()),
             reasoning: Some(false),
-            input: Some(vec![pa_types::ai::ModelInput::Text]),
+            input: Some(vec![aa_types::ai::ModelInput::Text]),
             cost: None,
             context_window: Some(100_000),
             max_tokens: Some(4_096),
@@ -102,8 +102,8 @@ fn faux_session(responses: Vec<FauxResponseStep>) -> FauxSession {
 /// loop's tool-call shape: `StopReason::ToolUse` + a `ToolCall` block).
 fn javascript_tool_call_step(call_id: &str, code: &str) -> FauxResponseStep {
     let message = faux_assistant_message(
-        vec![pa_types::ai::AssistantContentBlock::ToolCall(
-            pa_types::ai::ToolCall {
+        vec![aa_types::ai::AssistantContentBlock::ToolCall(
+            aa_types::ai::ToolCall {
                 id: call_id.to_string(),
                 name: "javascript".to_string(),
                 arguments: serde_json::json!({ "code": code })
@@ -115,7 +115,7 @@ fn javascript_tool_call_step(call_id: &str, code: &str) -> FauxResponseStep {
             },
         )],
         FauxAssistantMessageOptions {
-            stop_reason: Some(pa_types::ai::StopReason::ToolUse),
+            stop_reason: Some(aa_types::ai::StopReason::ToolUse),
             ..Default::default()
         },
     );
@@ -123,19 +123,19 @@ fn javascript_tool_call_step(call_id: &str, code: &str) -> FauxResponseStep {
 }
 
 fn text_step(text: &str) -> FauxResponseStep {
-    pa_ai::faux::FauxResponseStep::Message(pa_ai::faux::faux_assistant_text_message(
+    aa_ai::faux::FauxResponseStep::Message(aa_ai::faux::faux_assistant_text_message(
         text,
         FauxAssistantMessageOptions::default(),
     ))
 }
 
-fn agent_model(model: &pa_types::ai::Model) -> pa_agent::types::Model {
+fn agent_model(model: &aa_types::ai::Model) -> aa_agent::types::Model {
     json_round_trip(model).expect("model conversion")
 }
 
 /// Wait for the session's kernel to boot: running, and (for a revived
 /// boot, `cold: false`) with the snapshot restore applied.
-async fn wait_for_boot(engine: &pa_core::session_engine::engine::SessionEngine, cold: bool) {
+async fn wait_for_boot(engine: &aa_core::session_engine::engine::SessionEngine, cold: bool) {
     let deadline = Instant::now() + Duration::from_mins(1);
     loop {
         if let Some(provisioner) = engine.kernel_provisioner_weak().upgrade() {
@@ -153,21 +153,21 @@ async fn wait_for_boot(engine: &pa_core::session_engine::engine::SessionEngine, 
 
 /// The text of every `ToolResult` message the loop carries (the model-side
 /// view of an ipython cell's output).
-async fn tool_result_texts(engine: &pa_core::session_engine::engine::SessionEngine) -> Vec<String> {
+async fn tool_result_texts(engine: &aa_core::session_engine::engine::SessionEngine) -> Vec<String> {
     let state = engine.session.agent().state().await;
     state
         .messages
         .iter()
         .filter_map(|message| match message {
-            pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::ToolResult(
+            aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::ToolResult(
                 result,
             )) => Some(
                 result
                     .content
                     .iter()
                     .filter_map(|block| match block {
-                        pa_agent::types::ToolResultContent::Text(text) => Some(text.text.clone()),
-                        pa_agent::types::ToolResultContent::Image(_) => None,
+                        aa_agent::types::ToolResultContent::Text(text) => Some(text.text.clone()),
+                        aa_agent::types::ToolResultContent::Image(_) => None,
                     })
                     .collect::<Vec<_>>()
                     .join("\n"),
@@ -178,7 +178,7 @@ async fn tool_result_texts(engine: &pa_core::session_engine::engine::SessionEngi
 }
 
 /// Drive one prompt to idle and return the loop's settled messages.
-async fn run_turn(engine: &pa_core::session_engine::engine::SessionEngine, text: &str) {
+async fn run_turn(engine: &aa_core::session_engine::engine::SessionEngine, text: &str) {
     let outcome = engine
         .prompt(text, PromptOptions::default())
         .await
@@ -193,7 +193,7 @@ struct Fixture {
     agent_dir: PathBuf,
     sessions_dir: PathBuf,
     cwd: PathBuf,
-    client: pa_telemetry::TelemetryClient,
+    client: aa_telemetry::TelemetryClient,
 }
 
 fn fixture() -> Fixture {
@@ -367,7 +367,7 @@ async fn session_end_then_resume_prewarms_and_revives_the_namespace() {
             _ => None,
         })
         .expect("the javascript_state_restored notice must land on the resumed session");
-    let pa_types::ai::UserContent::Text(content) = &notice.content else {
+    let aa_types::ai::UserContent::Text(content) = &notice.content else {
         panic!("the notice content is text");
     };
     assert!(content.contains("[javascript-state-restored]"), "{content}");

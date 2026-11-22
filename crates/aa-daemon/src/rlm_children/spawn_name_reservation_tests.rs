@@ -1,6 +1,6 @@
 use super::*;
 use crate::protocol::{response_failure, response_success};
-use pa_types::platform::transport::bind_transport;
+use aa_types::platform::transport::bind_transport;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -32,7 +32,7 @@ async fn spawn_gated_supervisor(
                 let mut reader = BufReader::new(reader);
                 writer
                     .write_all(
-                        b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"prime-agent.daemon\",\"version\":7}}\n",
+                        b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"async-agent.daemon\",\"version\":7}}\n",
                     )
                     .await
                     .unwrap();

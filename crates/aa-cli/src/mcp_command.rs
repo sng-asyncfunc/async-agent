@@ -8,8 +8,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::config::get_agent_dir;
-use pa_core::auth::AuthStorageBackend;
-use pa_core::settings::SettingsStorage;
+use aa_core::auth::AuthStorageBackend;
+use aa_core::settings::SettingsStorage;
 
 /// Built-in MCP integrations that reserve their server name.
 pub const BUILTIN_MCP_CATALOG: &[&str] = &["linear", "notion"];
@@ -93,13 +93,13 @@ fn read_settings() -> serde_json::Value {
 fn mutate_global_settings(
     mut mutate: impl FnMut(&mut serde_json::Value) -> Result<bool>,
 ) -> Result<()> {
-    let storage = pa_core::settings::FileSettingsStorage::new(
+    let storage = aa_core::settings::FileSettingsStorage::new(
         std::env::current_dir().context("resolving the current directory")?,
         get_agent_dir(),
     );
     let mut failure: Option<anyhow::Error> = None;
     storage
-        .with_lock(pa_core::settings::SettingsScope::Global, &mut |current| {
+        .with_lock(aa_core::settings::SettingsScope::Global, &mut |current| {
             let result = (|| -> Result<Option<String>> {
                 let mut settings =
                     serde_json::from_str::<serde_json::Value>(current.as_deref().unwrap_or("{}"))
@@ -176,7 +176,7 @@ fn drop_server_credentials(name: &str) -> Result<()> {
     if BUILTIN_MCP_CATALOG.contains(&name) {
         return Ok(());
     }
-    let backend = pa_core::auth::FileAuthStorageBackend::new(get_agent_dir().join("auth.json"));
+    let backend = aa_core::auth::FileAuthStorageBackend::new(get_agent_dir().join("auth.json"));
     backend
         .with_lock(&mut |current| {
             let mut auth: serde_json::Value =
@@ -494,10 +494,10 @@ mod tests {
                 "bearerTokenEnvVar": "MY_TOKEN"
             })
         );
-        let engine: pa_core::mcp::McpServerConfig = serde_json::from_value(written).unwrap();
+        let engine: aa_core::mcp::McpServerConfig = serde_json::from_value(written).unwrap();
         assert!(matches!(
             engine,
-            pa_core::mcp::McpServerConfig::Http { bearer_token_env_var: Some(ref var), .. } if var == "MY_TOKEN"
+            aa_core::mcp::McpServerConfig::Http { bearer_token_env_var: Some(ref var), .. } if var == "MY_TOKEN"
         ));
     }
 

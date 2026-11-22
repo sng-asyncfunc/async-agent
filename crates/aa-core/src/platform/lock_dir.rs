@@ -364,7 +364,7 @@ impl LockDir {
         #[cfg(windows)]
         {
             matches!(
-                pa_types::platform::process::is_process_alive(pid),
+                aa_types::platform::process::is_process_alive(pid),
                 Ok(false)
             )
         }

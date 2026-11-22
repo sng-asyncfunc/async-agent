@@ -10,7 +10,7 @@ use super::PreparedJavaScriptSkill;
 /// skills failed to load. The host scans the bootstrap cell's stdout for this
 /// marker.
 pub const JAVASCRIPT_SKILL_IMPORT_ERROR_REPORT_MARKER: &str =
-    "__PRIME_AGENT_JAVASCRIPT_SKILL_IMPORT_ERRORS__";
+    "__ASYNC_AGENT_JAVASCRIPT_SKILL_IMPORT_ERRORS__";
 
 /// Failed skill loads reported by a bootstrap cell: `(global name, load error)`
 /// pairs in load order.
@@ -48,7 +48,7 @@ struct BootstrapSkillPayload<'a> {
 /// The JavaScript bootstrap cell the session injects right after kernel
 /// start/restore: disables color output in subprocesses, wires bounded `bash()`
 /// completion notices when the host registered `bash.completed`, and loads all
-/// prepared JavaScript skills via `globalThis.__primeLoadSkills`.
+/// prepared JavaScript skills via `globalThis.__asyncLoadSkills`.
 #[must_use]
 pub fn build_rlm_bootstrap_code(
     skills: &[PreparedJavaScriptSkill],
@@ -57,7 +57,7 @@ pub fn build_rlm_bootstrap_code(
     let mut lines = vec![String::from("process.env.NO_COLOR = \"1\";")];
     if bash_notices_wired {
         lines.push(String::from(
-            "if (typeof globalThis.__primeSetCompletionNoticesWired === \"function\") { globalThis.__primeSetCompletionNoticesWired(true); }",
+            "if (typeof globalThis.__asyncSetCompletionNoticesWired === \"function\") { globalThis.__asyncSetCompletionNoticesWired(true); }",
         ));
     }
 
@@ -80,10 +80,10 @@ pub fn build_rlm_bootstrap_code(
     if !payload.is_empty() {
         let skills_json = serde_json::to_string(&payload).unwrap_or_else(|_| "[]".to_string());
         lines.push(format!(
-            "const __primeSkillErrors = await globalThis.__primeLoadSkills({skills_json});"
+            "const __asyncSkillErrors = await globalThis.__asyncLoadSkills({skills_json});"
         ));
         lines.push(format!(
-            "if (__primeSkillErrors && typeof __primeSkillErrors === \"object\" && Object.keys(__primeSkillErrors).length > 0) {{ console.log(\"{JAVASCRIPT_SKILL_IMPORT_ERROR_REPORT_MARKER}\" + JSON.stringify(__primeSkillErrors)); }}"
+            "if (__asyncSkillErrors && typeof __asyncSkillErrors === \"object\" && Object.keys(__asyncSkillErrors).length > 0) {{ console.log(\"{JAVASCRIPT_SKILL_IMPORT_ERROR_REPORT_MARKER}\" + JSON.stringify(__asyncSkillErrors)); }}"
         ));
     }
 
@@ -99,7 +99,7 @@ mod tests {
     fn bootstrap_code_without_skills_sets_no_color() {
         let code = build_rlm_bootstrap_code(&[], false);
         assert!(code.contains("process.env.NO_COLOR = \"1\";"));
-        assert!(!code.contains("__primeLoadSkills"));
+        assert!(!code.contains("__asyncLoadSkills"));
     }
 
     #[test]
@@ -107,11 +107,11 @@ mod tests {
         let daemonless = build_rlm_bootstrap_code(&[], false);
         let noticed = build_rlm_bootstrap_code(&[], true);
         assert!(
-            noticed.contains("__primeSetCompletionNoticesWired(true)"),
+            noticed.contains("__asyncSetCompletionNoticesWired(true)"),
             "the wired bootstrap must enable the bounded bash default: {noticed}"
         );
         assert!(
-            !daemonless.contains("__primeSetCompletionNoticesWired"),
+            !daemonless.contains("__asyncSetCompletionNoticesWired"),
             "the daemonless bootstrap must not emit the toggle: {daemonless}"
         );
     }
@@ -127,7 +127,7 @@ mod tests {
             unavailable_reason: None,
         }];
         let code = build_rlm_bootstrap_code(&skills, false);
-        assert!(code.contains("__primeLoadSkills("));
+        assert!(code.contains("__asyncLoadSkills("));
         assert!(code.contains(r#""globalName":"edit""#));
         assert!(code.contains(JAVASCRIPT_SKILL_IMPORT_ERROR_REPORT_MARKER));
     }

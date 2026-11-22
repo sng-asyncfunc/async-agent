@@ -1,7 +1,7 @@
 //! Package command validation and help.
 
-use pa_core::packages::{PackageManager, ProgressEvent, ProgressEventKind, UserOrProject};
-use pa_core::update::version::UpdateChannel;
+use aa_core::packages::{PackageManager, ProgressEvent, ProgressEventKind, UserOrProject};
+use aa_core::update::version::UpdateChannel;
 
 use crate::config::{get_agent_dir, APP_NAME, CONFIG_DIR_NAME};
 use crate::self_update::SelfUpdateOptions;
@@ -316,13 +316,13 @@ fn parse_package_command(args: &[String]) -> Option<PackageCommandOptions> {
             && (extensions_flag || extension_flag_source.is_some() || positional_source_not_self)
         {
             options.conflicting_options =
-                Some("--rollback only applies to Prime Agent itself".to_string());
+                Some("--rollback only applies to Async Agent itself".to_string());
         }
         if channel.is_some()
             && (extensions_flag || extension_flag_source.is_some() || positional_source_not_self)
         {
             options.conflicting_options.get_or_insert_with(|| {
-                "--nightly and --stable only apply to Prime Agent itself".to_string()
+                "--nightly and --stable only apply to Async Agent itself".to_string()
             });
         }
     }
@@ -494,7 +494,7 @@ pub fn handle_package_command(args: &[String]) -> PackageCommandOutcome {
 
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let agent_dir = get_agent_dir();
-    let mut settings = pa_core::settings::SettingsManager::create(&cwd, &agent_dir);
+    let mut settings = aa_core::settings::SettingsManager::create(&cwd, &agent_dir);
     report_settings_errors(&mut settings, "package command");
 
     let mut manager = PackageManager::new(cwd, agent_dir, settings);
@@ -616,7 +616,7 @@ fn run_package_update(
 }
 
 /// Print the configured package list (user section, then project section).
-fn print_package_list(packages: &[pa_core::packages::ConfiguredPackage]) {
+fn print_package_list(packages: &[aa_core::packages::ConfiguredPackage]) {
     if packages.is_empty() {
         println!("No packages installed.");
         return;
@@ -646,7 +646,7 @@ fn print_package_list(packages: &[pa_core::packages::ConfiguredPackage]) {
     }
 }
 
-fn print_configured_package(package: &pa_core::packages::ConfiguredPackage) {
+fn print_configured_package(package: &aa_core::packages::ConfiguredPackage) {
     let display = if package.filtered {
         format!("{} (filtered)", package.source)
     } else {
@@ -661,13 +661,13 @@ fn print_configured_package(package: &pa_core::packages::ConfiguredPackage) {
 /// Print settings-load warnings exactly once (`Warning (<context>, <scope>
 /// settings): <message>`).
 pub(crate) fn report_settings_errors(
-    settings: &mut pa_core::settings::SettingsManager,
+    settings: &mut aa_core::settings::SettingsManager,
     context: &str,
 ) {
     for error in settings.drain_errors() {
         let scope = match error.scope {
-            pa_core::settings::SettingsScope::Global => "global",
-            pa_core::settings::SettingsScope::Project => "project",
+            aa_core::settings::SettingsScope::Global => "global",
+            aa_core::settings::SettingsScope::Project => "project",
         };
         eprintln!("Warning ({context}, {scope} settings): {}", error.message);
     }
@@ -713,7 +713,7 @@ mod tests {
             )
             .unwrap();
         }
-        let settings = pa_core::settings::SettingsManager::create(&cwd, &agent_dir);
+        let settings = aa_core::settings::SettingsManager::create(&cwd, &agent_dir);
         PackageManager::new(cwd, agent_dir, settings)
     }
 

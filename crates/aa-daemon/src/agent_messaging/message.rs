@@ -251,7 +251,7 @@ impl LinkAgentMessageController {
             .await
         {
             Ok(data) => {
-                match serde_json::from_value::<pa_types::daemon::DaemonPeerTransportTicket>(data) {
+                match serde_json::from_value::<aa_types::daemon::DaemonPeerTransportTicket>(data) {
                     Ok(ticket) => ticket,
                     Err(_) => return DirectDelivery::Unavailable,
                 }

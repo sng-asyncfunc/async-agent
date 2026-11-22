@@ -109,8 +109,8 @@ pub(super) fn child_run(route: &str, socket: PathBuf) {
         }
         "config_selector" => {
             let rows = vec![
-                pa_tui::config_selector::SelectorRow::Group("Resources".to_string()),
-                pa_tui::config_selector::SelectorRow::Item {
+                aa_tui::config_selector::SelectorRow::Group("Resources".to_string()),
+                aa_tui::config_selector::SelectorRow::Item {
                     key: "0".to_string(),
                     label: "a-resource".to_string(),
                     checked: true,
@@ -118,29 +118,29 @@ pub(super) fn child_run(route: &str, socket: PathBuf) {
                     path: "/tmp/a".to_string(),
                 },
             ];
-            let selector = pa_tui::config_selector::ConfigSelector::new(rows);
-            let theme = pa_tui::app::load_theme("prime");
-            let options = pa_tui::config_selector::ConfigSelectorOptions {
+            let selector = aa_tui::config_selector::ConfigSelector::new(rows);
+            let theme = aa_tui::app::load_theme("async");
+            let options = aa_tui::config_selector::ConfigSelectorOptions {
                 theme,
-                keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+                keybindings: aa_tui::keybindings::KeybindingsManager::new(),
                 auto_exit_ms: Some(2_000),
             };
             let mut on_toggle = |_key: &str, _enabled: bool| Ok(());
-            pa_tui::config_selector::run_config_selector(selector, options, &mut on_toggle)
+            aa_tui::config_selector::run_config_selector(selector, options, &mut on_toggle)
                 .expect("the selector ran");
         }
         "replay_auto" => {
             let stream = replay_stream();
-            let options = pa_tui::app::AppOptions {
+            let options = aa_tui::app::AppOptions {
                 auto_exit_ms: Some(1_200),
                 ..Default::default()
             };
-            pa_tui::app::run_app(Box::new(stream), &options, Box::new(|_text| {}))
+            aa_tui::app::run_app(Box::new(stream), &options, Box::new(|_text| {}))
                 .expect("the replay surface ran");
         }
         "replay_panic" => {
             let stream = replay_stream();
-            let options = pa_tui::app::AppOptions {
+            let options = aa_tui::app::AppOptions {
                 panic_after_frame: true,
                 ..Default::default()
             };
@@ -148,7 +148,7 @@ pub(super) fn child_run(route: &str, socket: PathBuf) {
             // route under test. The panic escapes into libtest, which
             // fails the child test with exit 101 — the parent asserts
             // the restore bytes on the stream either way.
-            let _ = pa_tui::app::run_app(Box::new(stream), &options, Box::new(|_text| {}));
+            let _ = aa_tui::app::run_app(Box::new(stream), &options, Box::new(|_text| {}));
         }
         other => panic!("unknown route {other}"),
     }
@@ -156,7 +156,7 @@ pub(super) fn child_run(route: &str, socket: PathBuf) {
 
 /// A tiny replay transcript (the replay surface needs a live session
 /// stream): two turns, then End.
-fn replay_stream() -> pa_tui::session::JsonlSessionStream {
+fn replay_stream() -> aa_tui::session::JsonlSessionStream {
     let dir = tempfile::TempDir::new().expect("temp dir");
     let path = dir.path().join("replay.jsonl");
     let mut entries = String::new();
@@ -176,11 +176,11 @@ fn replay_stream() -> pa_tui::session::JsonlSessionStream {
     }
     std::fs::write(&path, entries).expect("write replay jsonl");
     std::mem::forget(dir);
-    pa_tui::session::JsonlSessionStream::from_path(&path).expect("replay stream")
+    aa_tui::session::JsonlSessionStream::from_path(&path).expect("replay stream")
 }
 
-use pa_tui::agents_view::{run_agents_view, AgentsViewOptions, AgentsViewUiMode};
-use pa_tui::interactive::{
+use aa_tui::agents_view::{run_agents_view, AgentsViewOptions, AgentsViewUiMode};
+use aa_tui::interactive::{
     run_interactive, InteractiveOptions, ModelSelection, SessionSelection, UiMode,
 };
 
@@ -201,7 +201,7 @@ fn child_options(socket: PathBuf) -> InteractiveOptions {
         initial_message: None,
         show_images: true,
         fullscreen_mouse: true,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -213,7 +213,7 @@ fn child_options(socket: PathBuf) -> InteractiveOptions {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -266,7 +266,7 @@ impl MockSupervisor {
             &mut writer,
             &json!({
                 "type": "daemon_hello",
-                "protocol": { "name": "prime-agent.daemon", "version": 7 },
+                "protocol": { "name": "async-agent.daemon", "version": 7 },
                 "serverCapabilities": [],
                 "clientId": "mock",
             }),
@@ -380,7 +380,7 @@ fn attach_data(id: &str, seed_messages: usize) -> Value {
         "command": "attach",
         "success": true,
         "data": {
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "activeSessionId": "s1",
             "snapshot": {
                 "activeSessionId": "s1",

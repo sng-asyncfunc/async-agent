@@ -33,7 +33,7 @@ const KITTY_FLAGS_POP: &[u8] = b"\x1b[<u";
 /// while the pane's alt screen is up, never land on the relay's
 /// stack).
 const ALT_SCREEN_LEAVE: &[u8] = b"\x1b[?1049l";
-/// The exit-tail stale-level drain (pa-tui `enhanced_keys`'s
+/// The exit-tail stale-level drain (aa-tui `enhanced_keys`'s
 /// `STALE_LEVEL_DRAIN`): the bare pops the exit writes AFTER the last
 /// alt-screen leave. A mode-counting relay (herdr's pane emulator
 /// re-encodes pane input from its own count of the push/pop pairs in

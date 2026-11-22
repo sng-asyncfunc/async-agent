@@ -508,7 +508,7 @@ mod retry_collapse_tests {
     use crate::view::AgentView;
 
     fn view_with(entries: Vec<ChatEntry>) -> AgentView {
-        let mut view = AgentView::new(Theme::builtin("prime", ColorMode::TrueColor));
+        let mut view = AgentView::new(Theme::builtin("async", ColorMode::TrueColor));
         for entry in entries {
             view.push_entry(entry);
         }

@@ -33,7 +33,7 @@ pub(crate) fn append_record(path: &Path, record: &Value) -> Result<()> {
     let mut line = serde_json::to_string(record)?;
     line.push('\n');
     file.write_all(line.as_bytes())?;
-    pa_core::platform::fsync(&file)?;
+    aa_core::platform::fsync(&file)?;
     Ok(())
 }
 
@@ -59,7 +59,7 @@ pub(crate) fn append_records(path: &Path, records: &[Value]) -> Result<()> {
         lines.push(b'\n');
     }
     file.write_all(&lines)?;
-    pa_core::platform::fsync(&file)?;
+    aa_core::platform::fsync(&file)?;
     Ok(())
 }
 
@@ -123,11 +123,11 @@ pub(crate) struct JournalWriteOwner {
 impl Drop for JournalWriteOwner {
     fn drop(&mut self) {
         // Closing one descriptor can leave the lock held by an inherited copy.
-        if let Err(error) = pa_core::platform::unlock_file(&self.file) {
+        if let Err(error) = aa_core::platform::unlock_file(&self.file) {
             // Drop has no error channel; report without panicking if stderr is unavailable.
             let _ = writeln!(
                 std::io::stderr(),
-                "Prime Agent: failed to release journal ownership: {error}"
+                "Async Agent: failed to release journal ownership: {error}"
             );
         }
     }
@@ -146,7 +146,7 @@ pub(crate) fn journal_write_owner(path: &Path) -> Result<JournalWriteOwner> {
         .truncate(false)
         .open(std::path::PathBuf::from(ownership_path))
         .with_context(|| format!("open journal ownership {}", path.display()))?;
-    pa_core::platform::try_lock_exclusive(&file)
+    aa_core::platform::try_lock_exclusive(&file)
         .with_context(|| format!("acquire journal ownership {}", path.display()))?;
     Ok(JournalWriteOwner { file })
 }
@@ -234,7 +234,7 @@ pub struct WorkerQueueItemRecord {
     #[serde(default)]
     pub forced_batch: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub images: Vec<pa_agent::types::ImageContent>,
+    pub images: Vec<aa_agent::types::ImageContent>,
 }
 
 fn queue_visible_default() -> bool {
@@ -640,7 +640,7 @@ mod tests {
     use super::*;
 
     fn temp_path(name: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("pa-daemon-journal-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("aa-daemon-journal-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).unwrap();
         dir.join(name)
     }

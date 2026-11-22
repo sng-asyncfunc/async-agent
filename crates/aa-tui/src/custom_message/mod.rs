@@ -46,7 +46,7 @@ use crate::chat::{ChatEntry, StatusKind};
 use crate::theme::ThemeColor;
 use serde_json::Value;
 
-/// Custom types with a dedicated component (pa-core owns the engine-side
+/// Custom types with a dedicated component (aa-core owns the engine-side
 /// vocabulary, the render dispatch owns these).
 pub const AGENT_MESSAGE_CUSTOM_TYPE: &str = "agent_message";
 pub const HEARTBEAT_PROMPT_CUSTOM_TYPE: &str = "heartbeat_prompt";
@@ -60,11 +60,11 @@ pub const COMPACTION_OUTCOME_CUSTOM_TYPE: &str = "compaction_outcome";
 pub const REFINEMENT_OUTCOME_CUSTOM_TYPE: &str = "refinement_outcome";
 /// The durable single-line outcome of one provider-retry episode (SANCTIONED DIVERGENCE,
 /// operator ruling 2026-09-23: one terminal row per episode instead of TS's per-attempt error
-/// rows). Wire twin of `pa_core::session_engine::messages::PROVIDER_RETRY_OUTCOME_CUSTOM_TYPE`.
+/// rows). Wire twin of `aa_core::session_engine::messages::PROVIDER_RETRY_OUTCOME_CUSTOM_TYPE`.
 pub const PROVIDER_RETRY_OUTCOME_CUSTOM_TYPE: &str = "provider_retry_outcome";
-/// Wire twin of `pa_core::prompts::model_prompts::MODEL_PROMPT_ERROR_CUSTOM_TYPE`.
+/// Wire twin of `aa_core::prompts::model_prompts::MODEL_PROMPT_ERROR_CUSTOM_TYPE`.
 pub const MODEL_PROMPT_ERROR_CUSTOM_TYPE: &str = "model_prompt_error";
-/// Wire twin of `pa_core::session_engine::skill_problems_notice::SKILL_PROBLEMS_CUSTOM_TYPE`.
+/// Wire twin of `aa_core::session_engine::skill_problems_notice::SKILL_PROBLEMS_CUSTOM_TYPE`.
 pub const SKILL_PROBLEMS_CUSTOM_TYPE: &str = "skill_problems";
 
 /// Which agent-message side a row renders: the received transcript rows, or the
@@ -163,7 +163,7 @@ pub struct CustomPanelRow {
 /// notices, the same class), shell completions, injected prompts, then the
 /// generic panel. Non-display rows render nothing.
 pub fn custom_message_entries(message: &Value) -> Vec<ChatEntry> {
-    use pa_types::slash_commands::{
+    use aa_types::slash_commands::{
         SESSION_SLASH_COMMAND_CUSTOM_TYPE, SESSION_SLASH_COMMAND_RESULT_CUSTOM_TYPE,
     };
     let custom_type = message
@@ -258,7 +258,7 @@ fn slash_row_entries(
     content: &str,
     details: &Value,
 ) -> Vec<ChatEntry> {
-    use pa_types::slash_commands::SESSION_SLASH_COMMAND_CUSTOM_TYPE;
+    use aa_types::slash_commands::SESSION_SLASH_COMMAND_CUSTOM_TYPE;
     let is_command_row = custom_type == SESSION_SLASH_COMMAND_CUSTOM_TYPE;
     let content_is_text = match message.get("content") {
         Some(Value::String(_)) => true,
@@ -459,7 +459,7 @@ mod tests {
         for custom_type in [
             "harness_digest",
             "refinement_notice",
-            "prime-agent.worker_recovery",
+            "async-agent.worker_recovery",
             AGENT_MESSAGE_CUSTOM_TYPE,
         ] {
             let entries = decoded(&json!({
@@ -480,7 +480,7 @@ mod tests {
         for custom_type in [
             "harness_digest",
             "refinement_notice",
-            "prime-agent.worker_recovery",
+            "async-agent.worker_recovery",
             "javascript_state",
             "thread_goal_state",
         ] {
@@ -850,7 +850,7 @@ mod tests {
     fn expandable_bodies_hang_on_one_gutter() {
         use crate::chat::Detail;
         use crate::compaction_row::render_compaction_summary;
-        let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+        let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
         let gutter = Span::styled(
             crate::branch::BRANCH_GUTTER.to_string(),
             theme.fg_style(ThemeColor::Dim),

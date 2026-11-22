@@ -34,7 +34,7 @@ fn pending_ancestors_expand_and_selection_restores_after_reentry() {
         socket_path: PathBuf::from("/tmp/agents-view-test.sock"),
         cwd: PathBuf::from("/tmp"),
         session_dir: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         version: "0.0.0".to_string(),
         anchor_session_id: None,
         scope: None,

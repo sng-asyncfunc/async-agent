@@ -4,7 +4,7 @@
 use super::*;
 // The tests call the trait methods directly (the impl header alone
 // does not import them).
-use pa_tui::interactive::OnboardingSink;
+use aa_tui::interactive::OnboardingSink;
 use serde_json::Map;
 
 #[test]
@@ -238,7 +238,7 @@ fn onboarding_gate_follows_settings_and_auth() {
     let agent = dir.path().join("agent");
     std::fs::create_dir_all(&agent).expect("agent dir");
 
-    let mut settings = pa_core::settings::SettingsManager::create(dir.path(), &agent);
+    let mut settings = aa_core::settings::SettingsManager::create(dir.path(), &agent);
     settings.set_onboarding_shown(true).expect("set flag");
     let options = run_options(dir.path());
     assert!(onboarding_task(&options, None).0.is_none());
@@ -267,7 +267,7 @@ fn onboarding_gate_follows_settings_and_auth() {
             } }"#,
     )
     .expect("models.json");
-    let mut settings = pa_core::settings::SettingsManager::create(dir.path(), &agent);
+    let mut settings = aa_core::settings::SettingsManager::create(dir.path(), &agent);
     settings
         .set_default_model_and_provider("onboard-test", "m1")
         .expect("saved default");
@@ -307,7 +307,7 @@ fn settings_sink_completes_a_provisioned_home_without_touching_the_choice() {
     std::fs::create_dir_all(&agent_dir).expect("agent dir");
     // The provisioned home: sharing opted out, telemetry off (no
     // telemetry client for the completion event).
-    let mut provisioned = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let mut provisioned = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     provisioned
         .set_agent_traces_enabled(false)
         .expect("provision the opt-out");
@@ -344,7 +344,7 @@ fn settings_sink_completes_a_provisioned_home_without_touching_the_choice() {
 
     // The next launch reads through its own fresh manager: the gate
     // never mounts the task again.
-    let settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     assert!(settings.get_onboarding_shown(), "the flag persisted");
     assert!(
         !settings.get_agent_traces_enabled(),
@@ -387,7 +387,7 @@ async fn report_an_aborted_flow_once() {
         },
     };
     // The sink's own report resolves only once the event is delivered.
-    pa_tui::interactive::OnboardingSink::onboarding_incomplete(&sink, "aborted").await;
+    aa_tui::interactive::OnboardingSink::onboarding_incomplete(&sink, "aborted").await;
     let mirror = std::fs::read_to_string(agent_dir.join("telemetry.jsonl")).unwrap();
     let lines: Vec<&str> = mirror.lines().collect();
     assert_eq!(lines.len(), 1);
@@ -413,7 +413,7 @@ fn settings_sink_persists_the_fresh_home_answer_with_the_flag() {
     let dir = tempfile::TempDir::new().expect("temp dir");
     let agent_dir = dir.path().join("agent");
     std::fs::create_dir_all(&agent_dir).expect("agent dir");
-    let mut provisioned = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let mut provisioned = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     provisioned
         .set_telemetry_enabled(false)
         .expect("telemetry off");
@@ -447,7 +447,7 @@ fn settings_sink_persists_the_fresh_home_answer_with_the_flag() {
     sink.mark_onboarding_complete()
         .expect("complete onboarding");
 
-    let settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     assert!(
         settings.get_onboarding_shown(),
         "the flow marked onboarding shown"
@@ -518,15 +518,15 @@ fn seed_session(
     cwd: &std::path::Path,
     user_text: &str,
 ) -> (std::path::PathBuf, String) {
-    use pa_types::ai::{AssistantMessage, StopReason, Usage, UserContent, UserMessage};
-    use pa_types::session::AgentMessage;
-    let mut session = pa_core::session::manager::SessionManager::persisted(cwd, session_dir);
+    use aa_types::ai::{AssistantMessage, StopReason, Usage, UserContent, UserMessage};
+    use aa_types::session::AgentMessage;
+    let mut session = aa_core::session::manager::SessionManager::persisted(cwd, session_dir);
     session
         .append_message(AgentMessage::User(UserMessage {
             // The block shape a real run writes, so the assertions read the shape
             // the shipped sessions carry.
-            content: UserContent::Blocks(vec![pa_types::ai::UserContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: UserContent::Blocks(vec![aa_types::ai::UserContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: user_text.to_string(),
                     text_signature: None,
                     rest: Map::default(),
@@ -538,8 +538,8 @@ fn seed_session(
         .expect("write user message");
     session
         .append_message(AgentMessage::Assistant(AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: "the answer".to_string(),
                     text_signature: None,
                     rest: Map::default(),
@@ -720,7 +720,7 @@ fn fork_startup_selection_reports_the_ts_contracts() {
         "unexpected error: {rendered}"
     );
     assert!(
-        rendered.contains("Open prime-agent and press left-arrow to browse sessions."),
+        rendered.contains("Open async-agent and press left-arrow to browse sessions."),
         "unexpected error: {rendered}"
     );
 }
@@ -907,12 +907,12 @@ impl GatedSink {
     }
 }
 
-impl pa_telemetry::TelemetrySink for GatedSink {
+impl aa_telemetry::TelemetrySink for GatedSink {
     fn send_batch<'a>(
         &'a self,
         _install_id: &'a str,
-        events: Vec<pa_telemetry::TelemetryEvent>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = pa_telemetry::SinkOutcome> + Send + 'a>>
+        events: Vec<aa_telemetry::TelemetryEvent>,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = aa_telemetry::SinkOutcome> + Send + 'a>>
     {
         Box::pin(async move {
             self.entered_notify.notify_one();
@@ -936,7 +936,7 @@ impl pa_telemetry::TelemetrySink for GatedSink {
                 delivered.push(event.name.clone());
             }
             self.delivered_notify.notify_one();
-            pa_telemetry::SinkOutcome::Sent
+            aa_telemetry::SinkOutcome::Sent
         })
     }
 }
@@ -956,18 +956,18 @@ fn the_startup_flush_never_blocks_the_first_frame() {
 
 async fn startup_flush_never_blocks_the_first_frame() {
     let sink = std::sync::Arc::new(GatedSink::default());
-    let mut config = pa_telemetry::TelemetryClientConfig::new("install-1");
+    let mut config = aa_telemetry::TelemetryClientConfig::new("install-1");
     config.batch_size = 20;
     config.flush_interval = std::time::Duration::from_mins(10);
-    config.sinks = vec![sink.clone() as std::sync::Arc<dyn pa_telemetry::TelemetrySink>];
-    let client = pa_telemetry::TelemetryClient::spawn(config).expect("startup client");
+    config.sinks = vec![sink.clone() as std::sync::Arc<dyn aa_telemetry::TelemetrySink>];
+    let client = aa_telemetry::TelemetryClient::spawn(config).expect("startup client");
 
     // The composition root's startup tracks: the event and the ui_ready
     // stage on the one-shot client.
-    let mut properties = pa_telemetry::base_properties("interactive");
+    let mut properties = aa_telemetry::base_properties("interactive");
     properties.set("duration_ms", serde_json::Value::from(1));
     client.track("startup", properties);
-    pa_telemetry::AgentStartupStage {
+    aa_telemetry::AgentStartupStage {
         stage: "ui_ready",
         outcome: "completed",
         duration_ms: Some(1),
@@ -1053,9 +1053,9 @@ async fn startup_flush_never_blocks_the_first_frame() {
 fn interactive_resume_restores_saved_cwd_and_project_settings_unless_overridden() {
     let dir = tempfile::tempdir().unwrap();
     let project = dir.path().join("saved-project");
-    std::fs::create_dir_all(project.join(".prime/agent")).unwrap();
+    std::fs::create_dir_all(project.join(".async-agent")).unwrap();
     std::fs::write(
-        project.join(".prime/agent/settings.json"),
+        project.join(".async-agent/settings.json"),
         r#"{"markdown":{"codeBlockIndent":"    "}}"#,
     )
     .unwrap();

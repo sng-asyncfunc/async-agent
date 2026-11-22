@@ -1,13 +1,13 @@
 //! The compaction executor: assemble and run the summarization request
-//! (via pa-ai's completion facade).
+//! (via aa-ai's completion facade).
 
 use super::compaction::{build_summarization_prompt, CutPointResult};
 use super::compaction_utils::{
     compute_file_lists, extract_file_ops_from_message, format_file_operations, FileOperations,
 };
 use super::messages::convert_to_llm;
-use pa_types::ai::{AssistantMessage, TextContent, UserContent, UserContentBlock, UserMessage};
-use pa_types::session::{AgentMessage, CompactionEntry, FileEntry};
+use aa_types::ai::{AssistantMessage, TextContent, UserContent, UserContentBlock, UserMessage};
+use aa_types::session::{AgentMessage, CompactionEntry, FileEntry};
 use std::fmt::Write as _;
 
 /// Details stored on the compaction entry for file tracking.
@@ -24,13 +24,13 @@ pub struct CompactionResult {
     pub summary: String,
     pub first_kept_entry_id: String,
     pub tokens_before: u64,
-    pub usage: Option<pa_types::ai::Usage>,
+    pub usage: Option<aa_types::ai::Usage>,
 }
 
-/// How the summarizer is invoked (test seam over pa-ai completion).
+/// How the summarizer is invoked (test seam over aa-ai completion).
 pub type SummarizerFn = Box<
     dyn FnOnce(
-            pa_types::ai::Model,
+            aa_types::ai::Model,
             Vec<AgentMessage>,
         ) -> std::pin::Pin<
             Box<dyn std::future::Future<Output = anyhow::Result<AssistantMessage>> + Send>,
@@ -85,7 +85,7 @@ pub fn build_summarization_request(
 #[derive(Debug, Clone, PartialEq)]
 pub struct SummarySlice {
     pub summary: String,
-    pub usage: Option<pa_types::ai::Usage>,
+    pub usage: Option<aa_types::ai::Usage>,
     pub truncated: bool,
 }
 
@@ -126,7 +126,7 @@ pub fn build_turn_prefix_request(messages: &[AgentMessage]) -> Vec<AgentMessage>
 /// the final summary comes from the terminal assistant message.
 pub type SummaryDeltaSink = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
 
-/// Run one summarizer wire call through `pa_ai::complete_simple`: `headers`
+/// Run one summarizer wire call through `aa_ai::complete_simple`: `headers`
 /// are the routed model's merged request headers; `on_delta` is the live sink
 /// ([`SummaryDeltaSink`]); `failure` labels the unusable-reply bails. Only a
 /// reply with non-empty text is a usable summary — anything less would be
@@ -141,7 +141,7 @@ pub type SummaryDeltaSink = std::sync::Arc<dyn Fn(&str) + Send + Sync>;
 /// is empty (all labeled with `failure`).
 #[allow(clippy::too_many_arguments)] // Each summary carries its owning conversation and request metadata.
 pub async fn complete_summary_call(
-    model: &pa_types::ai::Model,
+    model: &aa_types::ai::Model,
     session_id: &str,
     api_key: Option<String>,
     headers: Option<std::collections::BTreeMap<String, String>>,
@@ -153,12 +153,12 @@ pub async fn complete_summary_call(
     let messages = request_messages
         .into_iter()
         .filter_map(|message| match message {
-            AgentMessage::User(user) => Some(pa_types::ai::Message::User(user)),
-            AgentMessage::Assistant(assistant) => Some(pa_types::ai::Message::Assistant(assistant)),
+            AgentMessage::User(user) => Some(aa_types::ai::Message::User(user)),
+            AgentMessage::Assistant(assistant) => Some(aa_types::ai::Message::Assistant(assistant)),
             _ => None,
         })
         .collect();
-    let context = pa_types::ai::Context {
+    let context = aa_types::ai::Context {
         system_prompt: Some(super::compaction_utils::SUMMARIZATION_SYSTEM_PROMPT.to_string()),
         messages,
         tools: None,
@@ -168,27 +168,27 @@ pub async fn complete_summary_call(
     let cancel = tokio_util::sync::CancellationToken::new();
     let _cancel_on_drop = cancel.clone().drop_guard();
     let mut stream_options =
-        pa_ai::types::SimpleStreamOptions::from_base(pa_ai::types::StreamOptions {
+        aa_ai::types::SimpleStreamOptions::from_base(aa_ai::types::StreamOptions {
             signal: Some(cancel),
             max_tokens: Some(max_tokens),
             session_id: Some(session_id.to_string()),
             // One-off prompts ride SSE: they keep the conversation id (cache key, opencode routing)
             // but never take or replace the session's Codex WebSocket and its continuation.
-            transport: Some(pa_ai::types::Transport::Sse),
+            transport: Some(aa_ai::types::Transport::Sse),
             api_key,
             headers: headers.map(|headers| headers.into_iter().collect()),
             ..Default::default()
         });
-    stream_options.reasoning = pa_types::ai::minimum_reasoning(model);
+    stream_options.reasoning = aa_types::ai::minimum_reasoning(model);
     let assistant = match on_delta {
-        None => pa_ai::complete_simple(model, &context, Some(stream_options)).await?,
+        None => aa_ai::complete_simple(model, &context, Some(stream_options)).await?,
         Some(on_delta) => {
             // The live path rides the same provider stream: every text delta
             // forwards to the sink, and the terminal event's message is the
             // summary; thinking deltas stay off the sink.
-            let mut stream = pa_ai::stream_simple(model, &context, Some(stream_options))?;
+            let mut stream = aa_ai::stream_simple(model, &context, Some(stream_options))?;
             while let Some(event) = stream.next_event().await {
-                if let pa_types::ai::AssistantMessageEvent::TextDelta { delta, .. } = &event {
+                if let aa_types::ai::AssistantMessageEvent::TextDelta { delta, .. } = &event {
                     on_delta(delta);
                 }
             }
@@ -197,9 +197,9 @@ pub async fn complete_summary_call(
     };
     let stop_reason = assistant.stop_reason;
     let truncated = match stop_reason {
-        pa_types::ai::StopReason::Stop => false,
-        pa_types::ai::StopReason::Length => true,
-        pa_types::ai::StopReason::Error => anyhow::bail!(
+        aa_types::ai::StopReason::Stop => false,
+        aa_types::ai::StopReason::Length => true,
+        aa_types::ai::StopReason::Error => anyhow::bail!(
             "{failure}: {}",
             assistant
                 .error_message
@@ -209,7 +209,7 @@ pub async fn complete_summary_call(
         // A tool-call or aborted reply is not a usable summary: committing it
         // as the compaction row would irreversibly replace the transcript
         // with a fragment.
-        pa_types::ai::StopReason::ToolUse | pa_types::ai::StopReason::Aborted => {
+        aa_types::ai::StopReason::ToolUse | aa_types::ai::StopReason::Aborted => {
             anyhow::bail!("{failure}: the summary stopped with reason {stop_reason:?}");
         }
     };
@@ -217,7 +217,7 @@ pub async fn complete_summary_call(
         .content
         .iter()
         .filter_map(|block| match block {
-            pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+            aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -235,14 +235,14 @@ pub async fn complete_summary_call(
 /// Sum one wire call's billed usage into a total. Token fields saturate
 /// at `u64::MAX`: JS numbers saturate to `Infinity`, and one overflowing
 /// record must never panic a whole-file reader.
-pub fn add_assistant_usage(total: &mut pa_types::ai::Usage, usage: &pa_types::ai::Usage) {
+pub fn add_assistant_usage(total: &mut aa_types::ai::Usage, usage: &aa_types::ai::Usage) {
     total.input = total.input.saturating_add(usage.input);
     total.output = total.output.saturating_add(usage.output);
     total.cache_read = total.cache_read.saturating_add(usage.cache_read);
     total.cache_write = total.cache_write.saturating_add(usage.cache_write);
     total.total_tokens = total.total_tokens.saturating_add(usage.total_tokens);
-    let add_cost = |left: pa_types::JsNumber, right: pa_types::JsNumber| {
-        pa_types::JsNumber::from(left.as_f64() + right.as_f64())
+    let add_cost = |left: aa_types::JsNumber, right: aa_types::JsNumber| {
+        aa_types::JsNumber::from(left.as_f64() + right.as_f64())
     };
     total.cost.input = add_cost(total.cost.input, usage.cost.input);
     total.cost.output = add_cost(total.cost.output, usage.cost.output);
@@ -253,14 +253,14 @@ pub fn add_assistant_usage(total: &mut pa_types::ai::Usage, usage: &pa_types::ai
 
 /// Remove one usage block from a total, clamping every field at zero
 /// (absorbs attribution drift).
-pub fn subtract_assistant_usage(total: &mut pa_types::ai::Usage, usage: &pa_types::ai::Usage) {
+pub fn subtract_assistant_usage(total: &mut aa_types::ai::Usage, usage: &aa_types::ai::Usage) {
     total.input = total.input.saturating_sub(usage.input);
     total.output = total.output.saturating_sub(usage.output);
     total.cache_read = total.cache_read.saturating_sub(usage.cache_read);
     total.cache_write = total.cache_write.saturating_sub(usage.cache_write);
     total.total_tokens = total.total_tokens.saturating_sub(usage.total_tokens);
-    let sub_cost = |left: pa_types::JsNumber, right: pa_types::JsNumber| {
-        pa_types::JsNumber::from((left.as_f64() - right.as_f64()).max(0.0))
+    let sub_cost = |left: aa_types::JsNumber, right: aa_types::JsNumber| {
+        aa_types::JsNumber::from((left.as_f64() - right.as_f64()).max(0.0))
     };
     total.cost.input = sub_cost(total.cost.input, usage.cost.input);
     total.cost.output = sub_cost(total.cost.output, usage.cost.output);
@@ -271,11 +271,11 @@ pub fn subtract_assistant_usage(total: &mut pa_types::ai::Usage, usage: &pa_type
 
 /// The compaction's billed usage summed over its wire calls; a run with
 /// no wire calls records no usage.
-pub fn summed_usage(slices: &[SummarySlice]) -> Option<pa_types::ai::Usage> {
-    let mut total: Option<pa_types::ai::Usage> = None;
+pub fn summed_usage(slices: &[SummarySlice]) -> Option<aa_types::ai::Usage> {
+    let mut total: Option<aa_types::ai::Usage> = None;
     for slice in slices {
         if let Some(usage) = &slice.usage {
-            let total = total.get_or_insert_with(pa_types::ai::Usage::default);
+            let total = total.get_or_insert_with(aa_types::ai::Usage::default);
             add_assistant_usage(total, usage);
         }
     }
@@ -321,7 +321,7 @@ pub struct CompactRequest<'a> {
     /// kept-tail state.
     pub recent_state_anchor: Option<&'a str>,
     pub reserve_tokens: u64,
-    pub model: pa_types::ai::Model,
+    pub model: aa_types::ai::Model,
 }
 
 /// Run compaction over a conversation slice: summarize the dropped prefix,
@@ -359,7 +359,7 @@ pub async fn compact_with(
         .content
         .iter()
         .filter_map(|block| match block {
-            pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+            aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -418,7 +418,7 @@ pub fn file_ops_block(read_files: &[String], modified_files: &[String]) -> Strin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::session::EntryBase;
+    use aa_types::session::EntryBase;
 
     fn user(text: &str) -> AgentMessage {
         AgentMessage::User(UserMessage {
@@ -430,7 +430,7 @@ mod tests {
 
     fn summary_assistant(text: &str) -> AssistantMessage {
         AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(TextContent {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(TextContent {
                 text: text.to_string(),
                 text_signature: None,
                 rest: serde_json::Map::default(),
@@ -441,8 +441,8 @@ mod tests {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -452,14 +452,14 @@ mod tests {
 
     #[test]
     fn add_assistant_usage_saturates_token_totals() {
-        let mut total = pa_types::ai::Usage {
+        let mut total = aa_types::ai::Usage {
             input: u64::MAX,
             output: 1,
             ..Default::default()
         };
         add_assistant_usage(
             &mut total,
-            &pa_types::ai::Usage {
+            &aa_types::ai::Usage {
                 input: 10,
                 ..Default::default()
             },
@@ -470,13 +470,13 @@ mod tests {
 
     #[test]
     fn compaction_entry_records_the_ts_wire_fields() {
-        let usage = pa_types::ai::Usage {
+        let usage = aa_types::ai::Usage {
             input: 20,
             output: 10,
             cache_read: 80,
             cache_write: 0,
             total_tokens: 110,
-            cost: pa_types::ai::UsageCost::default(),
+            cost: aa_types::ai::UsageCost::default(),
         };
         let result = CompactionResult {
             summary: "the overflow summary".to_string(),
@@ -577,7 +577,7 @@ mod tests {
             turn_start_index: None,
             is_split_turn: false,
         };
-        let model: pa_types::ai::Model = serde_json::from_value(serde_json::json!({
+        let model: aa_types::ai::Model = serde_json::from_value(serde_json::json!({
             "id": "m", "name": "m", "api": "openai-completions", "provider": "test",
             "baseUrl": "http://localhost", "reasoning": false, "input": ["text"],
             "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
@@ -657,23 +657,23 @@ mod tests {
     /// recorded usage.
     #[test]
     fn usage_summing_over_slices() {
-        let usage = |input: u64, output: u64, cost: f64| pa_types::ai::Usage {
+        let usage = |input: u64, output: u64, cost: f64| aa_types::ai::Usage {
             input,
             output,
             cache_read: 0,
             cache_write: 0,
             total_tokens: input + output,
-            cost: pa_types::ai::UsageCost {
-                input: pa_types::JsNumber::from(cost),
+            cost: aa_types::ai::UsageCost {
+                input: aa_types::JsNumber::from(cost),
                 output: 0.0.into(),
                 cache_read: 0.0.into(),
                 cache_write: 0.0.into(),
-                total: pa_types::JsNumber::from(cost),
+                total: aa_types::JsNumber::from(cost),
             },
         };
         // Binary-exact costs so the sum assertion compares exactly.
         let (first_cost, second_cost) = (0.25, 0.5);
-        let slice = |summary: &str, usage: Option<pa_types::ai::Usage>| SummarySlice {
+        let slice = |summary: &str, usage: Option<aa_types::ai::Usage>| SummarySlice {
             summary: summary.to_string(),
             usage,
             truncated: false,

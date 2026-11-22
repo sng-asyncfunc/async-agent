@@ -1,10 +1,10 @@
 use super::select_model;
 use crate::mode::RuntimeConfig;
-use pa_core::auth::{AuthStorage, AuthStorageData, NoOAuth};
-use pa_core::models::ModelRegistry;
-use pa_core::session::SessionContext;
-use pa_types::ai::{UserContent, UserMessage};
-use pa_types::session::AgentMessage;
+use aa_core::auth::{AuthStorage, AuthStorageData, NoOAuth};
+use aa_core::models::ModelRegistry;
+use aa_core::session::SessionContext;
+use aa_types::ai::{UserContent, UserMessage};
+use aa_types::session::AgentMessage;
 use serde_json::json;
 use std::sync::Arc;
 
@@ -115,7 +115,7 @@ async fn print_model_only_flag_preserves_catalog_resolution_without_saved_provid
         .into_iter()
         .cloned()
         .collect::<Vec<_>>();
-    let expected = pa_core::models::resolve_cli_model(None, "other", &available)
+    let expected = aa_core::models::resolve_cli_model(None, "other", &available)
         .model
         .unwrap();
     assert_eq!(
@@ -175,7 +175,7 @@ fn session_context(model: Option<(&str, &str)>) -> SessionContext {
         messages: vec![AgentMessage::User(UserMessage {
             content: UserContent::Text("resume me".into()),
             timestamp: 0,
-            rest: pa_types::JsonMap::new(),
+            rest: aa_types::JsonMap::new(),
         })],
         thinking_level: "off".into(),
         service_tier: None,

@@ -38,8 +38,8 @@ fn heartbeat_job(
         cwd: "/w".to_string(),
         label: None,
         prompt: prompt.to_string(),
-        schedule: pa_core::cron::AgentCronSchedule {
-            kind: pa_core::cron::ScheduleKind::Interval,
+        schedule: aa_core::cron::AgentCronSchedule {
+            kind: aa_core::cron::ScheduleKind::Interval,
             expression: "every 10s".to_string(),
             interval_ms: Some(10_000),
         },
@@ -163,7 +163,7 @@ async fn heartbeat_fire_parks_the_labeled_preview_on_its_lane() {
         let hooks = Arc::clone(&hooks);
         let spawned_job = job.clone();
         let run = tokio::spawn(async move {
-            pa_core::cron::scheduler::AgentCronSchedulerHooks::run_job(&*hooks, &spawned_job).await
+            aa_core::cron::scheduler::AgentCronSchedulerHooks::run_job(&*hooks, &spawned_job).await
         });
         // The spawned fire parks its item before its settle wait; the runner is absent,
         // so the item stays parked until this test pops it (releasing the settle).
@@ -197,7 +197,7 @@ async fn heartbeat_fire_parks_the_labeled_preview_on_its_lane() {
                 Some(
                     format!(
                         "{}: {content}",
-                        pa_core::session_engine::messages::HEARTBEAT_PROMPT_PREVIEW_LABEL
+                        aa_core::session_engine::messages::HEARTBEAT_PROMPT_PREVIEW_LABEL
                     )
                     .as_str()
                 ),
@@ -212,7 +212,7 @@ async fn heartbeat_fire_parks_the_labeled_preview_on_its_lane() {
                     .as_ref()
                     .and_then(|row| row.get("customType"))
                     .and_then(Value::as_str),
-                Some(pa_core::session_engine::messages::HEARTBEAT_PROMPT_CUSTOM_TYPE)
+                Some(aa_core::session_engine::messages::HEARTBEAT_PROMPT_CUSTOM_TYPE)
             );
             assert_eq!(
                 lane,
@@ -259,7 +259,7 @@ async fn settles_classify_ran_failed_or_skipped() {
         let hooks_for_run = Arc::clone(&hooks);
         let spawned_job = job.clone();
         let run = tokio::spawn(async move {
-            pa_core::cron::scheduler::AgentCronSchedulerHooks::run_job(
+            aa_core::cron::scheduler::AgentCronSchedulerHooks::run_job(
                 &*hooks_for_run,
                 &spawned_job,
             )
@@ -381,7 +381,7 @@ async fn rlm_heartbeat_mutation_hook_fires_into_the_session_queue() {
     // fires, then re-arms the scheduler.
     let hook = worker.scheduled.mutation_hook();
     hook(
-        pa_core::session_engine::host_requests::RlmHeartbeatMutation {
+        aa_core::session_engine::host_requests::RlmHeartbeatMutation {
             job: job.clone(),
             drop_queued: false,
         },
@@ -427,7 +427,7 @@ async fn rlm_heartbeat_mutation_hook_fires_into_the_session_queue() {
             .iter()
             .find(|entry| {
                 entry.fields.get("customType").and_then(Value::as_str)
-                    == Some(pa_core::session_engine::messages::HEARTBEAT_PROMPT_CUSTOM_TYPE)
+                    == Some(aa_core::session_engine::messages::HEARTBEAT_PROMPT_CUSTOM_TYPE)
             })
             .map(|entry| entry.fields.clone())
     };

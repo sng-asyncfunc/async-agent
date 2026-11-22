@@ -7,7 +7,7 @@
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use pa_agent::types::ImageContent;
+use aa_agent::types::ImageContent;
 
 /// 4.5MB of base64 payload, headroom below the provider's 5MB limit.
 const DEFAULT_MAX_BYTES: usize = 4_500_000;
@@ -37,7 +37,7 @@ pub fn process_file_arguments(
 ) -> Result<ProcessedFiles, FileProcessingError> {
     let mut processed = ProcessedFiles::default();
     for file_arg in file_args {
-        let resolved = pa_core::resolve_read_path(file_arg, &cwd.to_string_lossy());
+        let resolved = aa_core::resolve_read_path(file_arg, &cwd.to_string_lossy());
         let absolute_path = PathBuf::from(&resolved);
         let metadata = std::fs::metadata(&absolute_path).map_err(|_| FileProcessingError {
             message: format!("Error: File not found: {resolved}"),
@@ -45,7 +45,7 @@ pub fn process_file_arguments(
         if metadata.len() == 0 {
             continue;
         }
-        match pa_tui::image_load::load_image_from_path(&absolute_path) {
+        match aa_tui::image_load::load_image_from_path(&absolute_path) {
             // An image: attach the payload (the same sniff the paste path
             // uses), with the auto-resize setting gating the size limit.
             Ok(Some(image)) => {

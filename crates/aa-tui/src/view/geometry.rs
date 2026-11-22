@@ -402,7 +402,7 @@ mod tests {
             color in prop::sample::select(vec![ColorMode::TrueColor, ColorMode::Color256]),
             show_images in any::<bool>(),
         ) {
-            let mut view = AgentView::new(Theme::builtin("prime", color));
+            let mut view = AgentView::new(Theme::builtin("async", color));
             view.detail = detail;
             view.show_images = show_images;
             indent.clone_into(&mut view.code_block_indent);

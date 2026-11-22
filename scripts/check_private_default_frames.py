@@ -56,7 +56,7 @@ def snapshot_document(binary, env, authorized):
     data = [{'id': model, 'pricing': {'input_usd_per_mtok': 1, 'output_usd_per_mtok': 1}}
             for model in public]
     scope = hmac.new(KEY.encode(),
-        b'prime-agent:private-prime-authorization:v1\0' + TEAM.encode(), hashlib.sha256).hexdigest()
+        b'async-agent:private-prime-authorization:v1\0' + TEAM.encode(), hashlib.sha256).hexdigest()
     return {'url': 'https://api.pinference.ai/api/v1/models', 'scope': scope,
             'fetchedAt': int(time.time() * 1000),
             'payload': {'data': data + [private_item()] if authorized else data}}
@@ -85,8 +85,8 @@ def prepare(binary, root, scenario):
     env.update(HOME=str(root / 'home'), TMPDIR=str(root / 'tmp'),
                XDG_CONFIG_HOME=str(root / 'xdg'), XDG_CACHE_HOME=str(root / 'xdg'),
                XDG_DATA_HOME=str(root / 'xdg'), TERM='xterm-256color', COLORTERM='truecolor',
-               PI_CODING_AGENT_DIR=str(agent), PRIME_AGENT_CODING_AGENT_DIR=str(agent),
-               PI_SESSION_DIR=str(root / 'sessions'), PRIME_AGENT_SESSION_DIR=str(root / 'sessions'),
+               PI_CODING_AGENT_DIR=str(agent), ASYNC_AGENT_CODING_AGENT_DIR=str(agent),
+               PI_SESSION_DIR=str(root / 'sessions'), ASYNC_AGENT_SESSION_DIR=str(root / 'sessions'),
                PI_OFFLINE='1', DO_NOT_TRACK='1')
     env[TAG] = str(root)
     (agent / 'models').mkdir()
@@ -321,7 +321,7 @@ def run(args):
         if os.environ.get('GITHUB_EVENT_PATH'):
             event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
             result['source']['pull_request_head_sha'] = event.get('pull_request', {}).get('head', {}).get('sha')
-        binary = Path(os.environ['PA_RUST_BINARY']).resolve()
+        binary = Path(os.environ['AA_RUST_BINARY']).resolve()
         result['binary'] = {'path': str(binary), 'sha256': digest(binary)}
         output = args.receipt.with_suffix('')
         errors = []
@@ -355,7 +355,7 @@ def main():
         args.receipt.parent.mkdir(parents=True, exist_ok=True)
         args.receipt.write_text(json.dumps({'validation_passed': False,
             'error': 'network namespace capture child has not completed'}) + '\n')
-        names = ('PATH', 'LANG', 'LC_ALL', 'TZ', 'PA_RUST_BINARY', 'GITHUB_ACTIONS',
+        names = ('PATH', 'LANG', 'LC_ALL', 'TZ', 'AA_RUST_BINARY', 'GITHUB_ACTIONS',
                  'GITHUB_RUN_ID', 'GITHUB_SHA', 'GITHUB_EVENT_PATH')
         values = [name + '=' + os.environ[name] for name in names if name in os.environ]
         return subprocess.run(['sudo', '-n', 'unshare', '--net', '/usr/bin/env', *values,

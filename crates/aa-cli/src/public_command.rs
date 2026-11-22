@@ -15,7 +15,7 @@ use crate::mcp_command::run_mcp_management_command;
 use crate::package_command::handle_package_command;
 
 /// Environment flag marking an interactive self-update child process.
-pub const SELF_UPDATE_INTERACTIVE_CHILD_ENV: &str = "PRIME_AGENT_INTERACTIVE_SELF_UPDATE";
+pub const SELF_UPDATE_INTERACTIVE_CHILD_ENV: &str = "ASYNC_AGENT_INTERACTIVE_SELF_UPDATE";
 
 /// Internal update-restart coordinator flags.
 pub const DAEMON_UPDATE_RESTART_COORDINATOR_FLAG: &str = "--internal-update-restart-coordinator";
@@ -249,11 +249,11 @@ fn reject_removed_command(args: &[String]) -> PublicCommandResult {
     let command = args.first().map(String::as_str).unwrap_or_default();
     let subcommand = args.get(1).map(String::as_str);
     let replacement = match (command, subcommand) {
-        ("daemon", _) => Some("Run \"prime-agent help\" to see the agent commands.".to_string()),
-        ("app", Some("update")) => Some("Use \"prime-agent update\".".to_string()),
-        ("install", _) => Some("Use \"prime-agent package install\".".to_string()),
-        ("remove" | "uninstall", _) => Some("Use \"prime-agent package remove\".".to_string()),
-        ("manage", _) => Some("Use \"prime-agent agents\".".to_string()),
+        ("daemon", _) => Some("Run \"async-agent help\" to see the agent commands.".to_string()),
+        ("app", Some("update")) => Some("Use \"async-agent update\".".to_string()),
+        ("install", _) => Some("Use \"async-agent package install\".".to_string()),
+        ("remove" | "uninstall", _) => Some("Use \"async-agent package remove\".".to_string()),
+        ("manage", _) => Some("Use \"async-agent agents\".".to_string()),
         _ => None,
     };
     let joined: Vec<&str> = args.iter().take(2).map(String::as_str).collect();
@@ -314,7 +314,7 @@ fn validate_schedule_args(args: &[String]) -> bool {
             }
             if arg.starts_with('-') {
                 fail(
-                    "Usage: prime-agent schedule list [--all] [agent] [--json]",
+                    "Usage: async-agent schedule list [--all] [agent] [--json]",
                     None,
                 );
                 return false;
@@ -322,7 +322,7 @@ fn validate_schedule_args(args: &[String]) -> bool {
             agent_count += 1;
             if agent_count > 1 {
                 fail(
-                    "Usage: prime-agent schedule list [--all] [agent] [--json]",
+                    "Usage: async-agent schedule list [--all] [agent] [--json]",
                     None,
                 );
                 return false;
@@ -335,7 +335,7 @@ fn validate_schedule_args(args: &[String]) -> bool {
         if operands.len() == 1 && !operands[0].starts_with('-') {
             return true;
         }
-        fail("Usage: prime-agent schedule cancel <job-id>", None);
+        fail("Usage: async-agent schedule cancel <job-id>", None);
         return false;
     }
     true
@@ -394,8 +394,8 @@ fn parse_update_options(args: &[String]) -> Option<crate::self_update::SelfUpdat
         index += 1;
     }
     invocation.channel = match channel {
-        Some("--nightly") => Some(pa_core::update::version::UpdateChannel::Nightly),
-        Some("--stable") => Some(pa_core::update::version::UpdateChannel::Stable),
+        Some("--nightly") => Some(aa_core::update::version::UpdateChannel::Nightly),
+        Some("--stable") => Some(aa_core::update::version::UpdateChannel::Stable),
         _ => None,
     };
     if invocation.archive.is_some() {
@@ -416,7 +416,7 @@ fn parse_update_options(args: &[String]) -> Option<crate::self_update::SelfUpdat
         if invocation
             .source
             .as_deref()
-            .is_some_and(|source| !pa_core::update::install::install_source_is_valid(source))
+            .is_some_and(|source| !aa_core::update::install::install_source_is_valid(source))
         {
             fail(
                 "--source must be an http(s) URL.",
@@ -483,7 +483,7 @@ fn run_doctor(args: &[String]) -> PublicCommandResult {
     handled()
 }
 
-/// `prime-agent telemetry [status|on|off]`: the same report and settings
+/// `async-agent telemetry [status|on|off]`: the same report and settings
 /// switch as the `/telemetry` slash command, for the current directory's
 /// settings scope.
 fn run_telemetry(args: &[String]) -> PublicCommandResult {
@@ -493,13 +493,13 @@ fn run_telemetry(args: &[String]) -> PublicCommandResult {
     }
     let cwd = std::env::current_dir().unwrap_or_default();
     let agent_dir = crate::config::get_agent_dir();
-    let mut settings = pa_core::settings::SettingsManager::create(&cwd, &agent_dir);
+    let mut settings = aa_core::settings::SettingsManager::create(&cwd, &agent_dir);
     let report = match args.first().map(String::as_str) {
-        None | Some("status") => Ok(pa_core::session_engine::telemetry::telemetry_status_text(
+        None | Some("status") => Ok(aa_core::session_engine::telemetry::telemetry_status_text(
             &settings, &agent_dir,
         )),
         Some(choice @ ("on" | "off")) => {
-            pa_core::session_engine::telemetry::set_telemetry_enabled_text(
+            aa_core::session_engine::telemetry::set_telemetry_enabled_text(
                 &mut settings,
                 &agent_dir,
                 choice == "on",
@@ -516,7 +516,7 @@ fn run_telemetry(args: &[String]) -> PublicCommandResult {
     }
 }
 
-/// `prime-agent incident` (TS `runIncidentCommand`): parse the options,
+/// `async-agent incident` (TS `runIncidentCommand`): parse the options,
 /// resolve the window once, and print the timeline.
 fn run_incident_command(args: &[String]) -> PublicCommandResult {
     let options = match crate::incident::parse_incident_options(args) {
@@ -576,13 +576,13 @@ fn run_package(args: &[String]) -> PublicCommandResult {
     let Some(subcommand) = args.first().map(String::as_str) else {
         return fail(
             "Missing package command.",
-            Some("Run \"prime-agent help package\" for usage.".to_string()),
+            Some("Run \"async-agent help package\" for usage.".to_string()),
         );
     };
     if subcommand == "uninstall" {
         return fail(
             "Unknown package command: uninstall",
-            Some("Use \"prime-agent package remove\".".to_string()),
+            Some("Use \"async-agent package remove\".".to_string()),
         );
     }
     let children: Vec<&str> = get_child_command_specs(&["package"])
@@ -594,7 +594,7 @@ fn run_package(args: &[String]) -> PublicCommandResult {
         return fail(
             format!("Unknown package command: {subcommand}"),
             Some(suggestion.map_or_else(
-                || "Run \"prime-agent help package\" for usage.".to_string(),
+                || "Run \"async-agent help package\" for usage.".to_string(),
                 |s| format!("Did you mean \"{APP_NAME} package {s}\"?"),
             )),
         );
@@ -608,7 +608,7 @@ fn run_package(args: &[String]) -> PublicCommandResult {
             arg == "--self" || arg == "--extensions" || arg == "--extension" || arg == "--force"
         }) {
             return fail(
-                "Package updates accept only an optional source. Use \"prime-agent update\" to update Prime Agent.",
+                "Package updates accept only an optional source. Use \"async-agent update\" to update Async Agent.",
                 None,
             );
         }
@@ -617,7 +617,7 @@ fn run_package(args: &[String]) -> PublicCommandResult {
         }
         if let Some(source) = rest.first() {
             if is_self_update_source(source) {
-                return fail("Use \"prime-agent update\" to update Prime Agent.", None);
+                return fail("Use \"async-agent update\" to update Async Agent.", None);
             }
         }
         let mut package_args: Vec<String> = vec!["update".to_string()];
@@ -654,7 +654,7 @@ fn is_self_update_source(source: &str) -> bool {
 /// A `--check` invocation: `--check` (or `--version`) with at most one
 /// `--nightly` / `--stable`. `None` when the arguments are not a check.
 fn check_invocation(args: &[String]) -> Option<crate::installer_update::UpdateOptions> {
-    use pa_core::update::version::UpdateChannel;
+    use aa_core::update::version::UpdateChannel;
     let mut check = false;
     let mut channel = None;
     for arg in args {
@@ -684,7 +684,7 @@ fn run_update(args: &[String]) -> PublicCommandResult {
     // `--rollback` and `--archive` on an installer install run the bundled
     // installer; any other binary stays on the managed-install flow.
     if options.rollback || options.archive.is_some() {
-        if let Some(prefix) = pa_core::update::installer::running_installer_prefix() {
+        if let Some(prefix) = aa_core::update::installer::running_installer_prefix() {
             if options.source.is_some() {
                 return fail(
                     "--source only applies to managed installs.",
@@ -722,7 +722,7 @@ fn run_update(args: &[String]) -> PublicCommandResult {
     let persisted_wire = std::env::current_dir()
         .ok()
         .and_then(|cwd| {
-            pa_core::settings::SettingsManager::create(&cwd, crate::config::get_agent_dir())
+            aa_core::settings::SettingsManager::create(&cwd, crate::config::get_agent_dir())
                 .get_update_channel()
         })
         .map(crate::self_update::settings_channel_wire_name)
@@ -740,7 +740,7 @@ fn run_update(args: &[String]) -> PublicCommandResult {
     // custom root/public-bin pair is not silently replaced by ~/.local.
     let managed_install = std::env::current_exe()
         .ok()
-        .and_then(|exe| pa_core::update::install::install_root_of(&exe))
+        .and_then(|exe| aa_core::update::install::install_root_of(&exe))
         .is_some();
     if !managed_install && !options.rollback && options.archive.is_none() {
         let update = crate::installer_update::UpdateOptions {
@@ -1015,7 +1015,7 @@ mod update_options_tests {
 
     #[test]
     fn check_combines_with_one_channel_flag() {
-        use pa_core::update::version::UpdateChannel;
+        use aa_core::update::version::UpdateChannel;
         let channel = |args: &[&str]| {
             let args: Vec<String> = args.iter().map(std::string::ToString::to_string).collect();
             check_invocation(&args).map(|options| options.channel)
@@ -1056,7 +1056,7 @@ mod update_options_tests {
         let invocation = parse(&["--nightly"]).unwrap();
         assert_eq!(
             invocation.channel,
-            Some(pa_core::update::version::UpdateChannel::Nightly)
+            Some(aa_core::update::version::UpdateChannel::Nightly)
         );
         assert!(parse(&["--nightly", "--stable"]).is_none());
         assert!(parse(&["--unknown"]).is_none());

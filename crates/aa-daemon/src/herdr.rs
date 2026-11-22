@@ -5,7 +5,7 @@
 //! (`HERDR_ENV=1`, `HERDR_PANE_ID`, `HERDR_SOCKET_PATH` — the socket of
 //! its pane-state API) for the processes running inside them. This module
 //! reports this session's lifecycle state (`working` / `blocked` /
-//! `idle`) to that socket, so a Herdr pane shows its Prime Agent session
+//! `idle`) to that socket, so a Herdr pane shows its Async Agent session
 //! as live, done, or stuck — the in-tree counterpart of the TS
 //! `herdr-agent-state.ts` extension (`herdr integration install pi` also
 //! writes one; the built-in ships so the pane reports out of the box).
@@ -25,8 +25,8 @@
 //! response byte, an error, or 500 ms):
 //!
 //! ```json
-//! {"id":"herdr:pi:<ms>:<rand>","method":"pane.report_agent","params":{"pane_id":"<HERDR_PANE_ID>","source":"herdr:pi","agent":"prime-agent","state":"working","seq":1780000000000000,"agent_session_path":"/home/me/.prime/agent/sessions/<id>.jsonl"}}
-//! {"id":"herdr:pi:release:<ms>:<rand>","method":"pane.release_agent","params":{"pane_id":"…","source":"herdr:pi","agent":"prime-agent","seq":1780000000000001}}
+//! {"id":"herdr:pi:<ms>:<rand>","method":"pane.report_agent","params":{"pane_id":"<HERDR_PANE_ID>","source":"herdr:pi","agent":"async-agent","state":"working","seq":1780000000000000,"agent_session_path":"/home/me/.async-agent/sessions/<id>.jsonl"}}
+//! {"id":"herdr:pi:release:<ms>:<rand>","method":"pane.release_agent","params":{"pane_id":"…","source":"herdr:pi","agent":"async-agent","seq":1780000000000001}}
 //! ```
 //!
 //! `message` rides only blocked reports. `seq` is per-process monotonic
@@ -45,9 +45,9 @@ use serde_json::{json, Map, Value};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// The allowlist of client env vars the connector consumes (TS
-/// `DAEMON_CLIENT_ENV_KEYS` — the shared wire contract, in `pa-types` so
+/// `DAEMON_CLIENT_ENV_KEYS` — the shared wire contract, in `aa-types` so
 /// clients and the daemon read one list).
-pub use pa_types::daemon::herdr_env::filter_client_env;
+pub use aa_types::daemon::herdr_env::filter_client_env;
 
 /// The tuning env for the idle debounce (a turn that ends with queued
 /// work reports idle only after this window, so a pane does not flicker
@@ -66,7 +66,7 @@ const SEND_TIMEOUT_MS: u64 = 500;
 /// The reporter identity on every report (TS main `herdr:pi` source;
 /// `herdr integration install pi` reports under the same pair).
 pub(crate) const HERDR_SOURCE: &str = "herdr:pi";
-pub(crate) const HERDR_AGENT: &str = "prime-agent";
+pub(crate) const HERDR_AGENT: &str = "async-agent";
 
 /// The Herdr socket target (TS `herdrSocketTarget`): Herdr exports a
 /// Unix-style socket path; on Windows that dials the local named-pipe
@@ -852,7 +852,7 @@ async fn send_request(socket_target: &str, request: Value) -> bool {
     // and starve later states or the release.
     let connected = tokio::time::timeout(
         Duration::from_millis(SEND_TIMEOUT_MS),
-        pa_types::platform::transport::connect_transport(std::path::Path::new(socket_target)),
+        aa_types::platform::transport::connect_transport(std::path::Path::new(socket_target)),
     )
     .await;
     let Ok(Ok(stream)) = connected else {
@@ -892,7 +892,7 @@ pub(crate) fn valid_resume_argv(target: Option<&str>) -> Option<Vec<String>> {
     if target.is_empty() || target.contains('\'') || target.chars().any(char::is_control) {
         return None;
     }
-    let argv = ["prime-agent", "--resume", target]
+    let argv = ["async-agent", "--resume", target]
         .into_iter()
         .map(str::to_string)
         .collect::<Vec<String>>();
@@ -1069,7 +1069,7 @@ mod tests {
         assert_eq!(
             argv,
             Some(vec![
-                "prime-agent".to_string(),
+                "async-agent".to_string(),
                 "--resume".to_string(),
                 "019e71ec-e08a-75a9-b573-000000000001.jsonl".to_string(),
             ])
@@ -1077,7 +1077,7 @@ mod tests {
         assert_eq!(
             valid_resume_argv(Some("  trimmed-id  ")),
             Some(vec![
-                "prime-agent".into(),
+                "async-agent".into(),
                 "--resume".into(),
                 "trimmed-id".into()
             ])
@@ -1209,7 +1209,7 @@ mod tests {
         let (requests, server) = fake_herdr(&socket_path);
         let config = HerdrConfig::from_env(&pane_env(&socket_path, "w1:p1")).unwrap();
         let session_ref = HerdrSessionRef::new(
-            Some("/home/me/.prime/agent/sessions/s1.jsonl".to_string()),
+            Some("/home/me/.async-agent/sessions/s1.jsonl".to_string()),
             Some("s1".to_string()),
         );
         let (reporter, _generation) = start_reporter(config, session_ref.clone());
@@ -1223,18 +1223,18 @@ mod tests {
         let params = &report["params"];
         assert_eq!(params["pane_id"], "w1:p1");
         assert_eq!(params["source"], "herdr:pi");
-        assert_eq!(params["agent"], "prime-agent");
+        assert_eq!(params["agent"], "async-agent");
         assert_eq!(params["state"], "idle");
         assert_eq!(
             params["agent_session_path"],
-            "/home/me/.prime/agent/sessions/s1.jsonl"
+            "/home/me/.async-agent/sessions/s1.jsonl"
         );
         assert_eq!(
             params["resume_argv"],
             json!([
-                "prime-agent",
+                "async-agent",
                 "--resume",
-                "/home/me/.prime/agent/sessions/s1.jsonl"
+                "/home/me/.async-agent/sessions/s1.jsonl"
             ])
         );
         // The id carries the source prefix; the seq is a number.

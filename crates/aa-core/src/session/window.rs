@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use super::window_cache::{self, Generation, Snapshot};
 pub use super::window_cache::{append_cached, flush as flush_cache, AppendOwnership};
-use pa_types::session::{FileEntry, SessionHeader};
+use aa_types::session::{FileEntry, SessionHeader};
 use serde::{Deserialize, Serialize};
 
 use super::{build_session_context, SessionContext};
@@ -163,8 +163,8 @@ struct OlderPathUsage {
     cost: f64,
 }
 
-impl From<pa_types::ai::Usage> for OlderPathUsage {
-    fn from(usage: pa_types::ai::Usage) -> Self {
+impl From<aa_types::ai::Usage> for OlderPathUsage {
+    fn from(usage: aa_types::ai::Usage) -> Self {
         Self {
             input: usage.input,
             output: usage.output,
@@ -791,7 +791,7 @@ impl WindowedSessionStore {
                 for retained in self.entries.iter_mut().rev() {
                     if retained.id() == Some(payload.target_id.as_str()) {
                         if let FileEntry::Message {
-                            message: pa_types::session::AgentMessage::Assistant(assistant),
+                            message: aa_types::session::AgentMessage::Assistant(assistant),
                             ..
                         } = retained
                         {
@@ -959,7 +959,7 @@ fn apply_attributions(entries: &mut [FileEntry], metadata: &[String]) {
             for entry in entries.iter_mut() {
                 if entry.id() == Some(payload.target_id.as_str()) {
                     if let FileEntry::Message {
-                        message: pa_types::session::AgentMessage::Assistant(message),
+                        message: aa_types::session::AgentMessage::Assistant(message),
                         ..
                     } = entry
                     {
@@ -1003,11 +1003,11 @@ pub(super) fn update_snapshot(snapshot: &mut Snapshot, entry: &FileEntry) {
         }
         FileEntry::Message { message, .. } => {
             snapshot.message_count += 1;
-            if let pa_types::session::AgentMessage::Assistant(message) = message {
+            if let aa_types::session::AgentMessage::Assistant(message) = message {
                 snapshot.model = Some((message.provider.clone(), message.model.clone()));
             }
             if snapshot.first_user.is_none()
-                && matches!(message, pa_types::session::AgentMessage::User(_))
+                && matches!(message, aa_types::session::AgentMessage::User(_))
             {
                 snapshot.first_user = serde_json::to_value(message).ok();
             }

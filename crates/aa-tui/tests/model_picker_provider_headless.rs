@@ -10,8 +10,8 @@ mod support;
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
-use pa_types::ai::Model;
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use aa_types::ai::Model;
 use serde_json::{json, Value};
 
 use support::{

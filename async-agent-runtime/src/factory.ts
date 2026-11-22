@@ -329,7 +329,7 @@ class JsStateProcess {
 	}
 
 	static start(target: { import: string; callable: string }, inputs: Record<string, unknown>): JsStateProcess {
-		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "prime-factory-js-"));
+		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "async-factory-js-"));
 		const inputPath = path.join(tmpDir, "in.json");
 		const outputPath = path.join(tmpDir, "out.json");
 		fs.writeFileSync(inputPath, JSON.stringify(inputs), "utf8");

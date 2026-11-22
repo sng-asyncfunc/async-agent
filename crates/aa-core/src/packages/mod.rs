@@ -91,11 +91,11 @@ fn expand_tilde(path: &str) -> PathBuf {
 }
 
 fn home_dir() -> PathBuf {
-    pa_types::platform::home_dir().unwrap_or_else(|| PathBuf::from("/"))
+    aa_types::platform::home_dir().unwrap_or_else(|| PathBuf::from("/"))
 }
 
-/// The compile-time workspace root (source-checkout layout): pa-core lives
-/// at `<root>/crates/pa-core`; every package-dir resolution that falls back
+/// The compile-time workspace root (source-checkout layout): aa-core lives
+/// at `<root>/crates/aa-core`; every package-dir resolution that falls back
 /// to the source-checkout layout shares it.
 pub(crate) fn source_checkout_root() -> Option<&'static std::path::Path> {
     static ROOT: std::sync::OnceLock<Option<std::path::PathBuf>> = std::sync::OnceLock::new();

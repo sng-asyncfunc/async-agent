@@ -13,13 +13,13 @@
 //! Kernel-packaging e2e: the packaged (exe-adjacent) release layout boots
 //! a session with NO `PI_PACKAGE_DIR`, and the packaging script produces
 //! the release artifact (the TS native packaging contract: binary,
-//! `package.json`, `prime-agent-runtime/` sidecar, and `skills/`).
+//! `package.json`, `async-agent-runtime/` sidecar, and `skills/`).
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// The repo root (crates/pa-cli -> crates -> root).
+/// The repo root (crates/aa-cli -> crates -> root).
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
@@ -52,15 +52,15 @@ fn serial_lock() -> std::sync::MutexGuard<'static, ()> {
     }
 }
 
-/// The staged binary name: Cargo's MSVC linker emits `prime-agent.exe` on
+/// The staged binary name: Cargo's MSVC linker emits `async-agent.exe` on
 /// Windows (`std::env::consts::EXE_SUFFIX`), and the packaged layout - the
 /// installer's extract target and the binary's own exe-adjacent resolution
 /// - names the platform's spelling.
 fn packaged_binary_name() -> &'static str {
     if cfg!(windows) {
-        "prime-agent.exe"
+        "async-agent.exe"
     } else {
-        "prime-agent"
+        "async-agent"
     }
 }
 
@@ -69,12 +69,12 @@ fn packaged_binary_name() -> &'static str {
 fn stage_packaged_layout(dir: &Path, with_runtime: bool) {
     std::fs::create_dir_all(dir).expect("stage dir");
     let binary = dir.join(packaged_binary_name());
-    std::fs::copy(env!("CARGO_BIN_EXE_prime-agent"), &binary).expect("copy binary");
+    std::fs::copy(env!("CARGO_BIN_EXE_async-agent"), &binary).expect("copy binary");
     set_executable(&binary);
     std::fs::write(
         dir.join("package.json"),
         format!(
-            r#"{{"name":"prime-agent","version":"{}","piConfig":{{"name":"prime-agent","configDir":".prime/agent"}}}}"#,
+            r#"{{"name":"async-agent","version":"{}","piConfig":{{"name":"async-agent","configDir":".async-agent"}}}}"#,
             env!("CARGO_PKG_VERSION")
         ),
     )
@@ -90,8 +90,8 @@ fn stage_packaged_layout(dir: &Path, with_runtime: bool) {
     }
     if with_runtime {
         copy_dir(
-            &repo_root().join("prime-agent-runtime"),
-            &dir.join("prime-agent-runtime"),
+            &repo_root().join("async-agent-runtime"),
+            &dir.join("async-agent-runtime"),
         );
     }
 }
@@ -135,7 +135,7 @@ fn set_executable(path: &Path) {
 /// The kernel Bun binary (skipped with a note without Bun available).
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) =
-        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("PRIME_AGENT_KERNEL_BUN"))
+        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("ASYNC_AGENT_KERNEL_BUN"))
     {
         let explicit = PathBuf::from(explicit);
         assert!(
@@ -200,12 +200,12 @@ impl Sandbox {
         let mut command = Command::new(staged.join(packaged_binary_name()));
         command
             .env("HOME", self.home.path())
-            .env("PRIME_AGENT_CODING_AGENT_DIR", &self.agent_dir)
+            .env("ASYNC_AGENT_CODING_AGENT_DIR", &self.agent_dir)
             .env_remove("PI_PACKAGE_DIR")
-            .env_remove("PRIME_AGENT_KERNEL_BUN")
-            .env_remove("PRIME_AGENT_KERNEL_BUN_DIR")
-            .env_remove("PRIME_AGENT_SESSION_DIR")
-            .env_remove("PRIME_AGENT_CODING_AGENT_SESSION_DIR")
+            .env_remove("ASYNC_AGENT_KERNEL_BUN")
+            .env_remove("ASYNC_AGENT_KERNEL_BUN_DIR")
+            .env_remove("ASYNC_AGENT_SESSION_DIR")
+            .env_remove("ASYNC_AGENT_CODING_AGENT_SESSION_DIR")
             .env_remove("PRIME_API_KEY")
             .current_dir(&self.cwd);
         command
@@ -240,7 +240,7 @@ fn run_json_turn(
         .arg("json")
         .arg("-p")
         .arg("use the kernel")
-        .env("PRIME_AGENT_FAUX_SCRIPT", script.to_string())
+        .env("ASYNC_AGENT_FAUX_SCRIPT", script.to_string())
         .output()
         .expect("run packaged binary");
     (
@@ -276,7 +276,7 @@ fn packaged_session_boots_kernel_without_pi_package_dir() {
     let script = kernel_boot_script(&receipt);
 
     let mut command = box_.command(staged);
-    command.env("PRIME_AGENT_KERNEL_BUN", &kernel_bun);
+    command.env("ASYNC_AGENT_KERNEL_BUN", &kernel_bun);
     let (stdout, stderr, code) = run_json_turn(&mut command, &script);
     assert_eq!(code, Some(0), "stdout: {stdout}\nstderr: {stderr}");
     assert!(
@@ -317,7 +317,7 @@ fn packaged_binary_reports_manifest_version() {
     stage_packaged_layout(staged, false);
     std::fs::write(
         staged.join("package.json"),
-        r#"{"name":"prime-agent","version":"9.8.7-test"}"#,
+        r#"{"name":"async-agent","version":"9.8.7-test"}"#,
     )
     .expect("version manifest");
     let box_ = sandbox();
@@ -344,7 +344,7 @@ fn missing_sidecar_reports_actionable_bootstrap_error() {
     let box_ = sandbox();
     let output = box_
         .command(staged)
-        .arg("--prime-agent-bootstrap")
+        .arg("--async-agent-bootstrap")
         // No uv anywhere the bootstrap looks (PATH and ~/.local/bin under
         // the sandboxed HOME): the failure is the resolution error.
         .env("PATH", "/usr/bin:/bin")
@@ -357,7 +357,7 @@ fn missing_sidecar_reports_actionable_bootstrap_error() {
         "bootstrap failure text missing: {stderr}"
     );
     assert!(
-        stderr.contains("prime-agent-runtime directory was not found"),
+        stderr.contains("async-agent-runtime directory was not found"),
         "missing-sidecar hint missing: {stderr}"
     );
     assert!(
@@ -366,7 +366,7 @@ fn missing_sidecar_reports_actionable_bootstrap_error() {
     );
 }
 
-/// A `PRIME_AGENT_KERNEL_BUN` that is unusable reports the override error.
+/// A `ASYNC_AGENT_KERNEL_BUN` that is unusable reports the override error.
 #[test]
 fn invalid_kernel_bun_override_reports_error() {
     let _guard = serial_lock();
@@ -377,14 +377,14 @@ fn invalid_kernel_bun_override_reports_error() {
     let bogus = box_.home.path().join("not-a-kernel-bun");
     let output = box_
         .command(staged)
-        .arg("--prime-agent-bootstrap")
-        .env("PRIME_AGENT_KERNEL_BUN", &bogus)
+        .arg("--async-agent-bootstrap")
+        .env("ASYNC_AGENT_KERNEL_BUN", &bogus)
         .output()
         .expect("run packaged binary");
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("PRIME_AGENT_KERNEL_BUN points to an unusable Bun executable"),
+        stderr.contains("ASYNC_AGENT_KERNEL_BUN points to an unusable Bun executable"),
         "override error missing: {stderr}"
     );
 }
@@ -416,7 +416,7 @@ fn hostile_child_assertions(staged: &Path) {
 
     let output = box_
         .command(staged)
-        .arg("--prime-agent-bootstrap")
+        .arg("--async-agent-bootstrap")
         .env("PATH", "/usr/bin:/bin")
         .output()
         .expect("run packaged binary");
@@ -427,7 +427,7 @@ fn hostile_child_assertions(staged: &Path) {
         "bootstrap failure text missing: {stderr}"
     );
     assert!(
-        stderr.contains("prime-agent-runtime directory was not found"),
+        stderr.contains("async-agent-runtime directory was not found"),
         "missing-sidecar hint missing: {stderr}"
     );
     assert!(
@@ -435,7 +435,7 @@ fn hostile_child_assertions(staged: &Path) {
         "the hint must name the staged dir: {stderr}"
     );
     assert!(
-        !stderr.contains("PRIME_AGENT_KERNEL_BUN points to"),
+        !stderr.contains("ASYNC_AGENT_KERNEL_BUN points to"),
         "the hostile kernel-bun override leaked into the packaged layout: {stderr}"
     );
     if let Some(package_decoy) = std::env::var_os("PI_PACKAGE_DIR") {
@@ -462,7 +462,7 @@ fn packaged_layout_stays_hermetic_under_hostile_host_env() {
     stage_packaged_layout(staged, false);
     std::fs::write(
         staged.join("package.json"),
-        format!(r#"{{"name":"prime-agent","version":"{HOSTILE_STAGED_VERSION}"}}"#),
+        format!(r#"{{"name":"async-agent","version":"{HOSTILE_STAGED_VERSION}"}}"#),
     )
     .expect("version manifest");
 
@@ -472,14 +472,14 @@ fn packaged_layout_stays_hermetic_under_hostile_host_env() {
     std::fs::create_dir_all(&package_decoy).expect("package decoy dir");
     std::fs::write(
         package_decoy.join("package.json"),
-        r#"{"name":"prime-agent","version":"0.0.0-decoy"}"#,
+        r#"{"name":"async-agent","version":"0.0.0-decoy"}"#,
     )
     .expect("decoy manifest");
     let bun_dir_decoy = decoys.path().join("kernel-bun");
     std::fs::create_dir_all(bun_dir_decoy.join("src")).expect("bun dir decoy");
     std::fs::write(bun_dir_decoy.join("src").join("repl.ts"), "// decoy\n").expect("decoy repl");
 
-    // The most hostile PRIME_AGENT_KERNEL_BUN would satisfy the
+    // The most hostile ASYNC_AGENT_KERNEL_BUN would satisfy the
     // bootstrap if it leaked: the live bun when present, else a bogus path.
     let hostile_bun = kernel_bun().unwrap_or_else(|| decoys.path().join("hostile-kernel-bun"));
 
@@ -487,9 +487,9 @@ fn packaged_layout_stays_hermetic_under_hostile_host_env() {
         .arg("--exact")
         .arg("packaged_layout_stays_hermetic_under_hostile_host_env")
         .env(HOSTILE_CHILD_STAGE, staged)
-        .env("PRIME_AGENT_KERNEL_BUN", &hostile_bun)
+        .env("ASYNC_AGENT_KERNEL_BUN", &hostile_bun)
         .env("PI_PACKAGE_DIR", &package_decoy)
-        .env("PRIME_AGENT_KERNEL_BUN_DIR", &bun_dir_decoy)
+        .env("ASYNC_AGENT_KERNEL_BUN_DIR", &bun_dir_decoy)
         .output()
         .expect("re-exec the test binary with the hostile host env");
     assert!(
@@ -511,13 +511,13 @@ struct PairedFixture {
 
 fn split_paired_fixture(python: &str, version: &str, target: &str, alias: &str) -> PairedFixture {
     let dir = tempfile::TempDir::new().expect("split fixture dir");
-    let source = dir.path().join("prime-agent.c");
+    let source = dir.path().join("async-agent.c");
     // The packer's version pin runs `--version`: the fixture answers the pinned version.
     let program = format!(
         "#include <stdio.h>\nint main(int argc, char **argv) {{ (void)argc; (void)argv; puts(\"{version}\"); return 0; }}\n"
     );
     std::fs::write(&source, program).expect("fixture source");
-    let raw = dir.path().join("cargo-prime-agent");
+    let raw = dir.path().join("cargo-async-agent");
     let compiled = Command::new("gcc")
         .arg("-g")
         .arg("-Wl,--build-id")
@@ -532,7 +532,7 @@ fn split_paired_fixture(python: &str, version: &str, target: &str, alias: &str) 
         "fixture gcc failed: {}",
         String::from_utf8_lossy(&compiled.stderr)
     );
-    let shipped = dir.path().join("prime-agent");
+    let shipped = dir.path().join("async-agent");
     let split = Command::new(python)
         .arg(
             repo_root()
@@ -560,7 +560,7 @@ fn split_paired_fixture(python: &str, version: &str, target: &str, alias: &str) 
     );
     let decoder = dir
         .path()
-        .join(format!("prime-agent-{version}-{alias}.debug.gz"));
+        .join(format!("async-agent-{version}-{alias}.debug.gz"));
     assert!(shipped.is_file(), "shipped fixture missing");
     assert!(decoder.is_file(), "decoder fixture missing");
     PairedFixture {
@@ -582,11 +582,11 @@ fn packaging_dry_run_produces_artifact() {
     // A synthetic tree: the packaging must ship the sidecar without its
     // node_modules or dev caches.
     let tree = tempfile::TempDir::new().expect("packaging tree");
-    let runtime = tree.path().join("prime-agent-runtime");
+    let runtime = tree.path().join("async-agent-runtime");
     std::fs::create_dir_all(runtime.join("src")).expect("runtime tree");
     std::fs::write(
         runtime.join("package.json"),
-        "{\"name\":\"prime-agent-runtime\"}\n",
+        "{\"name\":\"async-agent-runtime\"}\n",
     )
     .unwrap();
     std::fs::write(runtime.join("src").join("repl.ts"), "export {};\n").unwrap();
@@ -666,7 +666,7 @@ fn packaging_dry_run_produces_artifact() {
             Some(fixture.dir),
         )
     } else {
-        (env!("CARGO_BIN_EXE_prime-agent").into(), None, None)
+        (env!("CARGO_BIN_EXE_async-agent").into(), None, None)
     };
     // The platform tag the packer derives on this host (`release_platform`):
     // linux-x64 on the linux CI host, win32-x64 on the windows-latest battery
@@ -679,9 +679,9 @@ fn packaging_dry_run_produces_artifact() {
         _ => "linux-x64",
     };
     let staged_binary_name = if cfg!(windows) {
-        "prime-agent.exe"
+        "async-agent.exe"
     } else {
-        "prime-agent"
+        "async-agent"
     };
     let mut command = Command::new(python);
     command
@@ -708,7 +708,7 @@ fn packaging_dry_run_produces_artifact() {
     let version = env!("CARGO_PKG_VERSION");
     let stage = out
         .path()
-        .join(format!("prime-agent-{version}-{host_platform}"));
+        .join(format!("async-agent-{version}-{host_platform}"));
     assert!(
         stage.join(staged_binary_name).is_file(),
         "staged binary missing"
@@ -718,17 +718,17 @@ fn packaging_dry_run_produces_artifact() {
     )
     .expect("manifest json");
     assert_eq!(manifest["version"], version, "version pin: {manifest}");
-    assert_eq!(manifest["piConfig"]["name"], "prime-agent");
+    assert_eq!(manifest["piConfig"]["name"], "async-agent");
     assert!(
         stage
-            .join("prime-agent-runtime")
+            .join("async-agent-runtime")
             .join("package.json")
             .is_file(),
         "sidecar manifest missing"
     );
     assert!(
         stage
-            .join("prime-agent-runtime")
+            .join("async-agent-runtime")
             .join("src")
             .join("repl.ts")
             .is_file(),
@@ -755,12 +755,12 @@ fn packaging_dry_run_produces_artifact() {
     );
     // Dev cache handling: node_modules and .venv never ship.
     assert!(
-        !stage.join("prime-agent-runtime").join(".venv").exists(),
+        !stage.join("async-agent-runtime").join(".venv").exists(),
         ".venv rode the artifact"
     );
     assert!(
         !stage
-            .join("prime-agent-runtime")
+            .join("async-agent-runtime")
             .join("node_modules")
             .exists(),
         "node_modules rode the artifact"
@@ -768,7 +768,7 @@ fn packaging_dry_run_produces_artifact() {
 
     let archive = out
         .path()
-        .join(format!("prime-agent-{version}-{host_platform}.tar.gz"));
+        .join(format!("async-agent-{version}-{host_platform}.tar.gz"));
     assert!(archive.is_file(), "tarball missing");
     let sums = std::fs::read_to_string(out.path().join("SHA256SUMS")).expect("SHA256SUMS");
     let sha256 = sha256_file(&archive);
@@ -949,7 +949,7 @@ fn sha256(data: &[u8]) -> [u8; 32] {
 }
 
 /// Heavy (network + bun install): the packaged sidecar bootstraps a fresh kernel
-/// Bun runtime dir and boots a session: `cargo test -p pa-cli --test packaged_layout_e2e -- --ignored`
+/// Bun runtime dir and boots a session: `cargo test -p aa-cli --test packaged_layout_e2e -- --ignored`
 #[test]
 #[ignore = "network + bun bootstrap; the lane verifier runs it explicitly"]
 fn bootstrap_kernel_bun_from_packaged_sidecar() {
@@ -959,11 +959,11 @@ fn bootstrap_kernel_bun_from_packaged_sidecar() {
     let box_ = sandbox();
     let kernel_dir = box_.home.path().join("kernel-bun");
 
-    // --prime-agent-bootstrap builds the kernel dir from the exe-adjacent sidecar.
+    // --async-agent-bootstrap builds the kernel dir from the exe-adjacent sidecar.
     let output = box_
         .command(staged)
-        .arg("--prime-agent-bootstrap")
-        .env("PRIME_AGENT_KERNEL_BUN_DIR", &kernel_dir)
+        .arg("--async-agent-bootstrap")
+        .env("ASYNC_AGENT_KERNEL_BUN_DIR", &kernel_dir)
         .output()
         .expect("run packaged binary");
     assert_eq!(
@@ -983,7 +983,7 @@ fn bootstrap_kernel_bun_from_packaged_sidecar() {
     let receipt = box_.home.path().join("kernel-receipt.json");
     let script = kernel_boot_script(&receipt);
     let mut command = box_.command(staged);
-    command.env("PRIME_AGENT_KERNEL_BUN_DIR", &kernel_dir);
+    command.env("ASYNC_AGENT_KERNEL_BUN_DIR", &kernel_dir);
     let (stdout, stderr, code) = run_json_turn(&mut command, &script);
     assert_eq!(code, Some(0), "stdout: {stdout}\nstderr: {stderr}");
     assert!(

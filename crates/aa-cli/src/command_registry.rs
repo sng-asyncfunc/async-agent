@@ -121,7 +121,7 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
         "Show or change usage telemetry",
     )
     .description(
-        "Prime Agent sends pseudonymous usage and performance metrics, never prompts, responses, tool content, file paths, or repository data. status (the default) shows whether telemetry is on and why, where it sends, and the installation id; on and off save the choice in settings.",
+        "Async Agent telemetry is disabled by default unless an endpoint is configured via ASYNC_AGENT_TELEMETRY_ENDPOINT, and never collects prompts, responses, tool content, file paths, or repository data. status (the default) shows whether telemetry is on and why, where it sends, and the installation id; on and off save the choice in settings.",
     ),
     CommandSpec::new(
         &["doctor"],
@@ -218,11 +218,10 @@ pub const COMMAND_SPECS: &[CommandSpec] = &[
         "--source <url>     The https:// origin recorded as the release's install source (managed installs; required there with --archive)",
     ])
     .description(
-        "`prime-agent update` fetches the update channel's installer (stable: \
-         https://app.primeintellect.ai/prime-agent/install.sh; nightly: install-beta.sh from the \
-         release download base — never a GitHub raw or workflow URL) and runs it, which installs \
-         the latest Prime Agent build; your sessions and configuration (~/.prime/agent) are never \
-         touched. Restart prime-agent after the update to run the new build.",
+        "`async-agent update` fetches the update channel's installer from \
+         https://github.com/sng-asyncfunc/async-agent and runs it to install \
+         the latest Async Agent build; your sessions and configuration (~/.async-agent) are never \
+         touched. Restart async-agent after the update to run the new build.",
     ),
     CommandSpec::new(&["model"], "model list [search]", "Inspect available models"),
     CommandSpec::new(&["model", "list"], "model list [search]", "List available models"),
@@ -505,9 +504,9 @@ pub fn is_help_command_request(path: &[&str]) -> bool {
 }
 
 /// Suggest the closest candidate command name (the shared edit-distance
-/// heuristic in `pa_types::slash_commands`).
+/// heuristic in `aa_types::slash_commands`).
 pub fn find_command_suggestion<'a>(input: &str, candidates: &[&'a str]) -> Option<&'a str> {
-    pa_types::slash_commands::find_slash_command_suggestion(input, candidates)
+    aa_types::slash_commands::find_slash_command_suggestion(input, candidates)
 }
 
 fn pad_end(value: &str, width: usize) -> String {

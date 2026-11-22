@@ -16,13 +16,13 @@ import {
 const IS_POSIX = process.platform !== "win32";
 const HEAD_CAP = 512 * 1024;
 const TAIL_CAP = 3 * 512 * 1024;
-const COMPLETION_PREFIX = Buffer.from("\x1eprime-agent-complete:", "ascii");
+const COMPLETION_PREFIX = Buffer.from("\x1easync-agent-complete:", "ascii");
 const COMPLETION_SUFFIX = Buffer.from("\x1f", "ascii");
 const CANCEL_TERM_GRACE_MS = 500;
 const CANCEL_KILL_WAIT_MS = 2000;
 const COMPLETION_NOTICE_COMMAND_CAP = 1000;
-const BASH_COMMAND_MIME = "application/vnd.prime-agent.bash-command+json";
-const BASH_ACTIVITY_MIME = "application/vnd.prime-agent.bash-activity+json";
+const BASH_COMMAND_MIME = "application/vnd.async-agent.bash-command+json";
+const BASH_ACTIVITY_MIME = "application/vnd.async-agent.bash-activity+json";
 const ACTIVITY_HISTORY_CAP = 64;
 const ACTIVITY_FRAME_CAP = 16_384;
 const PERSISTENT_DIR = "persistent-shells";
@@ -30,11 +30,11 @@ const PERSISTENT_POLL_MS = 1000;
 const MAX_DEGRADE_HINTS = 3;
 
 const PERSISTENT_WRAPPER =
-	"read -r _prime_agent_gate || exit 127\n" +
+	"read -r _async_agent_gate || exit 127\n" +
 	"exec 0</dev/null\n" +
 	'"$1" -c "$2"\n' +
-	"__prime_status=$?\n" +
-	'printf \'%s\\n\' "$__prime_status" > "$3.tmp" && mv -f "$3.tmp" "$3"\n';
+	"__async_status=$?\n" +
+	'printf \'%s\\n\' "$__async_status" > "$3.tmp" && mv -f "$3.tmp" "$3"\n';
 
 let completionNoticesWired = false;
 let yieldAfterSeconds = 1.0;
@@ -102,9 +102,9 @@ let shutdownHookInstalled = false;
 
 function resolveAgentDir(): string {
 	const raw =
-		(process.env.PRIME_AGENT_CODING_AGENT_DIR ?? "").trim() ||
+		(process.env.ASYNC_AGENT_CODING_AGENT_DIR ?? "").trim() ||
 		(process.env.PI_CODING_AGENT_DIR ?? "").trim() ||
-		path.join(homedir(), ".prime", "agent");
+		path.join(homedir(), ".async-agent");
 	return path.resolve(raw.replace(/^~(?=\/|$)/, homedir()));
 }
 
@@ -127,16 +127,16 @@ function noteDegrade(handle: BashHandle, boundSeconds: number): void {
 }
 
 function resolveShell(): string {
-	const override = process.env.PRIME_AGENT_BASH_SHELL;
+	const override = process.env.ASYNC_AGENT_BASH_SHELL;
 	if (override) {
 		if (!path.isAbsolute(override)) {
-			throw new Error("PRIME_AGENT_BASH_SHELL must be an absolute path");
+			throw new Error("ASYNC_AGENT_BASH_SHELL must be an absolute path");
 		}
 		return override;
 	}
 	if (!IS_POSIX) {
 		throw new Error(
-			"bash() needs PRIME_AGENT_BASH_SHELL set to the absolute path of a " +
+			"bash() needs ASYNC_AGENT_BASH_SHELL set to the absolute path of a " +
 				"POSIX shell on Windows (e.g. install Git Bash in its default " +
 				"location so the host injects it)",
 		);
@@ -145,7 +145,7 @@ function resolveShell(): string {
 }
 
 function withPrefix(command: string): string {
-	const prefix = process.env.PRIME_AGENT_BASH_COMMAND_PREFIX;
+	const prefix = process.env.ASYNC_AGENT_BASH_COMMAND_PREFIX;
 	return prefix ? `${prefix}\n${command}` : command;
 }
 
@@ -164,18 +164,18 @@ function fencePrintf(): string {
 function statusScript(command: string, completionA: string, completionB: string): string {
 	const emitCmd = fencePrintf();
 	return (
-		"read -r _prime_agent_gate || exit 127\n" +
+		"read -r _async_agent_gate || exit 127\n" +
 		"exec 0</dev/null\n" +
 		"{\n" +
 		`${command}\n` +
 		"} 3>&- 2>&1\n" +
-		"__prime_status=$?\n" +
+		"__async_status=$?\n" +
 		"\\set +x\n" +
-		`${emitCmd} '\\036prime-agent-complete:%s%s\\037' '${completionA}' '${completionB}' || exit "$__prime_status"\n` +
-		`${emitCmd} '%s\\n' "$__prime_status" >&3\n` +
+		`${emitCmd} '\\036async-agent-complete:%s%s\\037' '${completionA}' '${completionB}' || exit "$__async_status"\n` +
+		`${emitCmd} '%s\\n' "$__async_status" >&3\n` +
 		"exec 3>&-\n" +
 		"wait\n" +
-		'exit "$__prime_status"\n'
+		'exit "$__async_status"\n'
 	);
 }
 
@@ -293,8 +293,8 @@ function shellIdentity(pid: number, startId: string): boolean | null {
 }
 
 function recordJournal(pid: number, active: boolean): boolean {
-	const journalPath = process.env.PRIME_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL;
-	const ownerRaw = process.env.PRIME_AGENT_KERNEL_OWNER_PID;
+	const journalPath = process.env.ASYNC_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL;
+	const ownerRaw = process.env.ASYNC_AGENT_KERNEL_OWNER_PID;
 	if (!journalPath || !ownerRaw) return true;
 	const ownerPid = Number.parseInt(ownerRaw, 10);
 	if (!Number.isInteger(ownerPid) || String(ownerPid) !== ownerRaw.trim()) {
@@ -1176,13 +1176,13 @@ function spawnPersistent(command: string): PersistentBashHandle {
 	const shellId = randomBytes(16).toString("hex");
 	fs.mkdirSync(home, { recursive: true, mode: 0o700 });
 	const shell = resolveShell();
-	const script = `{\n${withPrefix(command)}\n}\n__prime_status=$?\nwait\nexit "$__prime_status"\n`;
+	const script = `{\n${withPrefix(command)}\n}\n__async_status=$?\nwait\nexit "$__async_status"\n`;
 	const outPath = persistentFile(home, shellId, "out");
 	const rcPath = persistentFile(home, shellId, "rc");
 	const outFd = fs.openSync(outPath, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL, 0o600);
 	let proc: ChildProcess;
 	try {
-		proc = spawn(shell, ["-c", PERSISTENT_WRAPPER, "prime-agent-persistent", shell, script, rcPath], {
+		proc = spawn(shell, ["-c", PERSISTENT_WRAPPER, "async-agent-persistent", shell, script, rcPath], {
 			cwd: process.cwd(),
 			env: childEnv(),
 			detached: true,

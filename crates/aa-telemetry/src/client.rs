@@ -187,7 +187,7 @@ impl TelemetryClient {
     /// Enqueue an event. The config base properties are merged under the
     /// event properties. Never blocks; if the worker is gone the event is
     /// dropped and counted.
-    // Workspace API consumed across crates (pa-cli, pa-core); the by-value signature is fleet-wide.
+    // Workspace API consumed across crates (aa-cli, aa-core); the by-value signature is fleet-wide.
     #[allow(clippy::needless_pass_by_value)]
     pub fn track(&self, name: impl Into<String>, properties: Properties) {
         let mut merged = self.base_properties.clone();

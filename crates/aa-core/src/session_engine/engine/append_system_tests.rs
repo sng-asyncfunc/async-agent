@@ -1,6 +1,6 @@
 //! Assert the actual provider context, without inference or a Python kernel.
 use super::*;
-use pa_agent::scripted::ScriptedProvider;
+use aa_agent::scripted::ScriptedProvider;
 
 struct PromptCase {
     custom_system: bool,
@@ -16,7 +16,7 @@ async fn assert_prompt_case(case: PromptCase) {
         let tmp = tempfile::tempdir().unwrap();
         let cwd = tmp.path().join("project");
         let agent_dir = tmp.path().join("agent");
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
         std::fs::create_dir_all(&agent_dir).unwrap();
         std::fs::write(cwd.join("AGENTS.md"), "PROJECT_CONTEXT_SENTINEL").unwrap();
         std::fs::write(agent_dir.join("AGENTS.md"), "GLOBAL_CONTEXT_SENTINEL").unwrap();
@@ -27,7 +27,7 @@ async fn assert_prompt_case(case: PromptCase) {
             std::fs::write(agent_dir.join("APPEND_SYSTEM.md"), content).unwrap();
         }
         if let Some(content) = case.project {
-            std::fs::write(cwd.join(".prime/agent/APPEND_SYSTEM.md"), content).unwrap();
+            std::fs::write(cwd.join(".async-agent/APPEND_SYSTEM.md"), content).unwrap();
         }
         let model = Model {
             id: "m".into(),
@@ -36,7 +36,7 @@ async fn assert_prompt_case(case: PromptCase) {
             provider: "test".into(),
             base_url: "http://localhost".into(),
             reasoning: false,
-            cost: pa_agent::types::UsageCost::default(),
+            cost: aa_agent::types::UsageCost::default(),
             context_window: 100_000,
             max_tokens: 100,
             max_tokens_explicit: false,
@@ -67,7 +67,7 @@ async fn assert_prompt_case(case: PromptCase) {
         if case.custom_system {
             assert!(prompt.starts_with("CUSTOM_SYSTEM_SENTINEL"));
         } else {
-            assert!(prompt.starts_with("# prime-agent harness"));
+            assert!(prompt.starts_with("# async-agent harness"));
         }
         for context in ["PROJECT_CONTEXT_SENTINEL", "GLOBAL_CONTEXT_SENTINEL"] {
             assert_eq!(prompt.matches(context).count(), 1);

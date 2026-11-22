@@ -1,6 +1,6 @@
 //! Orphan-process journal: the runtime journals every `bash()` process group
 //! under the kernel pid into the file named by
-//! `PRIME_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL`; the host reaps those
+//! `ASYNC_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL`; the host reaps those
 //! groups when a killed/crashed kernel cannot run its own shutdown hook.
 
 use std::collections::HashMap;
@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use serde_json::json;
 
 /// Environment variable naming the journal file.
-pub const ORPHAN_PROCESS_JOURNAL_ENV: &str = "PRIME_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL";
+pub const ORPHAN_PROCESS_JOURNAL_ENV: &str = "ASYNC_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveOrphanProcess {
@@ -29,14 +29,14 @@ fn journal_path() -> Option<std::path::PathBuf> {
     Some(PathBuf::from(path))
 }
 
-/// Pid-reuse identity (`proc:<starttime>`), shared with pa-daemon through
-/// `pa_types::platform::process`.
+/// Pid-reuse identity (`proc:<starttime>`), shared with aa-daemon through
+/// `aa_types::platform::process`.
 #[must_use]
 pub fn get_process_start_id(pid: i32) -> Option<String> {
     if pid <= 0 {
         return None;
     }
-    pa_types::platform::process::process_start_id(pid as u32)
+    aa_types::platform::process::process_start_id(pid as u32)
 }
 
 /// Record a process as active/inactive in the journal. Best-effort: process

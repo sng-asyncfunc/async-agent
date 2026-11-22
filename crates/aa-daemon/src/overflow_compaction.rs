@@ -7,12 +7,12 @@ use serde_json::Value;
 
 use crate::agent_engine::AgentSessionEngine;
 use crate::engine::EngineEvent;
-use pa_agent::abort::AbortController;
-use pa_core::session_engine::compact_session::CompactOutcome;
-use pa_core::session_engine::messages::CompactionOutcomeKind;
-use pa_core::session_engine::messages::CompactionOutcomeReason;
-use pa_core::session_engine::provider_adapter::json_round_trip;
-use pa_core::session_engine::TrailingAssistantFilter;
+use aa_agent::abort::AbortController;
+use aa_core::session_engine::compact_session::CompactOutcome;
+use aa_core::session_engine::messages::CompactionOutcomeKind;
+use aa_core::session_engine::messages::CompactionOutcomeReason;
+use aa_core::session_engine::provider_adapter::json_round_trip;
+use aa_core::session_engine::TrailingAssistantFilter;
 
 /// The failure text when one compact-and-retry attempt could not save the
 /// turn.
@@ -67,7 +67,7 @@ impl AgentSessionEngine {
     /// failed turn's message.
     pub(crate) fn run_overflow_compaction(
         &self,
-        assistant: &pa_agent::types::AssistantMessage,
+        assistant: &aa_agent::types::AssistantMessage,
         emit: &mut dyn FnMut(EngineEvent) -> bool,
     ) -> OverflowArmRun {
         match self.overflow_recovery_attempt(assistant, emit) {
@@ -95,14 +95,14 @@ impl AgentSessionEngine {
     }
 
     /// The last assistant message of the live loop context in the wire shape.
-    pub(crate) fn last_loop_assistant_message(&self) -> Option<pa_agent::types::AssistantMessage> {
+    pub(crate) fn last_loop_assistant_message(&self) -> Option<aa_agent::types::AssistantMessage> {
         let guard = self.session.blocking_lock();
         let engine = guard.as_deref()?;
         let wire = self
             .runtime
             .block_on(async { engine.session.last_assistant_message().await })?;
         match wire {
-            pa_types::session::AgentMessage::Assistant(assistant) => json_round_trip(&assistant),
+            aa_types::session::AgentMessage::Assistant(assistant) => json_round_trip(&assistant),
             _ => None,
         }
     }
@@ -112,12 +112,12 @@ impl AgentSessionEngine {
     /// panic).
     pub(crate) async fn last_loop_assistant_message_async(
         &self,
-    ) -> Option<pa_agent::types::AssistantMessage> {
+    ) -> Option<aa_agent::types::AssistantMessage> {
         let guard = self.session.lock().await;
         let engine = guard.as_deref()?;
         let wire = engine.session.last_assistant_message().await?;
         match wire {
-            pa_types::session::AgentMessage::Assistant(assistant) => json_round_trip(&assistant),
+            aa_types::session::AgentMessage::Assistant(assistant) => json_round_trip(&assistant),
             _ => None,
         }
     }
@@ -138,7 +138,7 @@ impl AgentSessionEngine {
     /// session's current model, and it must be a context overflow.
     fn overflow_recovery_attempt(
         &self,
-        assistant: &pa_agent::types::AssistantMessage,
+        assistant: &aa_agent::types::AssistantMessage,
         emit: &mut dyn FnMut(EngineEvent) -> bool,
     ) -> OverflowAttempt {
         // TS runs the check and the summarizer on `this.model` — the
@@ -160,7 +160,7 @@ impl AgentSessionEngine {
         if assistant.provider != run_model.provider || assistant.model != run_model.id {
             return OverflowAttempt::None;
         }
-        let Some(wire) = json_round_trip::<_, pa_types::ai::AssistantMessage>(assistant) else {
+        let Some(wire) = json_round_trip::<_, aa_types::ai::AssistantMessage>(assistant) else {
             return OverflowAttempt::None;
         };
         // Skip the check when the message predates the latest compaction
@@ -196,7 +196,7 @@ impl AgentSessionEngine {
         if !enabled && !pending_scheduled {
             return OverflowAttempt::None;
         }
-        if !pa_ai::is_context_overflow(&wire, Some(run_model.context_window)) {
+        if !aa_ai::is_context_overflow(&wire, Some(run_model.context_window)) {
             return OverflowAttempt::None;
         }
         // One recovery attempt per overflow.
@@ -259,7 +259,7 @@ impl AgentSessionEngine {
         }) {
             return OverflowAttempt::Cancelled;
         }
-        pa_core::session_engine::compaction_trace::trace(
+        aa_core::session_engine::compaction_trace::trace(
             "auto.overflow_start_emitted",
             &serde_json::Value::Null,
         );
@@ -294,7 +294,7 @@ impl AgentSessionEngine {
             };
             let outcome = self
                 .runtime
-                .block_on(pa_agent::abort::race_with_abort(compact, &signal));
+                .block_on(aa_agent::abort::race_with_abort(compact, &signal));
             self.clear_auto_compaction_abort(&controller);
             outcome
         };
@@ -337,7 +337,7 @@ impl AgentSessionEngine {
                 if !emit(EngineEvent::Compaction { entry, event }) {
                     return OverflowAttempt::Cancelled;
                 }
-                pa_core::session_engine::compaction_trace::trace(
+                aa_core::session_engine::compaction_trace::trace(
                     "auto.overflow_end_emitted",
                     &serde_json::Value::Null,
                 );
@@ -374,7 +374,7 @@ impl AgentSessionEngine {
             // An abort from either layer — the race dropped the in-flight
             // summarizer request, or the pre-commit signal check fired:
             // the cancelled recovery does not re-issue.
-            Ok(Err(error)) | Err(error) if pa_agent::abort::is_abort_error(&error) => {
+            Ok(Err(error)) | Err(error) if aa_agent::abort::is_abort_error(&error) => {
                 if !self.emit_unsuccessful_compaction(
                     CompactionOutcomeReason::Overflow,
                     CompactionOutcomeKind::Cancelled,

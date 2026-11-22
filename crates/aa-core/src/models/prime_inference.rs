@@ -1,7 +1,7 @@
 //! Private Prime Inference models and the private-model id predicate.
 
-use pa_types::ai::{CompatKind, Model, ModelCompat, ModelCost};
-use pa_types::JsNumber;
+use aa_types::ai::{CompatKind, Model, ModelCompat, ModelCost};
+use aa_types::JsNumber;
 
 pub const PRIME_INFERENCE_BASE_URL: &str = "https://api.pinference.ai/api/v1";
 
@@ -31,7 +31,7 @@ pub fn private_prime_inference_models() -> Vec<Model> {
         provider: "prime-inference".to_string(),
         base_url: PRIME_INFERENCE_BASE_URL.to_string(),
         reasoning: true,
-        input: vec![pa_types::ai::ModelInput::Text],
+        input: vec![aa_types::ai::ModelInput::Text],
         headers: None,
         thinking_level_map: None,
         cost: ModelCost {
@@ -46,10 +46,10 @@ pub fn private_prime_inference_models() -> Vec<Model> {
         featured: Some(true),
         serving: None,
         compat: Some(ModelCompat::from_kind(CompatKind::OpenAiCompletions(
-            Box::new(pa_types::ai::OpenAiCompletionsCompat {
+            Box::new(aa_types::ai::OpenAiCompletionsCompat {
                 supports_developer_role: Some(false),
-                max_tokens_field: Some(pa_types::ai::MaxTokensField::MaxTokens),
-                ..pa_types::ai::OpenAiCompletionsCompat::default()
+                max_tokens_field: Some(aa_types::ai::MaxTokensField::MaxTokens),
+                ..aa_types::ai::OpenAiCompletionsCompat::default()
             }),
         ))),
     }]
@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     fn generated_catalog_base_urls_match_const() {
-        let models = pa_ai::models_generated::get_models("prime-inference");
+        let models = aa_ai::models_generated::get_models("prime-inference");
         assert!(
             !models.is_empty(),
             "generated prime-inference catalog is empty"

@@ -157,12 +157,12 @@ fn failover_rebinds_model_facts_before_the_backup_can_restore_primary() {
         assert_eq!(
             (held_facts.model_info.clone(), held_facts.context_window),
             (
-                pa_core::session_engine::turn_boundary::ModelInfo {
+                aa_core::session_engine::turn_boundary::ModelInfo {
                     id: "mock-1".to_string(),
                     provider: "facts-backup".to_string(),
                     input: vec![
-                        pa_types::ai::ModelInput::Text,
-                        pa_types::ai::ModelInput::Image
+                        aa_types::ai::ModelInput::Text,
+                        aa_types::ai::ModelInput::Image
                     ],
                 },
                 Some(64_000)

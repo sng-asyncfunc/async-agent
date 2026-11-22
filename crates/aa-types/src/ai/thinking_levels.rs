@@ -1,6 +1,6 @@
 //! Thinking-level semantics over the shared [`Model`] type: which levels a model supports, how a
-//! requested level clamps, and the wire vocabulary. Pure functions over `pa-types` data, so every
-//! crate that holds a `Model` gets them without depending on `pa-ai`.
+//! requested level clamps, and the wire vocabulary. Pure functions over `aa-types` data, so every
+//! crate that holds a `Model` gets them without depending on `aa-ai`.
 
 use crate::ai::{Model, ModelThinkingLevel};
 

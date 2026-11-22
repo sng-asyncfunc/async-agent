@@ -1,23 +1,23 @@
-//! The headless print runtime: single-shot prompt -> answer over the pa-core
-//! session engine with a real pa-ai provider.
+//! The headless print runtime: single-shot prompt -> answer over the aa-core
+//! session engine with a real aa-ai provider.
 
 use std::sync::Arc;
 
-use pa_agent::types::Model as AgentModel;
-use pa_core::session::discovery::{
+use aa_agent::types::Model as AgentModel;
+use aa_core::session::discovery::{
     find_most_recent_session_for_cwd, resolve_session_path, ResolvedSession, SessionSelectorError,
 };
-use pa_types::ai::Model;
+use aa_types::ai::Model;
 use tokio::sync::Notify;
 
 use crate::headless_autonomous::{autonomous_runtime_config, HeadlessAutonomous};
 use crate::mode::{AppMode, MissingSubsystem, RunOptions};
-use pa_agent::stream::{LlmContext, StreamFn, StreamRequestOptions};
-use pa_core::session_engine::goal_continuation::{ContinuationTrigger, GoalContinuationDecision};
-use pa_core::session_engine::provider_adapter::{
+use aa_agent::stream::{LlmContext, StreamFn, StreamRequestOptions};
+use aa_core::session_engine::goal_continuation::{ContinuationTrigger, GoalContinuationDecision};
+use aa_core::session_engine::provider_adapter::{
     json_round_trip, map_thinking_level, stream_once, switchable_stream_fn, ProviderTarget,
 };
-use pa_core::session_engine::session_events::agent_event_json;
+use aa_core::session_engine::session_events::agent_event_json;
 
 pub struct PrintRuntime;
 
@@ -96,9 +96,9 @@ async fn acp_mode_main(options: &RunOptions) -> Result<i32, String> {
     // transport starts (TS pushes the daemon-created session's diagnostics
     // to the client; the Rust stderr surface prints it here).
     crate::telemetry_notice::print_if_due(&options.config);
-    // Flag > env > default: the same `PRIME_AGENT_DAEMON_SOCKET` contract
-    // as every other mode (the `prime-agent` launcher written by
-    // install-rust.sh pins that env, so the ACP path must honor it or it
+    // Flag > env > default: the same `ASYNC_AGENT_DAEMON_SOCKET` contract
+    // as every other mode (the `async-agent` launcher written by
+    // install.sh pins that env, so the ACP path must honor it or it
     // would target the TypeScript default socket and treat the schema
     // mismatch as a stale daemon).
     let socket_path = crate::config::resolve_daemon_socket_path(options.daemon_socket.as_deref());
@@ -106,7 +106,7 @@ async fn acp_mode_main(options: &RunOptions) -> Result<i32, String> {
         .await
         .map_err(|error| format!("{error:#}"))?;
     let (actual_cwd, create) = daemon_acp_create(options)?;
-    pa_daemon::acp::daemon::run_daemon_attached_acp_mode(pa_daemon::acp::daemon::DaemonAcpOptions {
+    aa_daemon::acp::daemon::run_daemon_attached_acp_mode(aa_daemon::acp::daemon::DaemonAcpOptions {
         socket_path,
         actual_cwd,
         product_version: crate::config::version().to_string(),
@@ -122,8 +122,8 @@ async fn acp_mode_main(options: &RunOptions) -> Result<i32, String> {
 /// leases the selected file itself.
 fn daemon_acp_create(
     options: &RunOptions,
-) -> Result<(std::path::PathBuf, pa_types::daemon::DaemonCommand), String> {
-    use pa_types::daemon::DaemonSessionLifecycle;
+) -> Result<(std::path::PathBuf, aa_types::daemon::DaemonCommand), String> {
+    use aa_types::daemon::DaemonSessionLifecycle;
     let config = &options.config;
     let session_dir = replacement_session_dir(options);
     let (cwd, session_path, lifecycle) = if options.session.no_session {
@@ -135,7 +135,7 @@ fn daemon_acp_create(
     } else {
         let (cwd, session_path) = match select_headless_session(options)? {
             HeadlessSession::Fork(source) => {
-                let fork = pa_core::session::manager::SessionManager::fork_from(
+                let fork = aa_core::session::manager::SessionManager::fork_from(
                     &source,
                     &config.cwd,
                     &session_dir,
@@ -193,13 +193,13 @@ fn daemon_acp_create(
     }
     // Verification seam (the interactive mode's contract): a scripted daemon
     // session from a script FILE path. The product never sets it.
-    if let Some(script) = std::env::var_os("PRIME_AGENT_FAUX_SCRIPT") {
+    if let Some(script) = std::env::var_os("ASYNC_AGENT_FAUX_SCRIPT") {
         create_config["script"] = serde_json::Value::String(script.to_string_lossy().to_string());
     }
     // Verification seam (the TS child runtime inherits the parent's
     // `sessionConfig`): a scripted parent session's children run this script
     // FILE. The product never sets it.
-    if let Some(child_script) = std::env::var_os("PRIME_AGENT_FAUX_CHILD_SCRIPT") {
+    if let Some(child_script) = std::env::var_os("ASYNC_AGENT_FAUX_CHILD_SCRIPT") {
         create_config["childScript"] =
             serde_json::Value::String(child_script.to_string_lossy().to_string());
     }
@@ -208,10 +208,10 @@ fn daemon_acp_create(
     // worker runs in the environment of the terminal that invoked it,
     // not the daemon's boot environment.
     let launch_env = {
-        let env = pa_types::daemon::launch_env::collect_process_launch_env();
+        let env = aa_types::daemon::launch_env::collect_process_launch_env();
         (!env.is_empty()).then_some(env)
     };
-    let create = pa_types::daemon::DaemonCommand::Create {
+    let create = aa_types::daemon::DaemonCommand::Create {
         id: None,
         session_path: session_path.map(|path| path.display().to_string()),
         continue_recent: None,
@@ -248,9 +248,9 @@ async fn rpc_mode_main(options: &RunOptions) -> Result<i32, String> {
             .map_err(|error| format!("{error:#}"))?;
     }
     let factory = rpc_engine_factory(options);
-    let mut engine_handle = pa_daemon::rpc::session::RpcEngineHandle::from(parts);
+    let mut engine_handle = aa_daemon::rpc::session::RpcEngineHandle::from(parts);
     engine_handle.session_lease = initial_lease;
-    let exit_code = pa_daemon::rpc::run_rpc_mode(pa_daemon::rpc::RpcOptions {
+    let exit_code = aa_daemon::rpc::run_rpc_mode(aa_daemon::rpc::RpcOptions {
         engine: engine_handle,
         engine_factory: Some(factory),
         cwd: config.cwd.clone(),
@@ -267,8 +267,8 @@ async fn rpc_mode_main(options: &RunOptions) -> Result<i32, String> {
 }
 
 /// The engine-replacement seam the RPC mode's `new_session`/`switch_session`/
-/// `fork` commands drive: pa-cli owns the assembly, the mode owns the swap.
-fn rpc_engine_factory(options: &RunOptions) -> pa_daemon::rpc::session::RpcEngineFactory {
+/// `fork` commands drive: aa-cli owns the assembly, the mode owns the swap.
+fn rpc_engine_factory(options: &RunOptions) -> aa_daemon::rpc::session::RpcEngineFactory {
     let options = options.clone();
     std::sync::Arc::new(move |request| {
         let mut options = options.clone();
@@ -279,7 +279,7 @@ fn rpc_engine_factory(options: &RunOptions) -> pa_daemon::rpc::session::RpcEngin
         options.session.fork = None;
         Box::pin(async move {
             let (manager, opened_lease) = match &request {
-                pa_daemon::rpc::session::RpcEngineRequest::New {
+                aa_daemon::rpc::session::RpcEngineRequest::New {
                     parent_session,
                     cwd,
                 } => {
@@ -289,22 +289,22 @@ fn rpc_engine_factory(options: &RunOptions) -> pa_daemon::rpc::session::RpcEngin
                     let cwd = cwd.clone().unwrap_or_else(|| options.config.cwd.clone());
                     let manager = match parent_session {
                         Some(parent) => {
-                            let mut manager = pa_core::session::manager::SessionManager::persisted(
+                            let mut manager = aa_core::session::manager::SessionManager::persisted(
                                 &cwd,
                                 &session_dir,
                             );
-                            manager.new_session(&pa_core::session::manager::NewSessionOptions {
+                            manager.new_session(&aa_core::session::manager::NewSessionOptions {
                                 parent_session: Some(parent.clone()),
                                 ..Default::default()
                             });
                             manager
                         }
                         None => {
-                            pa_core::session::manager::SessionManager::persisted(&cwd, &session_dir)
+                            aa_core::session::manager::SessionManager::persisted(&cwd, &session_dir)
                         }
                     };
                     // The fresh session's file is leased BEFORE the replacement can write it.
-                    let lease = pa_daemon::lease::acquire_runtime_session_lease(
+                    let lease = aa_daemon::lease::acquire_runtime_session_lease(
                         manager
                             .get_session_file()
                             .expect("a fresh session knows its file"),
@@ -313,7 +313,7 @@ fn rpc_engine_factory(options: &RunOptions) -> pa_daemon::rpc::session::RpcEngin
                     .map_err(|error| format!("{error:#}"))?;
                     (manager, Some(lease))
                 }
-                pa_daemon::rpc::session::RpcEngineRequest::Open {
+                aa_daemon::rpc::session::RpcEngineRequest::Open {
                     session_path,
                     reuse_lease,
                     ..
@@ -337,10 +337,10 @@ fn rpc_engine_factory(options: &RunOptions) -> pa_daemon::rpc::session::RpcEngin
                 }
             };
             let kernel_ready_gate = match &request {
-                pa_daemon::rpc::session::RpcEngineRequest::Open { ready_gate, .. } => {
+                aa_daemon::rpc::session::RpcEngineRequest::Open { ready_gate, .. } => {
                     ready_gate.clone()
                 }
-                pa_daemon::rpc::session::RpcEngineRequest::New { .. } => None,
+                aa_daemon::rpc::session::RpcEngineRequest::New { .. } => None,
             };
             let engine = build_engine(
                 &options,
@@ -350,7 +350,7 @@ fn rpc_engine_factory(options: &RunOptions) -> pa_daemon::rpc::session::RpcEngin
                 &HeadlessEmbedding::Rpc { kernel_ready_gate },
             )
             .await?;
-            let mut handle = pa_daemon::rpc::session::RpcEngineHandle::from(engine);
+            let mut handle = aa_daemon::rpc::session::RpcEngineHandle::from(engine);
             handle.session_lease = opened_lease;
             Ok(handle)
         })
@@ -365,7 +365,7 @@ fn replacement_session_dir(options: &RunOptions) -> std::path::PathBuf {
         .unwrap_or_else(|| options.config.agent_dir.join("sessions"))
 }
 
-impl From<HeadlessEngine> for pa_daemon::rpc::session::RpcEngineHandle {
+impl From<HeadlessEngine> for aa_daemon::rpc::session::RpcEngineHandle {
     fn from(parts: HeadlessEngine) -> Self {
         Self {
             engine: std::sync::Arc::new(parts.engine),
@@ -392,7 +392,7 @@ fn with_print_runtime<Context>(
     context: &Context,
     run: impl for<'a> FnOnce(
         &'a Context,
-        &'a mut Option<pa_daemon::lease::SessionLease>,
+        &'a mut Option<aa_daemon::lease::SessionLease>,
     ) -> std::pin::Pin<
         Box<dyn std::future::Future<Output = Result<i32, String>> + 'a>,
     >,
@@ -412,7 +412,7 @@ fn with_print_runtime<Context>(
 
 async fn print_mode_main(
     options: &RunOptions,
-    lease: &mut Option<pa_daemon::lease::SessionLease>,
+    lease: &mut Option<aa_daemon::lease::SessionLease>,
 ) -> Result<i32, String> {
     // `print` or `json`: the telemetry execution mode is the app mode (TS
     // main.ts `executionMode: appMode`).
@@ -420,7 +420,7 @@ async fn print_mode_main(
     let (session_manager, opened_lease) = select_session_manager_with_lease(options)?;
     *lease = opened_lease;
     let session_manager = session_manager.unwrap_or_else(|| {
-        pa_core::session::manager::SessionManager::in_memory(&options.config.cwd)
+        aa_core::session::manager::SessionManager::in_memory(&options.config.cwd)
     });
     // The print root's inline-subagent node: the quiescence drive, the
     // host, and the messaging controller all hang off it. The faux
@@ -467,7 +467,7 @@ async fn print_mode_main(
 pub(crate) async fn build_engine(
     options: &RunOptions,
     faux: Option<&serde_json::Value>,
-    session_manager: Option<pa_core::session::manager::SessionManager>,
+    session_manager: Option<aa_core::session::manager::SessionManager>,
     execution_mode: &str,
     embedding: &HeadlessEmbedding,
 ) -> Result<HeadlessEngine, String> {
@@ -482,7 +482,7 @@ pub(crate) async fn build_engine(
     }
 }
 
-/// The faux-script verification seam (`PRIME_AGENT_FAUX_SCRIPT`; never
+/// The faux-script verification seam (`ASYNC_AGENT_FAUX_SCRIPT`; never
 /// set by the product): the script env parse, the per-child queues, and
 /// the scripted engine build.
 mod faux;
@@ -506,7 +506,7 @@ pub(crate) enum HeadlessEmbedding {
     Child(Box<ChildEngineOverrides>),
     Rpc {
         /// A same-path reopen's gate: the replaced kernel's final snapshot flush.
-        kernel_ready_gate: Option<pa_core::kernel::provisioner::KernelReadyGate>,
+        kernel_ready_gate: Option<aa_core::kernel::provisioner::KernelReadyGate>,
     },
 }
 
@@ -515,7 +515,7 @@ pub(crate) enum HeadlessEmbedding {
 pub(crate) struct ChildEngineOverrides {
     pub node: std::sync::Arc<crate::print_rlm::InlineSessionNode>,
     pub lane: ChildLane,
-    pub thinking: pa_types::ai::ModelThinkingLevel,
+    pub thinking: aa_types::ai::ModelThinkingLevel,
     pub semantic_parent_session_id: Option<String>,
     pub spawned_by_request_id: Option<String>,
     /// The spawn carried a factory run tag.
@@ -537,18 +537,18 @@ pub(crate) enum ChildLane {
 /// print sessions record through.
 pub(crate) struct HeadlessEmbeddingFields {
     pub(crate) rlm_subagent_host:
-        Option<Arc<dyn pa_core::session_engine::rlm_host::RlmSubagentHost>>,
-    pub(crate) extra_host_handlers: Option<pa_core::kernel::shared::HostRequestHandlers>,
+        Option<Arc<dyn aa_core::session_engine::rlm_host::RlmSubagentHost>>,
+    pub(crate) extra_host_handlers: Option<aa_core::kernel::shared::HostRequestHandlers>,
     pub(crate) rlm_depth: Option<u32>,
     pub(crate) factory_child: bool,
-    pub(crate) bash_wake: pa_core::session_engine::bash_notices::BashNoticeWake,
+    pub(crate) bash_wake: aa_core::session_engine::bash_notices::BashNoticeWake,
     /// The RPC mode's wake handle, carried onto the engine handle so the
     /// queue-pump listener parks on it; `None` outside the RPC embedding.
     pub(crate) rpc_bash_wake: Option<Arc<Notify>>,
     /// The late fire-and-forget `agent_message.send` receipt sink
     /// (#10-print); `None` for the RPC embedding (no print node).
-    pub(crate) on_late_sent_agent_message: Option<pa_core::LateSentAgentMessageHandler>,
-    pub(crate) kernel_ready_gate: Option<pa_core::kernel::provisioner::KernelReadyGate>,
+    pub(crate) on_late_sent_agent_message: Option<aa_core::LateSentAgentMessageHandler>,
+    pub(crate) kernel_ready_gate: Option<aa_core::kernel::provisioner::KernelReadyGate>,
 }
 
 /// The embedding-owned fields for one headless engine build: print
@@ -571,7 +571,7 @@ pub(crate) fn headless_embedding_fields(embedding: &HeadlessEmbedding) -> Headle
         let node = Arc::clone(node);
         (
             Arc::new(move || node.activity.notify_waiters())
-                as pa_core::session_engine::bash_notices::BashNoticeWake,
+                as aa_core::session_engine::bash_notices::BashNoticeWake,
             None,
         )
     } else {
@@ -579,7 +579,7 @@ pub(crate) fn headless_embedding_fields(embedding: &HeadlessEmbedding) -> Headle
         let wake = {
             let notify = Arc::clone(&notify);
             Arc::new(move || notify.notify_waiters())
-                as pa_core::session_engine::bash_notices::BashNoticeWake
+                as aa_core::session_engine::bash_notices::BashNoticeWake
         };
         (wake, Some(notify))
     };
@@ -610,7 +610,7 @@ pub(crate) fn headless_embedding_fields(embedding: &HeadlessEmbedding) -> Headle
 /// The assembled headless engine, so host transports can drive session-command
 /// executors (compact/refine) with the session's own model.
 pub(crate) struct HeadlessEngine {
-    pub(crate) engine: pa_core::session_engine::engine::SessionEngine,
+    pub(crate) engine: aa_core::session_engine::engine::SessionEngine,
     pub(crate) model: Model,
     pub(crate) api_key: Option<String>,
     /// The live provider target: the stream reads it per call, and the
@@ -627,7 +627,7 @@ pub(crate) struct HeadlessEngine {
 async fn build_headless_engine_parts(
     options: &RunOptions,
     execution_mode: &str,
-    lease: &mut Option<pa_daemon::lease::SessionLease>,
+    lease: &mut Option<aa_daemon::lease::SessionLease>,
 ) -> Result<HeadlessEngine, String> {
     // Every headless mode discloses immediately (TS main: only the
     // interactive `deferTelemetryNoticeForOnboarding` holds the notice
@@ -654,8 +654,8 @@ fn select_session_manager_with_lease(
     options: &RunOptions,
 ) -> Result<
     (
-        Option<pa_core::session::manager::SessionManager>,
-        Option<pa_daemon::lease::SessionLease>,
+        Option<aa_core::session::manager::SessionManager>,
+        Option<aa_daemon::lease::SessionLease>,
     ),
     String,
 > {
@@ -670,7 +670,7 @@ fn select_session_manager_with_lease(
 /// model resolution, session persistence, and the engine facade.
 pub(crate) async fn build_headless_engine_with(
     options: &RunOptions,
-    session_manager: Option<pa_core::session::manager::SessionManager>,
+    session_manager: Option<aa_core::session::manager::SessionManager>,
     execution_mode: &str,
     embedding: &HeadlessEmbedding,
 ) -> Result<HeadlessEngine, String> {
@@ -679,9 +679,9 @@ pub(crate) async fn build_headless_engine_with(
     // Model registry: composed catalog + models.json with real auth. A
     // spawned child carries its already-resolved model and request auth
     // (the spawn resolved them against this same catalog).
-    let auth = pa_core::auth::AuthStorage::create(&config.agent_dir);
+    let auth = aa_core::auth::AuthStorage::create(&config.agent_dir);
     let mut registry =
-        pa_core::models::ModelRegistry::create(auth, config.agent_dir.join("models.json"));
+        aa_core::models::ModelRegistry::create(auth, config.agent_dir.join("models.json"));
     let model = match embedding {
         HeadlessEmbedding::Child(overrides) => match &overrides.lane {
             ChildLane::Real(model) => (**model).clone(),
@@ -694,7 +694,7 @@ pub(crate) async fn build_headless_engine_with(
             // `createAgentSession`); `--no-session` selects from no session.
             let session = session_manager
                 .as_ref()
-                .map(pa_core::session::manager::SessionManager::active_context);
+                .map(aa_core::session::manager::SessionManager::active_context);
             select_model(&mut registry, config, session.as_ref()).await?
         }
     };
@@ -750,23 +750,23 @@ pub(crate) async fn build_headless_engine_with(
             HeadlessEmbedding::Root { .. } | HeadlessEmbedding::Rpc { .. }
         ))
     .then(|| {
-        let settings = pa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
-        pa_core::session_engine::telemetry::TelemetryWiring {
-            client: pa_core::session_engine::telemetry::build_client(&settings, &config.agent_dir),
+        let settings = aa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
+        aa_core::session_engine::telemetry::TelemetryWiring {
+            client: aa_core::session_engine::telemetry::build_client(&settings, &config.agent_dir),
             execution_mode: Some(execution_mode.to_string()),
             now: None,
             telemetry_enabled: Some(
-                pa_core::session_engine::telemetry::telemetry_enabled_switch(
+                aa_core::session_engine::telemetry::telemetry_enabled_switch(
                     &config.cwd,
                     &config.agent_dir,
                 ),
             ),
         }
     });
-    let queue_settings = pa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
-    let queue_mode = |mode: pa_core::settings::QueueModeSetting| match mode {
-        pa_core::settings::QueueModeSetting::All => pa_agent::agent::QueueMode::All,
-        pa_core::settings::QueueModeSetting::OneAtATime => pa_agent::agent::QueueMode::OneAtATime,
+    let queue_settings = aa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
+    let queue_mode = |mode: aa_core::settings::QueueModeSetting| match mode {
+        aa_core::settings::QueueModeSetting::All => aa_agent::agent::QueueMode::All,
+        aa_core::settings::QueueModeSetting::OneAtATime => aa_agent::agent::QueueMode::OneAtATime,
     };
     let steering_mode = Some(queue_mode(queue_settings.get_steering_mode()));
     let follow_up_mode = Some(queue_mode(queue_settings.get_follow_up_mode()));
@@ -786,7 +786,7 @@ pub(crate) async fn build_headless_engine_with(
     // runs on the in-memory manager (no artifact dir), so the identity is
     // ledger-less but the request ids still go on the wire.
     let session_manager = session_manager
-        .unwrap_or_else(|| pa_core::session::manager::SessionManager::in_memory(&config.cwd));
+        .unwrap_or_else(|| aa_core::session::manager::SessionManager::in_memory(&config.cwd));
     let HeadlessEmbeddingFields {
         rlm_subagent_host,
         extra_host_handlers,
@@ -800,10 +800,10 @@ pub(crate) async fn build_headless_engine_with(
     let (semantic_edges, thinking_level) = match embedding {
         HeadlessEmbedding::Child(overrides) => (
             Some(
-                pa_core::session_engine::semantic_edges::SemanticEdgeIdentity {
+                aa_core::session_engine::semantic_edges::SemanticEdgeIdentity {
                     session_id: session_manager.get_session_id().to_string(),
                     // A spawned child's ledger lives in its rlm session dir.
-                    ledger_path: pa_core::session_engine::semantic_edges::semantic_edge_ledger_path(
+                    ledger_path: aa_core::session_engine::semantic_edges::semantic_edge_ledger_path(
                         Some(std::path::Path::new(&overrides.node.session_dir)),
                         session_manager.get_session_artifact_dir().as_deref(),
                     ),
@@ -811,13 +811,13 @@ pub(crate) async fn build_headless_engine_with(
                     spawned_by_request_id: overrides.spawned_by_request_id.clone(),
                 },
             ),
-            Some(pa_core::session_engine::provider_adapter::map_thinking_level(overrides.thinking)),
+            Some(aa_core::session_engine::provider_adapter::map_thinking_level(overrides.thinking)),
         ),
         HeadlessEmbedding::Root { .. } | HeadlessEmbedding::Rpc { .. } => (
             Some(
-                pa_core::session_engine::semantic_edges::SemanticEdgeIdentity {
+                aa_core::session_engine::semantic_edges::SemanticEdgeIdentity {
                     session_id: session_manager.get_session_id().to_string(),
-                    ledger_path: pa_core::session_engine::semantic_edges::semantic_edge_ledger_path(
+                    ledger_path: aa_core::session_engine::semantic_edges::semantic_edge_ledger_path(
                         None,
                         session_manager.get_session_artifact_dir().as_deref(),
                     ),
@@ -828,8 +828,8 @@ pub(crate) async fn build_headless_engine_with(
             Some(resolve_thinking_level(config, &model)),
         ),
     };
-    let engine = pa_core::session_engine::engine::create_session(
-        pa_core::session_engine::engine::SessionEngineConfig {
+    let engine = aa_core::session_engine::engine::create_session(
+        aa_core::session_engine::engine::SessionEngineConfig {
             on_late_sent_agent_message,
             cron_store: None,
             semantic_edges,
@@ -932,15 +932,15 @@ fn route_authoritative_stream_fn(
 /// actionable refusal) and the serving-target swap (`None` restores the target).
 fn headless_image_model_router(
     provider_target: &std::sync::Arc<
-        std::sync::RwLock<Option<pa_core::session_engine::provider_adapter::ProviderTarget>>,
+        std::sync::RwLock<Option<aa_core::session_engine::provider_adapter::ProviderTarget>>,
     >,
     armed_target: std::sync::Arc<
-        std::sync::Mutex<Option<pa_core::session_engine::provider_adapter::ProviderTarget>>,
+        std::sync::Mutex<Option<aa_core::session_engine::provider_adapter::ProviderTarget>>,
     >,
     cwd: std::path::PathBuf,
     agent_dir: std::path::PathBuf,
-    session_model: pa_types::ai::Model,
-) -> pa_core::session_engine::image_model_routing::ImageModelRouter {
+    session_model: aa_types::ai::Model,
+) -> aa_core::session_engine::image_model_routing::ImageModelRouter {
     // The pre-route session target, captured at the FIRST arm (not at build):
     // the restore must return the SWITCHED-TO target, never the build-time one.
     let armed_from = std::sync::Arc::new(std::sync::Mutex::new(None));
@@ -952,8 +952,8 @@ fn headless_image_model_router(
     let decide_armed_from = std::sync::Arc::clone(&armed_from);
     let decide = std::sync::Arc::new(
         move |carries_images: bool,
-              thinking_level: pa_types::ai::ModelThinkingLevel|
-              -> Result<Option<pa_core::models::ResolvedImageModel>, String> {
+              thinking_level: aa_types::ai::ModelThinkingLevel|
+              -> Result<Option<aa_core::models::ResolvedImageModel>, String> {
             if !carries_images {
                 return Ok(None);
             }
@@ -964,7 +964,7 @@ fn headless_image_model_router(
                 .expect("armed-from lock")
                 .as_ref()
                 .map(
-                    |target: &pa_core::session_engine::provider_adapter::ProviderTarget| {
+                    |target: &aa_core::session_engine::provider_adapter::ProviderTarget| {
                         target.model.clone()
                     },
                 );
@@ -977,13 +977,13 @@ fn headless_image_model_router(
                         .map(|target| target.model.clone())
                 })
                 .unwrap_or_else(|| session_model.clone());
-            let settings = pa_core::settings::SettingsManager::create(&cwd, &decide_agent_dir);
+            let settings = aa_core::settings::SettingsManager::create(&cwd, &decide_agent_dir);
             let image_model_reference = settings.get_image_model();
             let block_images = settings.get_block_images();
-            let auth = pa_core::auth::AuthStorage::create(&decide_agent_dir);
+            let auth = aa_core::auth::AuthStorage::create(&decide_agent_dir);
             let mut registry =
-                pa_core::models::ModelRegistry::create(auth, decide_agent_dir.join("models.json"));
-            let available: Vec<pa_types::ai::Model> =
+                aa_core::models::ModelRegistry::create(auth, decide_agent_dir.join("models.json"));
+            let available: Vec<aa_types::ai::Model> =
                 registry.get_available().into_iter().cloned().collect();
             // Route acceptance uses the same resolved-auth result the arm path
             // installs: a provider can be signed in while its key resolution still fails.
@@ -996,8 +996,8 @@ fn headless_image_model_router(
                 })
                 .map(|model| (model.provider.clone(), model.id.clone()))
                 .collect();
-            pa_core::models::resolve_image_model_override(
-                &pa_core::models::ImageModelRoutingInputs {
+            aa_core::models::resolve_image_model_override(
+                &aa_core::models::ImageModelRoutingInputs {
                     session_model: &session_model,
                     thinking_level,
                     service_tier: None,
@@ -1016,19 +1016,19 @@ fn headless_image_model_router(
     let swap_target = {
         let provider_target = std::sync::Arc::clone(provider_target);
         let armed_to = std::sync::Arc::clone(&armed_to);
-        std::sync::Arc::new(move |route: Option<&pa_core::models::ResolvedImageModel>| {
+        std::sync::Arc::new(move |route: Option<&aa_core::models::ResolvedImageModel>| {
             if let Some(resolved) = route {
                 // The first swap of the episode captures the session target it replaces.
                 let mut armed_from = armed_from.lock().expect("armed-from lock");
                 if armed_from.is_none() {
                     armed_from.clone_from(&provider_target.read().expect("provider target lock"));
                 }
-                let auth = pa_core::auth::AuthStorage::create(&agent_dir);
+                let auth = aa_core::auth::AuthStorage::create(&agent_dir);
                 let mut registry =
-                    pa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
+                    aa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
                 let resolved_auth = registry
                     .get_api_key_and_headers(&resolved.model, resolved.model.headers.as_ref());
-                let target = pa_core::session_engine::provider_adapter::ProviderTarget {
+                let target = aa_core::session_engine::provider_adapter::ProviderTarget {
                     api_key: resolved_auth.api_key,
                     headers: resolved_auth.headers,
                     model: resolved.model.clone(),
@@ -1064,7 +1064,7 @@ fn headless_image_model_router(
             }
         })
     };
-    pa_core::session_engine::image_model_routing::ImageModelRouter {
+    aa_core::session_engine::image_model_routing::ImageModelRouter {
         decide,
         swap_target,
     }
@@ -1073,7 +1073,7 @@ fn headless_image_model_router(
 /// The session header line: the session file's `type: "session"` entry in the
 /// TS wire shape and field order.
 async fn session_header_json(
-    engine: &pa_core::session_engine::engine::SessionEngine,
+    engine: &aa_core::session_engine::engine::SessionEngine,
 ) -> Option<String> {
     let persistence = engine.session.shared_persistence();
     let session = persistence.lock().await;
@@ -1125,16 +1125,16 @@ async fn session_header_json(
 }
 
 async fn select_model(
-    registry: &mut pa_core::models::ModelRegistry,
+    registry: &mut aa_core::models::ModelRegistry,
     config: &crate::mode::RuntimeConfig,
-    session: Option<&pa_core::session::SessionContext>,
+    session: Option<&aa_core::session::SessionContext>,
 ) -> Result<Model, String> {
     // Explicit selectors retain the CLI resolver's provider inference and do
     // not inherit an unrelated saved provider.
     if let Some(model_name) = config.model.as_deref() {
         let available: Vec<Model> = registry.get_available().into_iter().cloned().collect();
         let resolved =
-            pa_core::models::resolve_cli_model(config.provider.as_deref(), model_name, &available);
+            aa_core::models::resolve_cli_model(config.provider.as_deref(), model_name, &available);
         if let Some(error) = resolved.error {
             return Err(error);
         }
@@ -1149,11 +1149,11 @@ async fn select_model(
         .filter(|context| !context.messages.is_empty())
         .and_then(|context| context.model.as_ref())
     {
-        if let Some(model) = pa_core::models::find_session_model_with_readiness_wait(
+        if let Some(model) = aa_core::models::find_session_model_with_readiness_wait(
             registry,
             provider,
             model_id,
-            pa_core::models::SESSION_MODEL_RESTORE_READINESS_TIMEOUT_MS,
+            aa_core::models::SESSION_MODEL_RESTORE_READINESS_TIMEOUT_MS,
         )
         .await
         {
@@ -1163,7 +1163,7 @@ async fn select_model(
     }
     // A missed restore's readiness window may have refreshed the catalog, so
     // the defaults chain resolves against the refreshed view.
-    let settings = pa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
     let available: Vec<Model> = registry.get_available().into_iter().cloned().collect();
     let saved_provider = settings.get_default_provider();
     let flag_provider = config.provider.as_deref();
@@ -1192,7 +1192,7 @@ async fn select_model(
             flag_provider.is_none_or(|provider| model.provider.eq_ignore_ascii_case(provider))
         })
         .collect();
-    pa_core::models::find_preferred_default_model(&candidates)
+    aa_core::models::find_preferred_default_model(&candidates)
         .or_else(|| candidates.first())
         .cloned()
         .ok_or_else(|| match flag_provider {
@@ -1206,18 +1206,18 @@ async fn select_model(
 fn resolve_thinking_level(
     config: &crate::mode::RuntimeConfig,
     model: &Model,
-) -> pa_agent::types::ThinkingLevel {
-    use pa_types::ai::ModelThinkingLevel;
-    let settings = pa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
+) -> aa_agent::types::ThinkingLevel {
+    use aa_types::ai::ModelThinkingLevel;
+    let settings = aa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
     let requested = config
         .thinking
         .or_else(|| {
             settings
                 .get_default_thinking_level()
-                .map(pa_core::settings::ThinkingLevelSetting::model_level)
+                .map(aa_core::settings::ThinkingLevelSetting::model_level)
         })
         .unwrap_or(ModelThinkingLevel::Medium);
-    let clamped = pa_ai::models::clamp_thinking_level(model, requested);
+    let clamped = aa_ai::models::clamp_thinking_level(model, requested);
     map_thinking_level(clamped)
 }
 
@@ -1302,8 +1302,8 @@ fn build_session_manager_with_lease(
     options: &RunOptions,
 ) -> Result<
     (
-        pa_core::session::manager::SessionManager,
-        Option<pa_daemon::lease::SessionLease>,
+        aa_core::session::manager::SessionManager,
+        Option<aa_daemon::lease::SessionLease>,
     ),
     String,
 > {
@@ -1312,7 +1312,7 @@ fn build_session_manager_with_lease(
     match select_headless_session(options)? {
         HeadlessSession::Fork(source) => {
             let manager =
-                pa_core::session::manager::SessionManager::fork_from(&source, &cwd, &session_dir)?;
+                aa_core::session::manager::SessionManager::fork_from(&source, &cwd, &session_dir)?;
             // The materialized fork leases its own file before the engine
             // writes it (the fresh-session rule): another process resuming
             // the new file can never become a second writer while this
@@ -1337,30 +1337,30 @@ fn fresh_session_with_lease(
     cwd: &std::path::Path,
     session_dir: &std::path::Path,
 ) -> (
-    pa_core::session::manager::SessionManager,
-    Option<pa_daemon::lease::SessionLease>,
+    aa_core::session::manager::SessionManager,
+    Option<aa_daemon::lease::SessionLease>,
 ) {
-    let manager = pa_core::session::manager::SessionManager::persisted(cwd, session_dir);
+    let manager = aa_core::session::manager::SessionManager::persisted(cwd, session_dir);
     lease_fresh_manager(manager)
 }
 
 /// Lease a freshly materialized session file before the engine can write it: the
 /// ungated runtime acquire (`Ok(None)` whenever the env gate is unset).
 fn lease_fresh_manager(
-    manager: pa_core::session::manager::SessionManager,
+    manager: aa_core::session::manager::SessionManager,
 ) -> (
-    pa_core::session::manager::SessionManager,
-    Option<pa_daemon::lease::SessionLease>,
+    aa_core::session::manager::SessionManager,
+    Option<aa_daemon::lease::SessionLease>,
 ) {
     let lease = match manager.get_session_file() {
         Some(path) => {
-            match pa_daemon::lease::acquire_runtime_session_lease(
+            match aa_daemon::lease::acquire_runtime_session_lease(
                 path,
                 &crate::config::get_agent_dir(),
             ) {
                 Ok(lease) => Some(lease),
                 Err(error) => {
-                    eprintln!("prime-agent: could not lease the fresh session file: {error:#}");
+                    eprintln!("async-agent: could not lease the fresh session file: {error:#}");
                     None
                 }
             }
@@ -1375,11 +1375,11 @@ fn lease_fresh_manager(
 fn session_open_guard(
     socket_path: Option<&str>,
     session_path: &std::path::Path,
-) -> Result<pa_daemon::lease::SessionLease, String> {
+) -> Result<aa_daemon::lease::SessionLease, String> {
     let socket = crate::interactive_mode::resolve_socket_path(socket_path);
     if let Ok(mut client) = crate::daemon_client::DaemonClient::connect(&socket) {
         let list = client
-            .request(pa_types::daemon::DaemonCommand::List {
+            .request(aa_types::daemon::DaemonCommand::List {
                 id: None,
                 all: None,
                 cwd: None,
@@ -1389,7 +1389,7 @@ fn session_open_guard(
             })
             .map_err(|error| format!("Could not check active sessions: {error:#}"))?;
         if list.success {
-            let target = pa_daemon::lease::canonical_session_path(session_path);
+            let target = aa_daemon::lease::canonical_session_path(session_path);
             for row in list
                 .data
                 .and_then(|data| data.get("sessions").cloned())
@@ -1399,7 +1399,7 @@ fn session_open_guard(
                 let Some(file) = row.get("sessionFile").and_then(serde_json::Value::as_str) else {
                     continue;
                 };
-                if pa_daemon::lease::canonical_session_path(std::path::Path::new(file)) != target {
+                if aa_daemon::lease::canonical_session_path(std::path::Path::new(file)) != target {
                     continue;
                 }
                 let active_session_id = row
@@ -1409,12 +1409,12 @@ fn session_open_guard(
                     .unwrap_or_default();
                 // The descriptive refusal (operator-directed): attach to the live session instead
                 // of reopening its file.
-                let message = match pa_tui::session_open_error::holder_from_roster(
+                let message = match aa_tui::session_open_error::holder_from_roster(
                     std::slice::from_ref(&row),
                     &target,
                 ) {
                     Some(holder) => {
-                        pa_tui::session_open_error::already_active_error(&holder, &target)
+                        aa_tui::session_open_error::already_active_error(&holder, &target)
                     }
                     None => format!(
                         "Session is already active in {active_session_id}: {}",
@@ -1430,10 +1430,10 @@ fn session_open_guard(
     let agent_dir = crate::config::get_agent_dir();
     // Acquire, not observe: a probe leaves a window where another process acquires
     // between the check and this open — two writers on one file.
-    match pa_daemon::lease::acquire_runtime_session_lease(session_path, &agent_dir) {
+    match aa_daemon::lease::acquire_runtime_session_lease(session_path, &agent_dir) {
         Ok(lease) => Ok(lease),
         Err(error) => {
-            let Some(active) = error.downcast_ref::<pa_daemon::lease::SessionAlreadyActiveError>()
+            let Some(active) = error.downcast_ref::<aa_daemon::lease::SessionAlreadyActiveError>()
             else {
                 // The lease table itself failed (io, permissions): never silently proceed over an
                 // undeterminable ownership record.
@@ -1441,8 +1441,8 @@ fn session_open_guard(
                     "could not verify the session file is not held: {error:#}"
                 ));
             };
-            Err(pa_daemon::hold_refusal::refusal_message(
-                &pa_daemon::hold_refusal::HoldIdentity {
+            Err(aa_daemon::hold_refusal::refusal_message(
+                &aa_daemon::hold_refusal::HoldIdentity {
                     pid: active.holder_pid,
                     active_session_id: active.active_session_id.clone(),
                 },
@@ -1457,9 +1457,9 @@ fn open_session_file(
     session_dir: &std::path::Path,
     fallback_cwd: &std::path::Path,
     explicit_cwd_override: Option<&std::path::Path>,
-) -> Result<pa_core::session::manager::SessionManager, String> {
+) -> Result<aa_core::session::manager::SessionManager, String> {
     let session_cwd = stored_session_cwd(path, fallback_cwd, explicit_cwd_override)?;
-    Ok(pa_core::session::manager::SessionManager::open(
+    Ok(aa_core::session::manager::SessionManager::open(
         &session_cwd,
         session_dir,
         path,
@@ -1477,7 +1477,7 @@ fn stored_session_cwd(
 ) -> Result<std::path::PathBuf, String> {
     let session_cwd = explicit_cwd_override.map_or_else(
         || {
-            let header = pa_core::session::manager::read_session_header(path);
+            let header = aa_core::session::manager::read_session_header(path);
             header.filter(|header| !header.cwd.is_empty()).map_or_else(
                 || fallback_cwd.to_path_buf(),
                 |header| std::path::PathBuf::from(&header.cwd),
@@ -1498,7 +1498,7 @@ fn stored_session_cwd(
 
 pub(crate) fn render_selector_error(error: &SessionSelectorError) -> String {
     format!(
-        "{}.{}\nOpen prime-agent and press left-arrow to browse sessions.",
+        "{}.{}\nOpen async-agent and press left-arrow to browse sessions.",
         error.message(),
         error.suggestion().unwrap_or_default()
     )
@@ -1506,14 +1506,14 @@ pub(crate) fn render_selector_error(error: &SessionSelectorError) -> String {
 
 /// Model tools for the print runtime: `javascript` only — the engine adds the kernel-backed tool
 /// itself.
-fn builtin_tools(_cwd: &std::path::Path) -> Vec<Arc<dyn pa_agent::types::AgentTool>> {
+fn builtin_tools(_cwd: &std::path::Path) -> Vec<Arc<dyn aa_agent::types::AgentTool>> {
     Vec::new()
 }
 
 /// Admit prompts, stream json events when requested, and decide the exit code
 /// from the headless terminal result plus the autonomous gate contract.
 pub(crate) async fn run_prompts_and_emit(
-    engine: &std::sync::Arc<pa_core::session_engine::engine::SessionEngine>,
+    engine: &std::sync::Arc<aa_core::session_engine::engine::SessionEngine>,
     model: &Model,
     api_key: Option<String>,
     options: &RunOptions,
@@ -1547,7 +1547,7 @@ pub(crate) async fn run_prompts_and_emit(
 /// The prompt loop, the quiescence drive, and the terminal selection behind
 /// [`run_prompts_and_emit`], which owns the disposal drain.
 async fn run_prompts(
-    engine: &std::sync::Arc<pa_core::session_engine::engine::SessionEngine>,
+    engine: &std::sync::Arc<aa_core::session_engine::engine::SessionEngine>,
     model: &Model,
     api_key: Option<String>,
     options: &RunOptions,
@@ -1555,7 +1555,7 @@ async fn run_prompts(
     boundary: &mut crate::print_boundary::TurnBoundary,
 ) -> Result<i32, String> {
     let json_mode = options.app_mode == AppMode::Json;
-    let mut unsubscribe: Option<pa_agent::agent::Subscription> = None;
+    let mut unsubscribe: Option<aa_agent::agent::Subscription> = None;
     if json_mode {
         if let Some(header) = session_header_json(engine).await {
             println!("{header}");
@@ -1656,7 +1656,7 @@ async fn run_prompts(
             .prompt_with_images(
                 prompt,
                 images,
-                pa_core::session_engine::PromptOptions::default(),
+                aa_core::session_engine::PromptOptions::default(),
             )
             .await
             .map_err(|error| format!("{error:#}"))?;
@@ -1758,17 +1758,17 @@ async fn run_prompts(
         subscription.unsubscribe().await;
     }
     let state = engine.session.agent().state().await;
-    let messages: Vec<pa_types::session::AgentMessage> =
+    let messages: Vec<aa_types::session::AgentMessage> =
         state.messages.iter().filter_map(json_round_trip).collect();
-    let result = pa_core::session_engine::headless::select_headless_terminal_result(&messages);
+    let result = aa_core::session_engine::headless::select_headless_terminal_result(&messages);
     // The print-mode exit contract: json mode never derives the exit code from the
     // terminal selection — only the autonomous gates exit non-zero; text mode prints
     // the primary message (error to stderr with exit 1, settled answer to stdout).
     let mut exit_code = 0;
     if !json_mode {
         let goal = engine.goal_state().await;
-        let cap_reason = pa_core::session_engine::goal_driver::CONTINUATION_NO_PROGRESS_CAP_REASON;
-        if goal.status == pa_types::goal::GoalStatus::Error
+        let cap_reason = aa_core::session_engine::goal_driver::CONTINUATION_NO_PROGRESS_CAP_REASON;
+        if goal.status == aa_types::goal::GoalStatus::Error
             && goal.last_error.as_deref() == Some(cap_reason)
             && goal.updated_at != goal_updated_at_start
         {
@@ -1837,7 +1837,7 @@ mod tests {
                 super::with_print_runtime(&fixture, |fixture, lease| {
                     Box::pin(async move {
                         *lease = Some(
-                            pa_daemon::lease::acquire_runtime_session_lease(
+                            aa_daemon::lease::acquire_runtime_session_lease(
                                 &fixture.session_path,
                                 &fixture.agent_dir,
                             )
@@ -1858,7 +1858,7 @@ mod tests {
                             let _ = writer_ready_tx.send(());
                             cancel_rx.recv().unwrap();
                             writer_observation.store(
-                                pa_daemon::lease::live_lease_owner(&agent_dir, &session_path)
+                                aa_daemon::lease::live_lease_owner(&agent_dir, &session_path)
                                     .is_some(),
                                 std::sync::atomic::Ordering::SeqCst,
                             );
@@ -1887,7 +1887,7 @@ mod tests {
                 "writer settled\n"
             );
             assert!(
-                pa_daemon::lease::live_lease_owner(&fixture.agent_dir, &fixture.session_path)
+                aa_daemon::lease::live_lease_owner(&fixture.agent_dir, &fixture.session_path)
                     .is_none()
             );
         }
@@ -1897,8 +1897,8 @@ mod tests {
     /// a mid-run `/model` switch rewrote the slot, and stays.
     #[test]
     fn headless_image_router_settle_preserves_a_mid_run_model_switch() {
-        fn fixture_model(id: &str) -> pa_types::ai::Model {
-            pa_types::ai::Model {
+        fn fixture_model(id: &str) -> aa_types::ai::Model {
+            aa_types::ai::Model {
                 id: id.to_string(),
                 name: id.to_string(),
                 api: "anthropic-messages".to_string(),
@@ -1907,10 +1907,10 @@ mod tests {
                 reasoning: true,
                 thinking_level_map: None,
                 input: vec![
-                    pa_types::ai::ModelInput::Text,
-                    pa_types::ai::ModelInput::Image,
+                    aa_types::ai::ModelInput::Text,
+                    aa_types::ai::ModelInput::Image,
                 ],
-                cost: pa_types::ai::ModelCost {
+                cost: aa_types::ai::ModelCost {
                     input: 1.0.into(),
                     output: 2.0.into(),
                     cache_read: 0.0.into(),
@@ -1926,9 +1926,9 @@ mod tests {
             }
         }
         fn target(
-            model: pa_types::ai::Model,
-        ) -> pa_core::session_engine::provider_adapter::ProviderTarget {
-            pa_core::session_engine::provider_adapter::ProviderTarget {
+            model: aa_types::ai::Model,
+        ) -> aa_core::session_engine::provider_adapter::ProviderTarget {
+            aa_core::session_engine::provider_adapter::ProviderTarget {
                 api_key: None,
                 headers: None,
                 model,
@@ -1942,7 +1942,7 @@ mod tests {
         let provider_target =
             std::sync::Arc::new(std::sync::RwLock::new(Some(target(session_model.clone()))));
         let armed_target: std::sync::Arc<
-            std::sync::Mutex<Option<pa_core::session_engine::provider_adapter::ProviderTarget>>,
+            std::sync::Mutex<Option<aa_core::session_engine::provider_adapter::ProviderTarget>>,
         > = std::sync::Arc::new(std::sync::Mutex::new(None));
         let router = super::headless_image_model_router(
             &provider_target,
@@ -1951,9 +1951,9 @@ mod tests {
             agent_dir,
             session_model,
         );
-        let expected_route = pa_core::models::ResolvedImageModel {
+        let expected_route = aa_core::models::ResolvedImageModel {
             model: fixture_model("image-model"),
-            thinking_level: pa_types::ai::ModelThinkingLevel::High,
+            thinking_level: aa_types::ai::ModelThinkingLevel::High,
             service_tier: None,
         };
         (router.swap_target)(Some(&expected_route));
@@ -2012,10 +2012,10 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(enabled, vec!["fixture-echo".to_string()]);
-        let mut handlers = pa_core::kernel::shared::HostRequestHandlers::default();
-        pa_core::mcp::McpManager::register_host_handlers(&manager, &mut handlers);
+        let mut handlers = aa_core::kernel::shared::HostRequestHandlers::default();
+        aa_core::mcp::McpManager::register_host_handlers(&manager, &mut handlers);
         let config = handlers.get("mcp.config").unwrap().clone();
-        let result = config(pa_core::kernel::shared::HostRequestPayload {
+        let result = config(aa_core::kernel::shared::HostRequestPayload {
             data: serde_json::json!({ "server": "fixture-echo" }),
         })
         .await
@@ -2048,7 +2048,7 @@ mod tests {
         })
         .await
         .unwrap();
-        let result = config(pa_core::kernel::shared::HostRequestPayload {
+        let result = config(aa_core::kernel::shared::HostRequestPayload {
             data: serde_json::json!({ "server": "second-echo" }),
         })
         .await
@@ -2057,7 +2057,7 @@ mod tests {
             result["command"], "node",
             "the already-registered handler serves the live integrations"
         );
-        let withdrawn = config(pa_core::kernel::shared::HostRequestPayload {
+        let withdrawn = config(aa_core::kernel::shared::HostRequestPayload {
             data: serde_json::json!({ "server": "fixture-echo" }),
         })
         .await

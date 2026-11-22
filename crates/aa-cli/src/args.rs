@@ -3,7 +3,7 @@
 //! next token and diagnostics carry their own formatting, none of which a
 //! stock derive-based parser can express.
 
-use pa_types::ai::ModelThinkingLevel;
+use aa_types::ai::ModelThinkingLevel;
 
 /// Supported reasoning-effort levels.
 pub const THINKING_LEVELS: [&str; 7] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
@@ -28,7 +28,7 @@ const PROMPT_VALUE_FLAGS: [&str; 2] = ["--system-prompt", "--append-system-promp
 
 /// Marker argv token that re-enables internal runtime-only flags
 /// (`--export`, `--list-models`) after the public command rewrite.
-pub const INTERNAL_RUNTIME_COMMAND_MARKER: &str = "\0prime-agent-runtime-command";
+pub const INTERNAL_RUNTIME_COMMAND_MARKER: &str = "\0async-agent-runtime-command";
 
 /// Output mode selected by `--mode`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -330,7 +330,7 @@ pub fn parse_args(args: &[String]) -> Args {
             "--export" => {
                 if !internal_runtime_command {
                     result.diagnostics.push(Diagnostic::error(
-                        "--export was removed. Use \"prime-agent session export <file> [output]\".",
+                        "--export was removed. Use \"async-agent session export <file> [output]\".",
                     ));
                     if let Some(next) = args.get(i + 1) {
                         if !next.starts_with('-') {
@@ -427,7 +427,7 @@ pub fn parse_args(args: &[String]) -> Args {
                     .is_some_and(|next| !next.starts_with('-') && !next.starts_with('@'));
                 if !internal_runtime_command {
                     result.diagnostics.push(Diagnostic::error(
-                        "--list-models was removed. Use \"prime-agent model list [search]\".",
+                        "--list-models was removed. Use \"async-agent model list [search]\".",
                     ));
                     if has_search {
                         i += 1;
@@ -451,12 +451,12 @@ pub fn parse_args(args: &[String]) -> Args {
             }
             _ if arg.starts_with("--export=") => {
                 result.diagnostics.push(Diagnostic::error(
-                    "--export was removed. Use \"prime-agent session export <file> [output]\".",
+                    "--export was removed. Use \"async-agent session export <file> [output]\".",
                 ));
             }
             _ if arg.starts_with("--list-models=") => {
                 result.diagnostics.push(Diagnostic::error(
-                    "--list-models was removed. Use \"prime-agent model list [search]\".",
+                    "--list-models was removed. Use \"async-agent model list [search]\".",
                 ));
             }
             _ if arg.starts_with('@') => {
@@ -565,7 +565,7 @@ mod tests {
         let parsed = parse(&["--export", "foo"]);
         assert_eq!(
             last_error(&parsed),
-            "--export was removed. Use \"prime-agent session export <file> [output]\"."
+            "--export was removed. Use \"async-agent session export <file> [output]\"."
         );
         let marker: Vec<String> = vec![
             INTERNAL_RUNTIME_COMMAND_MARKER.into(),

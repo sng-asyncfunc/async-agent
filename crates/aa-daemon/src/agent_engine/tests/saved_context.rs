@@ -8,10 +8,10 @@ fn full_parse_saved_session_context(
     let store = crate::session_store::SessionFile::open(path).ok()?;
     let entries = store.branch_file_entries();
     let leaf = store.leaf_id().map(str::to_string);
-    let context = pa_core::session::build_session_context(&entries, leaf.as_deref());
+    let context = aa_core::session::build_session_context(&entries, leaf.as_deref());
     let thinking = store
         .has_thinking_level()
-        .then(|| pa_ai::models::thinking_level_from_str(&context.thinking_level))
+        .then(|| aa_ai::models::thinking_level_from_str(&context.thinking_level))
         .flatten();
     Some(crate::engine::SavedSessionContext {
         model: context.model,

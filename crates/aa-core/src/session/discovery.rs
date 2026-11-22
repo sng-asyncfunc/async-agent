@@ -322,12 +322,12 @@ fn edit_distance(left: &[char], right: &[char]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::session::FileEntry;
+    use aa_types::session::FileEntry;
 
     fn write_session(dir: &Path, id: &str, cwd: &str) -> PathBuf {
         let path = dir.join(format!("{id}.jsonl"));
         let header = FileEntry::Header {
-            header: pa_types::session::SessionHeader {
+            header: aa_types::session::SessionHeader {
                 id: id.to_string(),
                 version: Some(3),
                 timestamp: "2026-01-01T00:00:00.000Z".to_string(),

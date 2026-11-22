@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 
-use pa_core::mcp::{McpLoginUi, McpManager};
+use aa_core::mcp::{McpLoginUi, McpManager};
 
 /// The environment path (when set) that additionally records each
 /// authorization URL. Headless verification drives the browser step from
@@ -40,18 +40,18 @@ impl WorkerMcpLoginUi {
 
 impl McpLoginUi for WorkerMcpLoginUi {
     fn on_progress(&self, message: &str) {
-        eprintln!("pa-daemon: MCP login: {message}");
+        eprintln!("aa-daemon: MCP login: {message}");
     }
 
     fn on_auth(&self, url: &str, instructions: &str) {
         // The browser is the interface (the TS dialog tries the same
         // fire-and-forget launch and keeps showing the URL on failure).
-        pa_core::platform::browser::open_in_browser(url);
-        eprintln!("pa-daemon: MCP login: {url} — {instructions}");
+        aa_core::platform::browser::open_in_browser(url);
+        eprintln!("aa-daemon: MCP login: {url} — {instructions}");
         if let Some(path) = &self.auth_url_file {
             if let Err(error) = std::fs::write(path, url) {
                 eprintln!(
-                    "pa-daemon: MCP login could not record the authorization URL at {}: {error}",
+                    "aa-daemon: MCP login could not record the authorization URL at {}: {error}",
                     path.display()
                 );
             }
@@ -81,18 +81,18 @@ impl McpLoginUi for WorkerMcpLoginUi {
 pub fn wire_worker_mcp_login(
     manager: &Arc<std::sync::Mutex<McpManager>>,
     ui: Arc<dyn McpLoginUi>,
-    http: Arc<dyn pa_core::mcp::OAuthHttp>,
+    http: Arc<dyn aa_core::mcp::OAuthHttp>,
 ) {
-    pa_core::mcp::wire_begin_login(manager, ui, http);
+    aa_core::mcp::wire_begin_login(manager, ui, http);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use anyhow::Result;
-    use pa_core::auth::{AuthCredential, AuthStorage};
-    use pa_core::kernel::shared::{HostRequestHandlers, HostRequestPayload};
-    use pa_core::mcp::{McpManager, McpManagerOptions, McpServerConfig, OAuthHttpResponse};
+    use aa_core::auth::{AuthCredential, AuthStorage};
+    use aa_core::kernel::shared::{HostRequestHandlers, HostRequestPayload};
+    use aa_core::mcp::{McpManager, McpManagerOptions, McpServerConfig, OAuthHttpResponse};
     use serde_json::json;
     use std::collections::HashMap;
     use std::time::{Duration, Instant};
@@ -142,10 +142,10 @@ mod tests {
         }
     }
 
-    impl pa_core::mcp::OAuthHttp for ScriptedHttp {
+    impl aa_core::mcp::OAuthHttp for ScriptedHttp {
         fn request(
             &self,
-            request: pa_core::mcp::OAuthHttpRequest,
+            request: aa_core::mcp::OAuthHttpRequest,
         ) -> futures::future::BoxFuture<'_, Result<OAuthHttpResponse>> {
             Box::pin(async move {
                 self.0
@@ -240,8 +240,8 @@ mod tests {
         let manager = McpManager::new(McpManagerOptions {
             auth_storage: AuthStorage::create_with_oauth(
                 agent.path(),
-                Arc::new(pa_core::mcp::McpOAuth::with_http(
-                    Arc::clone(&http) as Arc<dyn pa_core::mcp::OAuthHttp>,
+                Arc::new(aa_core::mcp::McpOAuth::with_http(
+                    Arc::clone(&http) as Arc<dyn aa_core::mcp::OAuthHttp>,
                     Arc::new(|| None),
                 )),
             ),
@@ -276,7 +276,7 @@ mod tests {
         wire_worker_mcp_login(
             &manager,
             Arc::clone(&ui) as Arc<dyn McpLoginUi>,
-            Arc::clone(&http) as Arc<dyn pa_core::mcp::OAuthHttp>,
+            Arc::clone(&http) as Arc<dyn aa_core::mcp::OAuthHttp>,
         );
         let mut handlers = HostRequestHandlers::default();
         McpManager::register_host_handlers(&manager, &mut handlers);
@@ -389,8 +389,8 @@ mod tests {
         let manager = McpManager::new(McpManagerOptions {
             auth_storage: AuthStorage::create_with_oauth(
                 agent.path(),
-                Arc::new(pa_core::mcp::McpOAuth::with_http(
-                    Arc::clone(&http) as Arc<dyn pa_core::mcp::OAuthHttp>,
+                Arc::new(aa_core::mcp::McpOAuth::with_http(
+                    Arc::clone(&http) as Arc<dyn aa_core::mcp::OAuthHttp>,
                     Arc::new(|| None),
                 )),
             ),
@@ -405,7 +405,7 @@ mod tests {
         wire_worker_mcp_login(
             &manager,
             Arc::new(RecordingLoginUi::new(None)) as Arc<dyn McpLoginUi>,
-            Arc::clone(&http) as Arc<dyn pa_core::mcp::OAuthHttp>,
+            Arc::clone(&http) as Arc<dyn aa_core::mcp::OAuthHttp>,
         );
         let mut handlers = HostRequestHandlers::default();
         McpManager::register_host_handlers(&manager, &mut handlers);

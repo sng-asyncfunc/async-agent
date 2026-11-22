@@ -242,7 +242,7 @@ impl Worker {
             };
             let settings = {
                 let core = core.lock().unwrap();
-                pa_core::settings::SettingsManager::create(&core.cwd, &agent_dir)
+                aa_core::settings::SettingsManager::create(&core.cwd, &agent_dir)
             };
             let prefix = settings.settings().shell_command_prefix.clone();
             let shell_path = settings.settings().shell_path.clone();
@@ -359,7 +359,7 @@ impl Worker {
         let (cwd, prefix, shell_path) = {
             let core = self.core.lock().unwrap();
             let settings =
-                pa_core::settings::SettingsManager::create(&core.cwd, &self.config.agent_dir);
+                aa_core::settings::SettingsManager::create(&core.cwd, &self.config.agent_dir);
             let settings = settings.settings();
             (
                 core.cwd.clone(),
@@ -579,7 +579,7 @@ async fn run_bash(run: RunBash<'_>) -> BashEnd {
             run.cwd
         ));
     }
-    let shell = match pa_core::platform::shell::get_shell_config(run.shell_path) {
+    let shell = match aa_core::platform::shell::get_shell_config(run.shell_path) {
         Ok(shell) => shell,
         Err(error) => return spawn_failure(error.to_string()),
     };
@@ -595,7 +595,7 @@ async fn run_bash(run: RunBash<'_>) -> BashEnd {
     // command started (TS `detached: true`); Windows tree kills go through
     // `taskkill /T`.
     #[cfg(unix)]
-    pa_core::platform::process::set_new_process_group(command.as_std_mut());
+    aa_core::platform::process::set_new_process_group(command.as_std_mut());
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => return spawn_failure(error.to_string()),
@@ -607,7 +607,7 @@ async fn run_bash(run: RunBash<'_>) -> BashEnd {
     let kill_tree = |child: &mut tokio::process::Child| {
         let killed = child
             .id()
-            .is_some_and(|pid| pa_core::platform::process::kill_process_group_or_pid(pid as i32));
+            .is_some_and(|pid| aa_core::platform::process::kill_process_group_or_pid(pid as i32));
         if !killed {
             let _ = child.start_kill();
         }
@@ -684,7 +684,7 @@ async fn run_bash(run: RunBash<'_>) -> BashEnd {
     // `normalizedExitCode`); a cancelled run still reports none below.
     let exit_code = status
         .ok()
-        .and_then(|status| pa_core::platform::process::normalized_exit_code(&status))
+        .and_then(|status| aa_core::platform::process::normalized_exit_code(&status))
         .map(i64::from);
     let cancelled = run.cancellation.is_cancelled();
     // The pumps are dropped, so this is the last reference; a poisoned
@@ -825,7 +825,7 @@ impl OutputSpill {
         ));
         let mut options = std::fs::OpenOptions::new();
         options.write(true).create_new(true);
-        pa_core::platform::perms::set_private_mode(&mut options);
+        aa_core::platform::perms::set_private_mode(&mut options);
         let Ok(mut file) = options.open(&path) else {
             self.failed = true;
             return;
@@ -1338,9 +1338,9 @@ mod tests {
     impl Drop for ForkedChild {
         fn drop(&mut self) {
             if let Some(pid) = self.pid {
-                let _ = pa_core::platform::process::kill_pid(
+                let _ = aa_core::platform::process::kill_pid(
                     pid,
-                    pa_core::platform::process::Signal::Kill,
+                    aa_core::platform::process::Signal::Kill,
                 );
             }
         }
@@ -1413,7 +1413,7 @@ mod tests {
             .and_then(|pid| pid.trim().parse().ok())
         {
             let _ =
-                pa_core::platform::process::kill_pid(pid, pa_core::platform::process::Signal::Kill);
+                aa_core::platform::process::kill_pid(pid, aa_core::platform::process::Signal::Kill);
         }
         let response = settled.expect("the run waited on the backgrounded process");
         assert!(response.success, "failed: {response:?}");

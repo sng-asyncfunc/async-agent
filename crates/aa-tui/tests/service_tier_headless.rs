@@ -9,7 +9,7 @@ mod support;
 
 use std::os::unix::net::UnixListener;
 
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 use serde_json::{json, Value};
 
 use support::{
@@ -130,7 +130,7 @@ fn attach_data(id: &str) -> Value {
 }
 
 /// The composition-root catalog seed (the options snapshot).
-fn openrouter_catalog() -> Vec<pa_types::ai::Model> {
+fn openrouter_catalog() -> Vec<aa_types::ai::Model> {
     serde_json::from_value(openrouter_model_value())
         .map(|model| vec![model])
         .expect("catalog model")

@@ -3,10 +3,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use pa_agent::stream::{
+use aa_agent::stream::{
     AssistantMessageEvent, LlmContext, ModelStream, StreamFn, StreamRequestOptions,
 };
-use pa_agent::types::{AssistantMessage, Model, StopReason, Usage};
+use aa_agent::types::{AssistantMessage, Model, StopReason, Usage};
 use tempfile::TempDir;
 
 use super::{
@@ -403,7 +403,7 @@ fn capturing_stream_fn(
             let events = events.clone();
             Box::pin(async move {
                 captured.lock().unwrap().push(options);
-                let (handle, stream) = pa_agent::stream::event_stream();
+                let (handle, stream) = aa_agent::stream::event_stream();
                 for event in events {
                     handle.push(event);
                 }
@@ -529,15 +529,15 @@ async fn a_dropped_call_mid_resolution_fails_its_started_request() {
     };
 
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             api: Some("semantic-dropped-call-test".to_owned()),
             ..Default::default()
         });
     registration.set_repeat_last_response(true);
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-        pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+        aa_ai::faux::faux_assistant_text_message(
             "ok",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
     )]);
     let (identity, _dir) = identity("session-dropped-mid-resolution");

@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use base64::Engine as _;
 use futures::{SinkExt, StreamExt};
-use pa_ai::types::{Context, Model, StopReason, StreamOptions, Transport};
+use aa_ai::types::{Context, Model, StopReason, StreamOptions, Transport};
 use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair};
 use serde_json::json;
 use tokio::net::TcpListener;
@@ -155,7 +155,7 @@ async fn the_first_codex_websocket_trusts_node_extra_ca_certs() {
         "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}
     })).expect("model");
     tokio::time::timeout(Duration::from_secs(10), async {
-        let events = pa_ai::stream(
+        let events = aa_ai::stream(
             &model,
             &Context::default(),
             Some(StreamOptions {
@@ -177,14 +177,14 @@ async fn the_first_codex_websocket_trusts_node_extra_ca_certs() {
             .content
             .iter()
             .filter_map(|part| match part {
-                pa_ai::types::AssistantContent::Text(text) => Some(text.text.as_str()),
-                pa_ai::types::AssistantContent::Thinking(_)
-                | pa_ai::types::AssistantContent::ToolCall(_) => None,
+                aa_ai::types::AssistantContent::Text(text) => Some(text.text.as_str()),
+                aa_ai::types::AssistantContent::Thinking(_)
+                | aa_ai::types::AssistantContent::ToolCall(_) => None,
             })
             .collect::<Vec<_>>();
         assert_eq!(content, vec!["Trusted"]);
         server.await.expect("TLS fixture completed");
-        pa_ai::codex_debug::close_websocket_sessions(Some("fixture-first-wss"));
+        aa_ai::codex_debug::close_websocket_sessions(Some("fixture-first-wss"));
     })
     .await
     .expect("Codex WSS completes within the timeout");

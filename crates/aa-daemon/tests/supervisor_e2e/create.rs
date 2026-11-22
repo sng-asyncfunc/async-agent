@@ -383,9 +383,9 @@ fn missing_saved_cwd_requires_an_explicit_fallback() {
 
 /// Uses a real Bun JavaScript kernel; only provider responses are scripted.
 #[test]
-#[ignore = "requires PRIME_AGENT_KERNEL_BUN with the kernel runtime installed"]
+#[ignore = "requires ASYNC_AGENT_KERNEL_BUN with the kernel runtime installed"]
 fn cold_reopen_bun_kernel_uses_saved_cwd_and_explicit_override() {
-    assert!(std::env::var_os("PRIME_AGENT_KERNEL_BUN").is_some());
+    assert!(std::env::var_os("ASYNC_AGENT_KERNEL_BUN").is_some());
     let dir = tempfile::tempdir_in("/tmp").unwrap();
     let project = dir.path().join("saved-project");
     let override_dir = dir.path().join("override");

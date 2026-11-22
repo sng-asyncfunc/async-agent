@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 use serde_json::Value;
 use tokio::sync::mpsc;
 

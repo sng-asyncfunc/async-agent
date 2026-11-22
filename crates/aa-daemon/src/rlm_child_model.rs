@@ -5,8 +5,8 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Result};
-use pa_ai::models::{get_supported_thinking_levels, thinking_level_from_str};
-use pa_core::kernel::rlm_runtime::{find_rlm_model_matches, RlmModelInfo};
+use aa_ai::models::{get_supported_thinking_levels, thinking_level_from_str};
+use aa_core::kernel::rlm_runtime::{find_rlm_model_matches, RlmModelInfo};
 
 /// Close matches listed in model-resolution errors.
 const MODEL_ERROR_SUGGESTION_LIMIT: usize = 3;
@@ -240,7 +240,7 @@ mod tests {
     use crate::model_allowlist::DaemonAllowlist;
     use serde_json::json;
 
-    /// A models.json custom provider, like the pa-core registry tests.
+    /// A models.json custom provider, like the aa-core registry tests.
     fn write_catalog(dir: &Path) {
         std::fs::create_dir_all(dir).unwrap();
         std::fs::write(
@@ -334,7 +334,7 @@ mod tests {
         )
         .unwrap_err();
         let refusal = error
-            .downcast_ref::<pa_core::models::ModelAllowlistRefusal>()
+            .downcast_ref::<aa_core::models::ModelAllowlistRefusal>()
             .expect("typed refusal");
         assert_eq!(refusal.selector, "test-provider/glm-5.3");
         assert!(
@@ -355,7 +355,7 @@ mod tests {
         .unwrap_err();
         assert!(
             error
-                .downcast_ref::<pa_core::models::ModelAllowlistRefusal>()
+                .downcast_ref::<aa_core::models::ModelAllowlistRefusal>()
                 .is_some(),
             "{error}"
         );
@@ -454,7 +454,7 @@ mod tests {
         .unwrap();
         // The entitled private model: the compiled fallback lacks it, the
         // account's scoped Prime Inference snapshot carries it.
-        let mut auth = pa_core::auth::AuthStorage::create(dir.path());
+        let mut auth = aa_core::auth::AuthStorage::create(dir.path());
         let api_key = auth.get_api_key("prime-inference").expect("api key");
         // The snapshot below is written for whatever pair resolves (an
         // ambient `PRIME_API_KEY` on a dogfood box changes the pair).
@@ -464,7 +464,7 @@ mod tests {
             .unwrap_or_default();
         // Every compiled route, so the snapshot passes the coverage gate.
         let mut data: Vec<serde_json::Value> =
-            pa_models::transports::prime_inference_offline_entries()
+            aa_models::transports::prime_inference_offline_entries()
                 .iter()
                 .map(|model| {
                     json!({
@@ -487,8 +487,8 @@ mod tests {
         std::fs::write(
             dir.path().join("models/prime-inference-models-cache.json"),
             json!({
-                "url": format!("{}/models", pa_core::models::PRIME_INFERENCE_BASE_URL),
-                "scope": pa_models::prime_inference::scope_key(&api_key, &team_id),
+                "url": format!("{}/models", aa_core::models::PRIME_INFERENCE_BASE_URL),
+                "scope": aa_models::prime_inference::scope_key(&api_key, &team_id),
                 "fetchedAt": 1,
                 "payload": { "data": data },
             })
@@ -538,7 +538,7 @@ mod tests {
     fn a_spawned_child_resolves_a_catalog_repo_entry_the_compiled_fallback_lacks() {
         const PROBE_ID: &str = "gpt-6-probe";
         assert!(
-            !pa_ai::models_generated::get_models("openai-codex")
+            !aa_ai::models_generated::get_models("openai-codex")
                 .iter()
                 .any(|model| model.id == PROBE_ID),
             "the probe entry is compiled in; pick another id"
@@ -569,8 +569,8 @@ mod tests {
                 .join("models")
                 .join("provider-model-catalog.v1.json"),
             json!({
-                "url": pa_models::fetch::MODEL_CATALOG_URL,
-                "scope": pa_models::cache::PUBLIC_SCOPE,
+                "url": aa_models::fetch::MODEL_CATALOG_URL,
+                "scope": aa_models::cache::PUBLIC_SCOPE,
                 "fetchedAt": 1,
                 "payload": { "schemaVersion": 1, "models": [
                     {

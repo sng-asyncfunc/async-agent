@@ -27,7 +27,7 @@ fn internal_error(id: &Value, details: &str) -> Value {
 /// The failed-prompt reply: the nano-rlm #200 `kind`/`retryable` contract.
 /// `kind` is `"model_transport"` for the exhausted model connection family
 /// (`network_error`/`stream_drop`/`timeout` — the one class a host may
-/// re-prompt on) or a context overflow (pa-ai's provider pattern table);
+/// re-prompt on) or a context overflow (aa-ai's provider pattern table);
 /// every other failure carries the #2117 classifier's category. The fine
 /// #2117 category rides separately in `category`. `retryable` is true only
 /// for `model_transport`: the harness auto-retry is already exhausted by
@@ -37,8 +37,8 @@ fn internal_error(id: &Value, details: &str) -> Value {
 /// balance, or a lost supervisor link must not be marked retryable. The
 /// flag is advisory: the host's own retry policy decides.
 fn turn_failure_error(id: &Value, failure: &str, details: &str) -> Value {
-    let classification = pa_core::session_engine::error_classify::classify_error_message(failure);
-    let context_overflow = pa_ai::utils::overflow::error_message_has_overflow(failure);
+    let classification = aa_core::session_engine::error_classify::classify_error_message(failure);
+    let context_overflow = aa_ai::utils::overflow::error_message_has_overflow(failure);
     let kind = if context_overflow {
         "context_limit"
     } else if classification.is_model_transport() {
@@ -100,7 +100,7 @@ mod tests {
     /// The error-data view of one failed prompt arm, as the #200 host
     /// contract reads it.
     fn error_data(failure: &str) -> Value {
-        turn_failure_error(&json!(1), failure, "prime-agent turn failed")["error"]["data"].clone()
+        turn_failure_error(&json!(1), failure, "async-agent turn failed")["error"]["data"].clone()
     }
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
             let data = error_data(failure);
             assert_eq!(data["kind"], "model_transport", "{failure}: {data}");
             assert_eq!(data["retryable"], true, "{failure}: {data}");
-            assert_eq!(data["details"], "prime-agent turn failed");
+            assert_eq!(data["details"], "async-agent turn failed");
         }
         // The fine #2117 category rides separately.
         let network = error_data("ECONNRESET: model connection reset mid-stream");

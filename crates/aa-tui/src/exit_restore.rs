@@ -19,11 +19,11 @@
 //!    `disable_raw_mode` restores its first-saved "original" and
 //!    swallows errors, so a poisoned start (a killed previous run left
 //!    the tty raw and crossterm adopted that state as the baseline)
-//!    would silently restore raw ([`pa_types::platform::terminal`]'s
+//!    would silently restore raw ([`aa_types::platform::terminal`]'s
 //!    `stty sane` reconstruction repairs it);
 //! 8. a pending Ctrl+S output stop lifts FIRST — the stop is runtime
 //!    state, not termios, and it HOLDS writes: the lift (the IXON-toggle,
-//!    [`pa_types::platform::terminal::restart_output`]) must precede the
+//!    [`aa_types::platform::terminal::restart_output`]) must precede the
 //!    restore's own output writes or the restore itself would hang on a
 //!    stopped tty, and the shell would keep the frozen prompt the
 //!    restore owed it.
@@ -63,7 +63,7 @@ pub(crate) fn restore_terminal() {
     // The output-stop lift runs FIRST: a tty still holding a Ctrl+S stop
     // holds every WRITE below, so the restore itself would hang before
     // reaching the lift. The lift is termios writes only — it flows.
-    pa_types::platform::terminal::restart_output();
+    aa_types::platform::terminal::restart_output();
     let mut out = std::io::stdout();
     crate::enhanced_keys::release_for_exit();
     // The exit drain below reads the tty through crossterm's global
@@ -92,7 +92,7 @@ pub(crate) fn restore_terminal() {
     let _ = report_cooked_repair();
     let _ = out.flush();
     // Restore Windows VT after the final ANSI cleanup writes.
-    pa_types::platform::console_restore();
+    aa_types::platform::console_restore();
 }
 
 /// The shared exit tail: synchronized output off, SGR reset, cursor
@@ -102,7 +102,7 @@ pub(crate) fn restore_terminal() {
 /// these writes block behind the flush draining the pty, and the exit
 /// guard's watchdog must read that as movement, not a stalled shutdown.
 pub(crate) fn terminal_release_tail(out: &mut Stdout) {
-    pa_types::platform::terminal::restart_output();
+    aa_types::platform::terminal::restart_output();
     // The stale-level drain: bare kitty pops AFTER the alt-screen leave
     // (this tail runs past `flush_to_main_screen`'s `?1049l`), where a
     // mode-counting relay keeps them — the teardown's own pop, written
@@ -123,13 +123,13 @@ pub(crate) fn terminal_release_tail(out: &mut Stdout) {
 /// when stderr is gone, and a panic inside the unwind guard's restore
 /// would abort the process mid-restore.
 fn report_cooked_repair() -> std::io::Result<()> {
-    if pa_types::platform::terminal::ensure_cooked_tty()
-        == pa_types::platform::terminal::TtyCooked::Repaired
+    if aa_types::platform::terminal::ensure_cooked_tty()
+        == aa_types::platform::terminal::TtyCooked::Repaired
     {
         use std::io::Write;
         writeln!(
             std::io::stderr(),
-            "Prime Agent: repaired a raw terminal left by a previous run."
+            "Async Agent: repaired a raw terminal left by a previous run."
         )
     } else {
         Ok(())

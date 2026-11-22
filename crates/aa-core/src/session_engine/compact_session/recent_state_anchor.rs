@@ -23,7 +23,7 @@ pub(super) fn extract_recent_state_anchor(
             .content
             .iter()
             .filter_map(|block| match block {
-                pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+                aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
                 _ => None,
             })
             .collect::<Vec<_>>()

@@ -4,9 +4,9 @@
 //! same way: the terminal-capability gate forces the legacy form there).
 #![warn(clippy::allow_attributes_without_reason)]
 
-use pa_tui::session::{parse_jsonl, JsonlSessionStream, SessionStream};
-use pa_tui::theme::{ColorMode, Theme};
-use pa_tui::view::AgentView;
+use aa_tui::session::{parse_jsonl, JsonlSessionStream, SessionStream};
+use aa_tui::theme::{ColorMode, Theme};
+use aa_tui::view::AgentView;
 
 const TABLE_SESSION: &str = concat!(
     r#"{"type":"message","message":{"role":"user","content":[{"type":"text","text":"show the table"}],"timestamp":1}}"#,
@@ -18,15 +18,15 @@ const TABLE_SESSION: &str = concat!(
 fn frame_text(session: &str, width: u16, height: u16) -> Vec<String> {
     let entries = parse_jsonl(session).expect("session parses");
     let mut stream = JsonlSessionStream::from_entries(entries);
-    let mut view = AgentView::new(Theme::builtin("prime", ColorMode::TrueColor));
-    while let pa_tui::session::SessionEvent::Item(item) = stream.poll().expect("poll") {
+    let mut view = AgentView::new(Theme::builtin("async", ColorMode::TrueColor));
+    while let aa_tui::session::SessionEvent::Item(item) = stream.poll().expect("poll") {
         view.push(item);
     }
     // Pin the terminal-capability gate: the fixture asserts the legacy link
     // form regardless of the host terminal the test run happens to use.
-    pa_tui::hyperlinks::set_hyperlinks_override(Some(false));
-    let rows = pa_tui::app::render_frame_text(&mut view, width, height);
-    pa_tui::hyperlinks::set_hyperlinks_override(None);
+    aa_tui::hyperlinks::set_hyperlinks_override(Some(false));
+    let rows = aa_tui::app::render_frame_text(&mut view, width, height);
+    aa_tui::hyperlinks::set_hyperlinks_override(None);
     rows
 }
 

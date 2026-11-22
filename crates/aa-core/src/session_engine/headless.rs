@@ -2,7 +2,7 @@
 //! terminal result from a headless run and turn it into
 //! stdout/stderr/exit-code.
 
-use pa_types::session::{AgentMessage, FileEntry};
+use aa_types::session::{AgentMessage, FileEntry};
 
 use super::messages::SESSION_SLASH_COMMAND_RESULT_CUSTOM_TYPE;
 
@@ -16,7 +16,7 @@ pub const REFINEMENT_NOTICE_CUSTOM_TYPE: &str = "refinement_notice";
 #[allow(clippy::large_enum_variant)]
 pub enum HeadlessPrimary {
     /// The final assistant message.
-    Assistant(pa_types::ai::AssistantMessage),
+    Assistant(aa_types::ai::AssistantMessage),
     /// A session slash-command result custom message.
     SlashCommandResult {
         content: String,
@@ -35,7 +35,7 @@ impl HeadlessPrimary {
                     .content
                     .iter()
                     .filter_map(|block| match block {
-                        pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+                        aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
                         _ => None,
                     })
                     .collect::<String>();
@@ -49,7 +49,7 @@ impl HeadlessPrimary {
     pub fn stderr_text(&self, exit_code: &mut i32) -> Option<String> {
         match self {
             HeadlessPrimary::Assistant(message) => match message.stop_reason {
-                pa_types::ai::StopReason::Error | pa_types::ai::StopReason::Aborted => {
+                aa_types::ai::StopReason::Error | aa_types::ai::StopReason::Aborted => {
                     *exit_code = 1;
                     Some(
                         message
@@ -75,13 +75,13 @@ impl HeadlessPrimary {
     }
 }
 
-fn stop_reason_name(reason: pa_types::ai::StopReason) -> &'static str {
+fn stop_reason_name(reason: aa_types::ai::StopReason) -> &'static str {
     match reason {
-        pa_types::ai::StopReason::Stop => "stop",
-        pa_types::ai::StopReason::Length => "length",
-        pa_types::ai::StopReason::ToolUse => "tool_use",
-        pa_types::ai::StopReason::Error => "error",
-        pa_types::ai::StopReason::Aborted => "aborted",
+        aa_types::ai::StopReason::Stop => "stop",
+        aa_types::ai::StopReason::Length => "length",
+        aa_types::ai::StopReason::ToolUse => "tool_use",
+        aa_types::ai::StopReason::Error => "error",
+        aa_types::ai::StopReason::Aborted => "aborted",
     }
 }
 
@@ -182,17 +182,17 @@ pub fn select_headless_terminal_result(messages: &[AgentMessage]) -> HeadlessTer
 }
 
 /// Whether an assistant message carries any tool call.
-fn has_tool_call(assistant: &pa_types::ai::AssistantMessage) -> bool {
+fn has_tool_call(assistant: &aa_types::ai::AssistantMessage) -> bool {
     assistant
         .content
         .iter()
-        .any(|block| matches!(block, pa_types::ai::AssistantContentBlock::ToolCall(_)))
+        .any(|block| matches!(block, aa_types::ai::AssistantContentBlock::ToolCall(_)))
 }
 
 /// Whether an assistant message carries any non-blank text block.
-fn has_visible_text(assistant: &pa_types::ai::AssistantMessage) -> bool {
+fn has_visible_text(assistant: &aa_types::ai::AssistantMessage) -> bool {
     assistant.content.iter().any(|block| match block {
-        pa_types::ai::AssistantContentBlock::Text(text) => !text.text.trim().is_empty(),
+        aa_types::ai::AssistantContentBlock::Text(text) => !text.text.trim().is_empty(),
         _ => false,
     })
 }
@@ -214,11 +214,11 @@ pub fn select_from_entries(entries: &[FileEntry]) -> HeadlessTerminalResult {
 mod tests {
     use super::*;
     use crate::autonomous::{AgentAutonomousStatus, AutonomousLimitReason};
-    use pa_types::ai::{
+    use aa_types::ai::{
         AssistantContentBlock, AssistantMessage, StopReason, TextContent, ToolCall,
         ToolResultMessage, UserContent, UserContentBlock, UserMessage,
     };
-    use pa_types::session::{CompactionSummaryMessage, CustomMessage};
+    use aa_types::session::{CompactionSummaryMessage, CustomMessage};
 
     fn error_assistant() -> AgentMessage {
         let mut error = text_assistant("", StopReason::Error);
@@ -241,7 +241,7 @@ mod tests {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
+            usage: aa_types::ai::Usage::default(),
             stop_reason,
             stop_reason_raw: None,
             error_message: None,

@@ -662,7 +662,7 @@ impl AgentView {
                 let huge = rows.len() >= HUGE_PACKED_ROWS;
                 drop(rows);
                 if huge {
-                    pa_types::memory_release::trim_freed_heap();
+                    aa_types::memory_release::trim_freed_heap();
                 }
                 return EntryRows::Packed(packed);
             }

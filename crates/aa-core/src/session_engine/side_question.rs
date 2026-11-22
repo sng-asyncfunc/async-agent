@@ -6,10 +6,10 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
-use pa_agent::abort::{race_with_abort, AbortSignal};
-use pa_agent::agent::{Agent, AgentInitialState, AgentOptions};
-use pa_agent::agent_loop::{BeforeToolCallFn, ShouldStopAfterTurnFn};
-use pa_agent::types::{
+use aa_agent::abort::{race_with_abort, AbortSignal};
+use aa_agent::agent::{Agent, AgentInitialState, AgentOptions};
+use aa_agent::agent_loop::{BeforeToolCallFn, ShouldStopAfterTurnFn};
+use aa_agent::types::{
     AssistantContent, AssistantMessage, Message, StopReason, TextContent, UserContent, UserMessage,
     UserPart,
 };
@@ -114,7 +114,7 @@ fn assistant_text(message: &AssistantMessage) -> String {
 /// Panics if the usage tally mutex is poisoned.
 pub async fn run_side_question(
     parent: &Arc<Agent>,
-    stream_fn: pa_agent::stream::StreamFn,
+    stream_fn: aa_agent::stream::StreamFn,
     question: &str,
     previous_turns: &[SideQuestionTurn],
     retry_policy: &ProviderRetryPolicy,
@@ -122,7 +122,7 @@ pub async fn run_side_question(
     sink: &SideQuestionSink,
 ) -> SideQuestionResult {
     let parent_state = parent.state().await;
-    if parent_state.model == pa_agent::types::Model::unknown() {
+    if parent_state.model == aa_agent::types::Model::unknown() {
         return SideQuestionResult::failed(
             String::new(),
             "Select a model before asking a side question".to_string(),
@@ -133,16 +133,16 @@ pub async fn run_side_question(
     // the newest main-thread context; earlier side turns replay after it.
     let mut messages = parent_state.messages.clone();
     for (index, turn) in previous_turns.iter().enumerate() {
-        messages.push(pa_agent::types::AgentMessage::Standard(Message::User(
+        messages.push(aa_agent::types::AgentMessage::Standard(Message::User(
             UserMessage {
                 content: UserContent::Parts(vec![UserPart::Text(TextContent {
                     text: side_question_prompt(&turn.question, index == 0),
                     text_signature: None,
                 })]),
-                timestamp: pa_agent::now_ms(),
+                timestamp: aa_agent::now_ms(),
             },
         )));
-        messages.push(pa_agent::types::AgentMessage::Standard(Message::Assistant(
+        messages.push(aa_agent::types::AgentMessage::Standard(Message::Assistant(
             AssistantMessage {
                 content: vec![AssistantContent::Text(TextContent {
                     text: turn.answer.clone(),
@@ -154,11 +154,11 @@ pub async fn run_side_question(
                 response_model: None,
                 response_id: None,
                 diagnostics: None,
-                usage: pa_agent::types::Usage::zero(),
+                usage: aa_agent::types::Usage::zero(),
                 stop_reason: StopReason::Stop,
                 stop_reason_raw: None,
                 error_message: None,
-                timestamp: pa_agent::now_ms(),
+                timestamp: aa_agent::now_ms(),
             },
         )));
     }
@@ -184,7 +184,7 @@ pub async fn run_side_question(
     };
     let before_tool_call: BeforeToolCallFn = Arc::new(|_context, _signal| {
         Box::pin(async move {
-            Ok(Some(pa_agent::types::BeforeToolCallResult {
+            Ok(Some(aa_agent::types::BeforeToolCallResult {
                 block: true,
                 reason: Some(SIDE_QUESTION_TOOL_BLOCKED.to_string()),
             }))
@@ -205,7 +205,7 @@ pub async fn run_side_question(
         // conversation's prompt cache, and rides SSE so it never takes the session's Codex
         // socket or its continuation.
         session_id: parent.session_id().map(str::to_string),
-        transport: Some(pa_agent::types::Transport::Sse),
+        transport: Some(aa_agent::types::Transport::Sse),
         ..Default::default()
     }));
 
@@ -213,31 +213,31 @@ pub async fn run_side_question(
     // text as it arrives; the answer of the whole run is derived at the end.
     let (update_tx, update_rx) = std::sync::mpsc::channel::<String>();
     let update_tx = Arc::new(update_tx);
-    let billed = Arc::new(std::sync::Mutex::new(pa_types::ai::Usage::default()));
+    let billed = Arc::new(std::sync::Mutex::new(aa_types::ai::Usage::default()));
     let billed_sink = Arc::clone(&billed);
     let subscription = side_agent
         .subscribe(move |event, _signal| {
             let update_tx = Arc::clone(&update_tx);
             let billed = Arc::clone(&billed_sink);
             Box::pin(async move {
-                if let pa_agent::types::AgentEvent::MessageEnd {
-                    message: pa_agent::types::AgentMessage::Standard(Message::Assistant(assistant)),
+                if let aa_agent::types::AgentEvent::MessageEnd {
+                    message: aa_agent::types::AgentMessage::Standard(Message::Assistant(assistant)),
                 } = &event
                 {
                     // The session-file usage shape: both types serialize the TS `Usage`.
                     if let Ok(usage) = serde_json::to_value(&assistant.usage)
-                        .and_then(serde_json::from_value::<pa_types::ai::Usage>)
+                        .and_then(serde_json::from_value::<aa_types::ai::Usage>)
                     {
                         let mut billed = billed.lock().expect("side question usage lock");
                         super::rlm_usage::add_assistant_usage(&mut billed, &usage);
                     }
                 }
                 let message = match &event {
-                    pa_agent::types::AgentEvent::MessageUpdate { message, .. } => Some(&**message),
-                    pa_agent::types::AgentEvent::MessageEnd { message } => Some(message),
+                    aa_agent::types::AgentEvent::MessageUpdate { message, .. } => Some(&**message),
+                    aa_agent::types::AgentEvent::MessageEnd { message } => Some(message),
                     _ => None,
                 };
-                if let Some(pa_agent::types::AgentMessage::Standard(Message::Assistant(
+                if let Some(aa_agent::types::AgentMessage::Standard(Message::Assistant(
                     assistant,
                 ))) = message
                 {
@@ -424,7 +424,7 @@ async fn run_attempt(
                 side_agent.continue_run().await
             } else {
                 side_agent
-                    .prompt(pa_agent::agent::AgentPromptInput::text(prompt))
+                    .prompt(aa_agent::agent::AgentPromptInput::text(prompt))
                     .await
             };
             admitted?;
@@ -478,7 +478,7 @@ async fn assistant_turns_after(
         .into_iter()
         .flatten()
         .filter_map(|message| match message {
-            pa_agent::types::AgentMessage::Standard(Message::Assistant(assistant)) => {
+            aa_agent::types::AgentMessage::Standard(Message::Assistant(assistant)) => {
                 Some(assistant.clone())
             }
             _ => None,
@@ -492,12 +492,12 @@ mod tests {
     use super::*;
     use crate::session_engine::tool_bridge::bridge_tool;
     use crate::tools::tool_definition::{ToolDefinition, ToolExecutionResult};
-    use pa_agent::abort::AbortController;
-    use pa_agent::scripted::ScriptedProvider;
-    use pa_agent::types::AgentTool;
+    use aa_agent::abort::AbortController;
+    use aa_agent::scripted::ScriptedProvider;
+    use aa_agent::types::AgentTool;
     use std::sync::atomic::AtomicBool;
 
-    fn test_model() -> pa_agent::types::Model {
+    fn test_model() -> aa_agent::types::Model {
         serde_json::from_value(serde_json::json!({
             "id": "m", "name": "m", "api": "openai-completions", "provider": "test",
             "baseUrl": "http://localhost", "reasoning": false, "input": ["text"],
@@ -533,8 +533,8 @@ mod tests {
                 thinking_level: None,
                 tools: Some(tools),
                 messages: Some(vec![
-                    pa_agent::types::AgentMessage::user("main thread context"),
-                    pa_agent::types::AgentMessage::Standard(Message::Assistant(AssistantMessage {
+                    aa_agent::types::AgentMessage::user("main thread context"),
+                    aa_agent::types::AgentMessage::Standard(Message::Assistant(AssistantMessage {
                         content: vec![AssistantContent::Text(TextContent {
                             text: "main thread reply".to_string(),
                             text_signature: None,
@@ -545,7 +545,7 @@ mod tests {
                         response_model: None,
                         response_id: None,
                         diagnostics: None,
-                        usage: pa_agent::types::Usage::zero(),
+                        usage: aa_agent::types::Usage::zero(),
                         stop_reason: StopReason::Stop,
                         stop_reason_raw: None,
                         error_message: None,
@@ -654,7 +654,7 @@ mod tests {
         let observed = Arc::new(std::sync::Mutex::new(Vec::new()));
         let capture = Arc::clone(&observed);
         let inner = provider.stream_fn();
-        let stream_fn: pa_agent::stream::StreamFn = Arc::new(move |model, context, options| {
+        let stream_fn: aa_agent::stream::StreamFn = Arc::new(move |model, context, options| {
             capture
                 .lock()
                 .unwrap()
@@ -677,7 +677,7 @@ mod tests {
             *observed.lock().unwrap(),
             vec![(
                 Some("parent-session".to_string()),
-                Some(pa_agent::types::Transport::Sse)
+                Some(aa_agent::types::Transport::Sse)
             )]
         );
     }

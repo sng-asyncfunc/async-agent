@@ -1,12 +1,12 @@
-//! The `prime-agent sessions` operator table: one line per agent — name,
+//! The `async-agent sessions` operator table: one line per agent — name,
 //! status, activity, staleness, last error, usage — from the same daemon
 //! `list` summaries, with the activity wording from the shared roster
 //! branch table (color-free, like TS piped output).
 
-use pa_tui::ansi::strip_ansi;
-use pa_tui::info_commands::js_to_fixed;
-use pa_tui::width::truncate_to_width;
-use pa_types::daemon::agent_roster::{
+use aa_tui::ansi::strip_ansi;
+use aa_tui::info_commands::js_to_fixed;
+use aa_tui::width::truncate_to_width;
+use aa_types::daemon::agent_roster::{
     classify_summary_value, session_activity_detail, AgentRosterStatus, SessionActivityOptions,
 };
 use serde_json::Value;
@@ -22,7 +22,7 @@ const MAX_CELL_CHARS: usize = 60;
 /// The sessions table's columns.
 const SESSIONS_HEADERS: [&str; 6] = ["name", "status", "activity", "last heard", "error", "usage"];
 
-/// One-line-per-agent operator table for `prime-agent sessions`.
+/// One-line-per-agent operator table for `async-agent sessions`.
 pub(crate) fn format_sessions_table(sessions: &[&Value], now_ms: u64) -> String {
     let mut sorted = sessions.to_vec();
     sorted.sort_by_key(|summary| sessions_sort_key(summary));
@@ -205,7 +205,7 @@ fn truncate_cell(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_tui::width::str_width;
+    use aa_tui::width::str_width;
     use serde_json::json;
 
     const NOW_MS: u64 = 1_780_056_000_000; // 2026-05-29T12:00:00.000Z

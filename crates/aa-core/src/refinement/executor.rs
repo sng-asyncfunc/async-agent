@@ -10,8 +10,8 @@ use super::{
     infer_refinement_result_scope, merge_refinement_history, HarnessScope, HarnessState,
     RefinementKind, RefinementResult, REFINEMENT_KINDS,
 };
-use pa_types::ai::{AssistantMessage, StopReason};
-use pa_types::session::AgentMessage;
+use aa_types::ai::{AssistantMessage, StopReason};
+use aa_types::session::AgentMessage;
 
 #[derive(Debug, Default, Clone)]
 pub struct RefineOptions {
@@ -124,12 +124,12 @@ pub fn history_for_prompt(history: &[RefinementResult]) -> String {
         .join("\n\n")
 }
 
-/// Model-call seam (test seam over pa-ai completion): takes the request
+/// Model-call seam (test seam over aa-ai completion): takes the request
 /// model (output budget pre-clamped), the call's system prompt, and the
 /// user prompt; returns the reply text.
 pub type RefinerFn = Box<
     dyn FnOnce(
-            pa_types::ai::Model,
+            aa_types::ai::Model,
             &'static str,
             String,
         ) -> std::pin::Pin<
@@ -195,7 +195,7 @@ pub async fn plan_refinement(
     messages: &[AgentMessage],
     state: &HarnessState,
     history: &[RefinementResult],
-    model: &pa_types::ai::Model,
+    model: &aa_types::ai::Model,
     options: &RefineOptions,
     refine_call: RefinerFn,
 ) -> anyhow::Result<RefinementPlan> {
@@ -219,9 +219,9 @@ pub async fn plan_refinement(
 
     let conversation_text = conversation_text(messages, 80_000);
     let scope_instruction = if options.global {
-        "Requested refinement scope: global. Only propose stable cross-session continual harness edits, durable user preferences, reusable skills/subagents, or explicitly project-qualified facts that should affect future Prime Agent sessions. Do not persist session-only progress, temporary blockers, or current-run coordination globally."
+        "Requested refinement scope: global. Only propose stable cross-session continual harness edits, durable user preferences, reusable skills/subagents, or explicitly project-qualified facts that should affect future Async Agent sessions. Do not persist session-only progress, temporary blockers, or current-run coordination globally."
     } else {
-        "Requested refinement scope: local. Prefer local continual harness edits for current task progress, temporary blockers, current-run coordination, and project facts that are not clearly reusable across Prime Agent sessions. Global entries in the overview are read-only context: do not propose update or delete edits for them; create a local entry instead if an override is needed."
+        "Requested refinement scope: local. Prefer local continual harness edits for current task progress, temporary blockers, current-run coordination, and project facts that are not clearly reusable across Async Agent sessions. Global entries in the overview are read-only context: do not propose update or delete edits for them; create a local entry instead if an override is needed."
     };
     let build_prompt = |conversation: &str| -> String {
         let mut sections = vec![
@@ -287,7 +287,7 @@ fn reply_text(reply: &AssistantMessage, max_tokens: u64, failure: &str) -> anyho
         .content
         .iter()
         .filter_map(|block| match block {
-            pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+            aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -364,7 +364,7 @@ pub async fn review_auto_refine(
     messages: &[AgentMessage],
     state: &HarnessState,
     history: &[RefinementResult],
-    model: &pa_types::ai::Model,
+    model: &aa_types::ai::Model,
     context: &AutoRefineReviewContext,
     review_call: RefinerFn,
 ) -> anyhow::Result<AutoRefineReview> {
@@ -409,7 +409,7 @@ pub async fn review_auto_refine(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::ai::{AssistantContentBlock, TextContent};
+    use aa_types::ai::{AssistantContentBlock, TextContent};
 
     fn text_message(text: &str) -> AssistantMessage {
         AssistantMessage {
@@ -424,8 +424,8 @@ mod tests {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -680,8 +680,8 @@ mod tests {
         assert_eq!(rejected.instructions, None);
     }
 
-    fn test_model() -> pa_types::ai::Model {
-        pa_types::ai::Model {
+    fn test_model() -> aa_types::ai::Model {
+        aa_types::ai::Model {
             id: "test".to_string(),
             name: "test".to_string(),
             api: "openai-completions".to_string(),
@@ -690,7 +690,7 @@ mod tests {
             reasoning: false,
             thinking_level_map: None,
             input: vec![],
-            cost: pa_types::ai::ModelCost {
+            cost: aa_types::ai::ModelCost {
                 input: 0.0.into(),
                 output: 0.0.into(),
                 cache_read: 0.0.into(),

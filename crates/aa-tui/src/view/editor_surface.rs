@@ -15,7 +15,7 @@ use crate::prompt_highlight::{
 use crate::theme::{Theme, ThemeBg, ThemeColor};
 use crate::width::{str_width, truncate_to_width};
 use crate::{Line, Span};
-use pa_types::slash_commands::SlashCommandRegistry;
+use aa_types::slash_commands::SlashCommandRegistry;
 use ratatui::style::Modifier;
 
 pub(crate) struct EditorBox {

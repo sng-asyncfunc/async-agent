@@ -2,7 +2,7 @@
 //! deferred first-turn row, and the compaction-boundary captures.
 use super::*;
 use crate::session::manager::SessionManager;
-use pa_agent::types::UserMessage;
+use aa_agent::types::UserMessage;
 use serde_json::Value;
 
 #[test]
@@ -68,7 +68,7 @@ fn persisted_digest_round_trips() {
     };
     assert_eq!(custom.custom_type, "harness_digest");
     assert!(!custom.display);
-    assert!(matches!(custom.content, pa_types::ai::UserContent::Text(_)));
+    assert!(matches!(custom.content, aa_types::ai::UserContent::Text(_)));
     let loop_row = harness_digest_prompt_row("digest body", 0, "fingerprint-1");
     let AgentMessage::Custom(custom) = &loop_row else {
         panic!("expected custom row");
@@ -190,26 +190,26 @@ async fn placement_rig(
     delay_ms: u64,
 ) -> (
     crate::session_engine::AgentSession,
-    pa_ai::faux::FauxProviderRegistration,
+    aa_ai::faux::FauxProviderRegistration,
     Option<String>,
 ) {
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
-            models: Some(vec![pa_ai::faux::FauxModelDefinition {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
+            models: Some(vec![aa_ai::faux::FauxModelDefinition {
                 id: "digest-placement-m".to_string(),
                 name: Some("Digest Placement Model".to_string()),
                 reasoning: Some(false),
-                input: Some(vec![pa_types::ai::ModelInput::Text]),
+                input: Some(vec![aa_types::ai::ModelInput::Text]),
                 cost: None,
                 context_window: Some(1_000),
                 max_tokens: Some(256),
             }]),
             ..Default::default()
         });
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Delayed {
-        message: pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Delayed {
+        message: aa_ai::faux::faux_assistant_text_message(
             "## Goal\nsummarized goal",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
         delay_ms,
     }]);
@@ -252,15 +252,15 @@ async fn placement_rig(
 
     let mut session = SessionManager::in_memory(tmp.path());
     let session_user = |text: &str| {
-        pa_types::session::AgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text(text.to_string()),
+        aa_types::session::AgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
         })
     };
-    let assistant_row = pa_types::ai::AssistantMessage {
-        content: vec![pa_types::ai::AssistantContentBlock::Text(
-            pa_types::ai::TextContent {
+    let assistant_row = aa_types::ai::AssistantMessage {
+        content: vec![aa_types::ai::AssistantContentBlock::Text(
+            aa_types::ai::TextContent {
                 text: "reply zero words".to_string(),
                 text_signature: None,
                 rest: serde_json::Map::default(),
@@ -272,29 +272,29 @@ async fn placement_rig(
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_types::ai::Usage {
+        usage: aa_types::ai::Usage {
             input: 100,
             output: 20,
             cache_read: 0,
             cache_write: 0,
             total_tokens: 120,
-            cost: pa_types::ai::UsageCost::default(),
+            cost: aa_types::ai::UsageCost::default(),
         },
-        stop_reason: pa_types::ai::StopReason::Stop,
+        stop_reason: aa_types::ai::StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,
         timestamp: 0,
         rest: serde_json::Map::default(),
     };
     let user0 = session_user("turn zero words");
-    let reply0 = pa_types::session::AgentMessage::Assistant(assistant_row.clone());
+    let reply0 = aa_types::session::AgentMessage::Assistant(assistant_row.clone());
     let user1 = session_user("unfinished turn three words");
     session.append_message(user0.clone()).unwrap();
     session.append_message(reply0.clone()).unwrap();
     session.append_message(user1.clone()).unwrap();
-    let goal = pa_types::goal::GoalState {
+    let goal = aa_types::goal::GoalState {
         active: true,
-        status: pa_types::goal::GoalStatus::Active,
+        status: aa_types::goal::GoalStatus::Active,
         goal_id: Some("placement-goal".to_string()),
         objective: Some("launch checklist work".to_string()),
         ..Default::default()
@@ -315,8 +315,8 @@ async fn placement_rig(
                 .expect("the rig's wire rows convert to loop rows")
         })
         .collect();
-    let agent = std::sync::Arc::new(pa_agent::agent::Agent::new(pa_agent::agent::AgentOptions {
-        initial_state: pa_agent::agent::AgentInitialState {
+    let agent = std::sync::Arc::new(aa_agent::agent::Agent::new(aa_agent::agent::AgentOptions {
+        initial_state: aa_agent::agent::AgentInitialState {
             messages: Some(live),
             ..Default::default()
         },
@@ -354,8 +354,8 @@ async fn placement_rig(
 /// request is in flight and the compact task unfinished — the window is open.
 async fn spawn_compact(
     engine: std::sync::Arc<crate::session_engine::AgentSession>,
-    model: &pa_types::ai::Model,
-    registration: &pa_ai::faux::FauxProviderRegistration,
+    model: &aa_types::ai::Model,
+    registration: &aa_ai::faux::FauxProviderRegistration,
 ) -> tokio::task::JoinHandle<anyhow::Result<crate::session_engine::compact_session::CompactOutcome>>
 {
     let model = model.clone();

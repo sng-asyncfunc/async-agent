@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 use serde_json::{json, Value};
 
 use support::{options, run_headless, serve_connection, write_json, Request};
@@ -77,7 +77,7 @@ fn attach_data(id: &str, session: &MockSession) -> Value {
         "command": "attach",
         "success": true,
         "data": {
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "activeSessionId": session.active,
             "snapshot": {
                 "activeSessionId": session.active,
@@ -117,7 +117,7 @@ impl StubSettings {
     }
 }
 
-impl pa_tui::client_settings::ClientSettings for StubSettings {
+impl aa_tui::client_settings::ClientSettings for StubSettings {
     fn compaction_threshold_percent(&self) -> f64 {
         95.0
     }

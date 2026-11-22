@@ -566,7 +566,7 @@ async fn a_chunked_windowed_attach_streams_the_count_it_carries() {
     let (streamed, events) = crate::snapshot_stream::stream_attach(
         data,
         "windowed-session",
-        pa_types::daemon::SnapshotPurpose::Attach,
+        aa_types::daemon::SnapshotPurpose::Attach,
     )
     .expect("stream");
     let crate::snapshot_stream::SnapshotStreamEvents::Streamed(lines) = events else {

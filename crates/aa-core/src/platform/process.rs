@@ -554,7 +554,7 @@ pub async fn wait_for_exit(_pid: u32) -> std::io::Result<()> {
 #[cfg(windows)]
 #[must_use]
 pub fn pid_exists(pid: u32) -> bool {
-    pa_types::platform::process::is_process_alive(pid).unwrap_or(false)
+    aa_types::platform::process::is_process_alive(pid).unwrap_or(false)
 }
 
 #[cfg(not(any(unix, windows)))]

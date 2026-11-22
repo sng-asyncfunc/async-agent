@@ -1,14 +1,14 @@
-//! The `pa-perf` CLI: `corpus`, `bench`, `run`, and `report`.
+//! The `aa-perf` CLI: `corpus`, `bench`, `run`, and `report`.
 
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use pa_perf::bench::{BenchOptions, RunOptions, Scenario};
-use pa_perf::corpus::{self, CacheMode, CorpusOptions, Profile};
-use pa_perf::report::{self, Baseline};
+use aa_perf::bench::{BenchOptions, RunOptions, Scenario};
+use aa_perf::corpus::{self, CacheMode, CorpusOptions, Profile};
+use aa_perf::report::{self, Baseline};
 
 #[derive(Parser)]
-#[command(name = "pa-perf", about = "prime-agent performance tooling", version)]
+#[command(name = "aa-perf", about = "async-agent performance tooling", version)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -79,7 +79,7 @@ struct CorpusArgs {
 #[derive(clap::Args)]
 struct BenchArgs {
     /// The release binary under test.
-    #[arg(long, default_value = "target/release/prime-agent")]
+    #[arg(long, default_value = "target/release/async-agent")]
     binary: PathBuf,
     /// The corpus root (holds corpus.json).
     #[arg(long)]
@@ -101,7 +101,7 @@ struct BenchArgs {
 #[derive(clap::Args)]
 struct RunArgs {
     /// The release binary under test.
-    #[arg(long, default_value = "target/release/prime-agent")]
+    #[arg(long, default_value = "target/release/async-agent")]
     binary: PathBuf,
     /// The named corpus profile for both generated corpora.
     #[arg(long, value_enum, default_value_t = Profile::Small)]
@@ -126,7 +126,7 @@ struct ReportArgs {
     #[arg(long, num_args = 1..)]
     results: Vec<PathBuf>,
     /// The committed baseline file.
-    #[arg(long, default_value = "crates/pa-perf/baseline.json")]
+    #[arg(long, default_value = "crates/aa-perf/baseline.json")]
     baseline: PathBuf,
     /// Where the markdown table is written (stdout when absent).
     #[arg(long)]
@@ -205,7 +205,7 @@ fn bench_command(args: BenchArgs) -> anyhow::Result<()> {
         json: args.json,
         liveness_secs: args.liveness_secs,
     };
-    let result = pa_perf::bench::run(&options)?;
+    let result = aa_perf::bench::run(&options)?;
     println!(
         "scenario={} profile={} median={:.1}ms p95={:.1}ms runs={}",
         report::key_of(result.scenario),
@@ -226,14 +226,14 @@ fn run_command(args: RunArgs) -> anyhow::Result<()> {
         runs: args.runs,
         liveness_secs: args.liveness_secs,
     };
-    pa_perf::bench::run_suite(&options)?;
+    aa_perf::bench::run_suite(&options)?;
     Ok(())
 }
 
 fn report_command(args: ReportArgs) -> anyhow::Result<()> {
     let mut results = Vec::new();
     for path in &args.results {
-        let result: pa_perf::bench::BenchResult =
+        let result: aa_perf::bench::BenchResult =
             serde_json::from_str(&std::fs::read_to_string(path)?)?;
         results.push(result);
     }

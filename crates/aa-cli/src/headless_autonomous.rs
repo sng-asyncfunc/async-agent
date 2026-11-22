@@ -7,15 +7,15 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use pa_core::autonomous::{
+use aa_core::autonomous::{
     autonomous_limit_reason, autonomous_status, create_autonomous_runtime_state,
     describe_autonomous_limit, latest_autonomous_gate_attempt, now_millis, AgentAutonomousConfig,
     AutonomousDriver, AutonomousFollowUp, AutonomousRuntimeState, ShellAutonomousDriver,
 };
-use pa_core::session_engine::engine::SessionEngine;
-use pa_core::session_engine::provider_adapter::json_round_trip;
-use pa_types::ai::Model;
-use pa_types::session::CustomMessage;
+use aa_core::session_engine::engine::SessionEngine;
+use aa_core::session_engine::provider_adapter::json_round_trip;
+use aa_types::ai::Model;
+use aa_types::session::CustomMessage;
 
 use crate::args::AutonomousConfig;
 
@@ -32,7 +32,7 @@ pub fn autonomous_runtime_config(config: &AutonomousConfig) -> AgentAutonomousCo
         gates: config
             .gates
             .as_ref()
-            .map(|gates| pa_core::autonomous::AgentAutonomousGateConfig {
+            .map(|gates| aa_core::autonomous::AgentAutonomousGateConfig {
                 commands: Some(gates.commands.clone()),
                 max_retries: gates.max_retries.map(u64::from),
                 timeout_ms: gates.timeout_ms,
@@ -88,8 +88,8 @@ impl HeadlessAutonomous {
     /// the driver as it arrives (the daemon worker runs the same policy).
     pub async fn wire_accounting(
         &self,
-        agent: &Arc<pa_agent::agent::Agent>,
-    ) -> pa_agent::agent::Subscription {
+        agent: &Arc<aa_agent::agent::Agent>,
+    ) -> aa_agent::agent::Subscription {
         let state = Arc::clone(&self.state);
         let driver = self.driver.clone();
         agent
@@ -97,15 +97,15 @@ impl HeadlessAutonomous {
                 let state = Arc::clone(&state);
                 let driver = driver.clone();
                 Box::pin(async move {
-                    if let pa_agent::types::AgentEvent::MessageEnd {
+                    if let aa_agent::types::AgentEvent::MessageEnd {
                         message:
-                            pa_agent::types::AgentMessage::Standard(
-                                pa_agent::types::Message::Assistant(assistant),
+                            aa_agent::types::AgentMessage::Standard(
+                                aa_agent::types::Message::Assistant(assistant),
                             ),
                     } = &event
                     {
                         if let Some(message) =
-                            json_round_trip::<_, pa_types::ai::AssistantMessage>(assistant)
+                            json_round_trip::<_, aa_types::ai::AssistantMessage>(assistant)
                         {
                             let mut state = state.lock().await;
                             driver.account_message(&mut state, &message);
@@ -121,9 +121,9 @@ impl HeadlessAutonomous {
     /// `Continue` returns the text, a stop (or inactive mode) ends the loop.
     pub(crate) async fn follow_up_text(
         &self,
-        message: &pa_agent::types::AssistantMessage,
+        message: &aa_agent::types::AssistantMessage,
     ) -> Option<String> {
-        let message = json_round_trip::<_, pa_types::ai::AssistantMessage>(message)?;
+        let message = json_round_trip::<_, aa_types::ai::AssistantMessage>(message)?;
         let follow_up = {
             let mut state = self.state.lock().await;
             self.driver.after_turn(&mut state, &message).await
@@ -252,14 +252,14 @@ impl HeadlessAutonomous {
     }
 }
 
-async fn latest_assistant(engine: &SessionEngine) -> Option<pa_types::ai::AssistantMessage> {
+async fn latest_assistant(engine: &SessionEngine) -> Option<aa_types::ai::AssistantMessage> {
     let state = engine.session.agent().state().await;
     state
         .messages
         .iter()
         .rev()
         .find_map(|message| match message {
-            pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::Assistant(
+            aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::Assistant(
                 assistant,
             )) => json_round_trip(assistant),
             _ => None,
@@ -270,7 +270,7 @@ async fn latest_assistant(engine: &SessionEngine) -> Option<pa_types::ai::Assist
 /// state is a failed model request.
 pub(crate) async fn latest_assistant_error(engine: &SessionEngine) -> Option<Option<String>> {
     latest_assistant(engine).await.and_then(|message| {
-        (message.stop_reason == pa_types::ai::StopReason::Error)
+        (message.stop_reason == aa_types::ai::StopReason::Error)
             .then(|| message.error_message.clone())
     })
 }
@@ -278,6 +278,6 @@ pub(crate) async fn latest_assistant_error(engine: &SessionEngine) -> Option<Opt
 /// The wire shape of one durable custom row for the json event stream: the
 /// custom message in the shared message wire form.
 pub fn custom_row_wire_value(row: &CustomMessage) -> serde_json::Value {
-    serde_json::to_value(pa_types::session::AgentMessage::Custom(row.clone()))
+    serde_json::to_value(aa_types::session::AgentMessage::Custom(row.clone()))
         .unwrap_or(serde_json::Value::Null)
 }

@@ -369,7 +369,7 @@ mod tests {
         }
         manager.inner.handle_event(Event::Display {
             id: None,
-            data: json!({ "application/vnd.prime-agent.diff+json": { "path": "p" } }),
+            data: json!({ "application/vnd.async-agent.diff+json": { "path": "p" } }),
         });
         assert!(manager.has_background_work());
         // The matching release settles the track exactly once.

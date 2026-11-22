@@ -16,14 +16,14 @@ use super::daemon::{DaemonAcpState, DaemonLink};
 use super::jsonrpc;
 use super::producer::{self, UpdateProducer};
 use super::types;
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 
 /// The hosted session's picker state: the published options, the
 /// discovered models, and the serialized config queue.
 pub(crate) struct HostedConfig {
     pub(crate) queue: tokio::sync::Mutex<()>,
     pub(crate) published: tokio::sync::Mutex<Vec<SessionConfigOption>>,
-    pub(crate) models: tokio::sync::Mutex<Vec<pa_types::ai::Model>>,
+    pub(crate) models: tokio::sync::Mutex<Vec<aa_types::ai::Model>>,
 }
 
 /// `session/set_config_option`: apply one picker selection through the
@@ -279,7 +279,7 @@ pub(super) async fn fetch_connection_state(
 pub(super) async fn fetch_available_models(
     link: &Arc<DaemonLink>,
     active_session_id: &str,
-) -> anyhow::Result<Vec<pa_types::ai::Model>> {
+) -> anyhow::Result<Vec<aa_types::ai::Model>> {
     let response = link
         .request(DaemonCommand::GetAvailableModels {
             id: None,
@@ -303,7 +303,7 @@ pub(super) async fn fetch_available_models(
 /// wire-side input adapter).
 pub(super) fn picker_options_from_state(
     state: Option<&Value>,
-    models: &[pa_types::ai::Model],
+    models: &[aa_types::ai::Model],
 ) -> Vec<SessionConfigOption> {
     let Some(state) = state else {
         return Vec::new();

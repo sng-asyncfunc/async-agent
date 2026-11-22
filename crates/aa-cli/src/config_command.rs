@@ -1,14 +1,14 @@
-//! `prime-agent config`: the resource-configuration view — resolve session
+//! `async-agent config`: the resource-configuration view — resolve session
 //! resources, report settings errors, then open the interactive selector.
 
 use std::path::PathBuf;
 
-use pa_core::packages::{resource_config, PackageManager};
-use pa_core::settings::SettingsManager;
-use pa_tui::config_selector::{
+use aa_core::packages::{resource_config, PackageManager};
+use aa_core::settings::SettingsManager;
+use aa_tui::config_selector::{
     run_config_selector, ConfigSelector, ConfigSelectorOptions, SelectorRow,
 };
-use pa_tui::keybindings::KeybindingsManager;
+use aa_tui::keybindings::KeybindingsManager;
 
 /// Run the config command. Returns the process exit code; exits 0
 /// after the view closes (Esc) or immediately on Ctrl+C.
@@ -17,7 +17,7 @@ pub fn run() -> i32 {
     let agent_dir = crate::config::get_agent_dir();
     let mut resolve_settings = SettingsManager::create(&cwd, &agent_dir);
     crate::package_command::report_settings_errors(&mut resolve_settings, "config command");
-    let theme_name = resolve_settings.get_theme().unwrap_or("prime").to_string();
+    let theme_name = resolve_settings.get_theme().unwrap_or("async").to_string();
     let mut manager = PackageManager::new(cwd.clone(), agent_dir.clone(), resolve_settings);
     let resolved = match manager.resolve() {
         Ok(resolved) => resolved,
@@ -29,7 +29,7 @@ pub fn run() -> i32 {
     let groups = resource_config::build_groups(&resolved);
     let (rows, items) = selector_rows(&groups);
     let selector = ConfigSelector::new(rows);
-    let theme = pa_tui::app::load_theme(&theme_name);
+    let theme = aa_tui::app::load_theme(&theme_name);
     // The config selector navigates with the user's effective bindings.
     let keybindings = KeybindingsManager::create(&agent_dir);
     let options = ConfigSelectorOptions::new(theme, keybindings);
@@ -86,13 +86,13 @@ mod tests {
 
     #[test]
     fn selector_rows_preserve_group_hierarchy() {
-        use pa_core::packages::{MetadataSource, PathMetadata, ResourceOrigin, ResourceType};
+        use aa_core::packages::{MetadataSource, PathMetadata, ResourceOrigin, ResourceType};
         let item = resource_config::ResourceItem {
             path: PathBuf::from("/agent/skills/my-skill/SKILL.md"),
             enabled: true,
             metadata: PathMetadata {
                 source: MetadataSource::Auto,
-                scope: pa_core::packages::SourceScope::User,
+                scope: aa_core::packages::SourceScope::User,
                 origin: ResourceOrigin::TopLevel,
                 base_dir: None,
             },
@@ -103,8 +103,8 @@ mod tests {
         };
         let group = resource_config::ResourceGroup {
             key: "g".to_string(),
-            label: "User (~/.prime/agent/)".to_string(),
-            scope: pa_core::packages::SourceScope::User,
+            label: "User (~/.async-agent/)".to_string(),
+            scope: aa_core::packages::SourceScope::User,
             origin: ResourceOrigin::TopLevel,
             source: MetadataSource::Auto,
             subgroups: vec![resource_config::ResourceSubgroup {
@@ -115,7 +115,7 @@ mod tests {
         };
         let (rows, items) = selector_rows(&[group]);
         assert_eq!(rows.len(), 3);
-        assert!(matches!(&rows[0], SelectorRow::Group(label) if label == "User (~/.prime/agent/)"));
+        assert!(matches!(&rows[0], SelectorRow::Group(label) if label == "User (~/.async-agent/)"));
         assert!(matches!(&rows[1], SelectorRow::Subgroup(label) if label == "Skills"));
         match &rows[2] {
             SelectorRow::Item {

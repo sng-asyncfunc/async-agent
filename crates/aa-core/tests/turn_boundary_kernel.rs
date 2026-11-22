@@ -15,15 +15,15 @@
 
 use std::path::{Path, PathBuf};
 
-use pa_agent::scripted::{tool_call_turn_steps, ScriptStep, ScriptedProvider, ScriptedTurn};
-use pa_agent::stream::AssistantMessageEvent;
-use pa_core::session::manager::SessionManager;
-use pa_core::session_engine::engine::{create_session, SessionEngineConfig};
-use pa_core::session_engine::turn_boundary::PendingRefine;
-use pa_core::session_engine::PromptOptions;
+use aa_agent::scripted::{tool_call_turn_steps, ScriptStep, ScriptedProvider, ScriptedTurn};
+use aa_agent::stream::AssistantMessageEvent;
+use aa_core::session::manager::SessionManager;
+use aa_core::session_engine::engine::{create_session, SessionEngineConfig};
+use aa_core::session_engine::turn_boundary::PendingRefine;
+use aa_core::session_engine::PromptOptions;
 use serde_json::{json, Value};
 
-/// The kernel Bun binary with `prime-agent-runtime` available. Skipped (with a note)
+/// The kernel Bun binary with `async-agent-runtime` available. Skipped (with a note)
 /// on machines without a live runtime; `PA_CORE_KERNEL_BUN` points at an explicit one.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) = std::env::var_os("PA_CORE_KERNEL_BUN") {
@@ -35,20 +35,20 @@ fn kernel_bun() -> Option<PathBuf> {
         );
         return Some(explicit);
     }
-    let runtime_ready = pa_core::kernel::bootstrap::kernel_worker_entry(
-        &pa_core::kernel::bootstrap::kernel_bun_dir(),
+    let runtime_ready = aa_core::kernel::bootstrap::kernel_worker_entry(
+        &aa_core::kernel::bootstrap::kernel_bun_dir(),
     )
     .is_file()
         || Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(2)
-            .is_some_and(|root| root.join("prime-agent-runtime/src/repl.ts").is_file());
+            .is_some_and(|root| root.join("async-agent-runtime/src/repl.ts").is_file());
     if !runtime_ready {
-        eprintln!("prime-agent-runtime/src/repl.ts not found; skipping live kernel test");
+        eprintln!("async-agent-runtime/src/repl.ts not found; skipping live kernel test");
         return None;
     }
     for candidate in [
-        std::env::var_os("PRIME_AGENT_KERNEL_BUN").map(PathBuf::from),
+        std::env::var_os("ASYNC_AGENT_KERNEL_BUN").map(PathBuf::from),
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".bun/bin/bun")),
         Some(PathBuf::from("/usr/local/bin/bun")),
         Some(PathBuf::from("/usr/bin/bun")),
@@ -107,7 +107,7 @@ fn harness_cell(receipt_path: &Path) -> String {
     )
 }
 
-fn scripted_model() -> pa_agent::types::Model {
+fn scripted_model() -> aa_agent::types::Model {
     serde_json::from_value(json!({
         "id": "faux-1", "name": "Faux", "api": "test", "provider": "faux",
         "baseUrl": "http://localhost", "reasoning": false,
@@ -118,7 +118,7 @@ fn scripted_model() -> pa_agent::types::Model {
 }
 
 /// The registry model `model.info` reports from: input modalities included.
-fn registry_model() -> pa_types::ai::Model {
+fn registry_model() -> aa_types::ai::Model {
     serde_json::from_value(json!({
         "id": "faux-1", "name": "Faux", "api": "test", "provider": "faux",
         "baseUrl": "http://localhost", "reasoning": false, "input": ["text"],
@@ -145,10 +145,10 @@ async fn turn_boundary_host_requests_round_trip_through_a_real_kernel() {
     // ambient agent state leaks in.
     let _env = EnvOverride::apply(&[
         (
-            "PRIME_AGENT_KERNEL_BUN",
+            "ASYNC_AGENT_KERNEL_BUN",
             Some(kernel_bun.display().to_string()),
         ),
-        ("PRIME_AGENT_CODING_AGENT_DIR", None),
+        ("ASYNC_AGENT_CODING_AGENT_DIR", None),
         ("PRIME_API_KEY", None),
     ]);
 
@@ -174,13 +174,13 @@ async fn turn_boundary_host_requests_round_trip_through_a_real_kernel() {
     for step in &mut steps {
         if let ScriptStep::Event(event) = step {
             if let AssistantMessageEvent::Done { message, .. } = &mut **event {
-                message.usage = pa_agent::types::Usage {
+                message.usage = aa_agent::types::Usage {
                     input: 100,
                     output: 20,
                     cache_read: 0,
                     cache_write: 0,
                     total_tokens: 120,
-                    cost: pa_agent::types::UsageCost::default(),
+                    cost: aa_agent::types::UsageCost::default(),
                 };
             }
         }
@@ -237,7 +237,7 @@ async fn turn_boundary_host_requests_round_trip_through_a_real_kernel() {
         .expect("prompt");
     assert_eq!(
         outcome,
-        pa_core::session_engine::PromptOutcome::Prompt,
+        aa_core::session_engine::PromptOutcome::Prompt,
         "the prompt must reach the model loop"
     );
 

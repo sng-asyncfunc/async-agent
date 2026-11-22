@@ -50,7 +50,7 @@ impl RpcChild {
     /// The kernel Bun binary; a missing binary FAILS the lane loudly (the wake lane's proof).
     fn kernel_bun() -> std::path::PathBuf {
         if let Some(explicit) = std::env::var_os("PA_E2E_KERNEL_BUN")
-            .or_else(|| std::env::var_os("PRIME_AGENT_KERNEL_BUN"))
+            .or_else(|| std::env::var_os("ASYNC_AGENT_KERNEL_BUN"))
         {
             let explicit = std::path::PathBuf::from(explicit);
             assert!(
@@ -95,17 +95,17 @@ impl RpcChild {
             std::fs::create_dir_all(&agent_dir).unwrap();
             std::fs::write(agent_dir.join("models.json"), models.to_string()).unwrap();
         }
-        let bin = env!("CARGO_BIN_EXE_prime-agent");
+        let bin = env!("CARGO_BIN_EXE_async-agent");
         let mut command = Command::new(bin);
         command
             .args(args)
             .env("HOME", home.path())
-            .env("PRIME_AGENT_CODING_AGENT_DIR", home.path().join("agent"))
-            .env("PRIME_AGENT_FAUX_SCRIPT", script.to_string())
+            .env("ASYNC_AGENT_CODING_AGENT_DIR", home.path().join("agent"))
+            .env("ASYNC_AGENT_FAUX_SCRIPT", script.to_string())
             .env_remove("RLM_DEPTH")
             .env_remove("RLM_MAX_DEPTH");
         if let Some(kernel) = kernel_bun {
-            command.env("PRIME_AGENT_KERNEL_BUN", kernel);
+            command.env("ASYNC_AGENT_KERNEL_BUN", kernel);
         }
         let mut child = command
             .current_dir(home.path())
@@ -1190,11 +1190,11 @@ impl TimedRpcChild {
     /// Spawn with the reader deferred (stdout held unread until `begin_reading`).
     fn spawn_stalled(fixture: &std::path::Path, script: &Value) -> TimedRpcChild {
         let home = tempfile::TempDir::new().unwrap();
-        let bin = env!("CARGO_BIN_EXE_prime-agent");
+        let bin = env!("CARGO_BIN_EXE_async-agent");
         let mut child = Command::new(bin)
             .args(["--mode", "rpc", "--resume", fixture.to_str().unwrap()])
             .env("HOME", home.path())
-            .env("PRIME_AGENT_FAUX_SCRIPT", script.to_string())
+            .env("ASYNC_AGENT_FAUX_SCRIPT", script.to_string())
             .env("RUST_LOG", "error")
             .current_dir(home.path())
             .stdin(Stdio::piped())

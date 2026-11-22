@@ -1,4 +1,4 @@
-//! End-to-end supervisor tests against the real `pa-daemon` binary: spawn the
+//! End-to-end supervisor tests against the real `aa-daemon` binary: spawn the
 //! supervisor on a temp socket, drive it with a JSONL socket client, verify
 //! session lifecycle and streamed events with the scripted engine.
 // Stack-resident futures by design on the daemon's hot paths.
@@ -64,7 +64,7 @@ fn spawn_daemon_in(
     agent_dir: &std::path::Path,
     cwd: &std::path::Path,
 ) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .current_dir(cwd)
         .arg("supervisor")
@@ -78,11 +78,11 @@ fn spawn_daemon_in(
         // into later test binaries: the worker's supervisor-lost exit runs
         // on this short window instead of the 5-minute default.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -133,7 +133,7 @@ impl Client {
         self.send(&serde_json::json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }));
     }

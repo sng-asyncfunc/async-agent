@@ -1,4 +1,4 @@
-//! `prime-agent model list [search]`: the models catalog table — registry
+//! `async-agent model list [search]`: the models catalog table — registry
 //! refresh, fuzzy search, and the columns rendered.
 
 use crate::mode::RunOptions;
@@ -15,9 +15,9 @@ pub fn run(options: &RunOptions) -> Result<i32, String> {
 
 async fn list(options: &RunOptions) -> Result<i32, String> {
     let config = &options.config;
-    let auth = pa_core::auth::AuthStorage::create(&config.agent_dir);
+    let auth = aa_core::auth::AuthStorage::create(&config.agent_dir);
     let mut registry =
-        pa_core::models::ModelRegistry::create(auth, config.agent_dir.join("models.json"));
+        aa_core::models::ModelRegistry::create(auth, config.agent_dir.join("models.json"));
     if let Some(error) = registry.get_error() {
         eprintln!("Warning: errors loading models.json:\n{error}");
     }
@@ -30,7 +30,7 @@ async fn list(options: &RunOptions) -> Result<i32, String> {
     let mut filtered = match search {
         Some(pattern) => {
             let matched =
-                pa_tui::fuzzy::fuzzy_filter(&models, &pattern, |model: &pa_types::ai::Model| {
+                aa_tui::fuzzy::fuzzy_filter(&models, &pattern, |model: &aa_types::ai::Model| {
                     format!("{} {}", model.provider, model.id)
                 });
             if matched.is_empty() {
@@ -48,7 +48,7 @@ async fn list(options: &RunOptions) -> Result<i32, String> {
 
 /// Guidance plus the bundled docs paths for providers and models.
 fn no_models_available_message() -> String {
-    let docs = pa_core::packages::docs_path();
+    let docs = aa_core::packages::docs_path();
     format!(
         "No models available. Use /login to log into a provider via OAuth or API key. See:\n  {}\n  {}",
         docs.join("providers.md").display(),
@@ -66,7 +66,7 @@ struct Row {
 }
 
 impl Row {
-    fn from_model(model: &pa_types::ai::Model) -> Self {
+    fn from_model(model: &aa_types::ai::Model) -> Self {
         Row {
             provider: model.provider.clone(),
             model: model.id.clone(),
@@ -77,7 +77,7 @@ impl Row {
                 model
                     .input
                     .iter()
-                    .any(|input| matches!(input, pa_types::ai::ModelInput::Image)),
+                    .any(|input| matches!(input, aa_types::ai::ModelInput::Image)),
             ),
         }
     }
@@ -122,7 +122,7 @@ fn format_token_count(count: u64) -> String {
 
 /// The catalog table: fixed headers, two-space gutters, and every
 /// column padded to its widest value (trailing padding included).
-fn print_table(models: &[pa_types::ai::Model]) {
+fn print_table(models: &[aa_types::ai::Model]) {
     const HEADERS: [&str; 6] = [
         "provider", "model", "context", "max-out", "thinking", "images",
     ];

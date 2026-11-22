@@ -1,9 +1,9 @@
 //! The persisted scan-state sidecar: `<stem>.info-cache.json`, written
 //! beside the session file when the runtime lease is released and loaded
 //! on a process-cache miss, so a warm resume folds only the appended tail
-//! instead of rescanning the whole file. pa-daemon owns the sidecar:
+//! instead of rescanning the whole file. aa-daemon owns the sidecar:
 //! the scan state is this crate's type, and it certifies differently from
-//! pa-core's window snapshot (an exact generation there, a grown-file
+//! aa-core's window snapshot (an exact generation there, a grown-file
 //! resume with a prefix check here). Two writers: the lease holder at
 //! release, and the catalog scan for a file it had to fold. Both persist
 //! only certified states and every load re-validates the generation or
@@ -76,7 +76,7 @@ pub(crate) fn persist_info_sidecar(path: &Path) {
         // The sidecar carries message text (the first message): the temp is
         // owner-only like the session files (`persist.rs`'s writer), and the
         // rename carries the mode onto the sidecar.
-        pa_core::platform::perms::set_private_mode(&mut options);
+        aa_core::platform::perms::set_private_mode(&mut options);
         let mut file = io::BufWriter::new(options.open(&temp)?);
         serde_json::to_writer(
             &mut file,
@@ -86,7 +86,7 @@ pub(crate) fn persist_info_sidecar(path: &Path) {
             },
         )?;
         file.flush()?;
-        pa_core::platform::rename_onto(&temp, &sidecar_path(path))
+        aa_core::platform::rename_onto(&temp, &sidecar_path(path))
     })();
     if result.is_err() {
         let _ = std::fs::remove_file(&temp);

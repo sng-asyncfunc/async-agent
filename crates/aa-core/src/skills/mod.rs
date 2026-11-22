@@ -18,7 +18,7 @@ pub const MAX_DESCRIPTION_LENGTH: usize = 1024;
 pub use diagnostics::{ResourceCollision, ResourceDiagnostic};
 pub use discovery::load_skills_from_dir;
 pub use loader::{load_skills, LoadSkillsOptions, LoadSkillsResult};
-pub use pa_types::slash_commands::parse_slash_command;
+pub use aa_types::slash_commands::parse_slash_command;
 pub use prompt_templates::{
     expand_prompt_template, load_prompt_templates, parse_command_args, substitute_args,
     LoadPromptTemplatesOptions, PromptTemplate,
@@ -156,11 +156,11 @@ pub fn is_reserved_javascript_global(name: &str) -> bool {
             | "hostRequest"
             | "emit"
             | "rlm"
-            | "__primeDisplay"
-            | "__primeHostRequest"
-            | "__primeLoadSkills"
-            | "__primeSetCompletionNoticesWired"
-            | "__primePersist"
+            | "__asyncDisplay"
+            | "__asyncHostRequest"
+            | "__asyncLoadSkills"
+            | "__asyncSetCompletionNoticesWired"
+            | "__asyncPersist"
             // Standard JS / Web / Node / Bun globals
             | "globalThis"
             | "global"
@@ -444,13 +444,13 @@ fn skill_block(skill: &Skill) -> Option<String> {
 /// blocks, each skill once (hidden skills included). A message that starts
 /// with a known `/skill:<name>` becomes its block followed by the rest of
 /// the message after a blank line; references elsewhere (standalone words
-/// outside code, see [`pa_types::skill_blocks::skill_references`]) prepend
+/// outside code, see [`aa_types::skill_blocks::skill_references`]) prepend
 /// their blocks and leave the user's text as written. Unknown names, an
 /// unreadable skill file, and an already-expanded message pass through.
 /// Returns the skills the expansion used.
 #[must_use]
 pub fn expand_skill_command<'a>(text: &str, skills: &'a [Skill]) -> (String, Vec<&'a Skill>) {
-    if pa_types::skill_blocks::parse_skill_block(text).is_some() {
+    if aa_types::skill_blocks::parse_skill_block(text).is_some() {
         return (text.to_string(), Vec::new());
     }
     let find = |name: &str| skills.iter().find(|skill| skill.name == name);
@@ -459,7 +459,7 @@ pub fn expand_skill_command<'a>(text: &str, skills: &'a [Skill]) -> (String, Vec
         Some((skill, args))
     });
     let mut used: Vec<&Skill> = leading.iter().map(|(skill, _)| *skill).collect();
-    for name in pa_types::skill_blocks::skill_references(text) {
+    for name in aa_types::skill_blocks::skill_references(text) {
         if let Some(skill) = find(name) {
             if !used.iter().any(|known| known.name == skill.name) {
                 used.push(skill);
@@ -542,7 +542,7 @@ mod tests {
         let skills = [skill];
         let (expanded, used) = expand_skill_command("/skill:web-search", &skills);
         assert_eq!(used, vec![&skills[0]]);
-        let parsed = pa_types::skill_blocks::parse_skill_block(&expanded).expect("parses");
+        let parsed = aa_types::skill_blocks::parse_skill_block(&expanded).expect("parses");
         assert_eq!(parsed.name, "web-search");
         // TS block shape: the references note rides inside the body,
         // ahead of the frontmatter-stripped skill content.
@@ -558,7 +558,7 @@ mod tests {
 
         let (expanded, used) = expand_skill_command("/skill:web-search find rust tuis", &skills);
         assert_eq!(used, vec![&skills[0]]);
-        let parsed = pa_types::skill_blocks::parse_skill_block(&expanded).expect("parses");
+        let parsed = aa_types::skill_blocks::parse_skill_block(&expanded).expect("parses");
         assert_eq!(
             parsed.user_message.as_deref(),
             Some("find rust tuis"),

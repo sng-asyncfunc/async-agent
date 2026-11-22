@@ -10,8 +10,8 @@ use serde_json::{json, Map, Value};
 use crate::engine::{CompactionOutcome, CompactionRequest, SessionEngine};
 use crate::protocol::DaemonOutbound;
 use crate::worker::{EventPump, OutboundFrame, SessionCore};
-use pa_agent::abort::AbortController;
-use pa_core::session_engine::messages::{CompactionOutcomeKind, CompactionOutcomeReason};
+use aa_agent::abort::AbortController;
+use aa_core::session_engine::messages::{CompactionOutcomeKind, CompactionOutcomeReason};
 
 /// The worker's compaction machinery: the live-run abort slot plus the
 /// compaction flow. One slot per session, replaced by each new run.
@@ -75,7 +75,7 @@ impl CompactionManager {
         }
         let start = compaction_start_event("manual", custom_instructions.as_deref());
         let _ = self.emit_session_event(start);
-        pa_core::session_engine::compaction_trace::trace(
+        aa_core::session_engine::compaction_trace::trace(
             "manual.start_emitted",
             &serde_json::Value::Null,
         );
@@ -95,13 +95,13 @@ impl CompactionManager {
         };
 
         if let CompactionOutcome::Compacted { run } = &outcome {
-            pa_core::session_engine::compaction_trace::trace(
+            aa_core::session_engine::compaction_trace::trace(
                 "manual.compact_returned",
                 &serde_json::Value::Null,
             );
             let persist_started = std::time::Instant::now();
             self.persist_compaction(run, custom_instructions.as_deref());
-            pa_core::session_engine::compaction_trace::trace(
+            aa_core::session_engine::compaction_trace::trace(
                 "manual.compaction_persisted",
                 &serde_json::json!({
                     "micros": persist_started.elapsed().as_micros(),
@@ -115,7 +115,7 @@ impl CompactionManager {
         }
         let end = compaction_end_event(&outcome, custom_instructions.as_deref());
         let _ = self.emit_session_event(end);
-        pa_core::session_engine::compaction_trace::trace(
+        aa_core::session_engine::compaction_trace::trace(
             "manual.end_emitted",
             &serde_json::Value::Null,
         );
@@ -235,13 +235,13 @@ impl CompactionManager {
                 .map(|entry| entry.id.clone())
                 .unwrap_or_default()
         } else {
-            let keep_recent = pa_core::settings::SettingsManager::create(&cwd, &self.agent_dir)
+            let keep_recent = aa_core::settings::SettingsManager::create(&cwd, &self.agent_dir)
                 .settings()
                 .compaction
                 .clone()
                 .unwrap_or_default()
                 .keep_recent_tokens
-                .unwrap_or(pa_core::session_engine::compaction::DEFAULT_KEEP_RECENT_TOKENS);
+                .unwrap_or(aa_core::session_engine::compaction::DEFAULT_KEEP_RECENT_TOKENS);
             store
                 .durable_first_kept_entry_id(keep_recent)
                 .unwrap_or(first_kept_entry_id)
@@ -302,8 +302,8 @@ pub(crate) fn compaction_summary_delta_event(delta: &str) -> Value {
 /// return): summary, firstKeptEntryId, tokensBefore, and the entry's file-op `details` verbatim.
 /// `usage` never rides the wire result.
 pub(crate) fn compaction_result_value(
-    result: &pa_core::session_engine::compaction_exec::CompactionResult,
-    entry: &pa_types::session::CompactionEntry,
+    result: &aa_core::session_engine::compaction_exec::CompactionResult,
+    entry: &aa_types::session::CompactionEntry,
 ) -> Value {
     let mut value = json!({
         "summary": result.summary,
@@ -389,7 +389,7 @@ pub(crate) fn interrupted_compaction_disclosure(
         .and_then(Value::as_str)
         .map_or_else(crate::util::now_iso, str::to_string);
     let message = crate::session_commands::custom_message_value(
-        &pa_core::session_engine::messages::create_compaction_outcome_message(
+        &aa_core::session_engine::messages::create_compaction_outcome_message(
             "Compaction cancelled",
             reason,
             CompactionOutcomeKind::Cancelled,
@@ -507,13 +507,13 @@ mod tests {
 
     #[test]
     fn compaction_result_value_mirrors_the_ts_datakeys() {
-        let result = pa_core::session_engine::compaction_exec::CompactionResult {
+        let result = aa_core::session_engine::compaction_exec::CompactionResult {
             summary: "the story so far".to_string(),
             first_kept_entry_id: "abcd1234".to_string(),
             tokens_before: 1234,
-            usage: Some(pa_types::ai::Usage::default()),
+            usage: Some(aa_types::ai::Usage::default()),
         };
-        let entry = pa_types::session::CompactionEntry {
+        let entry = aa_types::session::CompactionEntry {
             summary: result.summary.clone(),
             first_kept_entry_id: result.first_kept_entry_id.clone(),
             tokens_before: result.tokens_before,
@@ -545,7 +545,7 @@ mod tests {
         );
         // A run whose entry carries no details drops the key, like TS's
         // `undefined` under JSON serialization.
-        let bare = pa_types::session::CompactionEntry {
+        let bare = aa_types::session::CompactionEntry {
             details: None,
             ..entry
         };

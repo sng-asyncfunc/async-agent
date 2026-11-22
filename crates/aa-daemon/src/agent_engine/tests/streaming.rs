@@ -12,7 +12,7 @@ fn prompt_images_ride_the_user_message_content() {
         0,
         PromptRequest {
             batch: Vec::new(),
-            images: vec![pa_agent::types::ImageContent {
+            images: vec![aa_agent::types::ImageContent {
                 data: "QUJD".to_string(),
                 mime_type: "image/png".to_string(),
             }],
@@ -239,7 +239,7 @@ fn lazy_build_restores_only_the_pre_admission_prompt_context() {
             prompt_index,
             PromptRequest {
                 batch: Vec::new(),
-                images: vec![pa_agent::types::ImageContent {
+                images: vec![aa_agent::types::ImageContent {
                     data: "QUJD".to_string(),
                     mime_type: "image/png".to_string(),
                 }],
@@ -301,7 +301,7 @@ fn lazy_build_restores_only_the_pre_admission_prompt_context() {
                 .messages
                 .into_iter()
                 .filter_map(|message| match message {
-                    pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::User(
+                    aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::User(
                         user,
                     )) => Some(
                         serde_json::to_value(user).expect("user serializes")["content"].clone(),
@@ -317,11 +317,11 @@ fn lazy_build_restores_only_the_pre_admission_prompt_context() {
         );
         let persistence = core.session.shared_persistence();
         let inner = persistence.blocking_lock();
-        let is_user = |entry: &&pa_types::session::FileEntry| {
+        let is_user = |entry: &&aa_types::session::FileEntry| {
             matches!(
                 entry,
-                pa_types::session::FileEntry::Message {
-                    message: pa_types::session::AgentMessage::User(_),
+                aa_types::session::FileEntry::Message {
+                    message: aa_types::session::AgentMessage::User(_),
                     ..
                 }
             )
@@ -336,7 +336,7 @@ fn lazy_build_restores_only_the_pre_admission_prompt_context() {
                 .active_context()
                 .messages
                 .iter()
-                .filter(|message| matches!(message, pa_types::session::AgentMessage::User(_)))
+                .filter(|message| matches!(message, aa_types::session::AgentMessage::User(_)))
                 .count(),
             prompt_index + 1,
             "compact/refine context must retain each repeated prompt once"

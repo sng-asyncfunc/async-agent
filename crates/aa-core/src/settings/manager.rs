@@ -630,8 +630,8 @@ impl SettingsManager {
     /// # Errors
     ///
     /// Returns an error when the global settings file cannot be written.
-    pub fn set_default_service_tier(&mut self, tier: pa_types::ai::ServiceTier) -> Result<()> {
-        use pa_types::ai::ServiceTier;
+    pub fn set_default_service_tier(&mut self, tier: aa_types::ai::ServiceTier) -> Result<()> {
+        use aa_types::ai::ServiceTier;
         let name = match tier {
             ServiceTier::Auto => "auto",
             ServiceTier::Default => "default",
@@ -646,8 +646,8 @@ impl SettingsManager {
     /// Service tier a fresh session records as its preference.
     /// An unrecognized setting value falls back to the same `default`.
     #[must_use]
-    pub fn get_default_service_tier(&self) -> pa_types::ai::ServiceTier {
-        use pa_types::ai::ServiceTier;
+    pub fn get_default_service_tier(&self) -> aa_types::ai::ServiceTier {
+        use aa_types::ai::ServiceTier;
         self.merged
             .default_service_tier
             .as_deref()
@@ -885,7 +885,7 @@ impl SettingsManager {
     #[must_use]
     pub fn get_session_dir(&self) -> Option<std::path::PathBuf> {
         let session_dir = self.merged.session_dir.as_ref()?;
-        let home = pa_types::platform::home_dir()?;
+        let home = aa_types::platform::home_dir()?;
         Some(if session_dir == "~" {
             home
         } else if let Some(rest) = session_dir.strip_prefix("~/") {
@@ -1063,13 +1063,13 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let project = root.path().join("project");
         let agent_dir = root.path().join("global");
-        let project_settings = project.join(".prime/agent/settings.json");
+        let project_settings = project.join(".async-agent/settings.json");
         let auth = agent_dir.join("auth.json");
         std::fs::create_dir_all(project_settings.parent().unwrap()).unwrap();
         std::fs::create_dir_all(&agent_dir).unwrap();
         let secret = r#"{"prime-inference":{"type":"api_key","key":"sensitive-key"}}"#;
         std::fs::write(&auth, secret).unwrap();
-        std::os::unix::fs::symlink("../../../global/auth.json", &project_settings).unwrap();
+        std::os::unix::fs::symlink("../../global/auth.json", &project_settings).unwrap();
 
         let mut manager = SettingsManager::create(&project, &agent_dir);
         manager.set_project_packages(vec![serde_json::json!({"source": "example"})]);
@@ -1114,7 +1114,7 @@ mod tests {
     /// `factory.enabled` reads the GLOBAL scope only (the agent-dir
     /// document the kernel's factory gate and `set_factory_enabled` use):
     /// a project-scope override can never flip the gate out from under the
-    /// kernel — a project `.prime/agent/settings.json` with `enabled: true`
+    /// kernel — a project `.async-agent/settings.json` with `enabled: true`
     /// leaves the factory disabled while the global setting says nothing
     /// (Macroscope review finding: the merged read could diverge the
     /// daemon's lane advertisement and the client's `/factory status`
@@ -1124,10 +1124,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cwd = dir.path().join("cwd");
         let agent_dir = dir.path().join("agent");
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
         std::fs::create_dir_all(&agent_dir).unwrap();
         std::fs::write(
-            cwd.join(".prime/agent/settings.json"),
+            cwd.join(".async-agent/settings.json"),
             r#"{ "factory": { "enabled": true } }"#,
         )
         .unwrap();
@@ -1245,12 +1245,12 @@ mod tests {
             Arc::new(super::super::storage::InMemorySettingsStorage::default());
         storage
             .with_lock(SettingsScope::Global, &mut |_| {
-                Some(r#"{ "defaultProvider": 42, "theme": "prime" }"#.into())
+                Some(r#"{ "defaultProvider": 42, "theme": "async" }"#.into())
             })
             .unwrap();
         let manager = SettingsManager::from_storage(storage);
         assert_eq!(manager.get_default_provider(), None);
-        assert_eq!(manager.get_theme(), Some("prime"));
+        assert_eq!(manager.get_theme(), Some("async"));
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //! (refinement planning and review, side questions). Compactions and branch
 //! summaries bill on their own rows; these calls have no row of their own.
 
-use pa_types::ai::{AssistantMessage, Usage};
+use aa_types::ai::{AssistantMessage, Usage};
 use serde::{Deserialize, Serialize};
 
 /// The `custom` entry type that records one [`ModelUsage`] in its `data`.

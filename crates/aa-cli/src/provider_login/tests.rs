@@ -126,7 +126,7 @@ async fn login_options_list_providers_only() {
     let dir = tempfile::tempdir().expect("temp dir");
     let agent = dir.path().join("agent");
     std::fs::create_dir_all(&agent).expect("agent dir");
-    std::env::remove_var("PRIME_AGENT_TRACES_API_KEY");
+    std::env::remove_var("ASYNC_AGENT_TRACES_API_KEY");
     std::env::remove_var("PRIME_API_KEY");
     let auth = ProviderAuth::new(dir.path(), agent.clone());
     let rows = auth.login_options().await;
@@ -173,7 +173,7 @@ async fn the_anthropic_subscription_warning_matches_the_active_credential() {
     assert_eq!(auth.anthropic_subscription_warning().await, None);
 
     // A plain API key: no warning (an API key avoids the risk).
-    let mut storage = pa_core::auth::AuthStorage::create(&agent);
+    let mut storage = aa_core::auth::AuthStorage::create(&agent);
     storage.set(
         "anthropic",
         AuthCredential::ApiKey {

@@ -7,14 +7,14 @@ use std::sync::Arc;
 
 use serde_json::Value;
 
-use pa_agent::types::AgentEvent;
-use pa_agent::types::AgentMessage;
-use pa_core::session_engine::session_commands::{
+use aa_agent::types::AgentEvent;
+use aa_agent::types::AgentMessage;
+use aa_core::session_engine::session_commands::{
     execute_session_command, session_command_echo_row, SessionCommandParams,
 };
-use pa_core::session_engine::session_events::agent_event_json;
-use pa_core::session_engine::{PromptOptions, PromptOutcome};
-use pa_types::session::CustomMessage;
+use aa_core::session_engine::session_events::agent_event_json;
+use aa_core::session_engine::{PromptOptions, PromptOutcome};
+use aa_types::session::CustomMessage;
 
 use super::commands::{compaction_frame, kick_queue_pump, resume_pump, RpcState};
 use super::protocol::{self, ResponseData};
@@ -76,7 +76,7 @@ async fn write_command_row(state: &RpcState, message: &CustomMessage) {
     // The row's loop shape: the `custom` role rides BESIDE the row's
     // own fields (a bare round-trip cannot recover it, the session row
     // type carries no role).
-    let custom = pa_agent::types::CustomAgentMessage {
+    let custom = aa_agent::types::CustomAgentMessage {
         role: "custom".to_string(),
         payload: serde_json::to_value(message).unwrap_or(serde_json::Value::Null),
     };
@@ -98,11 +98,11 @@ async fn write_command_row(state: &RpcState, message: &CustomMessage) {
 /// persists the echo/result rows; the goal publishes on change.
 async fn run_session_command(
     state: &Arc<RpcState>,
-    engine: Arc<pa_core::session_engine::engine::SessionEngine>,
-    command: &pa_core::session_engine::slash_commands::SessionSlashCommand,
-    model: pa_types::ai::Model,
+    engine: Arc<aa_core::session_engine::engine::SessionEngine>,
+    command: &aa_core::session_engine::slash_commands::SessionSlashCommand,
+    model: aa_types::ai::Model,
     api_key: Option<String>,
-    images: &[pa_agent::types::ImageContent],
+    images: &[aa_agent::types::ImageContent],
 ) -> Result<(), String> {
     let is_compact = command.name == "compact";
     // The compact frames carry the command's arguments as the
@@ -258,19 +258,19 @@ pub async fn steer_or_follow_up(
 }
 
 /// The user prompt message in the loop's normalized shape (text part first, image parts after).
-fn user_prompt_message(text: &str, images: &[pa_agent::types::ImageContent]) -> AgentMessage {
-    let mut parts = vec![pa_agent::types::UserPart::Text(
-        pa_agent::types::TextContent {
+fn user_prompt_message(text: &str, images: &[aa_agent::types::ImageContent]) -> AgentMessage {
+    let mut parts = vec![aa_agent::types::UserPart::Text(
+        aa_agent::types::TextContent {
             text: text.to_string(),
             text_signature: None,
         },
     )];
     for image in images {
-        parts.push(pa_agent::types::UserPart::Image(image.clone()));
+        parts.push(aa_agent::types::UserPart::Image(image.clone()));
     }
-    AgentMessage::Standard(pa_agent::types::Message::User(
-        pa_agent::types::UserMessage {
-            content: pa_agent::types::UserContent::Parts(parts),
+    AgentMessage::Standard(aa_agent::types::Message::User(
+        aa_agent::types::UserMessage {
+            content: aa_agent::types::UserContent::Parts(parts),
             timestamp: now_millis() as i64,
         },
     ))

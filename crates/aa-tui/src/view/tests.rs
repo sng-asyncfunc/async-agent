@@ -9,7 +9,7 @@ use crate::Line;
 use ratatui::style::Modifier;
 
 fn view() -> AgentView {
-    AgentView::new(Theme::builtin("prime", ColorMode::TrueColor))
+    AgentView::new(Theme::builtin("async", ColorMode::TrueColor))
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn injected_terminal_links_are_not_clickable() {
         custom_instructions: None,
         summary: injected.to_string(),
     };
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let rows = crate::compaction_row::render_compaction_stream(&streaming, true, &theme, 80);
     let links = crate::hyperlinks::frame_link_ranges(&rows);
     assert!(!rows.is_empty() && links.is_empty(), "{links:?}");
@@ -345,7 +345,7 @@ fn frame_is_exactly_height_rows() {
     assert_eq!(frame.len(), 24);
     assert!(frame.iter().all(|l| str_width(&text_of(l)) <= 80));
     let joined = frame.iter().map(text_of).collect::<Vec<_>>().join("\n");
-    assert!(joined.contains("prime agent v0.0.0"));
+    assert!(joined.contains("async agent v0.0.0"));
     assert!(joined.contains("Collapsed mode (Ctrl+O to expand)"));
     assert!(joined.contains('>'));
 }
@@ -880,7 +880,7 @@ fn dock_pads_window_between_splash_and_editor() {
 
 fn view_with(entries: Vec<ChatEntry>) -> AgentView {
     let mut view = AgentView::new(crate::theme::Theme::builtin(
-        "prime",
+        "async",
         crate::theme::ColorMode::Color256,
     ));
     for entry in entries {

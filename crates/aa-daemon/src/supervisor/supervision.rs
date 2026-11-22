@@ -35,7 +35,7 @@ impl OrphanGeneration {
         let generation = self.clone();
         let _ = tokio::task::spawn_blocking(move || {
             if let Ok(pid) = i32::try_from(generation.pid) {
-                pa_core::kernel::orphan_journal::reap_worker_orphan_processes(
+                aa_core::kernel::orphan_journal::reap_worker_orphan_processes(
                     std::path::Path::new(&generation.path),
                     pid,
                 );
@@ -202,7 +202,7 @@ impl Supervisor {
                 // to watch, and a watch on pid 0 would report a phantom
                 // exit; fall straight to the failure/backoff/relaunch arm
                 // instead.
-                let exited = match pa_core::platform::process::wait_for_exit(adopted_pid as u32)
+                let exited = match aa_core::platform::process::wait_for_exit(adopted_pid as u32)
                     .await
                 {
                     Ok(()) => true,
@@ -595,7 +595,7 @@ impl Supervisor {
             )
         };
 
-        let executable = std::env::current_exe().context("resolve pa-daemon executable")?;
+        let executable = std::env::current_exe().context("resolve aa-daemon executable")?;
         let stderr_log_path =
             crate::worker_stderr::log_path(&self.options.agent_dir, &resident.worker_id);
         let stderr_log = crate::worker_stderr::open_for_spawn(&stderr_log_path)?;
@@ -619,7 +619,7 @@ impl Supervisor {
         }
         // Detached and window-hidden, the TS worker spawn (`spawnHidden`, `{ detached: true }`):
         // the worker leaves the supervisor's console group and shows no fresh console.
-        pa_core::platform::process::set_new_process_group(command.as_std_mut());
+        aa_core::platform::process::set_new_process_group(command.as_std_mut());
         let child = command
             .spawn()
             .with_context(|| format!("spawn session worker {}", resident.worker_id))?;

@@ -1,7 +1,7 @@
 //! The composition root's MCP auth flows behind the TUI's
 //! `/mcp login <name>` and `/mcp logout <name>` plus the `/mcp` view's
 //! api-key credential flow (`key <name>`): resolve the server through
-//! the settings + builtin catalog, run the pa-core OAuth login against
+//! the settings + builtin catalog, run the aa-core OAuth login against
 //! the inline auth panel (the authorization URL block and the paste
 //! fallbacks render in the TUI; the browser launch rides the request),
 //! and persist the endpoint-bound credential in the shared auth store —
@@ -15,12 +15,12 @@ use std::pin::Pin;
 
 use anyhow::{anyhow, Context, Result};
 
-use pa_core::auth::{AuthCredential, AuthStorage};
-use pa_core::mcp::{
+use aa_core::auth::{AuthCredential, AuthStorage};
+use aa_core::mcp::{
     McpLoginUi, McpManager, McpManagerOptions, McpServerConfig, OAuthHttp, ReqwestOAuthHttp,
 };
-use pa_tui::auth_panel::{PastePromptTone, PasteStyle};
-use pa_tui::client_auth::{AuthFuture, ClientAuthCommands};
+use aa_tui::auth_panel::{PastePromptTone, PasteStyle};
+use aa_tui::client_auth::{AuthFuture, ClientAuthCommands};
 
 /// The CLI's live MCP manager: the shared auth store and global-only `mcpServers` and
 /// `mcpCatalogSources`, re-read per resolve. No interactive login: hosts with
@@ -30,8 +30,8 @@ pub(crate) fn cli_mcp_manager(cwd: &std::path::Path, agent_dir: &std::path::Path
     let user_agent_dir = agent_dir.to_path_buf();
     let catalog_cwd = cwd.to_path_buf();
     let catalog_agent_dir = agent_dir.to_path_buf();
-    let user_servers: pa_core::mcp::UserServersFn = std::sync::Arc::new(move || {
-        let settings = pa_core::settings::SettingsManager::create(&user_cwd, &user_agent_dir);
+    let user_servers: aa_core::mcp::UserServersFn = std::sync::Arc::new(move || {
+        let settings = aa_core::settings::SettingsManager::create(&user_cwd, &user_agent_dir);
         Some(
             settings
                 .global_settings()
@@ -51,14 +51,14 @@ pub(crate) fn cli_mcp_manager(cwd: &std::path::Path, agent_dir: &std::path::Path
     McpManager::new(McpManagerOptions {
         auth_storage: AuthStorage::create_with_oauth(
             agent_dir,
-            std::sync::Arc::new(pa_core::mcp::McpOAuth::new(oauth_user_servers)),
+            std::sync::Arc::new(aa_core::mcp::McpOAuth::new(oauth_user_servers)),
         ),
         get_user_servers: Box::new(move || user_servers()),
         begin_login: None,
         agent_dir: Some(agent_dir.to_path_buf()),
         get_catalog_sources: Some(Box::new(move || {
             let settings =
-                pa_core::settings::SettingsManager::create(&catalog_cwd, &catalog_agent_dir);
+                aa_core::settings::SettingsManager::create(&catalog_cwd, &catalog_agent_dir);
             settings
                 .global_settings()
                 .mcp_catalog_sources
@@ -111,7 +111,7 @@ impl TerminalMcpAuth {
     async fn login_inner(
         &self,
         server: &str,
-        panel: pa_tui::auth_panel::AuthPanelHandle,
+        panel: aa_tui::auth_panel::AuthPanelHandle,
     ) -> Result<String> {
         let ui = PanelMcpLoginUi { panel };
         self.login_with(server, &ui, &ReqwestOAuthHttp::new()).await
@@ -122,16 +122,16 @@ impl TerminalMcpAuth {
     async fn paste_inner(
         &self,
         server: &str,
-        panel: pa_tui::auth_panel::AuthPanelHandle,
+        panel: aa_tui::auth_panel::AuthPanelHandle,
     ) -> Result<String> {
         let manager = self.manager();
         let service = manager
             .service_descriptor(server)
             .ok_or_else(|| anyhow!("{server} is not a resolved MCP service."))?;
-        let pasted = pa_core::mcp::mcp_paste_credential(service).ok_or_else(|| {
+        let pasted = aa_core::mcp::mcp_paste_credential(service).ok_or_else(|| {
             anyhow!("{server} does not collect a single credential; it is not pasteable.")
         })?;
-        let prompt = pa_core::mcp::mcp_credential_field_prompt_label(service, &pasted.field);
+        let prompt = aa_core::mcp::mcp_credential_field_prompt_label(service, &pasted.field);
         let token = panel
             .paste_prompt(
                 &format!("Paste the {prompt} for {server}:"),
@@ -144,7 +144,7 @@ impl TerminalMcpAuth {
         let inputs = manager
             .paste_install_inputs(server)
             .map_err(|message| anyhow!("{message}"))?;
-        let outcome = pa_core::mcp::install_static_token(inputs, &token)
+        let outcome = aa_core::mcp::install_static_token(inputs, &token)
             .await
             .map_err(|message| anyhow!("{message}"))?;
         if outcome.verified {
@@ -168,9 +168,9 @@ impl TerminalMcpAuth {
     async fn api_key_inner(
         &self,
         credential: &str,
-        panel: pa_tui::auth_panel::AuthPanelHandle,
+        panel: aa_tui::auth_panel::AuthPanelHandle,
     ) -> Result<String> {
-        let label = pa_core::mcp::API_KEY_CREDENTIALS
+        let label = aa_core::mcp::API_KEY_CREDENTIALS
             .iter()
             .find(|(id, _)| *id == credential)
             .map(|(_, label)| *label)
@@ -223,17 +223,17 @@ impl TerminalMcpAuth {
 }
 
 impl ClientAuthCommands for TerminalMcpAuth {
-    fn login(&self, server: &str, panel: pa_tui::auth_panel::AuthPanelHandle) -> AuthFuture {
+    fn login(&self, server: &str, panel: aa_tui::auth_panel::AuthPanelHandle) -> AuthFuture {
         let (auth, server) = (self.clone(), server.to_string());
         Box::pin(async move { auth.login_inner(&server, panel).await })
     }
 
-    fn paste_token(&self, server: &str, panel: pa_tui::auth_panel::AuthPanelHandle) -> AuthFuture {
+    fn paste_token(&self, server: &str, panel: aa_tui::auth_panel::AuthPanelHandle) -> AuthFuture {
         let (auth, server) = (self.clone(), server.to_string());
         Box::pin(async move { auth.paste_inner(&server, panel).await })
     }
 
-    fn api_key(&self, credential: &str, panel: pa_tui::auth_panel::AuthPanelHandle) -> AuthFuture {
+    fn api_key(&self, credential: &str, panel: aa_tui::auth_panel::AuthPanelHandle) -> AuthFuture {
         let (auth, credential) = (self.clone(), credential.to_string());
         Box::pin(async move { auth.api_key_inner(&credential, panel).await })
     }
@@ -248,7 +248,7 @@ impl ClientAuthCommands for TerminalMcpAuth {
 /// and the paste fallbacks drive the auth panel through the request channel; never
 /// touches the terminal.
 struct PanelMcpLoginUi {
-    panel: pa_tui::auth_panel::AuthPanelHandle,
+    panel: aa_tui::auth_panel::AuthPanelHandle,
 }
 
 impl McpLoginUi for PanelMcpLoginUi {
@@ -260,7 +260,7 @@ impl McpLoginUi for PanelMcpLoginUi {
 
     fn on_auth(&self, url: &str, instructions: &str) {
         self.panel.auth_url(url, Some(instructions));
-        pa_core::platform::browser::open_in_browser(url);
+        aa_core::platform::browser::open_in_browser(url);
     }
 
     fn on_prompt(
@@ -306,28 +306,28 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cwd = dir.path().join("project");
         let agent_dir = dir.path().join("agent");
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
         std::fs::create_dir_all(&agent_dir).unwrap();
         let mut global: serde_json::Value = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../pa-core/tests/fixtures/mcp/global-settings.json"
+            "/../aa-core/tests/fixtures/mcp/global-settings.json"
         )))
         .unwrap();
         global["mcpCatalogSources"] = serde_json::json!([concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../pa-core/tests/fixtures/mcp/global-services.json"
+            "/../aa-core/tests/fixtures/mcp/global-services.json"
         )]);
         let mut project: serde_json::Value = serde_json::from_str(include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../pa-core/tests/fixtures/mcp/project-settings.json"
+            "/../aa-core/tests/fixtures/mcp/project-settings.json"
         )))
         .unwrap();
         project["mcpCatalogSources"] = serde_json::json!([concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../pa-core/tests/fixtures/mcp/project-services.json"
+            "/../aa-core/tests/fixtures/mcp/project-services.json"
         )]);
         std::fs::write(agent_dir.join("settings.json"), global.to_string()).unwrap();
-        std::fs::write(cwd.join(".prime/agent/settings.json"), project.to_string()).unwrap();
+        std::fs::write(cwd.join(".async-agent/settings.json"), project.to_string()).unwrap();
         let mut manager = cli_mcp_manager(&cwd, &agent_dir);
         for _ in 0..2 {
             assert_eq!(
@@ -342,11 +342,11 @@ mod tests {
 
     /// A scripted transport (exact URL -> response): a plain origin-level
     /// authorization server.
-    struct ScriptedHttp(HashMap<String, pa_core::mcp::OAuthHttpResponse>);
+    struct ScriptedHttp(HashMap<String, aa_core::mcp::OAuthHttpResponse>);
 
     impl ScriptedHttp {
         fn fixture() -> Self {
-            let entry = |status: u16, body: &str| pa_core::mcp::OAuthHttpResponse {
+            let entry = |status: u16, body: &str| aa_core::mcp::OAuthHttpResponse {
                 status,
                 headers: vec![("content-type".to_string(), "application/json".to_string())],
                 body: body.to_string(),
@@ -388,8 +388,8 @@ mod tests {
     impl OAuthHttp for ScriptedHttp {
         fn request(
             &self,
-            request: pa_core::mcp::OAuthHttpRequest,
-        ) -> futures::future::BoxFuture<'_, Result<pa_core::mcp::OAuthHttpResponse>> {
+            request: aa_core::mcp::OAuthHttpRequest,
+        ) -> futures::future::BoxFuture<'_, Result<aa_core::mcp::OAuthHttpResponse>> {
             Box::pin(async move {
                 self.0
                     .get(&request.url)
@@ -501,7 +501,7 @@ mod tests {
         let mut auth = AuthStorage::create(&agent_dir);
         auth.set(
             "mcp:linear",
-            pa_core::auth::AuthCredential::Oauth {
+            aa_core::auth::AuthCredential::Oauth {
                 access: "linear-access".to_string(),
                 refresh: None,
                 expires: i64::MAX,
@@ -543,7 +543,7 @@ mod tests {
 
         // The flow prompts (masked) for the key, then stores it.
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let panel = pa_tui::auth_panel::AuthPanelHandle::new(tx);
+        let panel = aa_tui::auth_panel::AuthPanelHandle::new(tx);
         let flow = tokio::spawn({
             let hook = hook.clone();
             let panel = panel.clone();
@@ -553,7 +553,7 @@ mod tests {
             .await
             .expect("the paste request sends")
             .expect("the channel stays open");
-        let pa_tui::auth_panel::AuthPanelRequest::PastePrompt { prompt, reply, .. } = request
+        let aa_tui::auth_panel::AuthPanelRequest::PastePrompt { prompt, reply, .. } = request
         else {
             panic!("expected the paste request")
         };
@@ -584,7 +584,7 @@ mod tests {
 
         // A cancelled prompt answers the cancel (the stored key stays).
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let panel = pa_tui::auth_panel::AuthPanelHandle::new(tx);
+        let panel = aa_tui::auth_panel::AuthPanelHandle::new(tx);
         let flow = tokio::spawn({
             let hook = hook.clone();
             let panel = panel.clone();
@@ -594,7 +594,7 @@ mod tests {
             .await
             .expect("the paste request sends")
             .expect("the channel stays open");
-        let pa_tui::auth_panel::AuthPanelRequest::PastePrompt { reply, .. } = request else {
+        let aa_tui::auth_panel::AuthPanelRequest::PastePrompt { reply, .. } = request else {
             panic!("expected the paste request")
         };
         reply.send(None).expect("the cancel lands");

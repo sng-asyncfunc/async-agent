@@ -166,7 +166,7 @@ impl Worker {
                         None if payload
                             .get("customMessage")
                             .is_some_and(|message| !message.is_null())
-                            || pa_core::session_engine::agent_messaging::is_agent_session_message_id(
+                            || aa_core::session_engine::agent_messaging::is_agent_session_message_id(
                                 action.get("agentMessageId").and_then(Value::as_str),
                             )
                             || !matches!(
@@ -245,7 +245,7 @@ impl Worker {
         if let Err(response) = self.require_created("refine") {
             return response;
         }
-        let options = pa_core::session_engine::refine::RefineOptions {
+        let options = aa_core::session_engine::refine::RefineOptions {
             instructions: payload
                 .get("instructions")
                 .and_then(Value::as_str)
@@ -290,12 +290,12 @@ impl Worker {
         // notice when edits applied.
         if let (Some((session_id, generation)), Ok(typed)) = (
             &origin,
-            serde_json::from_value::<pa_core::refinement::RefinementResult>(result.clone()),
+            serde_json::from_value::<aa_core::refinement::RefinementResult>(result.clone()),
         ) {
             let outcome =
-                pa_core::session_engine::refine::create_refinement_outcome_message(&typed);
+                aa_core::session_engine::refine::create_refinement_outcome_message(&typed);
             if let Ok(value) =
-                serde_json::to_value(pa_types::session::AgentMessage::Custom(outcome))
+                serde_json::to_value(aa_types::session::AgentMessage::Custom(outcome))
             {
                 crate::worker::emit_refinement_row_for_generation(
                     &self.core,
@@ -306,12 +306,12 @@ impl Worker {
                 );
             }
             if typed.applied_edits.iter().any(|edit| edit.applied) {
-                let notice = pa_core::session_engine::refine::create_refinement_notice_message(
+                let notice = aa_core::session_engine::refine::create_refinement_notice_message(
                     &typed,
-                    pa_core::session_engine::refine::RefinementSource::User,
+                    aa_core::session_engine::refine::RefinementSource::User,
                 );
                 if let Ok(value) =
-                    serde_json::to_value(pa_types::session::AgentMessage::Custom(notice))
+                    serde_json::to_value(aa_types::session::AgentMessage::Custom(notice))
                 {
                     crate::worker::emit_refinement_row_for_generation(
                         &self.core,
@@ -880,7 +880,7 @@ mod tests {
                                     "text": content,
                                     "preview": format!(
                                         "{}: {content}",
-                                        pa_core::session_engine::messages::HEARTBEAT_PROMPT_PREVIEW_LABEL
+                                        aa_core::session_engine::messages::HEARTBEAT_PROMPT_PREVIEW_LABEL
                                     ),
                                     "records": [
                                         {
@@ -921,7 +921,7 @@ mod tests {
             data["steering"][0],
             format!(
                 "{}: {content}",
-                pa_core::session_engine::messages::HEARTBEAT_PROMPT_PREVIEW_LABEL
+                aa_core::session_engine::messages::HEARTBEAT_PROMPT_PREVIEW_LABEL
             )
         );
         // The injected custom row rides the restored item.
@@ -1115,7 +1115,7 @@ mod tests {
             .messages
             .iter()
             .find_map(|message| match message {
-                pa_agent::types::AgentMessage::Custom(custom)
+                aa_agent::types::AgentMessage::Custom(custom)
                     if custom.payload["customType"] == "heartbeat_prompt" =>
                 {
                     Some(custom.payload.clone())

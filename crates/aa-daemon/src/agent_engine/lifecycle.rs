@@ -60,9 +60,9 @@ impl AgentSessionEngine {
             ))
         });
         let autonomous_driver = std::sync::RwLock::new(std::sync::Arc::new(
-            pa_core::autonomous::ShellAutonomousDriver::new(config.cwd.clone()),
+            aa_core::autonomous::ShellAutonomousDriver::new(config.cwd.clone()),
         )
-            as std::sync::Arc<dyn pa_core::autonomous::AutonomousDriver>);
+            as std::sync::Arc<dyn aa_core::autonomous::AutonomousDriver>);
         let cwd = std::sync::Arc::new(std::sync::RwLock::new(config.cwd.clone()));
         // The ACP MCP store (auth storage construction is blocking, off the hot async paths).
         let agent_dir = config.agent_dir.clone();
@@ -72,11 +72,11 @@ impl AgentSessionEngine {
         let mcp_agent_dir = agent_dir.clone();
         let catalog_cwd = std::sync::Arc::clone(&cwd);
         let catalog_agent_dir = agent_dir.clone();
-        let user_servers: pa_core::mcp::UserServersFn = std::sync::Arc::new(move || {
+        let user_servers: aa_core::mcp::UserServersFn = std::sync::Arc::new(move || {
             // The live cwd slot, not the construction-time cwd: the rebind must reach the MCP
             // settings discovery.
             let mcp_cwd = mcp_cwd.read().expect("engine cwd lock").clone();
-            let settings = pa_core::settings::SettingsManager::create(&mcp_cwd, &mcp_agent_dir);
+            let settings = aa_core::settings::SettingsManager::create(&mcp_cwd, &mcp_agent_dir);
             Some(
                 settings
                     .global_settings()
@@ -89,14 +89,14 @@ impl AgentSessionEngine {
                             .ok()
                             .map(|parsed| (server, parsed))
                     })
-                    .collect::<std::collections::HashMap<String, pa_core::mcp::McpServerConfig>>(),
+                    .collect::<std::collections::HashMap<String, aa_core::mcp::McpServerConfig>>(),
             )
         });
         let oauth_user_servers = std::sync::Arc::clone(&user_servers);
-        let mcp = pa_core::mcp::McpManager::new(pa_core::mcp::McpManagerOptions {
-            auth_storage: pa_core::auth::AuthStorage::create_with_oauth(
+        let mcp = aa_core::mcp::McpManager::new(aa_core::mcp::McpManagerOptions {
+            auth_storage: aa_core::auth::AuthStorage::create_with_oauth(
                 &agent_dir,
-                std::sync::Arc::new(pa_core::mcp::McpOAuth::new(oauth_user_servers)),
+                std::sync::Arc::new(aa_core::mcp::McpOAuth::new(oauth_user_servers)),
             ),
             get_user_servers: Box::new(move || user_servers()),
             begin_login: None,
@@ -105,7 +105,7 @@ impl AgentSessionEngine {
                 // Declared local service-catalog sources, re-read per resolve.
                 let catalog_cwd = catalog_cwd.read().expect("engine cwd lock").clone();
                 let settings =
-                    pa_core::settings::SettingsManager::create(&catalog_cwd, &catalog_agent_dir);
+                    aa_core::settings::SettingsManager::create(&catalog_cwd, &catalog_agent_dir);
                 settings
                     .global_settings()
                     .mcp_catalog_sources
@@ -121,7 +121,7 @@ impl AgentSessionEngine {
         crate::mcp_login::wire_worker_mcp_login(
             &mcp,
             std::sync::Arc::new(crate::mcp_login::WorkerMcpLoginUi::from_env()),
-            std::sync::Arc::new(pa_core::mcp::ReqwestOAuthHttp::new()),
+            std::sync::Arc::new(aa_core::mcp::ReqwestOAuthHttp::new()),
         );
         // Queue delivery modes arrive at create, so the engine starts
         // unseeded (None keeps the TS default "one-at-a-time").
@@ -159,14 +159,14 @@ impl AgentSessionEngine {
             pending_branch: std::sync::Mutex::new(None),
             prompt_context_boundary: std::sync::Mutex::new(None),
             provider_target: std::sync::Arc::new(std::sync::RwLock::new(None)),
-            request_auth_oauth: std::sync::Arc::new(pa_core::auth::ProviderOAuth::new()),
+            request_auth_oauth: std::sync::Arc::new(aa_core::auth::ProviderOAuth::new()),
             request_auth_registry: std::sync::Mutex::new(None),
             image_route: std::sync::Mutex::new(None),
             reload_lock: std::sync::Mutex::new(()),
             own_summary: std::sync::Arc::new(std::sync::Mutex::new(None)),
             create_resources: std::sync::RwLock::default(),
             autonomous: std::sync::Arc::new(tokio::sync::Mutex::new(
-                pa_core::autonomous::create_autonomous_runtime_state(None, None),
+                aa_core::autonomous::create_autonomous_runtime_state(None, None),
             )),
             link,
             children,
@@ -204,7 +204,7 @@ impl AgentSessionEngine {
     /// Panics when the autonomous-driver lock is poisoned.
     pub fn set_autonomous_driver(
         &self,
-        driver: std::sync::Arc<dyn pa_core::autonomous::AutonomousDriver>,
+        driver: std::sync::Arc<dyn aa_core::autonomous::AutonomousDriver>,
     ) {
         self.autonomous_driver_default
             .store(false, std::sync::atomic::Ordering::Relaxed);
@@ -225,7 +225,7 @@ impl AgentSessionEngine {
         // The floor keys on the ORIGINAL invocation's shape, not the
         // expanded parse: a skill body can contain a close tag plus a
         // `\n\n` tail that parses as a trailing user message.
-        let bare_invocation = pa_types::slash_commands::parse_slash_command(text)
+        let bare_invocation = aa_types::slash_commands::parse_slash_command(text)
             .is_some_and(|(name, args)| name.starts_with("skill:") && args.trim().is_empty());
         let Ok(model) = self.resolve_model() else {
             return text.to_string();
@@ -241,7 +241,7 @@ impl AgentSessionEngine {
                 None => text.to_string(),
             }
         });
-        if bare_invocation && pa_types::skill_blocks::parse_skill_block(&expanded).is_some() {
+        if bare_invocation && aa_types::skill_blocks::parse_skill_block(&expanded).is_some() {
             return format!("{expanded}\n\n{BARE_SKILL_INVOCATION_INSTRUCTION}");
         }
         expanded
@@ -273,7 +273,7 @@ impl AgentSessionEngine {
     /// Panics when the sink slot's mutex is poisoned.
     pub fn set_compaction_summary_sink(
         &self,
-        sink: pa_core::session_engine::compaction_exec::SummaryDeltaSink,
+        sink: aa_core::session_engine::compaction_exec::SummaryDeltaSink,
     ) {
         *self
             .compaction_summary_sink
@@ -283,7 +283,7 @@ impl AgentSessionEngine {
 
     pub(crate) fn set_rlm_usage_store(
         &self,
-        store: std::sync::Arc<dyn pa_core::session_engine::rlm_usage::RlmChildUsageStore>,
+        store: std::sync::Arc<dyn aa_core::session_engine::rlm_usage::RlmChildUsageStore>,
     ) {
         *self.rlm_usage_store.lock().expect("rlm usage store lock") = Some(store);
     }
@@ -296,7 +296,7 @@ impl AgentSessionEngine {
     /// Panics when the announcer slot's mutex is poisoned.
     pub fn set_progress_note_emit(
         &self,
-        emit: pa_core::session_engine::rlm_host::RlmProgressNoteEmit,
+        emit: aa_core::session_engine::rlm_host::RlmProgressNoteEmit,
     ) {
         *self
             .progress_note_emit
@@ -320,19 +320,19 @@ impl AgentSessionEngine {
             return;
         };
         let mut session = handles.goal.session.lock().await;
-        let normalized = pa_core::goals::normalize_goal_state(terminal);
+        let normalized = aa_core::goals::normalize_goal_state(terminal);
         match serde_json::to_value(&normalized) {
             Ok(value) => {
                 let appended = session
-                    .append_custom_entry(pa_core::goals::GOAL_STATE_CUSTOM_TYPE, Some(value))
+                    .append_custom_entry(aa_core::goals::GOAL_STATE_CUSTOM_TYPE, Some(value))
                     .map(|_| ())
                     .and_then(|()| session.flush_now());
                 if let Err(persist_error) = appended {
-                    eprintln!("pa-daemon: stale goal terminal persist failed: {persist_error:#}");
+                    eprintln!("aa-daemon: stale goal terminal persist failed: {persist_error:#}");
                 }
             }
             Err(serialize_error) => {
-                eprintln!("pa-daemon: stale goal terminal serialize failed: {serialize_error:#}");
+                eprintln!("aa-daemon: stale goal terminal serialize failed: {serialize_error:#}");
             }
         }
     }
@@ -402,7 +402,7 @@ impl AgentSessionEngine {
                         return (None, None, None);
                     };
                     if let Ok(Some(window)) =
-                        pa_core::session::window::WindowedSessionStore::open(&path)
+                        aa_core::session::window::WindowedSessionStore::open(&path)
                     {
                         let goal = window.goal_state().cloned();
                         (goal, Some(window), None)
@@ -434,12 +434,12 @@ impl AgentSessionEngine {
             .or_else(|| {
                 shared_window
                     .as_ref()
-                    .map(pa_core::session::window::WindowedSessionStore::entries)
+                    .map(aa_core::session::window::WindowedSessionStore::entries)
             })
             .or(shared_branch.as_deref());
         let mut admitted_user_ids = Vec::new();
         if std::env::var_os("PA_COMPACTION_TRACE").is_some() {
-            pa_core::session_engine::compaction_trace::trace(
+            aa_core::session_engine::compaction_trace::trace(
                 "daemon.lazy_restore_boundary",
                 &serde_json::json!({
                     "kind": match &prompt_context_boundary {
@@ -448,8 +448,8 @@ impl AgentSessionEngine {
                         None => "unset",
                     },
                     "retainedUserRows": entries.map_or(0, |entries| entries.iter().filter(|entry|
-                        matches!(entry, pa_types::session::FileEntry::Message {
-                            message: pa_types::session::AgentMessage::User(_), ..
+                        matches!(entry, aa_types::session::FileEntry::Message {
+                            message: aa_types::session::AgentMessage::User(_), ..
                         })).count()),
                 }),
             );
@@ -463,8 +463,8 @@ impl AgentSessionEngine {
                             if let Some(id) = entry.id().filter(|_| {
                                 matches!(
                                     entry,
-                                    pa_types::session::FileEntry::Message {
-                                        message: pa_types::session::AgentMessage::User(_),
+                                    aa_types::session::FileEntry::Message {
+                                        message: aa_types::session::AgentMessage::User(_),
                                         ..
                                     }
                                 )
@@ -485,7 +485,7 @@ impl AgentSessionEngine {
                             "prompt context boundary {leaf} is absent from the retained transcript"
                         );
                         Some(
-                            pa_core::session::build_session_context(
+                            aa_core::session::build_session_context(
                                 entries.expect("a found boundary has entries"),
                                 Some(leaf),
                             )
@@ -498,11 +498,11 @@ impl AgentSessionEngine {
             None => None,
         };
         if std::env::var_os("PA_COMPACTION_TRACE").is_some() {
-            pa_core::session_engine::compaction_trace::trace(
+            aa_core::session_engine::compaction_trace::trace(
                 "daemon.lazy_restore_context",
                 &serde_json::json!({
                     "priorUserRows": prompt_context.as_ref().map(|messages| messages.iter().filter(|message|
-                        matches!(message, pa_types::session::AgentMessage::User(_))).count()),
+                        matches!(message, aa_types::session::AgentMessage::User(_))).count()),
                     "replayedUserRows": admitted_user_ids.len(),
                 }),
             );
@@ -512,8 +512,8 @@ impl AgentSessionEngine {
             // trailing turn settled as a terminal provider failure adopts
             // the failure (the active row cannot resurrect the goal).
             let mut stale_error = None;
-            if state.status == pa_core::goals::GoalStatus::Active {
-                let scan: Option<Vec<pa_types::session::FileEntry>> = pending_branch
+            if state.status == aa_core::goals::GoalStatus::Active {
+                let scan: Option<Vec<aa_types::session::FileEntry>> = pending_branch
                     .clone()
                     .or_else(|| shared_branch.clone())
                     .or_else(|| {
@@ -522,7 +522,7 @@ impl AgentSessionEngine {
                             .map(|window| window.entries().to_vec())
                     });
                 if let Some(entries) = scan {
-                    if let Some(error) = pa_core::goals::stale_active_goal_failure(&entries) {
+                    if let Some(error) = aa_core::goals::stale_active_goal_failure(&entries) {
                         stale_error = Some(error);
                     }
                 }
@@ -531,9 +531,9 @@ impl AgentSessionEngine {
                 // The stale-row guard's adoption: the IN-MEMORY driver
                 // takes the verdict directly; the DURABLE row is DEFERRED
                 // to the post-adoption flush (a write here would be replaced).
-                let terminal = pa_core::goals::GoalState {
+                let terminal = aa_core::goals::GoalState {
                     active: false,
-                    status: pa_core::goals::GoalStatus::Error,
+                    status: aa_core::goals::GoalStatus::Error,
                     last_reason: Some(error.clone()),
                     last_error: Some(error),
                     ..state.clone()
@@ -591,7 +591,7 @@ impl AgentSessionEngine {
                 .shared_persistence()
                 .lock()
                 .await
-                .set_append_ownership(pa_core::session::window::AppendOwnership::SessionLeaseHeld);
+                .set_append_ownership(aa_core::session::window::AppendOwnership::SessionLeaseHeld);
             self.flush_pending_stale_goal_terminal().await;
         } else if let Some(entries) = shared_branch.take().filter(|entries| !entries.is_empty()) {
             built.session.rebuild_branch_context(entries).await?;
@@ -613,7 +613,7 @@ impl AgentSessionEngine {
         self.restore_quota_park(built).await;
         // The walk and replay allocated transient trees several times the
         // retained size: release the freed heap.
-        pa_types::memory_release::trim_freed_heap();
+        aa_types::memory_release::trim_freed_heap();
         self.finish_prompt_context_adoption(prompt_context_boundary.as_ref());
         Ok(())
     }
@@ -675,7 +675,7 @@ impl AgentSessionEngine {
                 )
                 .await
             {
-                eprintln!("pa-daemon: restored quota park entry write failed: {write_error}");
+                eprintln!("aa-daemon: restored quota park entry write failed: {write_error}");
             }
         }
         *self
@@ -771,7 +771,7 @@ impl AgentSessionEngine {
             .lock()
             .await
             .clone()
-            .ok_or_else(|| anyhow::anyhow!(pa_types::daemon::KERNEL_NOT_RUNNING_MESSAGE))?;
+            .ok_or_else(|| anyhow::anyhow!(aa_types::daemon::KERNEL_NOT_RUNNING_MESSAGE))?;
         engine
             .factory_activity(action, run_id, spec_id, timeout_ms)
             .await
@@ -785,12 +785,12 @@ impl AgentSessionEngine {
     }
 
     /// Execute one session slash command against the built session:
-    /// resolve the model, build on first use, then run the pa-core
+    /// resolve the model, build on first use, then run the aa-core
     /// executor.
     pub(crate) fn execute_session_command(
         &self,
-        command: &pa_core::session_engine::slash_commands::SessionSlashCommand,
-        images: &[pa_agent::types::ImageContent],
+        command: &aa_core::session_engine::slash_commands::SessionSlashCommand,
+        images: &[aa_agent::types::ImageContent],
     ) -> anyhow::Result<SessionCommandExecution> {
         let model = self.session_model()?;
         self.ensure_core_session(&model)?;
@@ -847,7 +847,7 @@ impl AgentSessionEngine {
     /// The configured kernel cron wiring (the worker's shared store).
     pub(super) fn cron_wiring(
         &self,
-    ) -> Option<pa_core::session_engine::runtime_wiring::KernelCronWiring> {
+    ) -> Option<aa_core::session_engine::runtime_wiring::KernelCronWiring> {
         self.config.cron_store.clone()
     }
 
@@ -855,7 +855,7 @@ impl AgentSessionEngine {
     /// durable id + file from the header. `None` outside a daemon worker.
     pub(super) fn kernel_cron_binding(
         &self,
-    ) -> Option<pa_core::session_engine::runtime_wiring::KernelCronBinding> {
+    ) -> Option<aa_core::session_engine::runtime_wiring::KernelCronBinding> {
         let active_session_id = self
             .config
             .supervisor_link
@@ -867,8 +867,8 @@ impl AgentSessionEngine {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()?;
-        let header = pa_core::session::manager::read_session_header(&file)?;
-        Some(pa_core::session_engine::runtime_wiring::KernelCronBinding {
+        let header = aa_core::session::manager::read_session_header(&file)?;
+        Some(aa_core::session_engine::runtime_wiring::KernelCronBinding {
             active_session_id,
             session_id: header.id,
             session_file: file.display().to_string(),
@@ -912,7 +912,7 @@ impl AgentSessionEngine {
                 .clone();
             std::sync::Arc::new(move |model: &Model| {
                 let Some(engine) = weak.as_ref().and_then(std::sync::Weak::upgrade) else {
-                    return pa_core::models::ResolvedRequestAuth::default();
+                    return aa_core::models::ResolvedRequestAuth::default();
                 };
                 engine.resolve_request_auth(model)
             })
@@ -974,12 +974,12 @@ impl AgentSessionEngine {
             .or_else(|| session_file.as_deref().and_then(std::path::Path::parent))
         {
             Some(session_dir) => {
-                pa_core::session::manager::SessionManager::in_memory_in_session_dir(
+                aa_core::session::manager::SessionManager::in_memory_in_session_dir(
                     &cwd,
                     session_dir,
                 )
             }
-            None => pa_core::session::manager::SessionManager::in_memory(&cwd),
+            None => aa_core::session::manager::SessionManager::in_memory(&cwd),
         };
         // The in-memory manager takes the durable file's header id, as TS's engine opened the
         // durable file: provider requests key prompt caching, Codex socket reuse, and session
@@ -987,9 +987,9 @@ impl AgentSessionEngine {
         // a daemon restart. A pathless session keeps the manager's own id.
         if let Some(header) = session_file
             .as_deref()
-            .and_then(pa_core::session::manager::read_session_header)
+            .and_then(aa_core::session::manager::read_session_header)
         {
-            session_manager.new_session(&pa_core::session::manager::NewSessionOptions {
+            session_manager.new_session(&aa_core::session::manager::NewSessionOptions {
                 id: Some(header.id),
                 ..Default::default()
             });
@@ -1002,16 +1002,16 @@ impl AgentSessionEngine {
         // `build_client`.
         let telemetry = (self.config.telemetry_disabled != Some(true)).then(|| {
             let settings =
-                pa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
-            pa_core::session_engine::telemetry::TelemetryWiring {
-                client: pa_core::session_engine::telemetry::build_client(
+                aa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
+            aa_core::session_engine::telemetry::TelemetryWiring {
+                client: aa_core::session_engine::telemetry::build_client(
                     &settings,
                     &self.config.agent_dir,
                 ),
                 execution_mode: create_resources.execution_mode.clone(),
                 now: None,
                 telemetry_enabled: Some(
-                    pa_core::session_engine::telemetry::telemetry_enabled_switch(
+                    aa_core::session_engine::telemetry::telemetry_enabled_switch(
                         &self.cwd(),
                         &self.config.agent_dir,
                     ),
@@ -1049,7 +1049,7 @@ impl AgentSessionEngine {
                         engine.retry_owed_goal_continuation();
                         engine.retry_owed_autonomous_continuation();
                     }
-                }) as pa_core::kernel::shared::BackgroundWorkSettledCallback
+                }) as aa_core::kernel::shared::BackgroundWorkSettledCallback
             });
         // The semantic-edge identity stamped by `configure_rlm_identity`
         // (the create's provenance): every build's recorder reopens the
@@ -1064,7 +1064,7 @@ impl AgentSessionEngine {
             .lock()
             .expect("late agent message sink lock")
             .clone();
-        pa_core::session_engine::engine::create_session(SessionEngineConfig {
+        aa_core::session_engine::engine::create_session(SessionEngineConfig {
             on_late_sent_agent_message,
             semantic_edges,
             telemetry,
@@ -1090,7 +1090,7 @@ impl AgentSessionEngine {
             additional_prompt_paths: create_resources.prompt_templates,
             extra_builtin_skill_overrides: vec![],
             rlm_subagent_host: self.children.clone().map(|children| {
-                children as Arc<dyn pa_core::session_engine::rlm_host::RlmSubagentHost>
+                children as Arc<dyn aa_core::session_engine::rlm_host::RlmSubagentHost>
             }),
             rlm_usage_store,
             progress_note_emit,
@@ -1150,12 +1150,12 @@ impl AgentSessionEngine {
                             .filter_map(|message| serde_json::to_value(message).ok())
                             .filter_map(|value| serde_json::from_value(value).ok())
                             .collect::<Vec<_>>();
-                        let due = pa_core::session_engine::compaction::threshold_compaction_due(
+                        let due = aa_core::session_engine::compaction::threshold_compaction_due(
                             &messages,
                             model.context_window,
-                            pa_core::session_engine::compaction::request_output_budget(
+                            aa_core::session_engine::compaction::request_output_budget(
                                 &model,
-                                pa_core::session_engine::provider_adapter::model_thinking_level(
+                                aa_core::session_engine::provider_adapter::model_thinking_level(
                                     thinking,
                                 ),
                             ),

@@ -10,9 +10,9 @@ use std::sync::Arc;
 
 use serde_json::{json, Map, Value};
 
-use pa_core::cron::store::{AgentCronJobStore, HeartbeatManagementAction};
-use pa_core::cron::{is_heartbeat_cron_job, AgentCronJob, JobStatus};
-use pa_types::daemon::DaemonCommand;
+use aa_core::cron::store::{AgentCronJobStore, HeartbeatManagementAction};
+use aa_core::cron::{is_heartbeat_cron_job, AgentCronJob, JobStatus};
+use aa_types::daemon::DaemonCommand;
 
 use crate::backpressure::RouteAdmission;
 use crate::protocol::{
@@ -874,7 +874,7 @@ mod tests {
     async fn a_worker_registered_during_the_scan_gets_its_heartbeat_manage() {
         use crate::registry::{ResidentWorker, WorkerReply};
         use crate::supervisor::subscribers::ClientSubscriptions;
-        use pa_types::daemon::DaemonWorkerDescriptor;
+        use aa_types::daemon::DaemonWorkerDescriptor;
 
         let dir = tempfile::tempdir().expect("temp dir");
         let agent_dir = dir.path().join("agent");

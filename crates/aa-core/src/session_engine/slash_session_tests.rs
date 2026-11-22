@@ -1,8 +1,8 @@
 use super::*;
-use pa_agent::agent::{AgentInitialState, AgentOptions};
-use pa_agent::scripted::ScriptedProvider;
+use aa_agent::agent::{AgentInitialState, AgentOptions};
+use aa_agent::scripted::ScriptedProvider;
 
-fn test_model() -> pa_agent::types::Model {
+fn test_model() -> aa_agent::types::Model {
     serde_json::from_value(serde_json::json!({
         "id": "m", "name": "m", "api": "openai-completions", "provider": "test",
         "baseUrl": "http://localhost", "reasoning": false, "input": ["text"],

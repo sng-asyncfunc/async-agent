@@ -31,7 +31,7 @@ fn default_kernel_boot_concurrency() -> usize {
 }
 
 fn resolve_kernel_boot_concurrency() -> usize {
-    let Ok(raw) = std::env::var("PRIME_AGENT_MAX_CONCURRENT_KERNEL_BOOTS") else {
+    let Ok(raw) = std::env::var("ASYNC_AGENT_MAX_CONCURRENT_KERNEL_BOOTS") else {
         return default_kernel_boot_concurrency();
     };
     if raw.is_empty() || !raw.chars().all(|c| c.is_ascii_digit()) {
@@ -109,7 +109,7 @@ pub struct JavaScriptKernelProvisionerOptions {
     pub bun: Option<PathBuf>,
     /// Optional explicit worker entrypoint (`src/repl.ts`) when `bun` is overridden.
     pub worker_entry: Option<PathBuf>,
-    /// Optional explicit kernel runtime directory (`PRIME_AGENT_KERNEL_BUN_DIR`).
+    /// Optional explicit kernel runtime directory (`ASYNC_AGENT_KERNEL_BUN_DIR`).
     pub kernel_dir: Option<PathBuf>,
     /// Default time limit for user `javascript` cells, in milliseconds
     /// (`None`: never armed; `0`: disabled). The daemon engine resolves it
@@ -895,7 +895,7 @@ const DEFAULT_STARTUP_BUDGET_MS: u64 = 90_000;
 const RETRY_BACKOFF_MS: [u64; 4] = [250, 1_000, 2_500, 5_000];
 
 fn resolve_startup_retries() -> u32 {
-    match std::env::var("PRIME_AGENT_KERNEL_STARTUP_RETRIES") {
+    match std::env::var("ASYNC_AGENT_KERNEL_STARTUP_RETRIES") {
         Ok(raw) => raw
             .trim()
             .parse::<u32>()
@@ -905,7 +905,7 @@ fn resolve_startup_retries() -> u32 {
 }
 
 fn resolve_startup_budget_ms() -> u64 {
-    match std::env::var("PRIME_AGENT_KERNEL_STARTUP_BUDGET_MS") {
+    match std::env::var("ASYNC_AGENT_KERNEL_STARTUP_BUDGET_MS") {
         Ok(raw) => raw
             .trim()
             .parse::<u64>()
@@ -924,10 +924,10 @@ fn startup_failure_is_retryable(error: &anyhow::Error) -> bool {
         "provisioner killed",
         "aborted",
         "Failed to set up the Bun JavaScript kernel runtime",
-        "PRIME_AGENT_KERNEL_BUN points to an unusable Bun executable",
+        "ASYNC_AGENT_KERNEL_BUN points to an unusable Bun executable",
         "Bun 1.3.14+ is required",
         "Failed to initialize rlm runtime",
-        "Update prime-agent-runtime in the Bun kernel",
+        "Update async-agent-runtime in the Bun kernel",
         "Kernel start superseded",
         "Kernel was disposed during startup",
     ];
@@ -1080,13 +1080,13 @@ async fn start_kernel_impl(
     let mut env = options.env.clone();
     if let Some(shell_path) = &options.shell_path {
         env.insert(
-            "PRIME_AGENT_BASH_SHELL".into(),
+            "ASYNC_AGENT_BASH_SHELL".into(),
             shell_path.to_string_lossy().to_string(),
         );
     }
     if let Some(command_prefix) = &options.command_prefix {
         env.insert(
-            "PRIME_AGENT_BASH_COMMAND_PREFIX".into(),
+            "ASYNC_AGENT_BASH_COMMAND_PREFIX".into(),
             command_prefix.clone(),
         );
     }
@@ -1349,19 +1349,19 @@ mod tests {
     ) -> anyhow::Result<crate::session_engine::engine::SessionEngine> {
         use crate::session_engine::engine::{create_session, SessionEngineConfig};
 
-        let model = pa_agent::types::Model {
+        let model = aa_agent::types::Model {
             id: "shell-test".into(),
             name: "Shell test".into(),
             api: "test".into(),
             provider: "test".into(),
             base_url: "http://localhost".into(),
             reasoning: false,
-            cost: pa_agent::types::UsageCost::default(),
+            cost: aa_agent::types::UsageCost::default(),
             context_window: 1_000,
             max_tokens: 100,
             max_tokens_explicit: false,
         };
-        let provider = Arc::new(pa_agent::scripted::ScriptedProvider::new(model.clone()));
+        let provider = Arc::new(aa_agent::scripted::ScriptedProvider::new(model.clone()));
         create_session(SessionEngineConfig {
             cwd,
             agent_dir,
@@ -1379,7 +1379,7 @@ mod tests {
         let agent_dir = dir.path().join("agent");
         let cwd = dir.path().join("project");
         std::fs::create_dir_all(&agent_dir).unwrap();
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
         // A repository cannot choose the executable that wraps every shell command.
         let global = executable_shell(dir.path(), "global-bash");
         let project = executable_shell(dir.path(), "project-bash");
@@ -1389,7 +1389,7 @@ mod tests {
         )
         .unwrap();
         std::fs::write(
-            cwd.join(".prime/agent/settings.json"),
+            cwd.join(".async-agent/settings.json"),
             serde_json::json!({ "shellPath": format!("  {}  ", project.to_string_lossy()) })
                 .to_string(),
         )
@@ -1404,14 +1404,14 @@ mod tests {
         let agent_dir = dir.path().join("agent");
         let cwd = dir.path().join("project");
         std::fs::create_dir_all(&agent_dir).unwrap();
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
         std::fs::write(
             agent_dir.join("settings.json"),
             serde_json::json!({ "shellCommandPrefix": "shopt -s expand_aliases" }).to_string(),
         )
         .unwrap();
         std::fs::write(
-            cwd.join(".prime/agent/settings.json"),
+            cwd.join(".async-agent/settings.json"),
             serde_json::json!({ "shellCommandPrefix": "attacker-command" }).to_string(),
         )
         .unwrap();
@@ -1428,7 +1428,7 @@ mod tests {
         let agent_dir = dir.path().join("agent");
         let cwd = dir.path().join("project");
         std::fs::create_dir_all(&agent_dir).unwrap();
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
         std::fs::write(
             agent_dir.join("auth.json"),
             r#"{ "serper": { "type": "api_key", "key": "!printf key-from-cmd" } }"#,
@@ -1457,7 +1457,7 @@ mod tests {
         let agent_dir = dir.path().join("agent");
         let cwd = dir.path().join("project");
         std::fs::create_dir_all(&agent_dir).unwrap();
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
         std::fs::write(
             agent_dir.join("settings.json"),
             serde_json::json!({ "webSearchProvider": "eco" }).to_string(),
@@ -1480,7 +1480,7 @@ mod tests {
             .map(|(key, value)| (key.as_str(), value.as_str()))
             .collect();
         let mut expected =
-            std::collections::BTreeMap::from([("PRIME_AGENT_WEBSEARCH_PROVIDER", "eco")]);
+            std::collections::BTreeMap::from([("ASYNC_AGENT_WEBSEARCH_PROVIDER", "eco")]);
         // A nonblank ambient YOU_API_KEY wins, like SERPER_API_KEY.
         if !std::env::var("YOU_API_KEY").is_ok_and(|value| !value.trim().is_empty()) {
             expected.insert("YOU_API_KEY", "eco-key-from-cmd");
@@ -1494,7 +1494,7 @@ mod tests {
         let agent_dir = dir.path().join("agent");
         let cwd = dir.path().join("project");
         std::fs::create_dir_all(&agent_dir).unwrap();
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
         let engine = shell_test_session(cwd, agent_dir).await.unwrap();
         assert_eq!(
             engine
@@ -1515,7 +1515,7 @@ mod tests {
         let agent_dir = dir.path().join("agent");
         let cwd = dir.path().join("project");
         std::fs::create_dir_all(&agent_dir).unwrap();
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
         std::fs::write(
             agent_dir.join("settings.json"),
             serde_json::json!({ "bundledSkills": { "websearch": false } }).to_string(),
@@ -1544,7 +1544,7 @@ mod tests {
         let agent_dir = dir.path().join("agent");
         let cwd = dir.path().join("project");
         std::fs::create_dir_all(&agent_dir).unwrap();
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
         let missing = cwd.join("no-such-shell");
         std::fs::write(
             agent_dir.join("settings.json"),
@@ -1763,15 +1763,15 @@ mod tests {
     fn boot_concurrency_defaults_and_override() {
         let default = default_kernel_boot_concurrency();
         assert!(default >= 4);
-        std::env::set_var("PRIME_AGENT_MAX_CONCURRENT_KERNEL_BOOTS", "2");
+        std::env::set_var("ASYNC_AGENT_MAX_CONCURRENT_KERNEL_BOOTS", "2");
         assert_eq!(resolve_kernel_boot_concurrency(), 2);
-        std::env::set_var("PRIME_AGENT_MAX_CONCURRENT_KERNEL_BOOTS", "0");
+        std::env::set_var("ASYNC_AGENT_MAX_CONCURRENT_KERNEL_BOOTS", "0");
         assert_eq!(resolve_kernel_boot_concurrency(), default);
-        std::env::set_var("PRIME_AGENT_MAX_CONCURRENT_KERNEL_BOOTS", "junk");
+        std::env::set_var("ASYNC_AGENT_MAX_CONCURRENT_KERNEL_BOOTS", "junk");
         assert_eq!(resolve_kernel_boot_concurrency(), default);
-        std::env::set_var("PRIME_AGENT_MAX_CONCURRENT_KERNEL_BOOTS", "1000");
+        std::env::set_var("ASYNC_AGENT_MAX_CONCURRENT_KERNEL_BOOTS", "1000");
         assert_eq!(resolve_kernel_boot_concurrency(), 64);
-        std::env::remove_var("PRIME_AGENT_MAX_CONCURRENT_KERNEL_BOOTS");
+        std::env::remove_var("ASYNC_AGENT_MAX_CONCURRENT_KERNEL_BOOTS");
     }
 
     #[tokio::test]
@@ -1815,11 +1815,11 @@ mod tests {
             "JavaScript execution aborted"
         )));
         assert!(!startup_failure_is_retryable(&anyhow!(
-            "PRIME_AGENT_KERNEL_BUN points to an unusable Bun executable (/bad)"
+            "ASYNC_AGENT_KERNEL_BUN points to an unusable Bun executable (/bad)"
         )));
         assert!(!startup_failure_is_retryable(&anyhow!(
             "Kernel runtime speaks protocol 2, expected 3. \
-             Update prime-agent-runtime in the Bun kernel (PRIME_AGENT_KERNEL_BUN / PRIME_AGENT_KERNEL_BUN_DIR) to match this prime-agent."
+             Update async-agent-runtime in the Bun kernel (ASYNC_AGENT_KERNEL_BUN / ASYNC_AGENT_KERNEL_BUN_DIR) to match this async-agent."
         )));
     }
 

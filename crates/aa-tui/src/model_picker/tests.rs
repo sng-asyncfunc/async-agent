@@ -3,7 +3,7 @@ use crate::keybindings::KeybindingsManager;
 use crate::theme::{ColorMode, Theme};
 
 fn theme() -> Theme {
-    Theme::builtin("prime", ColorMode::TrueColor)
+    Theme::builtin("async", ColorMode::TrueColor)
 }
 
 fn kb() -> KeybindingsManager {

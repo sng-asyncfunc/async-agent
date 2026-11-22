@@ -34,7 +34,7 @@ impl Drop for Daemon {
 // immediately afterwards, reaping it.
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pa-daemon"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_aa-daemon"));
     command
         .arg("supervisor")
         .arg("--socket")
@@ -44,10 +44,10 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         );
-    let child = command.spawn().expect("spawn pa-daemon supervisor");
+    let child = command.spawn().expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if UnixStream::connect(socket).is_ok() {
@@ -92,7 +92,7 @@ impl Client {
         let mut line = serde_json::to_string(&json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }))
         .expect("serialize command");
@@ -311,36 +311,36 @@ fn a_refused_registration_retires_the_worker() {
     // The scripted engine keeps the runtime self-contained, so the retire path under test
     // is the registration close alone.
     let script_path = write_script(dir.path(), &["unused"]);
-    let mut worker = Command::new(env!("CARGO_BIN_EXE_pa-daemon"))
+    let mut worker = Command::new(env!("CARGO_BIN_EXE_aa-daemon"))
         .arg("worker")
-        .env(pa_daemon::worker::WORKER_ROLE_ENV, "1")
-        .env(pa_daemon::worker::WORKER_TOKEN_ENV, "token-no-descriptor")
-        .env(pa_daemon::worker::WORKER_INSTANCE_ID_ENV, "instance-orphan")
+        .env(aa_daemon::worker::WORKER_ROLE_ENV, "1")
+        .env(aa_daemon::worker::WORKER_TOKEN_ENV, "token-no-descriptor")
+        .env(aa_daemon::worker::WORKER_INSTANCE_ID_ENV, "instance-orphan")
         .env(
-            pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+            aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
             "orphan000001",
         )
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
             socket.to_string_lossy().to_string(),
         )
         .env(
-            pa_daemon::worker::WORKER_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SOCKET_ENV,
             dir.path().join("orphan.sock").to_string_lossy().to_string(),
         )
         .env(
-            pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+            aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
             dir.path()
                 .join("orphan.recovery.jsonl")
                 .to_string_lossy()
                 .to_string(),
         )
         .env(
-            pa_daemon::worker::WORKER_SCRIPT_ENV,
+            aa_daemon::worker::WORKER_SCRIPT_ENV,
             script_path.to_string_lossy().to_string(),
         )
         .env(
-            pa_daemon::paths::AGENT_DIR_ENV,
+            aa_daemon::paths::AGENT_DIR_ENV,
             agent_dir.to_string_lossy().to_string(),
         )
         .stdin(Stdio::null())
@@ -352,7 +352,7 @@ fn a_refused_registration_retires_the_worker() {
 
     // The refusal lands in the daemon's rotating log (the operator-facing trace the incident
     // lacked) — and the worker exits instead of retrying forever.
-    let log_path = pa_daemon::paths::daemon_log_path(&socket, &agent_dir);
+    let log_path = aa_daemon::paths::daemon_log_path(&socket, &agent_dir);
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {
         let log = std::fs::read_to_string(&log_path).unwrap_or_default();
@@ -413,7 +413,7 @@ fn a_descriptorless_leftover_dies_and_its_session_resumes() {
         process_alive(worker_process_id),
         "the worker survived its supervisor's hard death"
     );
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(&agent_dir, &socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(&agent_dir, &socket);
     let descriptor = std::fs::read_dir(&descriptor_dir)
         .expect("descriptor dir")
         .flatten()
@@ -517,7 +517,7 @@ fn an_owned_stop_kills_a_worker_that_missed_the_shutdown() {
     // The stop's durable intent is observable on disk BEFORE the worker is told: the descriptor
     // must already carry its stop tombstone while the routed shutdown waits — a supervisor that
     // died mid-stop would adopt the tombstone, never re-adopt a stopped worker as healthy.
-    let descriptor_path = pa_daemon::descriptor::descriptor_dir(&agent_dir, &socket)
+    let descriptor_path = aa_daemon::descriptor::descriptor_dir(&agent_dir, &socket)
         .join(format!("{worker_id}.json"));
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {

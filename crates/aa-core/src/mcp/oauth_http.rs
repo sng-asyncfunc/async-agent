@@ -92,7 +92,7 @@ impl ReqwestOAuthHttp {
 
     fn client(&self) -> &reqwest::Client {
         self.client.get_or_init(|| {
-            pa_ai::utils::tls::http_client_builder()
+            aa_ai::utils::tls::http_client_builder()
                 .redirect(reqwest::redirect::Policy::none())
                 .timeout(REQUEST_TIMEOUT)
                 .build()

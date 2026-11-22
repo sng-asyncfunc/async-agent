@@ -132,7 +132,7 @@ fn wait_socket_ready(socket: &Path) {
 
 fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> ProcessGuard {
     std::fs::create_dir_all(agent_dir).expect("agent dir");
-    let child = Command::new(env!("CARGO_BIN_EXE_pa-daemon"))
+    let child = Command::new(env!("CARGO_BIN_EXE_aa-daemon"))
         .arg("supervisor")
         .arg("--socket")
         .arg(socket)
@@ -140,17 +140,17 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> ProcessGuard {
         .arg(agent_dir)
         // Hermetic agent dir: the ambient environment may export a real
         // agent dir; point every fallback at the test sandbox instead.
-        .env("PRIME_AGENT_CODING_AGENT_DIR", agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", agent_dir)
         .env_remove("PA_API_KEY")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     ProcessGuard { child }
 }
 
-/// Spawn the real `pa-daemon worker` binary on its own socket, monitoring a
+/// Spawn the real `aa-daemon worker` binary on its own socket, monitoring a
 /// supervisor socket that never answers. `lost_window_ms` sets the
 /// supervisor-lost exit window (`None` keeps the default five minutes).
 fn spawn_worker(
@@ -160,35 +160,35 @@ fn spawn_worker(
     lost_window_ms: Option<&str>,
 ) -> ProcessGuard {
     std::fs::create_dir_all(dir.join("agent")).expect("agent dir");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pa-daemon"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_aa-daemon"));
     command
         .arg("worker")
-        .env(pa_daemon::worker::WORKER_ROLE_ENV, "1")
-        .env(pa_daemon::worker::WORKER_TOKEN_ENV, token)
+        .env(aa_daemon::worker::WORKER_ROLE_ENV, "1")
+        .env(aa_daemon::worker::WORKER_TOKEN_ENV, token)
         .env(
-            pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+            aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
             "socket-identity-guard",
         )
-        .env(pa_daemon::worker::WORKER_SOCKET_ENV, socket)
+        .env(aa_daemon::worker::WORKER_SOCKET_ENV, socket)
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
             dir.join("absent-supervisor.sock"),
         )
         .env(
-            pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+            aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
             dir.join("recovery.jsonl"),
         )
-        .env("PRIME_AGENT_CODING_AGENT_DIR", dir.join("agent"))
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", dir.join("agent"))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     if let Some(window) = lost_window_ms {
         command.env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             window,
         );
     }
-    let child = command.spawn().expect("spawn pa-daemon worker");
+    let child = command.spawn().expect("spawn aa-daemon worker");
     ProcessGuard { child }
 }
 
@@ -229,10 +229,10 @@ impl WorkerClient {
     }
 
     fn send_frame(&mut self, header: &Value, payload: &Value) {
-        let frame = pa_daemon::framing::encode_private_frame(
+        let frame = aa_daemon::framing::encode_private_frame(
             header,
             &serde_json::to_vec(payload).expect("payload"),
-            pa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+            aa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
         )
         .expect("encode frame");
         self.stream.write_all(&frame).expect("write frame");

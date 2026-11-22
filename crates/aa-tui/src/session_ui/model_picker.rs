@@ -15,14 +15,14 @@ const MODEL_CATALOG_REFRESH_TTL: std::time::Duration = std::time::Duration::from
 /// A landed `get_model_catalog` refresh: the full catalog and the providers
 /// with configured auth.
 pub(crate) struct ModelCatalogUpdate {
-    pub models: Vec<pa_types::ai::Model>,
+    pub models: Vec<aa_types::ai::Model>,
     pub configured_providers: std::collections::HashSet<String>,
 }
 
 impl SessionUi {
     /// The catalog entry for the current model (the `/fast` eligibility check needs the provider
     /// and api): the provider-aware match of [`find_current_model_entry`].
-    pub(super) fn current_model_entry(&self, view: &AgentView) -> Option<&pa_types::ai::Model> {
+    pub(super) fn current_model_entry(&self, view: &AgentView) -> Option<&aa_types::ai::Model> {
         let model_id = view.chrome.model_id.as_deref()?;
         find_current_model_entry(
             &self.model_catalog,
@@ -190,7 +190,7 @@ impl SessionUi {
                 // Fail silently; the picker catalog stays as it is.
                 return;
             };
-            let models: Vec<pa_types::ai::Model> = value
+            let models: Vec<aa_types::ai::Model> = value
                 .get("models")
                 .cloned()
                 .and_then(|models| serde_json::from_value(models).ok())
@@ -246,7 +246,7 @@ impl SessionUi {
         &self,
         current: Option<&CurrentModel>,
         state: Option<&Value>,
-    ) -> Option<pa_types::ai::ModelThinkingLevel> {
+    ) -> Option<aa_types::ai::ModelThinkingLevel> {
         let reasoning = current.and_then(|current| {
             self.model_catalog
                 .iter()
@@ -257,12 +257,12 @@ impl SessionUi {
             return state
                 .and_then(|state| state.get("thinkingLevel"))
                 .and_then(Value::as_str)
-                .and_then(pa_types::ai::thinking_level_from_str);
+                .and_then(aa_types::ai::thinking_level_from_str);
         }
         self.default_thinking_level
             .as_deref()
-            .and_then(pa_types::ai::thinking_level_from_str)
-            .or(Some(pa_types::ai::ModelThinkingLevel::Medium))
+            .and_then(aa_types::ai::thinking_level_from_str)
+            .or(Some(aa_types::ai::ModelThinkingLevel::Medium))
     }
 
     /// Apply a picked model: the daemon `set_model` command switches the live session, then the
@@ -429,7 +429,7 @@ impl SessionUi {
                     // The switch succeeded; the state read did not: render the requested
                     // level, never the previous model's stale suffix.
                     Err(_) => {
-                        view.chrome.thinking_suffix = pa_types::ai::thinking_level_from_str(level)
+                        view.chrome.thinking_suffix = aa_types::ai::thinking_level_from_str(level)
                             .map(|parsed| parsed.wire_name().to_string());
                     }
                 }
@@ -500,10 +500,10 @@ pub(crate) fn picker_viewport_rows(terminal_rows: u16) -> usize {
 /// provider's entry matches — two providers can carry the same id. A missing provider (older
 /// daemons) falls back to the id alone; a provider whose entry the catalog lacks resolves nothing.
 fn find_current_model_entry<'a>(
-    catalog: &'a [pa_types::ai::Model],
+    catalog: &'a [aa_types::ai::Model],
     provider: Option<&str>,
     model_id: &str,
-) -> Option<&'a pa_types::ai::Model> {
+) -> Option<&'a aa_types::ai::Model> {
     match provider {
         Some(provider) => catalog
             .iter()
@@ -516,7 +516,7 @@ fn find_current_model_entry<'a>(
 mod tests {
     use super::*;
 
-    fn entry(provider: &str, id: &str) -> pa_types::ai::Model {
+    fn entry(provider: &str, id: &str) -> aa_types::ai::Model {
         serde_json::from_value(serde_json::json!({
             "id": id,
             "name": format!("{provider}/{id}"),

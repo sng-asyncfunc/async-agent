@@ -14,11 +14,11 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, ModelSelection,
     SessionSelection, UiMode,
 };
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 use serde_json::{json, Value};
 
 /// Turns in the fixture; each turn writes a user prompt, a tool-calling assistant
@@ -47,7 +47,7 @@ impl Drop for Supervisor {
                 let _ = reader.read_line(&mut hello);
                 let command = json!({
                     "type": "command", "id": "test-shutdown",
-                    "protocol": { "name": "prime-agent.daemon", "version": 7 },
+                    "protocol": { "name": "async-agent.daemon", "version": 7 },
                     "command": { "type": "shutdown" },
                 });
                 let _ = writeln!(writer, "{command}");
@@ -66,31 +66,31 @@ impl Drop for Supervisor {
 #[allow(clippy::zombie_processes)]
 fn spawn_supervisor(dir: &Path) -> Supervisor {
     let socket = dir.join("daemon.sock");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", dir.join("agent"))
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", dir.join("agent"))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -190,7 +190,7 @@ fn write_long_session(path: &Path, id: &str) {
 async fn create_session_from_file(socket: &Path, dir: &Path, session_path: &Path) -> String {
     let script_path = dir.join("script.json");
     std::fs::write(&script_path, json!({ "responses": ["ok"] }).to_string()).expect("write script");
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(socket)
         .await
         .expect("connect supervisor");
     let data = client
@@ -239,7 +239,7 @@ fn chat_options(socket: &Path, dir: &Path, active: String) -> InteractiveOptions
         initial_message: None,
         show_images: true,
         fullscreen_mouse: true,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -251,7 +251,7 @@ fn chat_options(socket: &Path, dir: &Path, active: String) -> InteractiveOptions
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,

@@ -18,15 +18,15 @@
 use std::path::PathBuf;
 use std::time::Instant;
 
-use pa_core::kernel::bootstrap::{
+use aa_core::kernel::bootstrap::{
     ensure_kernel_bun, EnsureKernelBunOptions, KernelBunRuntime, KernelJavaScriptSkill,
 };
-use pa_core::kernel::manager::{KernelStartOptions, ReplKernelManager};
-use pa_core::kernel::shared::{
+use aa_core::kernel::manager::{KernelStartOptions, ReplKernelManager};
+use aa_core::kernel::shared::{
     ExecuteOptions, ExecuteStatus, HostRequestHandlers, KernelManagerOptions,
     KernelShutdownOptions, KernelSnapshotConfig,
 };
-use pa_core::kernel::state_snapshot::{manifest_path_in, snapshot_path_in};
+use aa_core::kernel::state_snapshot::{manifest_path_in, snapshot_path_in};
 
 fn skills_dir() -> PathBuf {
     std::env::var("PA_BENCH_SKILLS_DIR").map_or_else(
@@ -37,7 +37,7 @@ fn skills_dir() -> PathBuf {
 
 fn bench_javascript_skills() -> Vec<KernelJavaScriptSkill> {
     let dir = skills_dir();
-    let loaded = pa_core::skills::load_skills_from_dir(&dir, "package");
+    let loaded = aa_core::skills::load_skills_from_dir(&dir, "package");
     loaded
         .skills
         .into_iter()
@@ -79,7 +79,7 @@ fn manager_options(
             max_variable_bytes: None,
             debounce_ms: Some(60_000),
         }),
-        bootstrap_code: Some(pa_core::kernel::bootstrap::build_rlm_bootstrap_code(
+        bootstrap_code: Some(aa_core::kernel::bootstrap::build_rlm_bootstrap_code(
             &runtime.prepared_skills,
             false,
         )),

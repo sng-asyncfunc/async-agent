@@ -10,7 +10,7 @@
 use serde::Deserialize as _;
 use serde_json::{json, Value};
 
-use super::meta::{prime_agent_meta, PrimeAgentCompactionMeta, PrimeAgentSessionMeta};
+use super::meta::{async_agent_meta, AsyncAgentCompactionMeta, AsyncAgentSessionMeta};
 use super::types::{AcpSessionUpdate, AcpToolKind, AcpToolStatus, TextBlock};
 
 /// Correlates streamed chunks with their owning assistant message (the
@@ -27,7 +27,7 @@ impl WireMappingState {
     fn start_assistant_message(&mut self) -> String {
         self.next_assistant_message_sequence += 1;
         let id = format!(
-            "prime-agent-assistant-{}",
+            "async-agent-assistant-{}",
             self.next_assistant_message_sequence
         );
         self.active_assistant_message_id = Some(id.clone());
@@ -45,7 +45,7 @@ impl WireMappingState {
 /// transport keeps the newest one and reads it after the turn for the
 /// stop-reason response.
 pub struct AssistantStop {
-    pub stop_reason: Option<pa_types::ai::StopReason>,
+    pub stop_reason: Option<aa_types::ai::StopReason>,
 }
 
 /// Extract the assistant stop reason from one wire event, when the event
@@ -61,7 +61,7 @@ pub fn assistant_stop(event: &Value) -> Option<AssistantStop> {
     Some(AssistantStop {
         stop_reason: message
             .get("stopReason")
-            .and_then(|value| pa_types::ai::StopReason::deserialize(value).ok()),
+            .and_then(|value| aa_types::ai::StopReason::deserialize(value).ok()),
     })
 }
 
@@ -139,12 +139,12 @@ pub fn wire_updates(event: &Value, state: &mut WireMappingState) -> Vec<AcpSessi
                 .unwrap_or_default()
                 .to_string();
             let args = event.get("args").cloned().unwrap_or(Value::Null);
-            let cell = if pa_types::ai::is_javascript_tool_name(&tool_name) {
+            let cell = if aa_types::ai::is_javascript_tool_name(&tool_name) {
                 args.get("code").and_then(Value::as_str).map(str::to_string)
             } else {
                 None
             };
-            let title = if pa_types::ai::is_javascript_tool_name(&tool_name) {
+            let title = if aa_types::ai::is_javascript_tool_name(&tool_name) {
                 "Bun cell".to_string()
             } else {
                 tool_name.clone()
@@ -181,7 +181,7 @@ pub fn wire_updates(event: &Value, state: &mut WireMappingState) -> Vec<AcpSessi
                 }),
                 content: text.map(|text| vec![super::types::ToolCallContent::new(text)]),
                 meta: rich.map(|rich| {
-                    prime_agent_meta(&PrimeAgentSessionMeta {
+                    async_agent_meta(&AsyncAgentSessionMeta {
                         javascript: Some(rich),
                         ..Default::default()
                     })
@@ -250,8 +250,8 @@ pub fn wire_updates(event: &Value, state: &mut WireMappingState) -> Vec<AcpSessi
         "goal_update" => {
             let goal = event.get("goal");
             vec![AcpSessionUpdate::SessionInfoUpdate {
-                meta: prime_agent_meta(&PrimeAgentSessionMeta {
-                    goal: Some(super::meta::PrimeAgentGoalMeta {
+                meta: async_agent_meta(&AsyncAgentSessionMeta {
+                    goal: Some(super::meta::AsyncAgentGoalMeta {
                         status: goal
                             .and_then(|goal| goal.get("status"))
                             .and_then(Value::as_str)
@@ -275,8 +275,8 @@ pub fn wire_updates(event: &Value, state: &mut WireMappingState) -> Vec<AcpSessi
         "compaction_end" => {
             let result = event.get("result");
             vec![AcpSessionUpdate::SessionInfoUpdate {
-                meta: prime_agent_meta(&PrimeAgentSessionMeta {
-                    compaction: Some(PrimeAgentCompactionMeta {
+                meta: async_agent_meta(&AsyncAgentSessionMeta {
+                    compaction: Some(AsyncAgentCompactionMeta {
                         tokens_before: result
                             .and_then(|result| result.get("tokensBefore"))
                             .and_then(Value::as_u64),
@@ -292,8 +292,8 @@ pub fn wire_updates(event: &Value, state: &mut WireMappingState) -> Vec<AcpSessi
         "rlm_child_update" => {
             let child = event.get("child");
             vec![AcpSessionUpdate::SessionInfoUpdate {
-                meta: prime_agent_meta(&PrimeAgentSessionMeta {
-                    subagents: Some(vec![super::meta::PrimeAgentSubagentMeta {
+                meta: async_agent_meta(&AsyncAgentSessionMeta {
+                    subagents: Some(vec![super::meta::AsyncAgentSubagentMeta {
                         id: child
                             .and_then(|child| child.get("id"))
                             .and_then(Value::as_str)
@@ -343,8 +343,8 @@ pub fn wire_updates(event: &Value, state: &mut WireMappingState) -> Vec<AcpSessi
                         .collect::<Vec<String>>()
                 });
             vec![AcpSessionUpdate::SessionInfoUpdate {
-                meta: prime_agent_meta(&PrimeAgentSessionMeta {
-                    refinement: Some(super::meta::PrimeAgentRefinementMeta {
+                meta: async_agent_meta(&AsyncAgentSessionMeta {
+                    refinement: Some(super::meta::AsyncAgentRefinementMeta {
                         status: "complete".to_string(),
                         summary: result
                             .and_then(|result| result.get("summary"))
@@ -359,8 +359,8 @@ pub fn wire_updates(event: &Value, state: &mut WireMappingState) -> Vec<AcpSessi
         }
         "refine_failed" => {
             vec![AcpSessionUpdate::SessionInfoUpdate {
-                meta: prime_agent_meta(&PrimeAgentSessionMeta {
-                    refinement: Some(super::meta::PrimeAgentRefinementMeta {
+                meta: async_agent_meta(&AsyncAgentSessionMeta {
+                    refinement: Some(super::meta::AsyncAgentRefinementMeta {
                         status: "failed".to_string(),
                         summary: None,
                         changes: None,
@@ -376,8 +376,8 @@ pub fn wire_updates(event: &Value, state: &mut WireMappingState) -> Vec<AcpSessi
         "javascript_sent_agent_message" => {
             let message = event.get("message");
             vec![AcpSessionUpdate::SessionInfoUpdate {
-                meta: prime_agent_meta(&PrimeAgentSessionMeta {
-                    agent_message: Some(super::meta::PrimeAgentAgentMessageMeta {
+                meta: async_agent_meta(&AsyncAgentSessionMeta {
+                    agent_message: Some(super::meta::AsyncAgentAgentMessageMeta {
                         tool_call_id: event
                             .get("toolCallId")
                             .and_then(Value::as_str)
@@ -406,12 +406,12 @@ pub fn wire_updates(event: &Value, state: &mut WireMappingState) -> Vec<AcpSessi
 }
 
 /// The synthetic tool-call id of a user-level bash run:
-/// `prime-agent-bash-<runId>`; a run without an id keys the bare prefix
+/// `async-agent-bash-<runId>`; a run without an id keys the bare prefix
 /// (TS `bashToolCallId`).
 fn bash_tool_call_id(run_id: Option<String>) -> String {
     match run_id {
-        Some(run_id) => format!("prime-agent-bash-{run_id}"),
-        None => "prime-agent-bash".to_string(),
+        Some(run_id) => format!("async-agent-bash-{run_id}"),
+        None => "async-agent-bash".to_string(),
     }
 }
 
@@ -561,7 +561,7 @@ mod tests {
         let value = serde_json::to_value(&updates[0]).unwrap();
         assert_eq!(value["sessionUpdate"], "session_info_update");
         assert_eq!(
-            value["_meta"]["ai.primeintellect.prime-agent"]["goal"],
+            value["_meta"]["ai.asyncfunc.async-agent"]["goal"],
             json!({
                 "status": "active",
                 "objective": "Name a river",
@@ -634,7 +634,7 @@ mod tests {
         let value = serde_json::to_value(&updates[0]).unwrap();
         assert_eq!(value["sessionUpdate"], "session_info_update");
         assert_eq!(
-            value["_meta"]["ai.primeintellect.prime-agent"]["compaction"],
+            value["_meta"]["ai.asyncfunc.async-agent"]["compaction"],
             json!({ "tokensBefore": 4200, "summary": "a summary" })
         );
     }
@@ -646,7 +646,7 @@ mod tests {
             "message": { "role": "assistant", "stopReason": "length" },
         }))
         .expect("assistant message_end");
-        assert_eq!(stop.stop_reason, Some(pa_types::ai::StopReason::Length));
+        assert_eq!(stop.stop_reason, Some(aa_types::ai::StopReason::Length));
         assert!(assistant_stop(&json!({
             "type": "message_end",
             "message": { "role": "user" },
@@ -692,7 +692,7 @@ mod tests {
     }
 
     fn namespaced(update: &AcpSessionUpdate) -> Value {
-        update.to_bare_value()["_meta"]["ai.primeintellect.prime-agent"].clone()
+        update.to_bare_value()["_meta"]["ai.asyncfunc.async-agent"].clone()
     }
 
     #[test]

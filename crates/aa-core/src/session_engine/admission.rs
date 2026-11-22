@@ -30,7 +30,7 @@ impl AgentSession {
     /// agent rejects the prompt.
     pub async fn prompt_injected_message(
         &self,
-        message: &pa_types::session::CustomMessage,
+        message: &aa_types::session::CustomMessage,
     ) -> anyhow::Result<PromptOutcome> {
         let state = self.agent.state().await;
         let busy = state.is_streaming;
@@ -53,7 +53,7 @@ impl AgentSession {
         self.apply_image_model_routing(&[], &[]).await?;
         prompt_messages.push(custom_row);
         self.agent
-            .prompt(pa_agent::agent::AgentPromptInput::Messages(prompt_messages))
+            .prompt(aa_agent::agent::AgentPromptInput::Messages(prompt_messages))
             .await?;
         Ok(PromptOutcome::Prompt)
     }
@@ -77,7 +77,7 @@ impl AgentSession {
     pub async fn prompt_with_images(
         &self,
         text: &str,
-        images: Vec<pa_agent::types::ImageContent>,
+        images: Vec<aa_agent::types::ImageContent>,
         options: PromptOptions,
     ) -> anyhow::Result<PromptOutcome> {
         let expand = options.expand_prompt_templates.unwrap_or(true);
@@ -105,7 +105,7 @@ impl AgentSession {
         // before admission) counts here too — the block parse carries the
         // skill identity.
         let skill_used = !used_skills.is_empty()
-            || pa_types::skill_blocks::parse_skill_block(&normalized)
+            || aa_types::skill_blocks::parse_skill_block(&normalized)
                 .is_some_and(|block| self.skills.iter().any(|skill| skill.name == block.name));
         if skill_used {
             if let Some(telemetry) = &self.skill_telemetry {
@@ -164,7 +164,7 @@ impl AgentSession {
                 // the plain prompt branch below).
                 if let Err(error) = self
                     .agent
-                    .prompt_until_accepted(pa_agent::agent::AgentPromptInput::Messages(
+                    .prompt_until_accepted(aa_agent::agent::AgentPromptInput::Messages(
                         prompt_messages,
                     ))
                     .await
@@ -179,7 +179,7 @@ impl AgentSession {
                 }
             } else if let Err(error) = self
                 .agent
-                .prompt(pa_agent::agent::AgentPromptInput::Messages(prompt_messages))
+                .prompt(aa_agent::agent::AgentPromptInput::Messages(prompt_messages))
                 .await
             {
                 // A concurrent admission won the agent's run slot: this
@@ -200,7 +200,7 @@ impl AgentSession {
 
     /// Queue one custom row for the next admitted turn: the row rides the
     /// turn's prompt messages ahead of the prompt's own user row.
-    pub fn queue_next_turn_row(&self, message: pa_types::session::CustomMessage) {
+    pub fn queue_next_turn_row(&self, message: aa_types::session::CustomMessage) {
         self.pending_next_turn_rows
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -213,7 +213,7 @@ impl AgentSession {
     /// the construction order, so the mailbox must cross the build boundary.
     pub fn adopt_next_turn_rows(
         &mut self,
-        shared: std::sync::Arc<std::sync::Mutex<Vec<pa_types::session::CustomMessage>>>,
+        shared: std::sync::Arc<std::sync::Mutex<Vec<aa_types::session::CustomMessage>>>,
     ) {
         let own_rows: Vec<_> = {
             let mut own = self
@@ -238,7 +238,7 @@ impl AgentSession {
     /// empty take leaves nothing for later turns.
     pub fn take_next_turn_rows(
         &self,
-    ) -> impl std::future::Future<Output = Vec<pa_agent::types::AgentMessage>> {
+    ) -> impl std::future::Future<Output = Vec<aa_agent::types::AgentMessage>> {
         std::future::ready(
             self.pending_next_turn_rows
                 .lock()

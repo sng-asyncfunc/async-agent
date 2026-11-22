@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex, Weak};
 use serde_json::Value;
 
 use crate::kernel::shared::{host_handler, HostRequestHandlers, BASH_COMPLETED_REQUEST_TYPE};
-use pa_agent::types::AgentMessage;
-use pa_types::session::CustomMessage;
+use aa_agent::types::AgentMessage;
+use aa_types::session::CustomMessage;
 
 use super::messages::{
     self, ASYNC_BASH_COMPLETION_CUSTOM_TYPE, ASYNC_BASH_COMPLETION_PREVIEW_LABEL,
@@ -178,7 +178,7 @@ fn validate_factory_progress(data: &Value) -> anyhow::Result<KernelNotice> {
 /// withdraw: late-bound because the handlers register before the agent
 /// exists, and weak so the handler -> agent -> kernel -> handler graph
 /// stays acyclic (a dropped session's handlers bind nothing).
-pub type BashNoticeAgentSlot = Arc<Mutex<Option<Weak<pa_agent::agent::Agent>>>>;
+pub type BashNoticeAgentSlot = Arc<Mutex<Option<Weak<aa_agent::agent::Agent>>>>;
 
 /// The in-process sinks over one session's own agent (the daemonless
 /// embeddings): a notice steers its row (`[bash-done]` or
@@ -223,7 +223,7 @@ pub fn register_in_process_kernel_notice_handlers(
 }
 
 /// The bound agent behind the late slot, when the session still lives.
-fn bound_agent(slot: &BashNoticeAgentSlot) -> Option<Arc<pa_agent::agent::Agent>> {
+fn bound_agent(slot: &BashNoticeAgentSlot) -> Option<Arc<aa_agent::agent::Agent>> {
     slot.lock()
         .expect("bash notice agent slot lock")
         .as_ref()
@@ -270,13 +270,13 @@ mod tests {
     }
 
     fn wired_agent() -> (
-        Arc<pa_agent::agent::Agent>,
+        Arc<aa_agent::agent::Agent>,
         BashNoticeAgentSlot,
         Arc<AtomicUsize>,
         HostRequestHandlers,
     ) {
-        let agent = Arc::new(pa_agent::agent::Agent::new(
-            pa_agent::agent::AgentOptions::default(),
+        let agent = Arc::new(aa_agent::agent::Agent::new(
+            aa_agent::agent::AgentOptions::default(),
         ));
         let slot: BashNoticeAgentSlot = Arc::new(Mutex::new(Some(Arc::downgrade(&agent))));
         let wakes = Arc::new(AtomicUsize::new(0));

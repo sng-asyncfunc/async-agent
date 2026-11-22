@@ -10,7 +10,7 @@ struct ScriptedEnv(HashMap<String, String>);
 
 impl EnvCredentialSource for ScriptedEnv {
     fn key_names(&self, provider: &str) -> Option<Vec<String>> {
-        let names = pa_ai::env_api_keys::get_api_key_env_vars(provider)?
+        let names = aa_ai::env_api_keys::get_api_key_env_vars(provider)?
             .into_iter()
             .filter(|name| self.0.get(*name).is_some_and(|value| !value.is_empty()))
             .map(str::to_string)
@@ -1334,7 +1334,7 @@ fn a_failed_forced_refresh_reports_and_logs_a_redacted_reason() {
         }
     }
     type Logged = (
-        pa_ai::utils::log::LogLevel,
+        aa_ai::utils::log::LogLevel,
         String,
         String,
         serde_json::Value,
@@ -1342,8 +1342,8 @@ fn a_failed_forced_refresh_reports_and_logs_a_redacted_reason() {
     let provider = "x-refused";
     let logged: Arc<std::sync::Mutex<Vec<Logged>>> = Arc::default();
     let sink_logged = Arc::clone(&logged);
-    pa_ai::utils::log::set_log_sink(Some(Arc::new(
-        move |entry: &pa_ai::utils::log::LogEntry| {
+    aa_ai::utils::log::set_log_sink(Some(Arc::new(
+        move |entry: &aa_ai::utils::log::LogEntry| {
             if entry.fields["provider"] == provider {
                 sink_logged.lock().unwrap().push((
                     entry.level,
@@ -1361,7 +1361,7 @@ fn a_failed_forced_refresh_reports_and_logs_a_redacted_reason() {
     );
     let mut auth = AuthStorage::in_memory_without_env(&data, Arc::new(EchoingRefusal));
     let result = auth.refresh_rejected_oauth(provider);
-    pa_ai::utils::log::set_log_sink(None);
+    aa_ai::utils::log::set_log_sink(None);
     let reason = "invalid_grant for [redacted] / [redacted]".to_string();
     assert_eq!(
         result,
@@ -1373,7 +1373,7 @@ fn a_failed_forced_refresh_reports_and_logs_a_redacted_reason() {
     assert_eq!(
         *logged.lock().unwrap(),
         vec![(
-            pa_ai::utils::log::LogLevel::Warn,
+            aa_ai::utils::log::LogLevel::Warn,
             "auth".to_string(),
             "oauth refresh failed".to_string(),
             serde_json::json!({ "provider": provider, "trigger": "rejected", "reason": reason }),
@@ -1397,7 +1397,7 @@ fn a_failed_refresh_with_an_environment_key_resolves() {
         )])),
     );
     let mut registry = crate::models::ModelRegistry::in_memory(auth);
-    let model: pa_types::ai::Model = serde_json::from_value(serde_json::json!({
+    let model: aa_types::ai::Model = serde_json::from_value(serde_json::json!({
         "id": "m", "name": "m", "api": "anthropic-messages", "provider": "anthropic",
         "baseUrl": "https://example.com", "reasoning": false, "input": ["text"],
         "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },

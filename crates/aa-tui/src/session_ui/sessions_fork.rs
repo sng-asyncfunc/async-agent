@@ -6,7 +6,7 @@ use super::{
     SessionSelection, SessionUi, TreeSelector, TreeSelectorAction, UserMessageSelector,
     UserMessageSelectorAction, Value, UI_REQUEST_TIMEOUT_MS,
 };
-use pa_types::daemon::DaemonSessionLifecycle;
+use aa_types::daemon::DaemonSessionLifecycle;
 
 impl SessionUi {
     // Session-tree navigation (/tree, /fork, /clone)
@@ -237,7 +237,7 @@ impl SessionUi {
     async fn fork(
         &mut self,
         entry_id: &str,
-        position: Option<pa_types::daemon::ForkPosition>,
+        position: Option<aa_types::daemon::ForkPosition>,
         view: &mut AgentView,
     ) -> Result<()> {
         let data = match self
@@ -293,7 +293,7 @@ impl SessionUi {
             self.note("Nothing to clone yet", view);
             return Ok(());
         }
-        self.fork(leaf_id, Some(pa_types::daemon::ForkPosition::At), view)
+        self.fork(leaf_id, Some(aa_types::daemon::ForkPosition::At), view)
             .await?;
         self.note("Cloned to new session", view);
         self.dirty = true;
@@ -510,7 +510,7 @@ pub(super) async fn create_session(
     // tab the daemon booted in (attach adopts-if-absent instead — never
     // rebinds).
     let client_env = {
-        let env = pa_types::daemon::herdr_env::collect_client_env(|key| std::env::var(key).ok());
+        let env = aa_types::daemon::herdr_env::collect_client_env(|key| std::env::var(key).ok());
         (!env.is_empty()).then_some(env)
     };
     // TS main.ts `launchEnv` (:1092): the client's own environment
@@ -518,7 +518,7 @@ pub(super) async fn create_session(
     // environment of the terminal that opened it, not the daemon's
     // boot environment.
     let launch_env = {
-        let env = pa_types::daemon::launch_env::collect_process_launch_env();
+        let env = aa_types::daemon::launch_env::collect_process_launch_env();
         (!env.is_empty()).then_some(env)
     };
     let data = match client

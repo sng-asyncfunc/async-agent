@@ -23,8 +23,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use pa_daemon::rlm_ledger::{RlmSpawnInput, RlmSpawnLedger};
-use pa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
+use aa_daemon::rlm_ledger::{RlmSpawnInput, RlmSpawnLedger};
+use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
 use serde_json::{json, Value};
 
 struct Supervisor {
@@ -56,7 +56,7 @@ fn graceful_shutdown(socket: &Path) {
     let command = serde_json::json!({
         "type": "command",
         "id": "test-shutdown",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "shutdown" },
     });
     let Ok(mut line) = serde_json::to_string(&command) else {
@@ -79,37 +79,37 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     let socket = dir.join("daemon.sock");
     let agent_dir = dir.join("agent");
     std::fs::create_dir_all(&agent_dir).expect("agent dir");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
     // The daemon's default sessions dir must stay the tempdir's agent dir: an
-    // ambient `PRIME_AGENT_SESSION_DIR` (fleet shells export one) would make
+    // ambient `ASYNC_AGENT_SESSION_DIR` (fleet shells export one) would make
     // the family ledger resolve against the foreign dir, never registering the
     // seeded family.
-    command.env_remove("PRIME_AGENT_SESSION_DIR");
-    command.env_remove("PRIME_AGENT_CODING_AGENT_SESSION_DIR");
+    command.env_remove("ASYNC_AGENT_SESSION_DIR");
+    command.env_remove("ASYNC_AGENT_CODING_AGENT_SESSION_DIR");
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -218,7 +218,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize");
@@ -310,7 +310,7 @@ fn view_options(socket: &Path, session_dir: &Path) -> AgentsViewOptions {
         socket_path: socket.to_path_buf(),
         cwd: PathBuf::from("/tmp"),
         session_dir: Some(session_dir.to_path_buf()),
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         version: "0.0.0".to_string(),
         anchor_session_id: None,
         scope: None,
@@ -319,7 +319,7 @@ fn view_options(socket: &Path, session_dir: &Path) -> AgentsViewOptions {
         selected_row_identity: None,
         selected_key: None,
         status_message: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         show_hardware_cursor: false,
         incident_notice_state: None,
         create_config: serde_json::json!({}),
@@ -516,7 +516,7 @@ async fn the_first_agents_view_render_is_clean_behind_hundreds_of_dead_subagents
         width: 120,
         height: 36,
     };
-    let view = pa_tui::agents_view::run_agents_view(
+    let view = aa_tui::agents_view::run_agents_view(
         view_options(&supervisor.socket, &sessions_dir),
         AgentsViewUiMode::Headless(plan),
         None,
@@ -650,7 +650,7 @@ async fn a_stopped_session_stays_visible_in_the_view() {
         width: 120,
         height: 36,
     };
-    let view = pa_tui::agents_view::run_agents_view(
+    let view = aa_tui::agents_view::run_agents_view(
         view_options(&supervisor.socket, &sessions_dir),
         AgentsViewUiMode::Headless(plan),
         None,

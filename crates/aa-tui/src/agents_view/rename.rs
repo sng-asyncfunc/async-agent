@@ -5,7 +5,7 @@ use serde_json::Value;
 use super::{AgentsViewMode, Composer, DaemonClient, UiInput};
 use crate::agents_view_forest::RowKind;
 use crate::editor::{Editor, EditorEvent};
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

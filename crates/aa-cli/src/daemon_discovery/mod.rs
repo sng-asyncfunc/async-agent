@@ -6,7 +6,7 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 use serde::{Deserialize, Serialize};
 
 use crate::config;
@@ -96,8 +96,8 @@ pub(crate) struct DaemonInfo {
 /// directory would otherwise stop each other).
 pub(crate) fn current_state_root() -> DaemonStateRoot {
     let default_socket_path = config::resolve_daemon_socket_path(None);
-    let socket_dir = (default_socket_path == pa_daemon::platform::default_daemon_socket_path())
-        .then_some(pa_daemon::platform::socket_dir());
+    let socket_dir = (default_socket_path == aa_daemon::platform::default_daemon_socket_path())
+        .then_some(aa_daemon::platform::socket_dir());
     DaemonStateRoot {
         agent_dir: config::get_agent_dir(),
         socket_dir,
@@ -166,7 +166,7 @@ pub(crate) fn is_worker_socket_path(socket_path: &Path, socket_dir: &Path) -> bo
 /// discovery directory: an agent-dir override can contain the shared worker
 /// directory even when the root is pinned elsewhere.
 pub(crate) fn scan_listening_daemons(root: &DaemonStateRoot) -> Vec<DiscoveredDaemonProcess> {
-    let worker_socket_dir = pa_daemon::platform::socket_dir();
+    let worker_socket_dir = aa_daemon::platform::socket_dir();
     scan::scan_all_listening_daemons(config::APP_NAME, root)
         .into_iter()
         .filter(|daemon| !is_worker_socket_path(&daemon.socket_path, &worker_socket_dir))
@@ -374,8 +374,8 @@ const LIST_TIMEOUT_MS: u64 = 30_000;
 /// Reachable daemons are `current` only when the protocol, schema, and
 /// app version all match this build.
 fn classify_reachable(probe: &ProbeResult) -> DaemonStatus {
-    if probe.protocol_version == Some(pa_types::daemon::DAEMON_PROTOCOL_VERSION)
-        && probe.schema_id.as_deref() == Some(pa_types::daemon::DAEMON_SCHEMA_ID)
+    if probe.protocol_version == Some(aa_types::daemon::DAEMON_PROTOCOL_VERSION)
+        && probe.schema_id.as_deref() == Some(aa_types::daemon::DAEMON_SCHEMA_ID)
         && probe.version.as_deref() == Some(config::version())
     {
         DaemonStatus::Current
@@ -394,13 +394,13 @@ pub(crate) fn verify_hello_supervisor_pid(
     if pid == 0 {
         return None;
     }
-    match pa_types::platform::process::is_process_alive(pid) {
+    match aa_types::platform::process::is_process_alive(pid) {
         Ok(true) => {}
         // EPERM-equivalent: the process exists but is not ours to signal.
         Ok(false) | Err(_) => return None,
     }
     if let Some(expected) = expected_process_start_id {
-        if pa_types::platform::process::process_start_id(pid).as_deref() != Some(expected) {
+        if aa_types::platform::process::process_start_id(pid).as_deref() != Some(expected) {
             return None;
         }
     }
@@ -594,12 +594,12 @@ mod tests {
     #[cfg(not(windows))]
     #[test]
     fn the_linux_default_socket_dir_belongs_to_its_root() {
-        // `/tmp/prime-agent-<uid>` is the product-default socket dir on Linux
+        // `/tmp/async-agent-<uid>` is the product-default socket dir on Linux
         // with TMPDIR unset: uid 1000 (the first desktop user) and root.
-        for dir in ["/tmp/prime-agent-1000", "/tmp/prime-agent-0"] {
+        for dir in ["/tmp/async-agent-1000", "/tmp/async-agent-0"] {
             let dir = Path::new(dir);
             let root = DaemonStateRoot {
-                agent_dir: PathBuf::from("/home/user/.prime/agent"),
+                agent_dir: PathBuf::from("/home/user/.async-agent"),
                 socket_dir: Some(dir.to_path_buf()),
                 default_socket_path: dir.join("daemon.sock"),
             };

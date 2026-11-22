@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use nix::sys::signal::{killpg, Signal};
 use nix::unistd::Pid;
-use pa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
+use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
 use serde_json::json;
 
 struct Supervisor {
@@ -33,29 +33,29 @@ impl Drop for Supervisor {
 #[allow(clippy::zombie_processes)]
 fn spawn_supervisor(dir: &Path) -> Supervisor {
     let socket = dir.join("daemon.sock");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", dir.join("agent"))
-        .env_remove("PRIME_AGENT_SESSION_DIR")
-        .env_remove("PRIME_AGENT_CODING_AGENT_SESSION_DIR")
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", dir.join("agent"))
+        .env_remove("ASYNC_AGENT_SESSION_DIR")
+        .env_remove("ASYNC_AGENT_CODING_AGENT_SESSION_DIR")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while UnixStream::connect(&socket).is_err() {
         assert!(Instant::now() < deadline, "supervisor socket never came up");
@@ -94,7 +94,7 @@ impl Shell {
     fn start(agent_dir: &Path, session_id: &str) -> Shell {
         let mut command = Command::new("sleep");
         command.arg("300");
-        pa_core::platform::process::set_new_session(&mut command);
+        aa_core::platform::process::set_new_session(&mut command);
         let child = command.spawn().expect("spawn shell");
         let pid = child.id();
         let home = agent_dir.join("persistent-shells");
@@ -103,7 +103,7 @@ impl Shell {
         let record = json!({
             "id": id,
             "pid": pid,
-            "startId": pa_daemon::lease::get_process_start_id(pid).expect("start id"),
+            "startId": aa_daemon::lease::get_process_start_id(pid).expect("start id"),
             "command": "sleep 300",
             "startedAt": "2026-01-01T00:00:00+00:00",
             "sessionId": session_id,
@@ -131,7 +131,7 @@ fn view_options(socket: &Path, session_dir: &Path) -> AgentsViewOptions {
         socket_path: socket.to_path_buf(),
         cwd: PathBuf::from("/tmp"),
         session_dir: Some(session_dir.to_path_buf()),
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         version: "0.0.0".to_string(),
         anchor_session_id: None,
         scope: None,
@@ -140,7 +140,7 @@ fn view_options(socket: &Path, session_dir: &Path) -> AgentsViewOptions {
         selected_row_identity: None,
         selected_key: None,
         status_message: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         show_hardware_cursor: false,
         incident_notice_state: None,
         create_config: json!({}),
@@ -172,7 +172,7 @@ async fn an_inactive_sessions_shells_line_follows_its_live_persistent_shells() {
     let supervisor = spawn_supervisor(dir.path());
 
     let line_rendered = std::sync::Arc::new(tokio::sync::Notify::new());
-    let view = pa_tui::agents_view::run_agents_view(
+    let view = aa_tui::agents_view::run_agents_view(
         view_options(&supervisor.socket, &sessions_dir),
         AgentsViewUiMode::Headless(AgentsHeadlessPlan {
             steps: vec![

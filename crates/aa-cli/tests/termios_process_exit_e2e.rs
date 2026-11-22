@@ -91,9 +91,9 @@ fn diff_chat_child_mode() {
         .build()
         .expect("tokio runtime");
     let _ = runtime
-        .block_on(pa_tui::interactive::run_interactive(
+        .block_on(aa_tui::interactive::run_interactive(
             options,
-            pa_tui::interactive::UiMode::Terminal,
+            aa_tui::interactive::UiMode::Terminal,
         ))
         .expect("the chat surface ran");
     harness::quiet_child_epilogue();
@@ -110,9 +110,9 @@ fn diff_view_child_mode() {
         .enable_all()
         .build()
         .expect("tokio runtime");
-    let view = runtime.block_on(pa_tui::agents_view::run_agents_view(
+    let view = runtime.block_on(aa_tui::agents_view::run_agents_view(
         options,
-        pa_tui::agents_view::AgentsViewUiMode::Terminal,
+        aa_tui::agents_view::AgentsViewUiMode::Terminal,
         None,
     ));
     if let Ok(view) = view {

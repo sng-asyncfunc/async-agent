@@ -138,7 +138,7 @@ pub(crate) fn options(selection: ModelSelection) -> InteractiveOptions {
         initial_message: None,
         show_images: true,
         fullscreen_mouse: true,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -162,7 +162,7 @@ pub(crate) fn options(selection: ModelSelection) -> InteractiveOptions {
 #[test]
 fn create_config_carries_the_requested_thinking_level() {
     let config = options(ModelSelection {
-        thinking: Some(pa_types::ai::ModelThinkingLevel::Max),
+        thinking: Some(aa_types::ai::ModelThinkingLevel::Max),
         ..Default::default()
     })
     .create_config();
@@ -204,7 +204,7 @@ fn create_config_binds_a_new_child_to_its_parent() {
 
 #[test]
 fn resume_hint_names_a_flushed_session() {
-    let dir = std::env::temp_dir().join("pa-tui-resume-hint-test");
+    let dir = std::env::temp_dir().join("aa-tui-resume-hint-test");
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("session.jsonl");
     std::fs::write(&file, "{}").unwrap();
@@ -215,7 +215,7 @@ fn resume_hint_names_a_flushed_session() {
     });
     assert_eq!(
         crate::session_ui::resume_hint_from_stats(&stats),
-        Some("Resume this session with: prime-agent --resume s1".to_string())
+        Some("Resume this session with: async-agent --resume s1".to_string())
     );
     // An unflushed empty session and a missing session file are both unresumable
     // (TS omits the hint for either).
@@ -351,7 +351,7 @@ fn the_headless_settle_names_every_stuck_member() {
 #[test]
 fn the_startup_placeholder_carries_the_dock_a_fresh_session_mounts() {
     let mut view = AgentView::new(crate::theme::Theme::builtin(
-        "prime",
+        "async",
         crate::theme::ColorMode::TrueColor,
     ));
     apply_startup_chrome(&mut view, &options(ModelSelection::default()));

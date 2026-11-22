@@ -18,7 +18,7 @@ pub(crate) const DAEMON_UPDATE_RESTART_OPEN_RETRY_MS: u64 = 500;
 
 /// The notice a waited-through open surfaces (TS `updateRestartWaitNotice`).
 pub(crate) const DAEMON_UPDATE_RESTART_WAIT_NOTICE: &str =
-    "Waited for the Prime Agent daemon update restart to finish before opening this agent";
+    "Waited for the Async Agent daemon update restart to finish before opening this agent";
 
 /// True when an open failure is part of the normal update-restart
 /// window: the preparing-restart rejection, transport failures while
@@ -38,16 +38,16 @@ pub(crate) fn is_update_restart_transient_error(error: &anyhow::Error) -> bool {
             }
             if matches!(
                 &rejected.error_info,
-                Some(pa_types::daemon::DaemonErrorInfo::SessionRecovering { .. })
+                Some(aa_types::daemon::DaemonErrorInfo::SessionRecovering { .. })
             ) {
                 return true;
             }
         }
         let text = cause.to_string();
-        text.starts_with("Connection to the Prime Agent daemon closed")
+        text.starts_with("Connection to the Async Agent daemon closed")
             || text.starts_with("the daemon connection closed")
             || text.starts_with("the daemon connection is closed")
-            || text.starts_with("Failed to connect to the Prime Agent daemon")
+            || text.starts_with("Failed to connect to the Async Agent daemon")
             || is_daemon_transport_timeout(&text)
     })
 }
@@ -58,7 +58,7 @@ pub(crate) fn is_update_restart_deadline_error(error: &anyhow::Error) -> bool {
     error.chain().any(|cause| {
         cause
             .to_string()
-            .starts_with("The Prime Agent daemon did not finish its update restart within")
+            .starts_with("The Async Agent daemon did not finish its update restart within")
     })
 }
 
@@ -76,9 +76,9 @@ fn is_daemon_transport_timeout(text: &str) -> bool {
     if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
         return false;
     }
-    tail.starts_with("connecting to the prime agent daemon")
-        || tail.starts_with("waiting for the prime agent daemon handshake")
-        || tail.starts_with("waiting for the prime agent daemon response")
+    tail.starts_with("connecting to the async agent daemon")
+        || tail.starts_with("waiting for the async agent daemon handshake")
+        || tail.starts_with("waiting for the async agent daemon response")
 }
 
 /// The bounded wait's failure, carrying the last error for diagnosis.
@@ -91,7 +91,7 @@ fn update_restart_deadline_error(
         None => "none yet".to_string(),
     };
     anyhow!(
-        "The Prime Agent daemon did not finish its update restart within {} seconds. Try opening this agent again once the update finishes. Last error: {}",
+        "The Async Agent daemon did not finish its update restart within {} seconds. Try opening this agent again once the update finishes. Last error: {}",
         wait_ms / 1000,
         last
     )
@@ -169,7 +169,7 @@ fn log_update_restart_wait(error: &anyhow::Error) {
             // every failure stays silent (a broken log dir must not
             // break the open).
             const MAX_LOG_BYTES: u64 = 5 * 1024 * 1024;
-            let Some(agent_dir) = pa_types::platform::agent_dir() else {
+            let Some(agent_dir) = aa_types::platform::agent_dir() else {
                 return Ok(());
             };
             let dir = agent_dir.join("logs");
@@ -190,7 +190,7 @@ fn log_update_restart_wait(error: &anyhow::Error) {
 }
 
 /// `YYYY-MM-DDTHH:MM:SS.mmmZ` — the TS `new Date().toISOString()` shape
-/// (the same algorithm as pa-daemon's util, which pa-tui cannot
+/// (the same algorithm as aa-daemon's util, which aa-tui cannot
 /// depend on).
 fn now_iso() -> String {
     let ms = std::time::SystemTime::now()
@@ -208,7 +208,7 @@ fn now_iso() -> String {
 }
 
 /// Howard Hinnant's civil-from-days (the days-from-civil algorithm in
-/// reverse, the same one pa-tui's direct transport parses with).
+/// reverse, the same one aa-tui's direct transport parses with).
 fn civil_from_days(days: i64) -> (i64, u32, u32) {
     let z = days + 719_468;
     let era = z.div_euclid(146_097);
@@ -228,7 +228,7 @@ mod tests {
 
     fn rejection(
         message: &str,
-        error_info: Option<pa_types::daemon::DaemonErrorInfo>,
+        error_info: Option<aa_types::daemon::DaemonErrorInfo>,
     ) -> anyhow::Error {
         anyhow::Error::new(RequestRejected {
             command: "create".to_string(),
@@ -240,7 +240,7 @@ mod tests {
     fn preparing_rejection() -> anyhow::Error {
         rejection(
             "Daemon is preparing an update restart",
-            Some(pa_types::daemon::DaemonErrorInfo::UpdateRestarting),
+            Some(aa_types::daemon::DaemonErrorInfo::UpdateRestarting),
         )
     }
 
@@ -266,11 +266,11 @@ mod tests {
             ),
             (
                 "connect refused",
-                anyhow!("Failed to connect to the Prime Agent daemon. Socket: /s."),
+                anyhow!("Failed to connect to the Async Agent daemon. Socket: /s."),
             ),
             (
                 "closed",
-                anyhow!("Connection to the Prime Agent daemon closed. Socket: /s."),
+                anyhow!("Connection to the Async Agent daemon closed. Socket: /s."),
             ),
             (
                 "pending-fail closed",
@@ -286,15 +286,15 @@ mod tests {
             ),
             (
                 "response timeout",
-                anyhow!("Timed out after 30000ms waiting for the Prime Agent daemon response. Socket: /s."),
+                anyhow!("Timed out after 30000ms waiting for the Async Agent daemon response. Socket: /s."),
             ),
             (
                 "connect timeout",
-                anyhow!("Timed out after 5000ms connecting to the Prime Agent daemon. Socket: /s."),
+                anyhow!("Timed out after 5000ms connecting to the Async Agent daemon. Socket: /s."),
             ),
             (
                 "handshake timeout",
-                anyhow!("Timed out after 5000ms waiting for the Prime Agent daemon handshake. Socket: /s."),
+                anyhow!("Timed out after 5000ms waiting for the Async Agent daemon handshake. Socket: /s."),
             ),
             (
                 "unknown session",
@@ -304,7 +304,7 @@ mod tests {
                 "recovering session",
                 rejection(
                     "Active session update-restart-session is recovering; retry shortly",
-                    Some(pa_types::daemon::DaemonErrorInfo::SessionRecovering {
+                    Some(aa_types::daemon::DaemonErrorInfo::SessionRecovering {
                         active_session_id: "update-restart-session".to_string(),
                     }),
                 ),
@@ -373,7 +373,7 @@ mod tests {
         assert!(
             deadline_error
                 .to_string()
-                .starts_with("The Prime Agent daemon did not finish its update restart within"),
+                .starts_with("The Async Agent daemon did not finish its update restart within"),
             "the deadline error is actionable: {deadline_error}"
         );
         assert!(
@@ -402,11 +402,11 @@ mod tests {
     #[test]
     fn the_transport_timeout_shapes_classify_exactly() {
         for text in [
-            "Timed out after 5000ms connecting to the Prime Agent daemon. Socket: /s.",
-            "Timed out after 5000ms waiting for the Prime Agent daemon handshake. Socket: /s.",
-            "Timed out after 30000ms waiting for the Prime Agent daemon response. Socket: /s.",
-            "Timed out after 30000ms waiting for the Prime Agent daemon response to \"create\".",
-            "timed out after 30000ms waiting for the Prime Agent daemon response",
+            "Timed out after 5000ms connecting to the Async Agent daemon. Socket: /s.",
+            "Timed out after 5000ms waiting for the Async Agent daemon handshake. Socket: /s.",
+            "Timed out after 30000ms waiting for the Async Agent daemon response. Socket: /s.",
+            "Timed out after 30000ms waiting for the Async Agent daemon response to \"create\".",
+            "timed out after 30000ms waiting for the Async Agent daemon response",
         ] {
             assert!(is_daemon_transport_timeout(text), "{text}");
             assert!(
@@ -421,7 +421,7 @@ mod tests {
             "Timed out after ms connecting"
         ));
         assert!(!is_daemon_transport_timeout(
-            "Timed out after 5x00ms connecting to the Prime Agent daemon"
+            "Timed out after 5x00ms connecting to the Async Agent daemon"
         ));
     }
 
@@ -432,7 +432,7 @@ mod tests {
         assert!(
             deadline
                 .to_string()
-                .starts_with("The Prime Agent daemon did not finish its update restart within"),
+                .starts_with("The Async Agent daemon did not finish its update restart within"),
             "{deadline}"
         );
         assert!(deadline.to_string().contains("Last error:"));
@@ -447,10 +447,10 @@ mod tests {
         assert_eq!(DAEMON_UPDATE_RESTART_OPEN_WAIT_MS, 240_000);
         assert_eq!(
             DAEMON_UPDATE_RESTART_WAIT_NOTICE,
-            "Waited for the Prime Agent daemon update restart to finish before opening this agent"
+            "Waited for the Async Agent daemon update restart to finish before opening this agent"
         );
         assert_eq!(
-            pa_types::daemon::UPDATE_RESTART_PREPARING_MESSAGE,
+            aa_types::daemon::UPDATE_RESTART_PREPARING_MESSAGE,
             "Daemon is preparing an update restart"
         );
     }

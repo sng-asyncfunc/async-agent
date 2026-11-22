@@ -3,8 +3,8 @@
 
 use std::collections::BTreeMap;
 
-use pa_perf::bench::{BenchCorpus, BenchResult, Scenario};
-use pa_perf::report::{report, Baseline, BaselineEntry};
+use aa_perf::bench::{BenchCorpus, BenchResult, Scenario};
+use aa_perf::report::{report, Baseline, BaselineEntry};
 
 fn result(scenario: Scenario, median_ms: f64) -> BenchResult {
     BenchResult {

@@ -5,7 +5,7 @@
 
 use serde_json::Value;
 
-use pa_types::daemon::agent_roster::{classify_summary_value, AgentRosterStatus};
+use aa_types::daemon::agent_roster::{classify_summary_value, AgentRosterStatus};
 
 /// One session's family-addressing identity: the keys its child rows
 /// reference it by.

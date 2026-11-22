@@ -46,7 +46,7 @@ impl Drop for Daemon {
 // The timeout panic path cannot wait on the child; the test exits and reaps it.
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &std::path::Path, agent_dir: &std::path::Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
@@ -58,11 +58,11 @@ fn spawn_daemon(socket: &std::path::Path, agent_dir: &std::path::Path) -> Daemon
         // A supervisor killed at teardown must not leak its session workers into later
         // test binaries: the supervisor-lost exit runs here.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -114,7 +114,7 @@ impl Client {
         self.send(&serde_json::json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }));
     }
@@ -420,7 +420,7 @@ fn wave_b10_scheduled_prompt_fires() {
     // A one-shot `at` schedule a couple of seconds out (the `in` form takes no unit).
     let at = format!(
         "at {}",
-        pa_daemon::util::iso_from_unix_ms(pa_daemon::util::now_ms() + 2500)
+        aa_daemon::util::iso_from_unix_ms(aa_daemon::util::now_ms() + 2500)
     );
     client.send_command(
         "f1",
@@ -586,12 +586,12 @@ fn wave_b11_saved_sessions_wire_shapes() {
     let saved_path = {
         let sessions_dir = agent_dir.join("sessions");
         std::fs::create_dir_all(&sessions_dir).expect("sessions dir");
-        let mut session = pa_daemon::session_store::SessionFile::create(
+        let mut session = aa_daemon::session_store::SessionFile::create(
             dir.path().to_string_lossy().as_ref(),
             None,
             0,
         );
-        let path = sessions_dir.join(pa_daemon::session_store::session_file_name(
+        let path = sessions_dir.join(aa_daemon::session_store::session_file_name(
             session.session_id(),
         ));
         session.set_path(path.clone());
@@ -612,7 +612,7 @@ fn wave_b11_saved_sessions_wire_shapes() {
     assert_eq!(response["success"], true, "{response}");
     assert_eq!(response["data"], Value::Null, "{response}");
     let info =
-        pa_daemon::session_store::read_session_info(&saved_path).expect("saved session readable");
+        aa_daemon::session_store::read_session_info(&saved_path).expect("saved session readable");
     assert_eq!(info.name.as_deref(), Some("renamed"));
 
     // The offline delete: the file and its artifact partition go.

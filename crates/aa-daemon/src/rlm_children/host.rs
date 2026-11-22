@@ -41,7 +41,7 @@ async fn resolve_child_model_allowlisted(
     ) {
         Ok(model) => Ok(model),
         Err(error) => {
-            if let Some(refusal) = error.downcast_ref::<pa_core::models::ModelAllowlistRefusal>() {
+            if let Some(refusal) = error.downcast_ref::<aa_core::models::ModelAllowlistRefusal>() {
                 this.model_refusal_telemetry.note_refused(
                     surface,
                     &refusal.selector,
@@ -63,7 +63,7 @@ fn create_session_launch_env(
 ) -> std::collections::BTreeMap<String, String> {
     let mut env = std::collections::BTreeMap::new();
     for key in
-        std::iter::once("PATH").chain(pa_core::session_engine::telemetry::TELEMETRY_SWITCH_VARS)
+        std::iter::once("PATH").chain(aa_core::session_engine::telemetry::TELEMETRY_SWITCH_VARS)
     {
         if let Some(value) = read_env(key) {
             env.insert(key.to_string(), value);
@@ -73,7 +73,7 @@ fn create_session_launch_env(
         .split_once('/')
         .map_or(model, |(provider, _)| provider);
     if let Some(env_key) =
-        pa_ai::env_api_keys::find_env_keys(provider).and_then(|keys| keys.first().cloned())
+        aa_ai::env_api_keys::find_env_keys(provider).and_then(|keys| keys.first().cloned())
     {
         if let Some(value) = read_env(&env_key) {
             env.insert(env_key, value);
@@ -165,7 +165,7 @@ impl RlmSubagentHost for SupervisorChildSessions {
                         // env; the Rust child is a separate worker
                         // process, so the spawn forwards the parent
                         // worker's env (filtered) instead.
-                        Some(pa_types::daemon::launch_env::collect_process_launch_env()),
+                        Some(aa_types::daemon::launch_env::collect_process_launch_env()),
                     )
                     .await?;
                 let record = ChildRecord {
@@ -235,14 +235,14 @@ impl RlmSubagentHost for SupervisorChildSessions {
                 parent_endpoint["sessionName"] = json!(name);
             }
             let kickoff_row =
-                pa_core::session_engine::agent_messaging::create_agent_session_message_row(
-                    &pa_core::session_engine::agent_messaging::AgentSessionMessageRowPayload {
+                aa_core::session_engine::agent_messaging::create_agent_session_message_row(
+                    &aa_core::session_engine::agent_messaging::AgentSessionMessageRowPayload {
                         id: &kickoff_row_id,
                         prompt: &kickoff_content,
                         message: prompt,
                         from: &parent_endpoint,
                         from_relationship: Some(
-                            pa_core::session_engine::agent_messaging::AgentFamilyRelationship::Parent,
+                            aa_core::session_engine::agent_messaging::AgentFamilyRelationship::Parent,
                         ),
                         // TS `spawnMessage` carries no `target`.
                         target: None,
@@ -301,7 +301,7 @@ impl RlmSubagentHost for SupervisorChildSessions {
                     };
                     if let Err(retry_error) = retried {
                         eprintln!(
-                            "pa-daemon: RLM child task prompt failed for {child_log_id}: {error:#}; retry failed: {retry_error:#}"
+                            "aa-daemon: RLM child task prompt failed for {child_log_id}: {error:#}; retry failed: {retry_error:#}"
                         );
                         let _ = watcher_this
                             .kill_child(&child_active_session_id, ChildCloseReason::Killed)
@@ -743,7 +743,7 @@ impl RlmSubagentHost for SupervisorChildSessions {
             // routing id; only its durable session id still names a
             // passivated child).
             let renamed_by = record.as_ref().map(|_| {
-                pa_core::session_engine::agent_messaging::AgentFamilyRelationship::Parent
+                aa_core::session_engine::agent_messaging::AgentFamilyRelationship::Parent
                     .as_str()
                     .to_string()
             });
@@ -809,7 +809,7 @@ fn session_file_carries_spawn_kickoff(session_file: Option<&str>, spawn_row_id: 
         .any(|entry| {
             entry.get("type").and_then(Value::as_str) == Some("custom_message")
                 && entry.get("customType").and_then(Value::as_str)
-                    == Some(pa_core::session_engine::agent_messaging::AGENT_MESSAGE_CUSTOM_TYPE)
+                    == Some(aa_core::session_engine::agent_messaging::AGENT_MESSAGE_CUSTOM_TYPE)
                 && entry.pointer("/details/id").and_then(Value::as_str) == Some(spawn_row_id)
         })
 }
@@ -825,7 +825,7 @@ mod tests {
             ("PATH".to_string(), "/usr/bin".to_string()),
             ("DO_NOT_TRACK".to_string(), "1".to_string()),
             ("PI_OFFLINE".to_string(), "1".to_string()),
-            ("PRIME_AGENT_TELEMETRY".to_string(), "0".to_string()),
+            ("ASYNC_AGENT_TELEMETRY".to_string(), "0".to_string()),
         ]);
         let mut parent = expected.clone();
         parent.insert("UNRELATED".to_string(), "not forwarded".to_string());

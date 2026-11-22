@@ -190,7 +190,7 @@ struct PidfdGuard(i32);
 
 impl Drop for PidfdGuard {
     fn drop(&mut self) {
-        pa_core::platform::process::close_pidfd(self.0);
+        aa_core::platform::process::close_pidfd(self.0);
     }
 }
 
@@ -204,14 +204,14 @@ async fn stop_target_within(
     term_grace: Duration,
     kill_verify: Duration,
 ) -> ReapOutcome {
-    match pa_core::platform::process::open_pidfd(target.pid) {
+    match aa_core::platform::process::open_pidfd(target.pid) {
         // The fd opens before the identity check and is held across it and
         // every signal, so only the pinned process can receive one.
         Ok(pidfd) => {
             let pidfd = PidfdGuard(pidfd);
             escalate(
                 target,
-                |signal| pa_core::platform::process::pidfd_signal(pidfd.0, signal),
+                |signal| aa_core::platform::process::pidfd_signal(pidfd.0, signal),
                 term_grace,
                 kill_verify,
             )
@@ -222,7 +222,7 @@ async fn stop_target_within(
                 target,
                 |signal| {
                     if identity_current(target) {
-                        let _ = pa_core::platform::process::kill_pid(target.pid as i32, signal);
+                        let _ = aa_core::platform::process::kill_pid(target.pid as i32, signal);
                     }
                     true
                 },
@@ -251,18 +251,18 @@ async fn stop_target_within(
 /// grace, SIGKILL, verify.
 async fn escalate(
     target: &ReapTarget,
-    signal: impl Fn(pa_core::platform::process::Signal) -> bool,
+    signal: impl Fn(aa_core::platform::process::Signal) -> bool,
     term_grace: Duration,
     kill_verify: Duration,
 ) -> ReapOutcome {
     if !identity_current(target) || !crate::lease::is_process_alive(target.pid).unwrap_or(false) {
         return ReapOutcome::AlreadyGone;
     }
-    if signal(pa_core::platform::process::Signal::Term) {
+    if signal(aa_core::platform::process::Signal::Term) {
         if await_gone(target, term_grace).await {
             return ReapOutcome::Term;
         }
-        if signal(pa_core::platform::process::Signal::Kill) && await_gone(target, kill_verify).await
+        if signal(aa_core::platform::process::Signal::Kill) && await_gone(target, kill_verify).await
         {
             return ReapOutcome::Kill;
         }
@@ -366,14 +366,14 @@ fn socket_spelling_of(pid: u32, value: &str) -> String {
     }
 }
 
-/// The product's own binary names: `prime-agent` (release/install) and
-/// `pa-daemon` (the workspace binary). Unix only, as [`is_worker_argv`].
+/// The product's own binary names: `async-agent` (release/install) and
+/// `aa-daemon` (the workspace binary). Unix only, as [`is_worker_argv`].
 #[cfg(unix)]
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub(crate) fn is_product_binary(exe: &str) -> bool {
     matches!(
         Path::new(exe).file_name().and_then(|name| name.to_str()),
-        Some("prime-agent" | "pa-daemon")
+        Some("async-agent" | "aa-daemon")
     )
 }
 
@@ -789,7 +789,7 @@ mod tests {
             .expect("spawn sleep");
         let pid = child.id();
         assert!(
-            pa_core::platform::process::open_pidfd(pid).is_ok(),
+            aa_core::platform::process::open_pidfd(pid).is_ok(),
             "the kernel-held handle opens"
         );
         let outcome = stop_target(&target(pid)).await;
@@ -833,7 +833,7 @@ mod tests {
         let mut child = guard.0.take().expect("guard holds the child");
         let status = child.wait().expect("reap the escalated child");
         assert_eq!(
-            pa_core::platform::process::termination_signal(&status),
+            aa_core::platform::process::termination_signal(&status),
             Some(9),
             "the child's death must be the escalation's SIGKILL"
         );
@@ -880,11 +880,11 @@ mod tests {
 
     #[test]
     fn worker_argv_shapes() {
-        let worker = ["/bin/prime-agent", "worker"]
+        let worker = ["/bin/async-agent", "worker"]
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>();
-        let pa_daemon_worker = ["/usr/bin/pa-daemon", "worker", "--flag"]
+        let pa_daemon_worker = ["/usr/bin/aa-daemon", "worker", "--flag"]
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>();
@@ -896,18 +896,18 @@ mod tests {
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>();
-        let bare = ["/usr/local/bin/prime-agent"]
+        let bare = ["/usr/local/bin/async-agent"]
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>();
-        let worker_flag_second = ["/usr/local/bin/prime-agent", "--mode", "worker"]
+        let worker_flag_second = ["/usr/local/bin/async-agent", "--mode", "worker"]
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>();
         assert!(is_worker_argv(&worker), "the product worker role");
         assert!(
             is_worker_argv(&pa_daemon_worker),
-            "the pa-daemon worker role"
+            "the aa-daemon worker role"
         );
         assert!(!is_worker_argv(&kernel), "a session kernel never matches");
         assert!(
@@ -949,7 +949,7 @@ mod tests {
 
     #[test]
     fn the_exe_gate_accepts_replaced_binaries() {
-        let replaced = "/opt/prime-agent/bin/prime-agent (deleted)";
+        let replaced = "/opt/async-agent/bin/async-agent (deleted)";
         assert!(
             is_product_binary(replaced.trim_end_matches(" (deleted)")),
             "the deleted-suffix spelling still identifies the product binary"
@@ -960,7 +960,7 @@ mod tests {
     #[test]
     fn the_supervisor_match_normalizes_both_spellings() {
         let direct = [
-            "/usr/bin/prime-agent",
+            "/usr/bin/async-agent",
             "--mode",
             "daemon",
             "--daemon-socket",
@@ -974,7 +974,7 @@ mod tests {
             &normalize_socket_spelling(Path::new("/tmp/x/daemon.sock"))
         ));
         let dotted = [
-            "/usr/bin/prime-agent",
+            "/usr/bin/async-agent",
             "--mode",
             "daemon",
             "--daemon-socket",
@@ -995,7 +995,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn our_worker_socket_names_only() {
-        let supervisor = Path::new("/tmp/prime-agent-1000/daemon.sock");
+        let supervisor = Path::new("/tmp/async-agent-1000/daemon.sock");
         let key = crate::paths::hash_key(&supervisor.to_string_lossy(), 12);
         let dir = crate::platform::socket_dir().to_string_lossy().to_string();
         let ours = format!("{dir}/worker-{key}-abcdef123456.sock");
@@ -1023,7 +1023,7 @@ mod tests {
     #[test]
     fn supervisor_argv_shapes() {
         let product = [
-            "/usr/local/bin/prime-agent",
+            "/usr/local/bin/async-agent",
             "--mode",
             "daemon",
             "--daemon-socket",
@@ -1033,7 +1033,7 @@ mod tests {
         .map(ToString::to_string)
         .collect::<Vec<_>>();
         let direct = [
-            "/usr/bin/pa-daemon",
+            "/usr/bin/aa-daemon",
             "supervisor",
             "--socket",
             "/tmp/sock/daemon.sock",
@@ -1044,7 +1044,7 @@ mod tests {
         .map(ToString::to_string)
         .collect::<Vec<_>>();
         let other_socket = [
-            "/usr/local/bin/prime-agent",
+            "/usr/local/bin/async-agent",
             "--mode",
             "daemon",
             "--daemon-socket",
@@ -1053,7 +1053,7 @@ mod tests {
         .iter()
         .map(ToString::to_string)
         .collect::<Vec<_>>();
-        let interactive = ["/usr/local/bin/prime-agent"]
+        let interactive = ["/usr/local/bin/async-agent"]
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>();

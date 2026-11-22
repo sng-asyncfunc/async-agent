@@ -6,7 +6,7 @@
 
 use serde_json::{json, Value};
 
-use pa_types::ai::{ServiceTier, Transport};
+use aa_types::ai::{ServiceTier, Transport};
 
 use crate::engine::EngineModelSelection;
 use crate::protocol::{response_failure, response_success, DaemonResponse};
@@ -24,7 +24,7 @@ pub(crate) fn engine_supports_service_tier(
     model
         .as_ref()
         .and_then(|model| {
-            Some(pa_types::ai::supports_service_tier_fields(
+            Some(aa_types::ai::supports_service_tier_fields(
                 model.get("provider")?.as_str()?,
                 model.get("api")?.as_str()?,
                 model.get("id")?.as_str()?,
@@ -85,10 +85,10 @@ impl Worker {
         };
         // Candidates: scoped entries (available ones only), else the available catalog.
         let registry = crate::state_getters::worker_model_registry(&self.config.agent_dir);
-        let available: Vec<pa_types::ai::Model> =
+        let available: Vec<aa_types::ai::Model> =
             registry.get_available().into_iter().cloned().collect();
         let is_scoped = !scoped.is_empty();
-        let candidates: Vec<(Option<String>, Option<pa_types::ai::Model>)> = if is_scoped {
+        let candidates: Vec<(Option<String>, Option<aa_types::ai::Model>)> = if is_scoped {
             scoped
                 .iter()
                 .filter_map(|entry| {
@@ -154,7 +154,7 @@ impl Worker {
                 // The event rides the typed refusal only: a fail-closed unreadable-allowlist
                 // error is a settings problem, not an allowlist refusal.
                 if refusal
-                    .downcast_ref::<pa_core::models::ModelAllowlistRefusal>()
+                    .downcast_ref::<aa_core::models::ModelAllowlistRefusal>()
                     .is_some()
                 {
                     if let Some(agent_engine) = &self.agent_engine {
@@ -179,7 +179,7 @@ impl Worker {
             // A scoped entry may pin the switched-to model's level.
             if let Some(level) = scoped_thinking
                 .as_deref()
-                .and_then(pa_ai::models::thinking_level_from_str)
+                .and_then(aa_ai::models::thinking_level_from_str)
             {
                 if !engine.switch_thinking_level(level) {
                     return None;
@@ -196,7 +196,7 @@ impl Worker {
                 core.cwd.clone()
             };
             // Persist the default so the next session starts here.
-            let mut settings = pa_core::settings::SettingsManager::create(&cwd, &agent_dir);
+            let mut settings = aa_core::settings::SettingsManager::create(&cwd, &agent_dir);
             let _ = settings.set_default_model_and_provider(&provider, &model_id);
             Some(())
         })
@@ -271,7 +271,7 @@ impl Worker {
             });
             (restored, core.cwd.clone())
         };
-        let default_tier = pa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir)
+        let default_tier = aa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir)
             .get_default_service_tier();
         {
             let mut core = self.core.lock().unwrap();
@@ -313,7 +313,7 @@ impl Worker {
             if let Some(level) = entry.get("thinkingLevel") {
                 if level
                     .as_str()
-                    .and_then(pa_ai::models::thinking_level_from_str)
+                    .and_then(aa_ai::models::thinking_level_from_str)
                     .is_none()
                 {
                     return response_failure(
@@ -416,7 +416,7 @@ impl Worker {
         if preference_changed && engine_supports_service_tier(self.engine.as_ref(), tier) {
             // Persist the default only when the model supports the tier.
             let mut settings =
-                pa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir);
+                aa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir);
             let _ = settings.set_default_service_tier(tier);
         }
         if effective_changed {
@@ -450,13 +450,13 @@ impl Worker {
         let cwd = core.cwd.clone();
         drop(core);
         let setting = match transport {
-            Transport::Auto => pa_core::settings::TransportSetting::Auto,
-            Transport::Sse => pa_core::settings::TransportSetting::Sse,
+            Transport::Auto => aa_core::settings::TransportSetting::Auto,
+            Transport::Sse => aa_core::settings::TransportSetting::Sse,
             Transport::Websocket | Transport::WebsocketCached => {
-                pa_core::settings::TransportSetting::WebSocket
+                aa_core::settings::TransportSetting::WebSocket
             }
         };
-        let mut settings = pa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir);
+        let mut settings = aa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir);
         if let Err(error) = settings.set_transport(setting) {
             return response_failure(None, "set_transport", &error.to_string(), None);
         }
@@ -486,8 +486,8 @@ impl Worker {
             );
         }
         let setting = match mode {
-            "all" => pa_core::settings::QueueModeSetting::All,
-            _ => pa_core::settings::QueueModeSetting::OneAtATime,
+            "all" => aa_core::settings::QueueModeSetting::All,
+            _ => aa_core::settings::QueueModeSetting::OneAtATime,
         };
         {
             let mut core = self.core.lock().unwrap();
@@ -500,7 +500,7 @@ impl Worker {
         let core = self.core.lock().unwrap();
         let cwd = core.cwd.clone();
         drop(core);
-        let mut settings = pa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir);
+        let mut settings = aa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir);
         let persisted = if command == "set_steering_mode" {
             settings.set_steering_mode(setting)
         } else {
@@ -535,7 +535,7 @@ impl Worker {
         let core = self.core.lock().unwrap();
         let cwd = core.cwd.clone();
         drop(core);
-        let mut settings = pa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir);
+        let mut settings = aa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir);
         if let Err(error) = settings.set_retry_enabled(enabled) {
             return response_failure(None, "set_auto_retry", &error.to_string(), None);
         }
@@ -554,7 +554,7 @@ impl Worker {
             .and_then(Value::as_bool)
             .unwrap_or(false);
         let cwd = self.core.lock().unwrap().cwd.clone();
-        let mut settings = pa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir);
+        let mut settings = aa_core::settings::SettingsManager::create(&cwd, &self.config.agent_dir);
         if let Err(error) = settings.set_compaction_enabled(enabled) {
             return response_failure(None, "set_auto_compaction", &error.to_string(), None);
         }
@@ -1045,10 +1045,10 @@ mod tests {
             )
             .await;
         assert!(response.success, "failed: {response:?}");
-        let settings = pa_core::settings::SettingsManager::create(&dir, dir.join("agent"));
+        let settings = aa_core::settings::SettingsManager::create(&dir, dir.join("agent"));
         assert!(matches!(
             settings.get_transport(),
-            pa_core::settings::TransportSetting::WebSocket
+            aa_core::settings::TransportSetting::WebSocket
         ));
         let response = worker
             .dispatch(
@@ -1113,7 +1113,7 @@ mod tests {
             )
             .await;
         assert!(response.success, "failed: {response:?}");
-        let settings = pa_core::settings::SettingsManager::create(&dir, dir.join("agent"));
+        let settings = aa_core::settings::SettingsManager::create(&dir, dir.join("agent"));
         let policy = settings.get_provider_retry_policy();
         assert!(!policy.enabled);
     }
@@ -1155,7 +1155,7 @@ mod tests {
             state.data.expect("data")["autoCompactionEnabled"],
             json!(false)
         );
-        let settings = pa_core::settings::SettingsManager::create(&dir, dir.join("agent"));
+        let settings = aa_core::settings::SettingsManager::create(&dir, dir.join("agent"));
         assert!(!settings.get_compaction_enabled());
         // A restarted session re-seeds the flag from the persisted setting.
         let worker = Arc::new(Worker::new(worker_config(&dir), None));

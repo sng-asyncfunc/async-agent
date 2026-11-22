@@ -8,8 +8,8 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use pa_core::cron::store::read_scheduled_jobs_artifact;
-use pa_types::daemon::{
+use aa_core::cron::store::read_scheduled_jobs_artifact;
+use aa_types::daemon::{
     UpdateHeartbeatDeliveryMode, UpdateHeartbeatStatus, UpdateId, UpdateRoster, UpdateRosterBinary,
     UpdateRosterHeartbeat, UpdateRosterInFlight, UpdateRosterQueue, UpdateRosterSession,
     UpdateRosterSessionKind, UpdateRosterSubagent, UpdateRosterSubagentStatus, UpdateRosterWorker,
@@ -26,7 +26,7 @@ use crate::util::iso_from_unix_ms;
 #[derive(Debug, Clone)]
 pub(crate) struct WorkerSnapshot {
     pub(crate) worker_id: String,
-    pub(crate) descriptor: pa_types::daemon::DaemonWorkerDescriptor,
+    pub(crate) descriptor: aa_types::daemon::DaemonWorkerDescriptor,
     pub(crate) snapshot: Value,
 }
 
@@ -220,9 +220,9 @@ fn heartbeat_rows(agent_dir: &Path) -> Vec<UpdateRosterHeartbeat> {
     let mut rows = Vec::new();
     for job in scan_scheduled_jobs(agent_dir) {
         let status = match job.status {
-            pa_core::cron::JobStatus::Active => UpdateHeartbeatStatus::Active,
-            pa_core::cron::JobStatus::Paused => UpdateHeartbeatStatus::Paused,
-            pa_core::cron::JobStatus::Completed | pa_core::cron::JobStatus::Cancelled => continue,
+            aa_core::cron::JobStatus::Active => UpdateHeartbeatStatus::Active,
+            aa_core::cron::JobStatus::Paused => UpdateHeartbeatStatus::Paused,
+            aa_core::cron::JobStatus::Completed | aa_core::cron::JobStatus::Cancelled => continue,
         };
         let schedule = schedule_text(&job);
         rows.push(UpdateRosterHeartbeat {
@@ -231,10 +231,10 @@ fn heartbeat_rows(agent_dir: &Path) -> Vec<UpdateRosterHeartbeat> {
             label: job.label,
             schedule,
             delivery_mode: match job.delivery_mode {
-                Some(pa_core::cron::DeliveryMode::FollowUp) => {
+                Some(aa_core::cron::DeliveryMode::FollowUp) => {
                     UpdateHeartbeatDeliveryMode::FollowUp
                 }
-                Some(pa_core::cron::DeliveryMode::Steer) | None => {
+                Some(aa_core::cron::DeliveryMode::Steer) | None => {
                     UpdateHeartbeatDeliveryMode::Steer
                 }
             },
@@ -248,7 +248,7 @@ fn heartbeat_rows(agent_dir: &Path) -> Vec<UpdateRosterHeartbeat> {
 
 /// Every scheduled job in the agent's session artifacts (spec §8: `scheduled-jobs.json` is the only
 /// write path). Shared by the roster projection and the boot re-arm pass.
-pub(crate) fn scan_scheduled_jobs(agent_dir: &Path) -> Vec<pa_core::cron::AgentCronJob> {
+pub(crate) fn scan_scheduled_jobs(agent_dir: &Path) -> Vec<aa_core::cron::AgentCronJob> {
     let artifacts_root = agent_dir.join("session-artifacts");
     let Ok(entries) = std::fs::read_dir(&artifacts_root) else {
         return Vec::new();
@@ -276,16 +276,16 @@ fn scheduled_job_files(partition: &Path) -> Vec<PathBuf> {
 
 /// The schedule's display text (a UX projection; the durable schedule
 /// object stays in `scheduled-jobs.json`).
-fn schedule_text(job: &pa_core::cron::AgentCronJob) -> String {
+fn schedule_text(job: &aa_core::cron::AgentCronJob) -> String {
     match job.schedule.kind {
-        pa_core::cron::ScheduleKind::Cron | pa_core::cron::ScheduleKind::Once => {
+        aa_core::cron::ScheduleKind::Cron | aa_core::cron::ScheduleKind::Once => {
             if job.schedule.expression.is_empty() {
                 "once".to_string()
             } else {
                 job.schedule.expression.clone()
             }
         }
-        pa_core::cron::ScheduleKind::Interval => {
+        aa_core::cron::ScheduleKind::Interval => {
             let millis = job.schedule.interval_ms.unwrap_or(0);
             if millis >= 60_000 && millis.is_multiple_of(60_000) {
                 format!("every {}m", millis / 60_000)
@@ -419,7 +419,7 @@ mod tests {
         session_id: &str,
         name: Option<&str>,
         kind: &str,
-    ) -> pa_types::daemon::DaemonWorkerDescriptor {
+    ) -> aa_types::daemon::DaemonWorkerDescriptor {
         let mut rest = serde_json::Map::new();
         rest.insert("cwd".into(), json!("/w"));
         if let Some(name) = name {
@@ -428,7 +428,7 @@ mod tests {
         if kind == "subagent" {
             rest.insert("rlmChildId".into(), json!(format!("child-{session_id}")));
         }
-        pa_types::daemon::DaemonWorkerDescriptor {
+        aa_types::daemon::DaemonWorkerDescriptor {
             version: 2,
             worker_id: format!("active-{session_id}"),
             pid: 1,
@@ -447,8 +447,8 @@ mod tests {
             telemetry_disabled: None,
             created_at: String::new(),
             updated_at: String::new(),
-            lifecycle: pa_types::daemon::DaemonWorkerLifecycle::Ready,
-            create_command: pa_types::daemon::DurableDaemonCreateCommand {
+            lifecycle: aa_types::daemon::DaemonWorkerLifecycle::Ready,
+            create_command: aa_types::daemon::DurableDaemonCreateCommand {
                 session_path: None,
                 no_session: None,
                 rest,
@@ -595,13 +595,13 @@ mod tests {
         assert_eq!(
             roster.workers[0]
                 .launch_env
-                .get("PRIME_AGENT_INTERNAL_DAEMON_WORKER"),
+                .get("ASYNC_AGENT_INTERNAL_DAEMON_WORKER"),
             Some(&"1".to_string())
         );
         assert_eq!(
             roster.workers[0]
                 .launch_env
-                .get("PRIME_AGENT_INTERNAL_DAEMON_WORKER_ACTIVE_SESSION_ID"),
+                .get("ASYNC_AGENT_INTERNAL_DAEMON_WORKER_ACTIVE_SESSION_ID"),
             Some(&"active-p1".to_string())
         );
 

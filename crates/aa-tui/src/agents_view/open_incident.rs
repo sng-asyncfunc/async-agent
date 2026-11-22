@@ -259,7 +259,7 @@ impl AgentsViewMode {
     /// One best-effort poll of the structured agent log (a missing or unreadable log simply
     /// retries the bounded tail). `true` when the collapsed notice line changed.
     pub(super) fn refresh_incident_notices(&mut self) -> bool {
-        let Some(agent_dir) = pa_types::platform::agent_dir() else {
+        let Some(agent_dir) = aa_types::platform::agent_dir() else {
             return false;
         };
         let log_path = agent_dir.join("logs").join("agent.jsonl");

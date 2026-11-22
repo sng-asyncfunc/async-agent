@@ -45,7 +45,7 @@ impl Drop for Daemon {
 
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &std::path::Path, agent_dir: &std::path::Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
@@ -55,11 +55,11 @@ fn spawn_daemon(socket: &std::path::Path, agent_dir: &std::path::Path) -> Daemon
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -94,7 +94,7 @@ impl Client {
         let value = serde_json::json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&value).expect("serialize command");

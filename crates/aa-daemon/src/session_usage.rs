@@ -6,12 +6,12 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-use pa_types::ai::{Usage, UsageCost};
-use pa_types::JsNumber;
+use aa_types::ai::{Usage, UsageCost};
+use aa_types::JsNumber;
 use serde::{Deserialize, Serialize};
 
-pub(crate) use pa_core::session::billed_row::{billed_line, BilledRow, ScanUsage};
-use pa_core::session_engine::compaction_exec::{add_assistant_usage, subtract_assistant_usage};
+pub(crate) use aa_core::session::billed_row::{billed_line, BilledRow, ScanUsage};
+use aa_core::session_engine::compaction_exec::{add_assistant_usage, subtract_assistant_usage};
 
 /// The token/cost summary the rows publish: `inputTokens` folds cache reads
 /// and writes into the input total; `cost` is the provider-billed total.
@@ -127,7 +127,7 @@ pub struct SessionUsageTotals {
 /// `float_roundtrip`, and its decimal parse need not round-trip every
 /// shortest-repr float — a one-ulp drift in a persisted block would make
 /// a resumed fold's sums differ from a full scan's. The window sidecar
-/// encodes its floats the same way (pa-core `window_cache::float_bits`).
+/// encodes its floats the same way (aa-core `window_cache::float_bits`).
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PersistedUsage {
@@ -292,9 +292,9 @@ impl UsageScan {
     }
 }
 
-/// [`billed_fields`](pa_core::session::billed_row::billed_fields) over an in-memory store entry.
+/// [`billed_fields`](aa_core::session::billed_row::billed_fields) over an in-memory store entry.
 pub(crate) fn billed_store_row(entry: &crate::session_store::SessionEntry) -> Option<BilledRow> {
-    pa_core::session::billed_row::billed_fields(&entry.type_, &entry.fields)
+    aa_core::session::billed_row::billed_fields(&entry.type_, &entry.fields)
 }
 
 /// The standalone scanner's minimal entry parse: only the usage fold's fields.

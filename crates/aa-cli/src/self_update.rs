@@ -1,18 +1,18 @@
 //! The self-update command core: the nightly-switch confirmation, the
 //! staged-activation update, and the completed-run channel persist.
-//! `prime-agent update` and `prime-agent package update`'s self target
+//! `async-agent update` and `async-agent package update`'s self target
 //! both run this one body, so the two entry points cannot diverge.
 
-use pa_core::update::version::UpdateChannel;
+use aa_core::update::version::UpdateChannel;
 
-/// One parsed self-update invocation: `prime-agent update`'s options or the
+/// One parsed self-update invocation: `async-agent update`'s options or the
 /// `package update` self target's.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SelfUpdateOptions {
     pub force: bool,
     pub rollback: bool,
     pub channel: Option<UpdateChannel>,
-    /// The manual/direct install payload (`prime-agent update --archive`).
+    /// The manual/direct install payload (`async-agent update --archive`).
     pub archive: Option<std::path::PathBuf>,
     /// The `http(s)://` origin recorded as the release's install source.
     pub source: Option<String>,
@@ -20,10 +20,10 @@ pub struct SelfUpdateOptions {
 
 /// The settings `UpdateChannel` in the update vocabulary's wire name ("stable"/"nightly") — both
 /// entries read and persist one format.
-pub fn settings_channel_wire_name(channel: pa_core::settings::UpdateChannel) -> &'static str {
+pub fn settings_channel_wire_name(channel: aa_core::settings::UpdateChannel) -> &'static str {
     UpdateChannel::wire_name(match channel {
-        pa_core::settings::UpdateChannel::Stable => UpdateChannel::Stable,
-        pa_core::settings::UpdateChannel::Nightly => UpdateChannel::Nightly,
+        aa_core::settings::UpdateChannel::Stable => UpdateChannel::Stable,
+        aa_core::settings::UpdateChannel::Nightly => UpdateChannel::Nightly,
     })
 }
 
@@ -40,7 +40,7 @@ pub fn confirm_nightly_switch(
         return None;
     }
     println!(
-        "Nightly releases are unreleased Prime Agent builds. They can be broken, and a broken update can leave Prime Agent unusable until you roll back or reinstall."
+        "Nightly releases are unreleased Async Agent builds. They can be broken, and a broken update can leave Async Agent unusable until you roll back or reinstall."
     );
     let abort_code = if std::env::var(crate::public_command::SELF_UPDATE_INTERACTIVE_CHILD_ENV)
         .as_deref()
@@ -105,10 +105,10 @@ pub fn run(options: &SelfUpdateOptions, persisted_wire: Option<&str>) -> i32 {
                 let wire = flag_wire.unwrap_or_default();
                 if let Ok(cwd) = std::env::current_dir() {
                     let settings_channel = match wire {
-                        "nightly" => pa_core::settings::UpdateChannel::Nightly,
-                        _ => pa_core::settings::UpdateChannel::Stable,
+                        "nightly" => aa_core::settings::UpdateChannel::Nightly,
+                        _ => aa_core::settings::UpdateChannel::Stable,
                     };
-                    let mut settings = pa_core::settings::SettingsManager::create(
+                    let mut settings = aa_core::settings::SettingsManager::create(
                         &cwd,
                         crate::config::get_agent_dir(),
                     );
@@ -168,11 +168,11 @@ mod tests {
     #[test]
     fn the_settings_wire_name_matches_the_update_vocabulary() {
         assert_eq!(
-            settings_channel_wire_name(pa_core::settings::UpdateChannel::Stable),
+            settings_channel_wire_name(aa_core::settings::UpdateChannel::Stable),
             "stable"
         );
         assert_eq!(
-            settings_channel_wire_name(pa_core::settings::UpdateChannel::Nightly),
+            settings_channel_wire_name(aa_core::settings::UpdateChannel::Nightly),
             "nightly"
         );
     }

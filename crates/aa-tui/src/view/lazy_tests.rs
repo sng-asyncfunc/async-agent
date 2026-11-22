@@ -6,7 +6,7 @@ use crate::chat::{ChatEntry, StatusKind, WorkingState};
 use crate::theme::{ColorMode, Theme};
 
 fn view() -> AgentView {
-    AgentView::new(Theme::builtin("prime", ColorMode::TrueColor))
+    AgentView::new(Theme::builtin("async", ColorMode::TrueColor))
 }
 
 /// A view with a long transcript and tail content an eager compose would
@@ -110,7 +110,7 @@ fn frames_render_an_end_section_only_when_the_window_reaches_it() {
     assert_eq!(SPLASH_RENDERS.with(std::cell::Cell::get), 1);
     assert_eq!(TAIL_RENDERS.with(std::cell::Cell::get), 0);
     let rows = text_of(&top);
-    assert!(rows.iter().any(|row| row.contains("prime agent")));
+    assert!(rows.iter().any(|row| row.contains("async agent")));
     assert!(!rows.iter().any(|row| row.contains("Thinking")));
     view.scroll_to_bottom();
     reset_section_counters();

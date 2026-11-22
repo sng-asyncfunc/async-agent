@@ -5,7 +5,7 @@
 //! mirror). A saturated worker answers requests with the typed
 //! `worker_overloaded` refusal; internal routes wait, never refuse.
 
-use pa_types::daemon::DaemonErrorInfo;
+use aa_types::daemon::DaemonErrorInfo;
 
 use crate::protocol::{response_failure, DaemonResponse};
 
@@ -63,7 +63,7 @@ mod tests {
 
     use crate::registry::{ResidentWorker, WorkerRequest};
     use crate::supervisor::{Supervisor, SupervisorOptions};
-    use pa_types::daemon::{DaemonErrorInfo, DaemonWorkerDescriptor};
+    use aa_types::daemon::{DaemonErrorInfo, DaemonWorkerDescriptor};
 
     fn resident(worker_id: &str) -> Arc<ResidentWorker> {
         let descriptor: DaemonWorkerDescriptor = serde_json::from_value(serde_json::json!({
@@ -267,7 +267,7 @@ mod tests {
         );
         assert_eq!(
             refused.error_info,
-            Some(pa_types::daemon::DaemonErrorInfo::WorkerOverloaded)
+            Some(aa_types::daemon::DaemonErrorInfo::WorkerOverloaded)
         );
         assert!(
             resident.pending.lock().await.is_empty(),

@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use serde_json::{json, Map, Value};
 
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 
 use crate::lease::canonical_session_path;
 use crate::protocol::{response_failure, response_line, response_success, DaemonResponse};

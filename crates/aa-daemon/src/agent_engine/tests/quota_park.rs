@@ -20,9 +20,9 @@ fn park_engine(dir: &std::path::Path) -> AgentSessionEngine {
     )
     .unwrap();
     let store =
-        std::sync::Arc::new(pa_core::cron::store::AgentCronJobStore::for_session_artifacts());
+        std::sync::Arc::new(aa_core::cron::store::AgentCronJobStore::for_session_artifacts());
     store.register_session_artifact("park-session", &dir.join("artifacts"));
-    let cron_store = pa_core::session_engine::runtime_wiring::KernelCronWiring {
+    let cron_store = aa_core::session_engine::runtime_wiring::KernelCronWiring {
         store: std::sync::Arc::clone(&store),
         binding: None,
         mutation_hook: None,
@@ -52,26 +52,26 @@ fn park_engine(dir: &std::path::Path) -> AgentSessionEngine {
 fn quota_failure_message(
     kind: Option<&str>,
     retry_after_ms: Option<u64>,
-) -> pa_agent::types::AssistantMessage {
+) -> aa_agent::types::AssistantMessage {
     let details = serde_json::json!({
         "kind": kind,
         "retryAfterMs": retry_after_ms,
     });
-    pa_agent::types::AssistantMessage {
+    aa_agent::types::AssistantMessage {
         content: vec![],
         api: "openai-completions".to_string(),
         provider: "battery".to_string(),
         model: "mock-1".to_string(),
         response_model: None,
         response_id: None,
-        diagnostics: Some(vec![pa_agent::types::AssistantMessageDiagnostic {
+        diagnostics: Some(vec![aa_agent::types::AssistantMessageDiagnostic {
             kind: "provider_stream_failure".to_string(),
             timestamp: 0,
             error: None,
             details: Some(details),
         }]),
-        usage: pa_agent::types::Usage::zero(),
-        stop_reason: pa_agent::types::StopReason::Error,
+        usage: aa_agent::types::Usage::zero(),
+        stop_reason: aa_agent::types::StopReason::Error,
         stop_reason_raw: None,
         error_message: Some("You have hit your usage limit".to_string()),
         timestamp: 0,
@@ -88,17 +88,17 @@ async fn a_failed_park_entry_write_propagates_to_the_caller() {
     let session_file = dir.path().join("session.jsonl");
     // A persisting manager over the session file.
     let handle = std::sync::Arc::new(tokio::sync::Mutex::new(
-        pa_core::session::manager::SessionManager::open(dir.path(), dir.path(), &session_file),
+        aa_core::session::manager::SessionManager::open(dir.path(), dir.path(), &session_file),
     ));
     // Seed the first assistant entry: custom appends before it defer
     // (the pre-first-assistant buffer, TS parity).
     handle
         .lock()
         .await
-        .append_message(pa_types::session::AgentMessage::Assistant(
-            pa_types::ai::AssistantMessage {
-                content: vec![pa_types::ai::AssistantContentBlock::Text(
-                    pa_types::ai::TextContent {
+        .append_message(aa_types::session::AgentMessage::Assistant(
+            aa_types::ai::AssistantMessage {
+                content: vec![aa_types::ai::AssistantContentBlock::Text(
+                    aa_types::ai::TextContent {
                         text: "seed".to_string(),
                         text_signature: None,
                         rest: Map::default(),
@@ -110,8 +110,8 @@ async fn a_failed_park_entry_write_propagates_to_the_caller() {
                 response_model: None,
                 response_id: None,
                 diagnostics: None,
-                usage: pa_types::ai::Usage::default(),
-                stop_reason: pa_types::ai::StopReason::Stop,
+                usage: aa_types::ai::Usage::default(),
+                stop_reason: aa_types::ai::StopReason::Stop,
                 stop_reason_raw: None,
                 error_message: None,
                 timestamp: 2,
@@ -181,9 +181,9 @@ async fn quota_failure_beyond_cap_parks_with_a_durable_wake() {
     );
     assert_eq!(
         job.prompt,
-        pa_core::session_engine::provider_park::QUOTA_RESUME_MARKER_TEXT
+        aa_core::session_engine::provider_park::QUOTA_RESUME_MARKER_TEXT
     );
-    assert_eq!(job.schedule.kind, pa_core::cron::ScheduleKind::Once);
+    assert_eq!(job.schedule.kind, aa_core::cron::ScheduleKind::Once);
     assert_eq!(job.active_session_id, "active-park");
     assert_eq!(job.session_id, "park-session");
     // The wake sits ~30s past the reported reset (the grace).
@@ -386,7 +386,7 @@ async fn early_resume_clears_the_park_and_cancels_the_wake() {
         .expect("the wake job still exists");
     assert_eq!(
         job.status,
-        pa_core::cron::JobStatus::Cancelled,
+        aa_core::cron::JobStatus::Cancelled,
         "the pending wake cancels on resume"
     );
 }

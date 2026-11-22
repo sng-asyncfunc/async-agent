@@ -4,7 +4,7 @@
 //! fails the turn with the actionable refusal — nothing silently
 //! downgrades the images.
 
-use pa_core::session_engine::provider_adapter::{
+use aa_core::session_engine::provider_adapter::{
     json_round_trip, map_thinking_level, ProviderTarget,
 };
 
@@ -19,7 +19,7 @@ pub(crate) struct ImageRoute {
     pub(crate) target: ProviderTarget,
     /// The agent's per-run override (the image model + the session thinking
     /// level clamped for it) feeding the loop config.
-    pub(crate) agent_override: pa_agent::agent::AgentModelOverride,
+    pub(crate) agent_override: aa_agent::agent::AgentModelOverride,
     /// The session's serving target captured at the first swap: the
     /// episode-settle restore writes it back when the fresh recompute
     /// cannot run.
@@ -33,19 +33,19 @@ impl AgentSessionEngine {
     pub(crate) fn resolve_image_turn_route(
         &self,
         carries_images: bool,
-    ) -> anyhow::Result<Option<pa_core::models::ResolvedImageModel>> {
+    ) -> anyhow::Result<Option<aa_core::models::ResolvedImageModel>> {
         if !carries_images {
             return Ok(None);
         }
         let session_model = self.session_model()?;
         let settings =
-            pa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
+            aa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
         let image_model_reference = settings.get_image_model();
         let block_images = settings.get_block_images();
-        let auth = pa_core::auth::AuthStorage::create(&self.config.agent_dir);
+        let auth = aa_core::auth::AuthStorage::create(&self.config.agent_dir);
         let mut registry =
-            pa_core::models::ModelRegistry::create(auth, self.config.agent_dir.join("models.json"));
-        let available: Vec<pa_types::ai::Model> =
+            aa_core::models::ModelRegistry::create(auth, self.config.agent_dir.join("models.json"));
+        let available: Vec<aa_types::ai::Model> =
             registry.get_available().into_iter().cloned().collect();
         // Route acceptance uses the same resolved-auth result the arm
         // installs: a provider can be signed in while its key resolution
@@ -63,8 +63,8 @@ impl AgentSessionEngine {
             })
             .map(|model| (model.provider.clone(), model.id.clone()))
             .collect();
-        let route = pa_core::models::resolve_image_model_override(
-            &pa_core::models::ImageModelRoutingInputs {
+        let route = aa_core::models::resolve_image_model_override(
+            &aa_core::models::ImageModelRoutingInputs {
                 session_model: &session_model,
                 thinking_level: self.effective_thinking(),
                 service_tier: *self.service_tier.read().expect("service tier lock"),
@@ -129,7 +129,7 @@ impl AgentSessionEngine {
                         model: resolved.model.clone(),
                         headers: None,
                     },
-                    agent_override: pa_agent::agent::AgentModelOverride {
+                    agent_override: aa_agent::agent::AgentModelOverride {
                         thinking_level: map_thinking_level(resolved.thinking_level),
                         model: agent_model,
                     },
@@ -150,13 +150,13 @@ impl AgentSessionEngine {
     /// Whether an injected custom row attaches image blocks: injected
     /// rows route like user turns.
     pub(crate) fn custom_message_carries_images(
-        message: &pa_types::session::CustomMessage,
+        message: &aa_types::session::CustomMessage,
     ) -> bool {
         match &message.content {
-            pa_types::ai::UserContent::Blocks(blocks) => blocks
+            aa_types::ai::UserContent::Blocks(blocks) => blocks
                 .iter()
-                .any(|block| matches!(block, pa_types::ai::UserContentBlock::Image(_))),
-            pa_types::ai::UserContent::Text(_) => false,
+                .any(|block| matches!(block, aa_types::ai::UserContentBlock::Image(_))),
+            aa_types::ai::UserContent::Text(_) => false,
         }
     }
 
@@ -167,7 +167,7 @@ impl AgentSessionEngine {
     /// The route lock is held through the slot write: the capture and
     /// its install are one critical section, never overtaken by an older
     /// clone of this route installing itself after the capture.
-    pub(crate) fn apply_armed_image_route(&self, agent: &std::sync::Arc<pa_agent::agent::Agent>) {
+    pub(crate) fn apply_armed_image_route(&self, agent: &std::sync::Arc<aa_agent::agent::Agent>) {
         // The lock spans the session-target capture AND the route
         // install, fencing them against the clear's take-and-restore:
         // both run under the same lock, so whichever runs last leaves
@@ -363,8 +363,8 @@ mod tests {
         engine
     }
 
-    fn one_image() -> Vec<pa_agent::types::ImageContent> {
-        vec![pa_agent::types::ImageContent {
+    fn one_image() -> Vec<aa_agent::types::ImageContent> {
+        vec![aa_agent::types::ImageContent {
             data: "aGk=".to_string(),
             mime_type: "image/png".to_string(),
         }]
@@ -440,25 +440,25 @@ mod tests {
     #[test]
     fn image_turn_serves_on_the_image_model_and_restores() {
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 provider: Some("battery".to_string()),
                 models: Some(vec![
-                    pa_ai::faux::FauxModelDefinition {
+                    aa_ai::faux::FauxModelDefinition {
                         id: "mock-1".to_string(),
                         name: Some("Mock 1".to_string()),
                         reasoning: Some(false),
-                        input: Some(vec![pa_types::ai::ModelInput::Text]),
+                        input: Some(vec![aa_types::ai::ModelInput::Text]),
                         cost: None,
                         context_window: Some(128_000),
                         max_tokens: Some(4096),
                     },
-                    pa_ai::faux::FauxModelDefinition {
+                    aa_ai::faux::FauxModelDefinition {
                         id: "mock-vision".to_string(),
                         name: Some("Mock Vision".to_string()),
                         reasoning: Some(false),
                         input: Some(vec![
-                            pa_types::ai::ModelInput::Text,
-                            pa_types::ai::ModelInput::Image,
+                            aa_types::ai::ModelInput::Text,
+                            aa_types::ai::ModelInput::Image,
                         ]),
                         cost: None,
                         context_window: Some(128_000),
@@ -467,10 +467,10 @@ mod tests {
                 ]),
                 ..Default::default()
             });
-        registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-            pa_ai::faux::faux_assistant_text_message(
+        registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+            aa_ai::faux::faux_assistant_text_message(
                 "vision reply",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ),
         )]);
         let dir = tempfile::TempDir::new().unwrap();
@@ -521,23 +521,23 @@ mod tests {
     #[test]
     fn image_turn_without_image_model_fails_with_the_refusal() {
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 provider: Some("battery".to_string()),
-                models: Some(vec![pa_ai::faux::FauxModelDefinition {
+                models: Some(vec![aa_ai::faux::FauxModelDefinition {
                     id: "mock-1".to_string(),
                     name: Some("Mock 1".to_string()),
                     reasoning: Some(false),
-                    input: Some(vec![pa_types::ai::ModelInput::Text]),
+                    input: Some(vec![aa_types::ai::ModelInput::Text]),
                     cost: None,
                     context_window: Some(128_000),
                     max_tokens: Some(4096),
                 }]),
                 ..Default::default()
             });
-        registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-            pa_ai::faux::faux_assistant_text_message(
+        registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+            aa_ai::faux::faux_assistant_text_message(
                 "should not run",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ),
         )]);
         let dir = tempfile::TempDir::new().unwrap();

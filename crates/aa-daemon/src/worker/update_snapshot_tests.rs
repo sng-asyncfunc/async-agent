@@ -130,12 +130,12 @@ async fn update_snapshot_reflects_queued_work() {
 /// command's `message` plus the injected custom row.
 fn child_status_notice_wire(kind: &str) -> Value {
     let notice = if kind == "failure" {
-        pa_core::session_engine::rlm_notices::create_rlm_child_failure_message(
+        aa_core::session_engine::rlm_notices::create_rlm_child_failure_message(
             "sub-1", "lane", "boom", 1_000,
         )
     } else {
-        pa_core::session_engine::rlm_notices::create_rlm_child_terminal_notice(
-            &pa_core::session_engine::rlm_notices::RlmChildTerminalNotice::CompletedWithoutReply {
+        aa_core::session_engine::rlm_notices::create_rlm_child_terminal_notice(
+            &aa_core::session_engine::rlm_notices::RlmChildTerminalNotice::CompletedWithoutReply {
                 child_id: "sub-1".to_string(),
                 session_name: "lane".to_string(),
                 last_assistant_text_preview: Some("done".to_string()),
@@ -143,7 +143,7 @@ fn child_status_notice_wire(kind: &str) -> Value {
             1_000,
         )
     };
-    serde_json::to_value(pa_types::session::AgentMessage::Custom(notice)).unwrap()
+    serde_json::to_value(aa_types::session::AgentMessage::Custom(notice)).unwrap()
 }
 
 fn queued_user_item(message: &str) -> QueuedItem {

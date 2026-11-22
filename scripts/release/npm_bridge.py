@@ -32,16 +32,16 @@ def assemble(repo_root: Path, out_dir: Path, version: str, channel: str,
         raise ValueError("TypeScript fallback does not match the pinned published v0.9.8 archive")
     with tarfile.open(fileobj=io.BytesIO(fallback_bytes)) as fallback_archive:
         fallback_package = json.load(fallback_archive.extractfile("package/package.json"))
-    if fallback_package.get("name") != "prime-agent" or fallback_package.get("version") != FALLBACK_VERSION:
+    if fallback_package.get("name") != "async-agent" or fallback_package.get("version") != FALLBACK_VERSION:
         raise ValueError("TypeScript fallback package identity does not match published v0.9.8")
     metadata = {
-        "name": "prime-agent", "version": version,
-        "description": "Prime Agent Rust migration launcher",
-        "bin": {"prime-agent": "dist/bundle/cli.js"},
+        "name": "async-agent", "version": version,
+        "description": "Async Agent Rust migration launcher",
+        "bin": {"async-agent": "dist/bundle/cli.js"},
         "engines": {"node": ">=18"}, "os": ["darwin", "linux"],
-        "primeAgentReleaseChannel": channel,
-        "primeAgentRustBridge": True,
-        "primeAgentTypeScriptFallback": {"directory": "legacy/prime-agent",
+        "asyncAgentReleaseChannel": channel,
+        "asyncAgentRustBridge": True,
+        "asyncAgentTypeScriptFallback": {"directory": "legacy/async-agent",
                                         "version": FALLBACK_VERSION, "sha256": FALLBACK_SHA256},
     }
     # Genuine fallback modules resolve dependencies through the enclosing
@@ -64,7 +64,7 @@ def assemble(repo_root: Path, out_dir: Path, version: str, channel: str,
         # launcher so its __dirname still resolves the package root correctly;
         # process.argv retains the original path captured by the old updater.
         "dist/cli.js": b'#!/usr/bin/env node\n"use strict";\nrequire("./bundle/cli.js");\n',
-        "install-rust.sh": (repo_root / "install-rust.sh").read_bytes(),
+        "install.sh": (repo_root / "install.sh").read_bytes(),
     }
     modes = {}
     with tarfile.open(fileobj=io.BytesIO(fallback_bytes)) as fallback_archive:
@@ -76,11 +76,11 @@ def assemble(repo_root: Path, out_dir: Path, version: str, channel: str,
                 continue
             if not member.isfile():
                 raise ValueError(f"Unsupported TypeScript fallback member: {member.name}")
-            name = str(PurePosixPath("legacy/prime-agent", *source.parts[1:]))
+            name = str(PurePosixPath("legacy/async-agent", *source.parts[1:]))
             files[name] = fallback_archive.extractfile(member).read()
             modes[name] = member.mode & 0o777
     out_dir.mkdir(parents=True, exist_ok=True)
-    archive = out_dir / f"prime-agent-{version}.tgz"
+    archive = out_dir / f"async-agent-{version}.tgz"
     with archive.open("wb") as output:
         with gzip.GzipFile(fileobj=output, mode="wb", filename="", mtime=0) as compressed:
             with tarfile.open(fileobj=compressed, mode="w") as tar:
@@ -89,7 +89,7 @@ def assemble(repo_root: Path, out_dir: Path, version: str, channel: str,
                     info.size = len(content)
                     info.mode = modes.get(name, 0o755 if name.endswith((".js", ".sh")) else 0o644)
                     tar.addfile(info, io.BytesIO(content))
-    return {"version": version, "package": "prime-agent", "tarball": archive.name,
+    return {"version": version, "package": "async-agent", "tarball": archive.name,
             "sha256": hashlib.sha256(archive.read_bytes()).hexdigest()}
 
 

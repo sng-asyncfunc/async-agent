@@ -1,5 +1,5 @@
-//! Length-prefixed private frames: the worker-socket wire codec shared by pa-daemon workers and
-//! direct-attach clients (pa-tui/pa-cli) (TS `private-framing.ts`): 8-byte big-endian prefix (u32
+//! Length-prefixed private frames: the worker-socket wire codec shared by aa-daemon workers and
+//! direct-attach clients (aa-tui/aa-cli) (TS `private-framing.ts`): 8-byte big-endian prefix (u32
 //! header length, u32 payload length), JSON header, binary payload.
 
 use anyhow::{anyhow, Context, Result};

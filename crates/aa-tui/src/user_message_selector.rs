@@ -145,7 +145,7 @@ mod tests {
     }
 
     fn theme() -> Theme {
-        Theme::builtin("prime", crate::theme::ColorMode::TrueColor)
+        Theme::builtin("async", crate::theme::ColorMode::TrueColor)
     }
 
     fn messages() -> Vec<UserMessageItem> {

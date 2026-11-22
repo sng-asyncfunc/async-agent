@@ -12,11 +12,11 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-/// The kernel Bun binary (`PA_E2E_KERNEL_BUN` / `PRIME_AGENT_KERNEL_BUN`,
+/// The kernel Bun binary (`PA_E2E_KERNEL_BUN` / `ASYNC_AGENT_KERNEL_BUN`,
 /// PATH, or `~/.bun/bin/bun`). Skipped (with a note) on machines without Bun.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) =
-        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("PRIME_AGENT_KERNEL_BUN"))
+        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("ASYNC_AGENT_KERNEL_BUN"))
     {
         let explicit = PathBuf::from(explicit);
         assert!(
@@ -96,7 +96,7 @@ impl Drop for Supervisor {
 #[allow(clippy::zombie_processes)]
 fn spawn_supervisor(socket: &Path, agent_dir: &Path, script: &Path) -> Supervisor {
     std::fs::create_dir_all(agent_dir).expect("agent dir");
-    let child = Command::new(env!("CARGO_BIN_EXE_pa-daemon"))
+    let child = Command::new(env!("CARGO_BIN_EXE_aa-daemon"))
         .arg("supervisor")
         .arg("--socket")
         .arg(socket)
@@ -106,15 +106,15 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path, script: &Path) -> Superviso
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .env_remove("PRIME_API_KEY")
-        .env_remove("PRIME_AGENT_CODING_AGENT_DIR")
-        .env(pa_daemon::worker::WORKER_SCRIPT_ENV, script)
-        .env("PRIME_AGENT_KERNEL_BUN", kernel_bun().expect("kernel bun"))
+        .env_remove("ASYNC_AGENT_CODING_AGENT_DIR")
+        .env(aa_daemon::worker::WORKER_SCRIPT_ENV, script)
+        .env("ASYNC_AGENT_KERNEL_BUN", kernel_bun().expect("kernel bun"))
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -174,7 +174,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize");

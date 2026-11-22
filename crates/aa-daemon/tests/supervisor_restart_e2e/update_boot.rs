@@ -110,17 +110,17 @@ fn update_boot_revives_only_roster_kept_workers() {
     )
     .expect("write roster");
 
-    let restart_before = pa_daemon::util::now_iso();
+    let restart_before = aa_daemon::util::now_iso();
     let mut daemon2 = spawn_supervisor_env(
         &socket,
         &agent_dir,
         &[(
-            pa_types::daemon::update_flow::UPDATE_ROSTER_ENV,
+            aa_types::daemon::update_flow::UPDATE_ROSTER_ENV,
             roster_path.to_string_lossy().to_string(),
         )],
     );
     wait_socket_ready(&socket);
-    let log_path = pa_daemon::paths::daemon_log_path(&socket, &agent_dir);
+    let log_path = aa_daemon::paths::daemon_log_path(&socket, &agent_dir);
 
     let deadline = Instant::now() + Duration::from_secs(15);
     let registered = loop {

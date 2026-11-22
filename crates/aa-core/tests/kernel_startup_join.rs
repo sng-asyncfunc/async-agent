@@ -4,8 +4,8 @@
 
 mod script;
 
-use pa_core::kernel::cancellation::AbortSignal;
-use pa_core::kernel::provisioner::{
+use aa_core::kernel::cancellation::AbortSignal;
+use aa_core::kernel::provisioner::{
     JavaScriptKernelProvisioner, JavaScriptKernelProvisionerOptions,
 };
 use script::write_executable;
@@ -107,7 +107,7 @@ async fn stop_during_boot_joins_startup() {
 #[tokio::test]
 async fn panicking_progress_callback_does_not_poison_next_startup() {
     let (_dir, provisioner, count) = failing_kernel();
-    let progress: pa_core::kernel::bootstrap::KernelBootstrapProgressHandler =
+    let progress: aa_core::kernel::bootstrap::KernelBootstrapProgressHandler =
         std::sync::Arc::new(|_| panic!("progress callback panic"));
     let error = tokio::time::timeout(
         Duration::from_secs(5),

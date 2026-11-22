@@ -1,15 +1,15 @@
-//! Real-provider stream adapter: pa-ai completion streaming bridged into
-//! the pa-agent loop's `StreamFn`/`ModelStream`, crossing the crate
-//! boundary by wire-shape (JSON) round-trip; shared by pa-cli and
-//! pa-daemon.
+//! Real-provider stream adapter: aa-ai completion streaming bridged into
+//! the aa-agent loop's `StreamFn`/`ModelStream`, crossing the crate
+//! boundary by wire-shape (JSON) round-trip; shared by aa-cli and
+//! aa-daemon.
 
 use std::sync::Arc;
 
-use pa_agent::stream::{LlmContext, ModelStream, StreamFn, StreamRequestOptions};
-use pa_agent::types::{Model as AgentModel, ThinkingLevel};
-use pa_types::ai::Model;
+use aa_agent::stream::{LlmContext, ModelStream, StreamFn, StreamRequestOptions};
+use aa_agent::types::{Model as AgentModel, ThinkingLevel};
+use aa_types::ai::Model;
 
-/// Wire-shape conversion at the pa-agent/pa-ai boundary: both sides
+/// Wire-shape conversion at the aa-agent/aa-ai boundary: both sides
 /// serialize to the same camelCase wire shapes.
 pub fn json_round_trip<T, U>(value: &T) -> Option<U>
 where
@@ -23,56 +23,56 @@ where
 
 /// Thinking-level mapping across the two crates.
 #[must_use]
-pub fn map_thinking_level(level: pa_types::ai::ModelThinkingLevel) -> ThinkingLevel {
+pub fn map_thinking_level(level: aa_types::ai::ModelThinkingLevel) -> ThinkingLevel {
     match level {
-        pa_types::ai::ModelThinkingLevel::Off => ThinkingLevel::Off,
-        pa_types::ai::ModelThinkingLevel::Minimal => ThinkingLevel::Minimal,
-        pa_types::ai::ModelThinkingLevel::Low => ThinkingLevel::Low,
-        pa_types::ai::ModelThinkingLevel::Medium => ThinkingLevel::Medium,
-        pa_types::ai::ModelThinkingLevel::High => ThinkingLevel::High,
-        pa_types::ai::ModelThinkingLevel::Xhigh => ThinkingLevel::Xhigh,
-        pa_types::ai::ModelThinkingLevel::Max => ThinkingLevel::Max,
+        aa_types::ai::ModelThinkingLevel::Off => ThinkingLevel::Off,
+        aa_types::ai::ModelThinkingLevel::Minimal => ThinkingLevel::Minimal,
+        aa_types::ai::ModelThinkingLevel::Low => ThinkingLevel::Low,
+        aa_types::ai::ModelThinkingLevel::Medium => ThinkingLevel::Medium,
+        aa_types::ai::ModelThinkingLevel::High => ThinkingLevel::High,
+        aa_types::ai::ModelThinkingLevel::Xhigh => ThinkingLevel::Xhigh,
+        aa_types::ai::ModelThinkingLevel::Max => ThinkingLevel::Max,
     }
 }
 
-/// The inverse of [`map_thinking_level`]: the pa-types view of the agent
+/// The inverse of [`map_thinking_level`]: the aa-types view of the agent
 /// state's thinking level.
 #[must_use]
-pub fn model_thinking_level(level: ThinkingLevel) -> pa_types::ai::ModelThinkingLevel {
+pub fn model_thinking_level(level: ThinkingLevel) -> aa_types::ai::ModelThinkingLevel {
     match level {
-        ThinkingLevel::Off => pa_types::ai::ModelThinkingLevel::Off,
-        ThinkingLevel::Minimal => pa_types::ai::ModelThinkingLevel::Minimal,
-        ThinkingLevel::Low => pa_types::ai::ModelThinkingLevel::Low,
-        ThinkingLevel::Medium => pa_types::ai::ModelThinkingLevel::Medium,
-        ThinkingLevel::High => pa_types::ai::ModelThinkingLevel::High,
-        ThinkingLevel::Xhigh => pa_types::ai::ModelThinkingLevel::Xhigh,
-        ThinkingLevel::Max => pa_types::ai::ModelThinkingLevel::Max,
+        ThinkingLevel::Off => aa_types::ai::ModelThinkingLevel::Off,
+        ThinkingLevel::Minimal => aa_types::ai::ModelThinkingLevel::Minimal,
+        ThinkingLevel::Low => aa_types::ai::ModelThinkingLevel::Low,
+        ThinkingLevel::Medium => aa_types::ai::ModelThinkingLevel::Medium,
+        ThinkingLevel::High => aa_types::ai::ModelThinkingLevel::High,
+        ThinkingLevel::Xhigh => aa_types::ai::ModelThinkingLevel::Xhigh,
+        ThinkingLevel::Max => aa_types::ai::ModelThinkingLevel::Max,
     }
 }
 
-/// Adapt the loop-level payload hook to the pa-ai hook shape. A failed
+/// Adapt the loop-level payload hook to the aa-ai hook shape. A failed
 /// round-trip keeps the payload unchanged — hooks never fail the request.
-fn agent_payload_hook_to_ai(hook: pa_agent::stream::OnPayloadHook) -> pa_ai::types::OnPayloadHook {
+fn agent_payload_hook_to_ai(hook: aa_agent::stream::OnPayloadHook) -> aa_ai::types::OnPayloadHook {
     std::sync::Arc::new(move |payload: serde_json::Value, model: &Model| {
-        match json_round_trip::<_, pa_agent::types::Model>(model) {
+        match json_round_trip::<_, aa_agent::types::Model>(model) {
             Some(agent_model) => hook(payload, &agent_model),
             None => Some(payload),
         }
     })
 }
 
-/// Adapt the loop-level response hook to the pa-ai hook shape; a failed
+/// Adapt the loop-level response hook to the aa-ai hook shape; a failed
 /// round-trip drops the hook call (advisory, never fatal).
 fn agent_response_hook_to_ai(
-    hook: pa_agent::stream::OnResponseHook,
-) -> pa_ai::types::OnResponseHook {
+    hook: aa_agent::stream::OnResponseHook,
+) -> aa_ai::types::OnResponseHook {
     std::sync::Arc::new(
-        move |response: pa_ai::types::ProviderResponse, model: &Model| {
-            let agent_response = pa_agent::stream::ProviderResponse {
+        move |response: aa_ai::types::ProviderResponse, model: &Model| {
+            let agent_response = aa_agent::stream::ProviderResponse {
                 status: response.status,
                 headers: response.headers,
             };
-            if let Some(agent_model) = json_round_trip::<_, pa_agent::types::Model>(model) {
+            if let Some(agent_model) = json_round_trip::<_, aa_agent::types::Model>(model) {
                 hook(agent_response, &agent_model);
             }
         },
@@ -85,13 +85,13 @@ fn agent_response_hook_to_ai(
 pub struct ProviderTarget {
     pub api_key: Option<String>,
     pub model: Model,
-    pub service_tier: Option<pa_types::ai::ServiceTier>,
+    pub service_tier: Option<aa_types::ai::ServiceTier>,
     /// The auth-resolved provider-request headers: a live `set_model` carries
     /// them through to the stream like the build-time resolution does.
     pub headers: Option<std::collections::BTreeMap<String, String>>,
 }
 
-/// A real pa-ai stream adapter reading its target from a shared slot the host can swap live
+/// A real aa-ai stream adapter reading its target from a shared slot the host can swap live
 /// (`set_model`, failover); `None` only before the host sets the build-time target.
 ///
 /// # Panics
@@ -182,10 +182,10 @@ pub fn switchable_stream_fn_with_live_auth(
                             anyhow::anyhow!("request auth resolution failed: {error}")
                         })?
                     }
-                    () = signal.aborted() => return Err(pa_agent::abort::aborted_error()),
+                    () = signal.aborted() => return Err(aa_agent::abort::aborted_error()),
                 };
                 if signal.is_aborted() {
-                    return Err(pa_agent::abort::aborted_error());
+                    return Err(aa_agent::abort::aborted_error());
                 }
                 if !resolved.ok {
                     // The TS streamFn throws the resolution's auth error
@@ -227,18 +227,18 @@ pub fn switchable_stream_fn_with_live_auth(
 pub fn stream_once(
     model: &Model,
     api_key: Option<String>,
-    service_tier: Option<pa_types::ai::ServiceTier>,
+    service_tier: Option<aa_types::ai::ServiceTier>,
     headers: Option<std::collections::BTreeMap<String, String>>,
     context: LlmContext,
     options: StreamRequestOptions,
 ) -> anyhow::Result<Box<dyn ModelStream>> {
-    let messages: Vec<pa_types::ai::Message> = context
+    let messages: Vec<aa_types::ai::Message> = context
         .messages
         .iter()
         .filter_map(json_round_trip)
         .collect();
-    let tools: Vec<pa_types::ai::Tool> = context.tools.iter().filter_map(json_round_trip).collect();
-    let ai_context = pa_types::ai::Context {
+    let tools: Vec<aa_types::ai::Tool> = context.tools.iter().filter_map(json_round_trip).collect();
+    let ai_context = aa_types::ai::Context {
         system_prompt: context.system_prompt,
         messages,
         tools: Some(tools),
@@ -246,8 +246,8 @@ pub fn stream_once(
     // The turn's abort signal reaches the transport: the in-flight request races this
     // token; the loop's abort paths fire it through [`ModelStream::close`] or the drop.
     let cancel = tokio_util::sync::CancellationToken::new();
-    let stream_options = pa_ai::types::SimpleStreamOptions {
-        base: pa_ai::types::StreamOptions {
+    let stream_options = aa_ai::types::SimpleStreamOptions {
+        base: aa_ai::types::StreamOptions {
             temperature: options.temperature,
             max_tokens: options.max_tokens,
             signal: Some(cancel.clone()),
@@ -282,10 +282,10 @@ pub fn stream_once(
         reasoning: Some(model_thinking_level(options.reasoning)),
         thinking_budgets: None,
     };
-    let stream = pa_ai::stream_simple(model, &ai_context, Some(stream_options))
+    let stream = aa_ai::stream_simple(model, &ai_context, Some(stream_options))
         .map_err(|error| anyhow::anyhow!("{error:?}"))?;
-    // Pump pa-ai events into the loop's event stream, verbatim.
-    let (handle, consumer) = pa_agent::stream::event_stream();
+    // Pump aa-ai events into the loop's event stream, verbatim.
+    let (handle, consumer) = aa_agent::stream::event_stream();
     let forwarder = tokio::spawn(async move {
         let mut stream = stream;
         while let Some(event) = stream.next_event().await {
@@ -294,7 +294,7 @@ pub fn stream_once(
             }
         }
         let result = stream.result().await;
-        if let Some(converted) = json_round_trip::<_, pa_agent::types::AssistantMessage>(&result) {
+        if let Some(converted) = json_round_trip::<_, aa_agent::types::AssistantMessage>(&result) {
             handle.end(Some(converted));
         } else {
             handle.end(None);
@@ -317,7 +317,7 @@ pub fn real_stream_fn(api_key: Option<String>, model: Model) -> StreamFn {
     }))))
 }
 
-/// Convert one pa-ai stream event into the pa-agent loop's event enum.
+/// Convert one aa-ai stream event into the aa-agent loop's event enum.
 /// Payloads cross the boundary by wire-shape (JSON) round-trip.
 ///
 /// # Panics
@@ -326,13 +326,13 @@ pub fn real_stream_fn(api_key: Option<String>, model: Model) -> StreamFn {
 /// crates' wire shapes (a structural shape-mismatch bug).
 #[must_use]
 pub fn convert_stream_event(
-    event: &pa_types::ai::AssistantMessageEvent,
-) -> Option<pa_agent::stream::AssistantMessageEvent> {
-    use pa_agent::stream::AssistantMessageEvent as Out;
-    use pa_types::ai::AssistantMessageEvent as In;
+    event: &aa_types::ai::AssistantMessageEvent,
+) -> Option<aa_agent::stream::AssistantMessageEvent> {
+    use aa_agent::stream::AssistantMessageEvent as Out;
+    use aa_types::ai::AssistantMessageEvent as In;
     fn convert_partial(
-        message: &pa_types::ai::AssistantMessage,
-    ) -> pa_agent::types::AssistantMessage {
+        message: &aa_types::ai::AssistantMessage,
+    ) -> aa_agent::types::AssistantMessage {
         json_round_trip(message).expect("assistant wire shapes match")
     }
     Some(match event {
@@ -427,7 +427,7 @@ pub fn convert_stream_event(
 /// Wrap the consumer so the pump task is aborted when the stream drops.
 fn consumer_pump(
     forwarder: tokio::task::JoinHandle<()>,
-    consumer: pa_agent::stream::AssistantMessageEventStream,
+    consumer: aa_agent::stream::AssistantMessageEventStream,
     cancel: tokio_util::sync::CancellationToken,
 ) -> Box<dyn ModelStream> {
     Box::new(PumpedStream {
@@ -437,11 +437,11 @@ fn consumer_pump(
     })
 }
 
-/// A `ModelStream` whose lifetime keeps the pa-ai pump task alive and owns
+/// A `ModelStream` whose lifetime keeps the aa-ai pump task alive and owns
 /// the fetch's cancellation token (the transport half of the turn-abort).
 struct PumpedStream {
     _forwarder: tokio::task::JoinHandle<()>,
-    stream: pa_agent::stream::AssistantMessageEventStream,
+    stream: aa_agent::stream::AssistantMessageEventStream,
     cancel: tokio_util::sync::CancellationToken,
 }
 
@@ -456,13 +456,13 @@ impl Drop for PumpedStream {
 impl ModelStream for PumpedStream {
     fn next_event(
         &mut self,
-    ) -> pa_agent::BoxFut<'_, Option<pa_agent::stream::AssistantMessageEvent>> {
+    ) -> aa_agent::BoxFut<'_, Option<aa_agent::stream::AssistantMessageEvent>> {
         self.stream.next_event()
     }
 
     fn result(
         &mut self,
-    ) -> pa_agent::BoxFut<'_, anyhow::Result<pa_agent::types::AssistantMessage>> {
+    ) -> aa_agent::BoxFut<'_, anyhow::Result<aa_agent::types::AssistantMessage>> {
         self.stream.result()
     }
 
@@ -475,7 +475,7 @@ impl ModelStream for PumpedStream {
 
 #[cfg(test)]
 mod tests {
-    //! Regression guard for the pa-agent -> pa-ai message boundary: `UserPart`
+    //! Regression guard for the aa-agent -> aa-ai message boundary: `UserPart`
     //! must stay `type`-tagged like the TS wire format; an untagged variant
     //! silently dropped every `AgentPromptInput::Text` prompt, leaving the
     //! provider with a system prompt only.
@@ -486,21 +486,21 @@ mod tests {
     #[tokio::test]
     async fn live_target_service_tier_reaches_provider_and_reset() {
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some("restored-service-tier-test".to_owned()),
                 ..Default::default()
             });
         let received = Arc::new(std::sync::Mutex::new(Vec::new()));
         let captured = received.clone();
         let factory =
-            pa_ai::faux::FauxResponseStep::Factory(Arc::new(move |_, options, _, model| {
+            aa_ai::faux::FauxResponseStep::Factory(Arc::new(move |_, options, _, model| {
                 captured.lock().unwrap().push((
                     model.id.clone(),
                     options.and_then(|options| options.service_tier),
                 ));
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     "ok",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             }));
         registration.set_responses(vec![factory.clone(), factory]);
@@ -508,11 +508,11 @@ mod tests {
         let target = Arc::new(std::sync::RwLock::new(Some(ProviderTarget {
             api_key: None,
             model: model.clone(),
-            service_tier: Some(pa_types::ai::ServiceTier::Priority),
+            service_tier: Some(aa_types::ai::ServiceTier::Priority),
             headers: None,
         })));
         let stream_fn = switchable_stream_fn(target.clone());
-        for tier in [Some(pa_types::ai::ServiceTier::Priority), None] {
+        for tier in [Some(aa_types::ai::ServiceTier::Priority), None] {
             target.write().unwrap().as_mut().unwrap().service_tier = tier;
             let mut stream = stream_fn(
                 AgentModel::unknown(),
@@ -526,7 +526,7 @@ mod tests {
         assert_eq!(
             *received.lock().unwrap(),
             vec![
-                (model.id.clone(), Some(pa_types::ai::ServiceTier::Priority)),
+                (model.id.clone(), Some(aa_types::ai::ServiceTier::Priority)),
                 (model.id, None),
             ]
         );
@@ -536,15 +536,15 @@ mod tests {
     #[tokio::test]
     async fn a_panicking_live_auth_resolution_fails_only_its_call() {
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some("live-auth-panic-test".to_owned()),
                 ..Default::default()
             });
         registration.set_repeat_last_response(true);
-        registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-            pa_ai::faux::faux_assistant_text_message(
+        registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+            aa_ai::faux::faux_assistant_text_message(
                 "ok",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ),
         )]);
         let target = Arc::new(std::sync::RwLock::new(Some(ProviderTarget {
@@ -595,21 +595,21 @@ mod tests {
             Option<std::collections::HashMap<String, String>>,
         );
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some("live-auth-seam-test".to_owned()),
                 ..Default::default()
             });
         let received: Arc<std::sync::Mutex<Vec<ServedAuth>>> =
             Arc::new(std::sync::Mutex::new(Vec::new()));
         let captured = Arc::clone(&received);
-        let factory = pa_ai::faux::FauxResponseStep::Factory(Arc::new(move |_, options, _, _| {
+        let factory = aa_ai::faux::FauxResponseStep::Factory(Arc::new(move |_, options, _, _| {
             captured.lock().unwrap().push((
                 options.and_then(|options| options.api_key.clone()),
                 options.and_then(|options| options.headers.clone()),
             ));
-            Ok(pa_ai::faux::faux_assistant_text_message(
+            Ok(aa_ai::faux::faux_assistant_text_message(
                 "ok",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ))
         }));
         registration.set_repeat_last_response(true);
@@ -769,7 +769,7 @@ mod tests {
         // network, exactly like the daemon's xai-shape test.
         let adapted_api = "live-auth-adapted-request-model-test".to_string();
         let adapted_registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some(adapted_api.clone()),
                 ..Default::default()
             });
@@ -777,33 +777,33 @@ mod tests {
             Arc::new(std::sync::Mutex::new(Vec::new()));
         let captured_adapted = Arc::clone(&received);
         adapted_registration.set_repeat_last_response(true);
-        adapted_registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Factory(Arc::new(
+        adapted_registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Factory(Arc::new(
             move |_, _options, _, model| {
                 captured_adapted
                     .lock()
                     .unwrap()
                     .push((model.id.clone(), model.api.clone()));
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     "ok",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ))]);
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some("live-auth-request-model-test".to_owned()),
                 ..Default::default()
             });
         let captured = Arc::clone(&received);
         let factory =
-            pa_ai::faux::FauxResponseStep::Factory(Arc::new(move |_, _options, _, model| {
+            aa_ai::faux::FauxResponseStep::Factory(Arc::new(move |_, _options, _, model| {
                 captured
                     .lock()
                     .unwrap()
                     .push((model.id.clone(), model.api.clone()));
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     "ok",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             }));
         registration.set_repeat_last_response(true);
@@ -898,15 +898,15 @@ mod tests {
             release: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
             completed: std::sync::Arc<std::sync::Mutex<bool>>,
         }
-        impl pa_ai::oauth::ProviderHttp for HeldRefresh {
+        impl aa_ai::oauth::ProviderHttp for HeldRefresh {
             fn request(
                 &self,
-                request: pa_ai::oauth::ProviderHttpRequest,
+                request: aa_ai::oauth::ProviderHttpRequest,
                 _timeout_ms: u64,
             ) -> std::pin::Pin<
                 Box<
                     dyn std::future::Future<
-                            Output = Result<pa_ai::oauth::ProviderHttpResponse, String>,
+                            Output = Result<aa_ai::oauth::ProviderHttpResponse, String>,
                         > + Send
                         + '_,
                 >,
@@ -923,7 +923,7 @@ mod tests {
                         .recv()
                         .expect("the test releases the refresh");
                     *self.completed.lock().expect("completed flag") = true;
-                    Ok(pa_ai::oauth::ProviderHttpResponse {
+                    Ok(aa_ai::oauth::ProviderHttpResponse {
                         status: 200,
                         body: r#"{"access_token":"fresh-access","refresh_token":"fresh-refresh","expires_in":3600}"#
                             .to_owned(),
@@ -941,7 +941,7 @@ mod tests {
         });
         let integration: std::sync::Arc<dyn crate::auth::OAuthIntegration> =
             std::sync::Arc::new(crate::auth::ProviderOAuth::with_transports(
-                std::sync::Arc::new(pa_ai::oauth::ReqwestCodexHttp::new()),
+                std::sync::Arc::new(aa_ai::oauth::ReqwestCodexHttp::new()),
                 http,
             ));
         let data = crate::auth::AuthStorageData(
@@ -968,15 +968,15 @@ mod tests {
             .expect("the catalog carries an Anthropic model")
             .clone();
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some("live-auth-abort-test".to_owned()),
                 ..Default::default()
             });
         registration.set_repeat_last_response(true);
-        registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-            pa_ai::faux::faux_assistant_text_message(
+        registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+            aa_ai::faux::faux_assistant_text_message(
                 "ok",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ),
         )]);
         model.api = "live-auth-abort-test".to_string();
@@ -994,7 +994,7 @@ mod tests {
             headers: None,
         })));
         let stream_fn = switchable_stream_fn_with_live_auth(target, live_auth);
-        let controller = pa_agent::abort::AbortController::new();
+        let controller = aa_agent::abort::AbortController::new();
         let signal = controller.signal();
         let (ack_tx, ack_rx) = std::sync::mpsc::channel::<()>();
         let aborter = std::thread::spawn(move || {
@@ -1012,7 +1012,7 @@ mod tests {
             let _ = ack_rx.recv_timeout(std::time::Duration::from_secs(30));
             release_tx.send(()).expect("the release channel is open");
         });
-        let outcome = pa_agent::abort::race_with_abort(
+        let outcome = aa_agent::abort::race_with_abort(
             stream_fn(
                 AgentModel::unknown(),
                 LlmContext::default(),
@@ -1043,7 +1043,7 @@ mod tests {
         let Err(error) = outcome.and_then(std::convert::identity) else {
             panic!("the turn abort must win over the held refresh")
         };
-        assert!(pa_agent::abort::is_abort_error(&error));
+        assert!(aa_agent::abort::is_abort_error(&error));
         assert!(
             registration.received_api_keys().is_empty(),
             "no provider request is admitted after the abort"
@@ -1088,20 +1088,20 @@ mod tests {
     async fn an_abort_landing_with_the_resolution_never_admits_the_request() {
         const RUNS: usize = 40;
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some("live-auth-recheck-test".to_owned()),
                 ..Default::default()
             });
         registration.set_repeat_last_response(true);
-        registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-            pa_ai::faux::faux_assistant_text_message(
+        registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+            aa_ai::faux::faux_assistant_text_message(
                 "ok",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ),
         )]);
         for _ in 0..RUNS {
             let controller = Arc::new(std::sync::Mutex::new(
-                pa_agent::abort::AbortController::new(),
+                aa_agent::abort::AbortController::new(),
             ));
             let signal = controller.lock().unwrap().signal();
             let resolver_controller = Arc::clone(&controller);
@@ -1132,7 +1132,7 @@ mod tests {
             )
             .await;
             assert!(
-                pa_agent::abort::is_abort_error(&outcome.err().expect("the abort error")),
+                aa_agent::abort::is_abort_error(&outcome.err().expect("the abort error")),
                 "the abort landing with the resolution settles the call"
             );
         }
@@ -1158,15 +1158,15 @@ mod tests {
             entered: std::sync::mpsc::Sender<()>,
             release: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
         }
-        impl pa_ai::oauth::ProviderHttp for HeldRefresh {
+        impl aa_ai::oauth::ProviderHttp for HeldRefresh {
             fn request(
                 &self,
-                request: pa_ai::oauth::ProviderHttpRequest,
+                request: aa_ai::oauth::ProviderHttpRequest,
                 _timeout_ms: u64,
             ) -> std::pin::Pin<
                 Box<
                     dyn std::future::Future<
-                            Output = Result<pa_ai::oauth::ProviderHttpResponse, String>,
+                            Output = Result<aa_ai::oauth::ProviderHttpResponse, String>,
                         > + Send
                         + '_,
                 >,
@@ -1182,7 +1182,7 @@ mod tests {
                         .expect("release channel")
                         .recv()
                         .expect("the test releases the refresh");
-                    Ok(pa_ai::oauth::ProviderHttpResponse {
+                    Ok(aa_ai::oauth::ProviderHttpResponse {
                         status: 200,
                         body: r#"{"access_token":"refreshed-access","refresh_token":"rotated-refresh","expires_in":3600}"#
                             .to_owned(),
@@ -1195,7 +1195,7 @@ mod tests {
         let (finished_tx, finished_rx) = std::sync::mpsc::channel();
         let integration: std::sync::Arc<dyn crate::auth::OAuthIntegration> =
             std::sync::Arc::new(crate::auth::ProviderOAuth::with_transports(
-                std::sync::Arc::new(pa_ai::oauth::ReqwestCodexHttp::new()),
+                std::sync::Arc::new(aa_ai::oauth::ReqwestCodexHttp::new()),
                 std::sync::Arc::new(HeldRefresh {
                     entered: entered_tx,
                     release: std::sync::Mutex::new(release_rx),
@@ -1224,15 +1224,15 @@ mod tests {
             resolved
         });
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some("live-auth-resurrection-test".to_owned()),
                 ..Default::default()
             });
         registration.set_repeat_last_response(true);
-        registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-            pa_ai::faux::faux_assistant_text_message(
+        registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+            aa_ai::faux::faux_assistant_text_message(
                 "ok",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ),
         )]);
         let mut model = registration.get_model();
@@ -1244,7 +1244,7 @@ mod tests {
             headers: None,
         })));
         let stream_fn = switchable_stream_fn_with_live_auth(target, live_auth);
-        let controller = pa_agent::abort::AbortController::new();
+        let controller = aa_agent::abort::AbortController::new();
         let signal = controller.signal();
         let aborter_dir = agent_dir.clone();
         let aborter = std::thread::spawn(move || {
@@ -1257,7 +1257,7 @@ mod tests {
             store_change(&aborter_dir);
             release_tx.send(()).expect("the release channel is open");
         });
-        let outcome = pa_agent::abort::race_with_abort(
+        let outcome = aa_agent::abort::race_with_abort(
             stream_fn(
                 AgentModel::unknown(),
                 LlmContext::default(),
@@ -1273,7 +1273,7 @@ mod tests {
         let Err(error) = outcome.and_then(std::convert::identity) else {
             panic!("the turn abort must win over the held refresh")
         };
-        assert!(pa_agent::abort::is_abort_error(&error));
+        assert!(aa_agent::abort::is_abort_error(&error));
         assert!(
             registration.received_api_keys().is_empty(),
             "no provider request is admitted after the abort"
@@ -1330,25 +1330,25 @@ mod tests {
     #[tokio::test]
     async fn requested_transport_reaches_the_provider() {
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some("requested-transport-test".to_owned()),
                 ..Default::default()
             });
         let received = Arc::new(std::sync::Mutex::new(Vec::new()));
         let captured = received.clone();
-        let factory = pa_ai::faux::FauxResponseStep::Factory(Arc::new(move |_, options, _, _| {
+        let factory = aa_ai::faux::FauxResponseStep::Factory(Arc::new(move |_, options, _, _| {
             captured
                 .lock()
                 .unwrap()
                 .push(options.and_then(|options| options.transport));
-            Ok(pa_ai::faux::faux_assistant_text_message(
+            Ok(aa_ai::faux::faux_assistant_text_message(
                 "ok",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ))
         }));
         registration.set_responses(vec![factory.clone(), factory]);
         let model = registration.get_model();
-        for transport in [Some(pa_agent::types::Transport::Sse), None] {
+        for transport in [Some(aa_agent::types::Transport::Sse), None] {
             let mut stream = stream_once(
                 &model,
                 None,
@@ -1365,17 +1365,17 @@ mod tests {
         }
         assert_eq!(
             *received.lock().unwrap(),
-            vec![Some(pa_types::ai::Transport::Sse), None]
+            vec![Some(aa_types::ai::Transport::Sse), None]
         );
         registration.unregister();
     }
 
     #[test]
     fn prompt_text_message_round_trips() {
-        let message = pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::User(
-            pa_agent::types::UserMessage {
-                content: pa_agent::types::UserContent::Parts(vec![
-                    pa_agent::types::UserPart::Text(pa_agent::types::TextContent {
+        let message = aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::User(
+            aa_agent::types::UserMessage {
+                content: aa_agent::types::UserContent::Parts(vec![
+                    aa_agent::types::UserPart::Text(aa_agent::types::TextContent {
                         text: "reply with ok".into(),
                         text_signature: None,
                     }),
@@ -1383,12 +1383,12 @@ mod tests {
                 timestamp: 1,
             },
         ));
-        let converted: Option<pa_types::ai::Message> = json_round_trip(&message);
+        let converted: Option<aa_types::ai::Message> = json_round_trip(&message);
         assert_eq!(
             converted,
-            Some(pa_types::ai::Message::User(pa_types::ai::UserMessage {
-                content: pa_types::ai::UserContent::Blocks(vec![
-                    pa_types::ai::UserContentBlock::Text(pa_types::ai::TextContent {
+            Some(aa_types::ai::Message::User(aa_types::ai::UserMessage {
+                content: aa_types::ai::UserContent::Blocks(vec![
+                    aa_types::ai::UserContentBlock::Text(aa_types::ai::TextContent {
                         text: "reply with ok".into(),
                         text_signature: None,
                         rest: serde_json::Map::default(),
@@ -1400,12 +1400,12 @@ mod tests {
         );
     }
 
-    /// Regression guard: provider signatures must survive the round-trip. pa-agent has no
+    /// Regression guard: provider signatures must survive the round-trip. aa-agent has no
     /// catch-all field, so a key-casing mismatch silently dropped them — a Rust-written
     /// session lost the signature TS-written ones carry.
     #[test]
     fn provider_signatures_round_trip_both_directions() {
-        let thinking = pa_types::ai::ThinkingContent {
+        let thinking = aa_types::ai::ThinkingContent {
             thinking: "trace".into(),
             thinking_signature: Some("sig-1".into()),
             redacted: None,
@@ -1417,16 +1417,16 @@ mod tests {
             Some("sig-1"),
             "the TS wire key is camelCase: {wire}"
         );
-        // pa-ai stream output -> the pa-agent loop's message form.
-        let agent_thinking: pa_agent::types::ThinkingContent =
+        // aa-ai stream output -> the aa-agent loop's message form.
+        let agent_thinking: aa_agent::types::ThinkingContent =
             serde_json::from_value(wire).unwrap();
         assert_eq!(agent_thinking.thinking_signature.as_deref(), Some("sig-1"));
-        // The loop's message -> the provider-facing pa-ai form again.
-        let back: pa_types::ai::ThinkingContent =
+        // The loop's message -> the provider-facing aa-ai form again.
+        let back: aa_types::ai::ThinkingContent =
             serde_json::from_value(serde_json::to_value(&agent_thinking).unwrap()).unwrap();
         assert_eq!(back.thinking_signature.as_deref(), Some("sig-1"));
         // The tool-call thought signature (Google) rides the same boundary.
-        let tool_call = pa_types::ai::ToolCall {
+        let tool_call = aa_types::ai::ToolCall {
             id: "toolu_1".into(),
             name: "bash".into(),
             arguments: serde_json::Map::new(),
@@ -1439,7 +1439,7 @@ mod tests {
             Some("sig-2"),
             "the TS wire key is camelCase: {wire}"
         );
-        let agent_tool_call: pa_agent::types::ToolCall = serde_json::from_value(wire).unwrap();
+        let agent_tool_call: aa_agent::types::ToolCall = serde_json::from_value(wire).unwrap();
         assert_eq!(agent_tool_call.thought_signature.as_deref(), Some("sig-2"));
     }
 
@@ -1448,15 +1448,15 @@ mod tests {
     #[tokio::test]
     async fn closing_the_stream_cancels_a_held_fetch_immediately() {
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some("held-fetch-close-test".to_string()),
                 ..Default::default()
             });
         let model = registration.get_model();
-        registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Delayed {
-            message: pa_ai::faux::faux_assistant_text_message(
+        registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Delayed {
+            message: aa_ai::faux::faux_assistant_text_message(
                 "held reply",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ),
             delay_ms: 60_000,
         }]);
@@ -1468,7 +1468,7 @@ mod tests {
         })));
         let stream_fn = switchable_stream_fn(target);
         let mut stream = stream_fn(
-            pa_agent::types::Model::unknown(),
+            aa_agent::types::Model::unknown(),
             LlmContext::default(),
             StreamRequestOptions::default(),
         )
@@ -1480,7 +1480,7 @@ mod tests {
             .await
             .expect("the closed stream settles immediately, not after the 60s hold")
             .expect("stream result");
-        assert_eq!(settled.stop_reason, pa_agent::types::StopReason::Aborted);
+        assert_eq!(settled.stop_reason, aa_agent::types::StopReason::Aborted);
         assert_eq!(
             settled.error_message.as_deref(),
             Some("Request was aborted")

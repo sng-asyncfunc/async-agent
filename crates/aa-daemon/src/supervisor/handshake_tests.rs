@@ -11,15 +11,15 @@ struct FakeWorkerSocket {
     // The listener is held so the bound socket path stays owned by the
     // test for the connection's whole lifetime.
     #[allow(dead_code)]
-    listener: Box<dyn pa_types::platform::transport::TransportListener>,
-    read_half: Box<dyn pa_types::platform::transport::AsyncReadHalf>,
-    write_half: Box<dyn pa_types::platform::transport::AsyncWriteHalf>,
+    listener: Box<dyn aa_types::platform::transport::TransportListener>,
+    read_half: Box<dyn aa_types::platform::transport::AsyncReadHalf>,
+    write_half: Box<dyn aa_types::platform::transport::AsyncWriteHalf>,
 }
 
 async fn bind_fake_worker(
     socket_path: &Path,
-) -> Box<dyn pa_types::platform::transport::TransportListener> {
-    pa_types::platform::transport::bind_transport(socket_path)
+) -> Box<dyn aa_types::platform::transport::TransportListener> {
+    aa_types::platform::transport::bind_transport(socket_path)
         .await
         .expect("bind fake worker socket")
 }
@@ -27,7 +27,7 @@ async fn bind_fake_worker(
 /// Accept the connection `connect_worker` dials (its probe already
 /// succeeded), once the connect task is in flight.
 async fn accept_fake_worker(
-    listener: Box<dyn pa_types::platform::transport::TransportListener>,
+    listener: Box<dyn aa_types::platform::transport::TransportListener>,
 ) -> FakeWorkerSocket {
     let stream = listener.accept().await.expect("accept fake worker");
     let (read_half, write_half) = stream.split();

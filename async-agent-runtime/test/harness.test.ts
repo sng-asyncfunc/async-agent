@@ -7,7 +7,7 @@ import { clearHarnessStateCache, getHarnessState, harnessQueryTerms } from "../s
 const tempDirs: string[] = [];
 const savedEnv: Record<string, string | undefined> = {};
 
-function makeTempDir(prefix = "prime-harness-test-"): string {
+function makeTempDir(prefix = "async-harness-test-"): string {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 	tempDirs.push(dir);
 	return dir;
@@ -35,7 +35,7 @@ describe("HarnessState", () => {
 	test("CRUD across memory, prompt, subagent, skill, and refinements with persistence", () => {
 		const agentDir = makeTempDir("agent-");
 		const localDir = makeTempDir("local-");
-		setEnv("PRIME_AGENT_CODING_AGENT_DIR", agentDir);
+		setEnv("ASYNC_AGENT_CODING_AGENT_DIR", agentDir);
 		setEnv("RLM_HARNESS_STATE_DIR", localDir);
 
 		const state = getHarnessState();
@@ -98,7 +98,7 @@ describe("HarnessState", () => {
 	test("search() supports English tf-idf and CJK bigrams", () => {
 		const agentDir = makeTempDir("agent-");
 		const localDir = makeTempDir("local-");
-		setEnv("PRIME_AGENT_CODING_AGENT_DIR", agentDir);
+		setEnv("ASYNC_AGENT_CODING_AGENT_DIR", agentDir);
 		setEnv("RLM_HARNESS_STATE_DIR", localDir);
 
 		expect(harnessQueryTerms("修复登录 login?")).toEqual(["修复", "复登", "登录", "login"]);
@@ -118,7 +118,7 @@ describe("HarnessState", () => {
 	test("createFactory enforces factory.enabled opt-in gate and validates specs", () => {
 		const agentDir = makeTempDir("agent-");
 		const localDir = makeTempDir("local-");
-		setEnv("PRIME_AGENT_CODING_AGENT_DIR", agentDir);
+		setEnv("ASYNC_AGENT_CODING_AGENT_DIR", agentDir);
 		setEnv("RLM_HARNESS_STATE_DIR", localDir);
 
 		const state = getHarnessState();

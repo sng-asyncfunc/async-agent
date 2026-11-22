@@ -8,12 +8,12 @@ use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
 
-use pa_ai::oauth::{
+use aa_ai::oauth::{
     login_openai_codex, CodexHttp, CodexLoginUi, DEFAULT_ORIGINATOR, LOGIN_CANCELLED,
 };
-use pa_core::auth::{AuthCredential, AuthStorage, OPENAI_CODEX_PROVIDER_ID};
-use pa_tui::auth_panel::{AuthPanelHandle, PastePromptTone, PasteStyle};
-use pa_tui::provider_auth::ProviderAuthOutcome;
+use aa_core::auth::{AuthCredential, AuthStorage, OPENAI_CODEX_PROVIDER_ID};
+use aa_tui::auth_panel::{AuthPanelHandle, PastePromptTone, PasteStyle};
+use aa_tui::provider_auth::ProviderAuthOutcome;
 
 pub(crate) struct PanelCodexLoginUi {
     panel: AuthPanelHandle,
@@ -28,7 +28,7 @@ impl PanelCodexLoginUi {
 impl CodexLoginUi for PanelCodexLoginUi {
     fn on_auth(&self, url: &str, instructions: &str) {
         self.panel.auth_url(url, Some(instructions));
-        pa_core::platform::browser::open_in_browser(url);
+        aa_core::platform::browser::open_in_browser(url);
     }
 
     fn on_manual_code_input(&self) -> Option<Pin<Box<dyn Future<Output = Option<String>> + Send>>> {
@@ -116,7 +116,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
-    use pa_ai::oauth::CodexHttpResponse;
+    use aa_ai::oauth::CodexHttpResponse;
 
     struct ScriptedHttp(std::collections::HashMap<String, CodexHttpResponse>);
 
@@ -343,7 +343,7 @@ mod tests {
         }
         let mut expired = AuthStorage::in_memory_without_env(
             &data,
-            Arc::new(pa_core::auth::ProviderOAuth::with_http(Arc::new(
+            Arc::new(aa_core::auth::ProviderOAuth::with_http(Arc::new(
                 token_http(&account_jwt("acct-2")),
             ))),
         );

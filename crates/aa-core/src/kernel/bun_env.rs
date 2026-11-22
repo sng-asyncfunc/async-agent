@@ -87,7 +87,7 @@ pub(crate) fn safe_home_bun(path: &Path, project: Option<&Path>) -> bool {
     safe_home_bun_with_home(
         path,
         project,
-        pa_types::platform::home_dir().as_deref(),
+        aa_types::platform::home_dir().as_deref(),
         account_home().as_deref(),
     )
 }

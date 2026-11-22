@@ -7,11 +7,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use hmac::{Hmac, Mac};
-use pa_types::ai::{
+use aa_types::ai::{
     CompatKind, Model, ModelCompat, ModelCost, ModelInput, ModelServing, ModelThinkingLevel,
     OpenAiCompletionsCompat, ThinkingFormat, ThinkingLevelMap,
 };
-use pa_types::JsNumber;
+use aa_types::JsNumber;
 use serde::Deserialize;
 use sha2::Sha256;
 
@@ -169,7 +169,7 @@ pub fn is_private_prime_inference_model_id(model_id: &str) -> bool {
 pub fn scope_key(api_key: &str, team_id: &str) -> String {
     let mut mac =
         Hmac::<Sha256>::new_from_slice(api_key.as_bytes()).expect("HMAC accepts any key length");
-    mac.update(b"prime-agent:private-prime-authorization:v1\0");
+    mac.update(b"async-agent:private-prime-authorization:v1\0");
     mac.update(team_id.as_bytes());
     hex::encode(mac.finalize().into_bytes())
 }
@@ -410,7 +410,7 @@ fn default_compat() -> ModelCompat {
             supports_store: Some(false),
             supports_developer_role: Some(false),
             supports_reasoning_effort: Some(false),
-            max_tokens_field: Some(pa_types::ai::MaxTokensField::MaxTokens),
+            max_tokens_field: Some(aa_types::ai::MaxTokensField::MaxTokens),
             supports_strict_mode: Some(false),
             ..OpenAiCompletionsCompat::default()
         },
@@ -1082,7 +1082,7 @@ mod tests {
             compat: Some(ModelCompat::from_kind(CompatKind::OpenAiCompletions(
                 Box::new(OpenAiCompletionsCompat {
                     supports_developer_role: Some(false),
-                    max_tokens_field: Some(pa_types::ai::MaxTokensField::MaxTokens),
+                    max_tokens_field: Some(aa_types::ai::MaxTokensField::MaxTokens),
                     ..OpenAiCompletionsCompat::default()
                 }),
             ))),

@@ -23,31 +23,31 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-/// Environment keys this box's own prime-agent worker sets; they must not
+/// Environment keys this box's own async-agent worker sets; they must not
 /// leak into spawned supervisors.
 const SCRUB_ENV: [&str; 9] = [
-    "PRIME_AGENT_INTERNAL_DAEMON_WORKER",
-    "PRIME_AGENT_INTERNAL_DAEMON_WORKER_TOKEN",
-    "PRIME_AGENT_INTERNAL_DAEMON_WORKER_ACTIVE_SESSION_ID",
-    "PRIME_AGENT_INTERNAL_DAEMON_WORKER_INSTANCE_ID",
-    "PRIME_AGENT_INTERNAL_DAEMON_WORKER_RECOVERY_JOURNAL",
-    "PRIME_AGENT_INTERNAL_DAEMON_SUPERVISOR_SOCKET",
-    "PRIME_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL",
-    "PRIME_AGENT_INTERNAL_SESSION_LEASES",
-    "PRIME_AGENT_INTERNAL_SESSION_LEASE_OWNER_ID",
+    "ASYNC_AGENT_INTERNAL_DAEMON_WORKER",
+    "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_TOKEN",
+    "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_ACTIVE_SESSION_ID",
+    "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_INSTANCE_ID",
+    "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_RECOVERY_JOURNAL",
+    "ASYNC_AGENT_INTERNAL_DAEMON_SUPERVISOR_SOCKET",
+    "ASYNC_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL",
+    "ASYNC_AGENT_INTERNAL_SESSION_LEASES",
+    "ASYNC_AGENT_INTERNAL_SESSION_LEASE_OWNER_ID",
 ];
 
 /// Child-mode env var for the launcher test's re-exec'd client (below):
 /// the socket the client must launch a supervisor on.
-const LAUNCHER_CLIENT_SOCKET_ENV: &str = "PRIME_AGENT_TEST_LAUNCHER_CLIENT_SOCKET";
+const LAUNCHER_CLIENT_SOCKET_ENV: &str = "ASYNC_AGENT_TEST_LAUNCHER_CLIENT_SOCKET";
 
 fn cli_binary() -> PathBuf {
-    PathBuf::from(env!("CARGO_BIN_EXE_prime-agent"))
+    PathBuf::from(env!("CARGO_BIN_EXE_async-agent"))
 }
 
 /// A canonical fixture root short enough for every socket the product makes
 /// under it. macOS's `$TMPDIR` is too long: the product socket dir then falls
-/// back to the shared `/tmp/prime-agent-<uid>`, where the user's real daemon
+/// back to the shared `/tmp/async-agent-<uid>`, where the user's real daemon
 /// listens. Canonical so the paths the product reports compare equal.
 fn fixture_dir() -> tempfile::TempDir {
     tempfile::tempdir_in(Path::new("/tmp").canonicalize().expect("canonical /tmp"))
@@ -68,7 +68,7 @@ impl Drop for Daemon {
 }
 
 /// Spawn the real supervisor on a fixture socket the way production does
-/// (`prime-agent --mode daemon --daemon-socket`), with agent dir and TMPDIR
+/// (`async-agent --mode daemon --daemon-socket`), with agent dir and TMPDIR
 /// pinned inside the fixture root so every socket it ever makes stays there.
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &Path, agent_dir: &Path, tmp_dir: &Path) -> Daemon {
@@ -78,7 +78,7 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path, tmp_dir: &Path) -> Daemon {
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", agent_dir)
         .env("TMPDIR", tmp_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -90,7 +90,7 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path, tmp_dir: &Path) -> Daemon {
     // later test binaries: the worker's supervisor-lost exit runs on this
     // short window instead of the 5-minute default.
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
     let child = command.spawn().expect("spawn daemon supervisor");
@@ -113,7 +113,7 @@ fn run_cli(root: &Path, args: &[&str]) -> Output {
     let mut command = Command::new(cli_binary());
     command
         .args(args)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
         .env("TMPDIR", root)
         .stdin(Stdio::null());
     for key in SCRUB_ENV {
@@ -121,7 +121,7 @@ fn run_cli(root: &Path, args: &[&str]) -> Output {
     }
     // The state root follows this var (the env-pinned root contract), so a
     // root-less invocation must not inherit an ambient pin.
-    command.env_remove("PRIME_AGENT_DAEMON_SOCKET");
+    command.env_remove("ASYNC_AGENT_DAEMON_SOCKET");
     command.output().expect("spawn CLI binary")
 }
 
@@ -156,7 +156,7 @@ fn interactive_launcher_detaches_supervisor_from_client_session() {
         .arg("launcher_client_child_mode")
         .current_dir(fixture.path())
         .env(LAUNCHER_CLIENT_SOCKET_ENV, &socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
         .env("TMPDIR", &tmp_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -168,7 +168,7 @@ fn interactive_launcher_detaches_supervisor_from_client_session() {
     // into later test binaries: the worker's supervisor-lost exit runs on
     // this short window instead of the 5-minute default.
     client.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
     let client = client.output().expect("spawn launcher client");
@@ -216,7 +216,7 @@ fn launcher_client_child_mode() {
         .build()
         .expect("runtime");
     runtime
-        .block_on(pa_cli::ensure_daemon_running_with(
+        .block_on(aa_cli::ensure_daemon_running_with(
             &cli_binary(),
             &socket,
             &spawn_cwd,
@@ -276,7 +276,7 @@ fn run_shutdown_on_socket(socket: &Path) -> Option<i32> {
         .as_i64()? as i32;
     let command = serde_json::json!({
         "type": "command", "id": "test-cleanup",
-        "protocol": { "name": "prime-agent.daemon", "version": pa_types::daemon::DAEMON_PROTOCOL_VERSION },
+        "protocol": { "name": "async-agent.daemon", "version": aa_types::daemon::DAEMON_PROTOCOL_VERSION },
         "command": { "type": "shutdown", "force": true }
     });
     // The write is best-effort: a failed write leaves the kill path above
@@ -400,7 +400,7 @@ fn shutdown_without_force_requires_confirmation_and_harms_nothing() {
     assert_eq!(tty_error.status.code(), Some(1));
     assert!(
         stderr(&tty_error).contains(
-            "Shutdown requires confirmation in an interactive terminal. Use \"prime-agent shutdown --force\"."
+            "Shutdown requires confirmation in an interactive terminal. Use \"async-agent shutdown --force\"."
         ),
         "router error mismatch: {}{}",
         stdout(&tty_error),
@@ -423,7 +423,7 @@ fn shutdown_without_force_requires_confirmation_and_harms_nothing() {
     );
     assert_eq!(
         failed[0].get("reason").and_then(Value::as_str),
-        Some("confirmation required; use \"prime-agent shutdown --force --json\"")
+        Some("confirmation required; use \"async-agent shutdown --force --json\"")
     );
     assert!(
         report
@@ -542,7 +542,7 @@ fn wait_until_stopped(socket: &Path, daemon: &mut Daemon) {
 
 /// The env-pinned invocation shape: the CLI runs with daemon B's state
 /// environment — B's agent dir, the shared TMPDIR, and B's socket through
-/// `PRIME_AGENT_DAEMON_SOCKET` (a root-less invocation scrubs an ambient
+/// `ASYNC_AGENT_DAEMON_SOCKET` (a root-less invocation scrubs an ambient
 /// pin so it resolves the default root).
 fn run_cli_state_env(
     tmp: &Path,
@@ -554,15 +554,15 @@ fn run_cli_state_env(
     let mut command = Command::new(cli_binary());
     command
         .args(args)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", agent_dir)
         .env("TMPDIR", tmp)
         .stdin(Stdio::null());
     for key in SCRUB_ENV {
         command.env_remove(key);
     }
     match daemon_socket {
-        Some(socket) => command.env("PRIME_AGENT_DAEMON_SOCKET", socket),
-        None => command.env_remove("PRIME_AGENT_DAEMON_SOCKET"),
+        Some(socket) => command.env("ASYNC_AGENT_DAEMON_SOCKET", socket),
+        None => command.env_remove("ASYNC_AGENT_DAEMON_SOCKET"),
     };
     command.output().expect("spawn CLI binary")
 }
@@ -602,7 +602,7 @@ impl Wire {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": pa_types::daemon::DAEMON_PROTOCOL_VERSION },
+            "protocol": { "name": "async-agent.daemon", "version": aa_types::daemon::DAEMON_PROTOCOL_VERSION },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize command");
@@ -724,7 +724,7 @@ fn tracked_worker_pid(agent_dir: &Path, supervisor_socket: &Path) -> u32 {
 /// The 2026-10-14 incident, end to end: an isolated test daemon's
 /// `shutdown --force` stopped the shared default daemon and killed every
 /// live worker on the machine — the state root ignored
-/// `PRIME_AGENT_DAEMON_SOCKET`, and the residual sweep treated worker
+/// `ASYNC_AGENT_DAEMON_SOCKET`, and the residual sweep treated worker
 /// sockets as daemons. One shared TMPDIR, so every worker socket any daemon
 /// spawns listens in the shared product socket dir, exactly like a real
 /// machine: A owns the product-default socket, B and C are pinned to
@@ -741,7 +741,7 @@ fn force_shutdown_from_an_env_pinned_root_stops_only_that_daemon_tree() {
     // SAFETY: getuid is a pure identity query.
     let socket_dir = shared_tmp
         .path()
-        .join(format!("prime-agent-{}", unsafe { libc::getuid() }));
+        .join(format!("async-agent-{}", unsafe { libc::getuid() }));
 
     let socket_a = socket_dir.join("daemon.sock"); // the product default
     let agent_a = fixture_a.path().join("agent");
@@ -976,7 +976,7 @@ fn a_pinned_root_with_an_overlapping_agent_dir_never_stops_foreign_workers() {
 
 /// A fresh top-level invocation must not inherit an ancestor worker's
 /// identity: a kernel bash hands a worker's full environment to every
-/// child, so `prime-agent --mode daemon --daemon-socket B` launched from
+/// child, so `async-agent --mode daemon --daemon-socket B` launched from
 /// inside a worker must come up as B's supervisor — never as a second
 /// worker of the live supervisor the inherited env points at.
 #[test]
@@ -993,39 +993,39 @@ fn a_daemon_launched_with_an_inherited_worker_env_comes_up_as_a_supervisor() {
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
         .env("TMPDIR", &tmp_dir)
         // The inherited worker handshake set (what a kernel bash sees).
-        .env(pa_daemon::worker::WORKER_ROLE_ENV, "1")
+        .env(aa_daemon::worker::WORKER_ROLE_ENV, "1")
         .env(
-            pa_daemon::worker::WORKER_TOKEN_ENV,
+            aa_daemon::worker::WORKER_TOKEN_ENV,
             "inherited-worker-token",
         )
         .env(
-            pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+            aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
             "inherited-instance",
         )
         .env(
-            pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+            aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
             "inherited-session",
         )
-        .env(pa_daemon::worker::WORKER_CWD_ENV, fixture.path())
+        .env(aa_daemon::worker::WORKER_CWD_ENV, fixture.path())
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
             &ancestor_socket,
         )
-        .env(pa_daemon::worker::WORKER_SOCKET_ENV, &worker_socket)
+        .env(aa_daemon::worker::WORKER_SOCKET_ENV, &worker_socket)
         .env(
-            pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+            aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
             fixture.path().join("recovery.jsonl"),
         )
-        .env(pa_daemon::worker::WORKER_TELEMETRY_DISABLED_ENV, "1")
+        .env(aa_daemon::worker::WORKER_TELEMETRY_DISABLED_ENV, "1")
         .env(
-            pa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV,
+            aa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV,
             "inherited-session",
         )
         .env(
-            pa_core::kernel::orphan_journal::ORPHAN_PROCESS_JOURNAL_ENV,
+            aa_core::kernel::orphan_journal::ORPHAN_PROCESS_JOURNAL_ENV,
             fixture.path().join("orphans.jsonl"),
         )
         .stdin(Stdio::null())

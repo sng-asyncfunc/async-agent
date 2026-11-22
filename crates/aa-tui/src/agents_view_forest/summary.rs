@@ -69,7 +69,7 @@ pub fn summary_identity(summary: &Value) -> String {
     if get("runtimeKind") == Some("subagent") && summary.get("rlmChildId").is_some() {
         return format!(
             "agent:{}",
-            pa_types::daemon::agent_roster::roster_agent_id_for_summary(summary)
+            aa_types::daemon::agent_roster::roster_agent_id_for_summary(summary)
         );
     }
     if let Some(file) = get("sessionFile") {

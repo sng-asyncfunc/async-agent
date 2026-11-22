@@ -1,7 +1,7 @@
 //! Named-pipe transport for Windows endpoints (`\\.\pipe\` namespace): byte-mode duplex instances,
 //! local-only, clients waiting while every instance is busy (Node's `net` on Windows); implements
 //! the shared [`TransportListener`] / [`TransportStream`] / [`BlockingTransportStream`] contracts.
-//! Endpoint naming lives in `pa-daemon::platform`.
+//! Endpoint naming lives in `aa-daemon::platform`.
 
 use std::io;
 use std::sync::{Arc, Mutex};
@@ -210,7 +210,7 @@ mod tests {
     /// collide in the global `\.\pipe\` namespace).
     fn test_pipe(tag: &str) -> PathBuf {
         PathBuf::from(format!(
-            r"\\.\pipe\prime-agent-pa-types-test-{}-{tag}",
+            r"\\.\pipe\async-agent-aa-types-test-{}-{tag}",
             std::process::id()
         ))
     }

@@ -42,7 +42,7 @@ impl Drop for Daemon {
 }
 
 fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
@@ -54,11 +54,11 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
         // A supervisor killed at teardown must not leak its session workers: the
         // supervisor-lost exit runs on this short window, not the 5-minute default.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     Daemon { child }
 }
 
@@ -179,7 +179,7 @@ impl Client {
         self.send(&json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }));
     }
@@ -282,7 +282,7 @@ fn control_plane_stays_responsive_while_a_large_adoption_pass_recovers() {
         kill9(*pid);
     }
 
-    let restart_before = pa_daemon::util::now_iso();
+    let restart_before = aa_daemon::util::now_iso();
     let daemon2 = spawn_supervisor(&socket, &agent_dir);
     wait_socket_ready(&socket);
     let restart_supervisor_pid = daemon2.child.id();
@@ -321,7 +321,7 @@ fn control_plane_stays_responsive_while_a_large_adoption_pass_recovers() {
     // Queued recoveries complete: every descriptor relaunches and registers within a
     // bounded window. The wait is on registrations (the log line lands after the registry
     // records the worker), not on child processes.
-    let log_path = pa_daemon::paths::daemon_log_path(&socket, &agent_dir);
+    let log_path = aa_daemon::paths::daemon_log_path(&socket, &agent_dir);
     let deadline = Instant::now() + Duration::from_mins(2);
     loop {
         if distinct(workers_registered_since(&log_path, &restart_before)).len() == SESSIONS {

@@ -1,13 +1,13 @@
 //! The supervisor's agent roster: per-agent entries keyed by roster agent
 //! id, with active-session and canonical-session-file indexes so lookups
 //! converge across worker restarts and re-registrations. Classification
-//! uses the shared formula in `pa_types::daemon::agent_roster`.
+//! uses the shared formula in `aa_types::daemon::agent_roster`.
 
 use std::collections::HashMap;
 use std::path::Path;
 
 use crate::session_usage::SessionUsageSummary;
-use pa_types::daemon::agent_roster::{
+use aa_types::daemon::agent_roster::{
     classify_summary_value, roster_agent_id_for_summary, slim_roster_summary, AgentRosterEntry,
 };
 use serde_json::{json, Map, Value};
@@ -457,7 +457,7 @@ fn attach_deleted_descendant_usage(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::daemon::agent_roster::AgentRosterStatus;
+    use aa_types::daemon::agent_roster::AgentRosterStatus;
     use serde_json::json;
     use std::sync::Mutex;
 

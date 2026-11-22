@@ -50,7 +50,7 @@ pub enum HolderFlavor {
     /// This Rust build (another window/daemon of this binary, the takeover
     /// or pre-takeover install dirs, or a cargo dev build).
     ThisBuild,
-    /// The TypeScript product: its release binary is named `prime-agent`,
+    /// The TypeScript product: its release binary is named `async-agent`,
     /// and source/dev installs run under node, bun, or deno.
     TypeScriptProduct,
     /// A process the classifier cannot name.
@@ -61,7 +61,7 @@ pub enum HolderFlavor {
 /// `None` resolves no executable.
 fn holder_process(pid: Option<u32>) -> (HolderFlavor, Option<std::path::PathBuf>) {
     let exe = pid
-        .and_then(pa_types::platform::process::process_executable_path)
+        .and_then(aa_types::platform::process::process_executable_path)
         .map(|path| path.canonicalize().unwrap_or(path));
     let own = std::env::current_exe()
         .ok()
@@ -102,28 +102,28 @@ fn classify_from(exe: Option<&Path>, own_exe: Option<&Path>) -> HolderFlavor {
     }
     if components
         .iter()
-        .any(|component| component == "prime-agent-rust")
+        .any(|component| component == "async-agent-rust")
     {
         return HolderFlavor::ThisBuild;
     }
     // The keyword-takeover install layout: the payload sits DIRECTLY
-    // inside the share dir (`.../share/prime-agent/prime-agent`), while a
+    // inside the share dir (`.../share/async-agent/async-agent`), while a
     // TS release binary sits one level deeper
-    // (`.../releases/<name>/prime-agent`), so the parent component claims
+    // (`.../releases/<name>/async-agent`), so the parent component claims
     // this product.
-    if components.len() >= 2 && components.last().map(String::as_str) == Some("prime-agent") {
+    if components.len() >= 2 && components.last().map(String::as_str) == Some("async-agent") {
         let parent = components[components.len() - 2].as_str();
         // The parent alone is the layout signal (a TS release binary's
-        // parent is the release name, never `prime-agent`).
+        // parent is the release name, never `async-agent`).
         let is_publish_byproduct =
-            parent.starts_with("prime-agent.old.") || parent.starts_with("prime-agent.stage.");
-        if parent == "prime-agent" || is_publish_byproduct {
+            parent.starts_with("async-agent.old.") || parent.starts_with("async-agent.stage.");
+        if parent == "async-agent" || is_publish_byproduct {
             return HolderFlavor::ThisBuild;
         }
     }
     // The exe filename gate keeps a node/bun/deno runtime that merely runs
-    // FROM a `prime-agent`-named directory from claiming this build: only
-    // the payload binary named `prime-agent` is claimed.
+    // FROM a `async-agent`-named directory from claiming this build: only
+    // the payload binary named `async-agent` is claimed.
     if let Some(index) = components
         .iter()
         .position(|component| component == "target")
@@ -146,7 +146,7 @@ fn classify_from(exe: Option<&Path>, own_exe: Option<&Path>) -> HolderFlavor {
     if name.contains("node") || name.contains("bun") || name.contains("deno") {
         return HolderFlavor::TypeScriptProduct;
     }
-    if name.contains("prime-agent") {
+    if name.contains("async-agent") {
         return HolderFlavor::TypeScriptProduct;
     }
     HolderFlavor::AnotherProcess
@@ -286,24 +286,24 @@ pub fn refusal_for_flavor(
     match flavor {
         HolderFlavor::TypeScriptProduct => {
             lines.push(format!(
-                "This session is currently open in your TypeScript version of Prime Agent \
+                "This session is currently open in your TypeScript version of Async Agent \
 (active in {holder_id}). The Rust and TS versions share the same session store but not \
 the same daemon, so this build cannot open the file while that process holds it."
             ));
             lines.push(String::new());
             lines.push("• Continue where you left off:".to_string());
-            // The Rust port owns the `prime-agent` keyword, so naming
-            // `prime-agent --resume` here would launch THIS build. The
+            // The Rust port owns the `async-agent` keyword, so naming
+            // `async-agent --resume` here would launch THIS build. The
             // continue path names the TypeScript binary that holds the
             // lease, derived from the holder's live process image.
             match (holder_exe, id) {
                 // The holder binary rides quoted, and only when the image
                 // IS the TypeScript payload binary (control-free, named
-                // `prime-agent`): a runtime holder would be a broken
+                // `async-agent`): a runtime holder would be a broken
                 // command, so those fall back to the takeover wording below.
                 (Some(exe), Some(id))
                     if !exe.to_string_lossy().chars().any(char::is_control)
-                        && exe.file_name().is_some_and(|name| name == "prime-agent") =>
+                        && exe.file_name().is_some_and(|name| name == "async-agent") =>
                 {
                     lines.push(format!(
                         "  {} --resume {}",
@@ -317,17 +317,17 @@ the same daemon, so this build cannot open the file while that process holds it.
                 }
                 _ => {
                     lines.push(
-                        "  (continue in the TypeScript product — its daemon owns this session; the prime-agent keyword launches this Rust build, so use the TypeScript binary from its preserved install)"
+                        "  (continue in the TypeScript product — its daemon owns this session; the async-agent keyword launches this Rust build, so use the TypeScript binary from its preserved install)"
                             .to_string(),
                     );
                 }
             }
             lines.push(String::new());
-            lines.extend(take_over_lines(hold, "prime-agent", holder_exe));
+            lines.extend(take_over_lines(hold, "async-agent", holder_exe));
         }
         HolderFlavor::ThisBuild => {
             lines.push(format!(
-                "This session is currently open in another Rust build of Prime Agent \
+                "This session is currently open in another Rust build of Async Agent \
 (active in {holder_id}) — another daemon or window of this product holds the file's \
 runtime lease."
             ));
@@ -335,7 +335,7 @@ runtime lease."
             lines.push("• Continue where you left off:".to_string());
             if let Some(id) = id {
                 lines.push(format!(
-                    "  prime-agent --daemon-socket <socket> --resume {}",
+                    "  async-agent --daemon-socket <socket> --resume {}",
                     shell_quote(&single_line(id))
                 ));
                 lines.push(
@@ -344,7 +344,7 @@ you started it — that daemon owns this session)"
                         .to_string(),
                 );
             } else {
-                lines.push("  prime-agent --resume".to_string());
+                lines.push("  async-agent --resume".to_string());
                 lines.push(
                     "  (switch to the window or shell where that instance is running — its \
 daemon owns this session)"
@@ -352,7 +352,7 @@ daemon owns this session)"
                 );
             }
             lines.push(String::new());
-            lines.extend(take_over_lines(hold, "prime-agent", holder_exe));
+            lines.extend(take_over_lines(hold, "async-agent", holder_exe));
         }
         HolderFlavor::AnotherProcess => {
             lines.push(format!(
@@ -361,7 +361,7 @@ daemon owns this session)"
 runtime lease."
             ));
             lines.push(String::new());
-            lines.extend(take_over_lines(hold, "prime-agent", holder_exe));
+            lines.extend(take_over_lines(hold, "async-agent", holder_exe));
         }
     }
     lines.push(String::new());
@@ -389,7 +389,7 @@ pub(crate) fn create_failure_response(error: &anyhow::Error) -> DaemonResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::daemon::DaemonErrorInfo;
+    use aa_types::daemon::DaemonErrorInfo;
 
     /// No third "open a different session" option: the user is already
     /// in the picker (operator-directed, 2026-09-24).
@@ -404,19 +404,19 @@ mod tests {
             &hold,
             None,
             Some(Path::new(
-                "/home/k/.local/share/prime-agent-legacy/releases/9.9.9/prime-agent",
+                "/home/k/.local/share/async-agent-legacy/releases/9.9.9/async-agent",
             )),
         );
-        let expected = "This session is currently open in your TypeScript version of Prime Agent \
+        let expected = "This session is currently open in your TypeScript version of Async Agent \
 (active in ts01ab). The Rust and TS versions share the same session store but not \
 the same daemon, so this build cannot open the file while that process holds it.
 
 • Continue where you left off:
-  '/home/k/.local/share/prime-agent-legacy/releases/9.9.9/prime-agent' --resume 'ts01ab'
+  '/home/k/.local/share/async-agent-legacy/releases/9.9.9/async-agent' --resume 'ts01ab'
   (that TypeScript binary holds the lease — its daemon owns this session)
 
 • Take over on this daemon:
-  kill 4242 # the holder is prime-agent
+  kill 4242 # the holder is async-agent
   Then retry — the file unlocks when the holder exits.
 
 Session: ts01ab";
@@ -424,12 +424,12 @@ Session: ts01ab";
 
         let message = refusal_for_flavor(HolderFlavor::TypeScriptProduct, &hold, None, None);
         assert!(
-            message.contains("the prime-agent keyword launches this Rust build"),
+            message.contains("the async-agent keyword launches this Rust build"),
             "the unresolvable-exe continue path states the takeover: {message}"
         );
         assert!(
-            !message.contains("prime-agent --resume"),
-            "no bare `prime-agent --resume` hint remains (it launches this build): {message}"
+            !message.contains("async-agent --resume"),
+            "no bare `async-agent --resume` hint remains (it launches this build): {message}"
         );
     }
 
@@ -462,10 +462,10 @@ Session: ts01ab";
             HolderFlavor::TypeScriptProduct,
             &hold,
             None,
-            Some(std::path::Path::new("/opt/hold bin/prime-agent")),
+            Some(std::path::Path::new("/opt/hold bin/async-agent")),
         );
         assert!(
-            message.contains("'/opt/hold bin/prime-agent' --resume 'evil'\\''; rm -rf ~'"),
+            message.contains("'/opt/hold bin/async-agent' --resume 'evil'\\''; rm -rf ~'"),
             "the binary and the id each ride as one quoted word: {message}"
         );
 
@@ -480,7 +480,7 @@ Session: ts01ab";
             "a runtime image never becomes the resume command: {message}"
         );
         assert!(
-            message.contains("the prime-agent keyword launches this Rust build"),
+            message.contains("the async-agent keyword launches this Rust build"),
             "the runtime holder gets the takeover wording: {message}"
         );
 
@@ -492,10 +492,10 @@ Session: ts01ab";
             HolderFlavor::TypeScriptProduct,
             &hold,
             None,
-            Some(std::path::Path::new("/opt/ts/prime-agent")),
+            Some(std::path::Path::new("/opt/ts/async-agent")),
         );
         assert!(
-            message.contains("'/opt/ts/prime-agent' --resume 'li ne'"),
+            message.contains("'/opt/ts/async-agent' --resume 'li ne'"),
             "control characters in the id collapse before quoting: {message}"
         );
     }
@@ -508,7 +508,7 @@ Session: ts01ab";
         };
         let message = refusal_for_flavor(HolderFlavor::ThisBuild, &hold, None, None);
         assert!(
-            message.contains("prime-agent --daemon-socket <socket> --resume 'rs01cd'"),
+            message.contains("async-agent --daemon-socket <socket> --resume 'rs01cd'"),
             "the attach command names the flag and the session: {message}"
         );
         assert!(
@@ -530,7 +530,7 @@ Session: ts01ab";
             "the anonymous holder id renders: {message}"
         );
         assert!(
-            message.contains("prime-agent shutdown --force"),
+            message.contains("async-agent shutdown --force"),
             "without a pid the sweep command is the take-over path: {message}"
         );
     }
@@ -589,15 +589,15 @@ Session: ts01ab";
     }
 
     /// The classification matrix. The rust shapes contain the
-    /// `prime-agent` substring family, so their checks must win first.
+    /// `async-agent` substring family, so their checks must win first.
     #[test]
     fn the_holder_classification_matrix() {
-        let own = Path::new("/Users/k/.local/share/prime-agent/prime-agent");
+        let own = Path::new("/Users/k/.local/share/async-agent/async-agent");
         assert_eq!(classify_from(Some(own), Some(own)), HolderFlavor::ThisBuild);
         assert_eq!(
             classify_from(
-                Some(Path::new("/Users/k/.local/share/prime-agent/prime-agent")),
-                Some(Path::new("/opt/pa/prime-agent"))
+                Some(Path::new("/Users/k/.local/share/async-agent/async-agent")),
+                Some(Path::new("/opt/pa/async-agent"))
             ),
             HolderFlavor::ThisBuild
         );
@@ -605,24 +605,24 @@ Session: ts01ab";
         assert_eq!(
             classify_from(
                 Some(Path::new(
-                    "/Users/k/.local/share/prime-agent.old.123/prime-agent"
+                    "/Users/k/.local/share/async-agent.old.123/async-agent"
                 )),
-                Some(Path::new("/opt/pa/prime-agent"))
+                Some(Path::new("/opt/pa/async-agent"))
             ),
             HolderFlavor::ThisBuild
         );
         // The pre-takeover install dir: still this product.
         assert_eq!(
             classify_from(
-                Some(Path::new("/opt/pa/prime-agent-rust")),
-                Some(Path::new("/opt/pa/prime-agent"))
+                Some(Path::new("/opt/pa/async-agent-rust")),
+                Some(Path::new("/opt/pa/async-agent"))
             ),
             HolderFlavor::ThisBuild
         );
         // A cargo dev build: the /target/ shape names this product.
         assert_eq!(
             classify_from(
-                Some(Path::new("/w/repo/target/release/prime-agent")),
+                Some(Path::new("/w/repo/target/release/async-agent")),
                 Some(own)
             ),
             HolderFlavor::ThisBuild
@@ -632,7 +632,7 @@ Session: ts01ab";
         assert_eq!(
             classify_from(
                 Some(Path::new(
-                    "/Users/k/.local/share/prime-agent/releases/9.9.9-darwin-arm64-deadbeef/prime-agent"
+                    "/Users/k/.local/share/async-agent/releases/9.9.9-darwin-arm64-deadbeef/async-agent"
                 )),
                 Some(own)
             ),
@@ -641,16 +641,16 @@ Session: ts01ab";
         assert_eq!(
             classify_from(
                 Some(Path::new(
-                    "/Users/k/.local/share/prime-agent-legacy/releases/9.9.9-darwin-arm64-deadbeef/prime-agent"
+                    "/Users/k/.local/share/async-agent-legacy/releases/9.9.9-darwin-arm64-deadbeef/async-agent"
                 )),
                 Some(own)
             ),
             HolderFlavor::TypeScriptProduct
         );
-        // A node runtime running FROM a prime-agent-named directory: the
+        // A node runtime running FROM a async-agent-named directory: the
         // TypeScript product.
         assert_eq!(
-            classify_from(Some(Path::new("/work/prime-agent/node")), Some(own)),
+            classify_from(Some(Path::new("/work/async-agent/node")), Some(own)),
             HolderFlavor::TypeScriptProduct
         );
         // A prefix that happens to CONTAIN a `releases` component does not
@@ -658,7 +658,7 @@ Session: ts01ab";
         assert_eq!(
             classify_from(
                 Some(Path::new(
-                    "/opt/releases/user/share/prime-agent/prime-agent"
+                    "/opt/releases/user/share/async-agent/async-agent"
                 )),
                 Some(own)
             ),
@@ -667,18 +667,18 @@ Session: ts01ab";
         assert_eq!(
             classify_from(
                 Some(Path::new(
-                    "/Users/k/.local/share/prime-agent.old.123/prime-agent (deleted)"
+                    "/Users/k/.local/share/async-agent.old.123/async-agent (deleted)"
                 )),
                 Some(own)
             ),
             HolderFlavor::ThisBuild
         );
-        // The TS public-bin symlink shape inside a dir NAMED prime-agent:
+        // The TS public-bin symlink shape inside a dir NAMED async-agent:
         // still the TS product.
         assert_eq!(
             classify_from(
                 Some(Path::new(
-                    "/Users/k/.local/share/prime-agent/bin/prime-agent"
+                    "/Users/k/.local/share/async-agent/bin/async-agent"
                 )),
                 Some(own)
             ),
@@ -686,7 +686,7 @@ Session: ts01ab";
         );
         // An npm-style TS bin.
         assert_eq!(
-            classify_from(Some(Path::new("/usr/local/bin/prime-agent")), Some(own)),
+            classify_from(Some(Path::new("/usr/local/bin/async-agent")), Some(own)),
             HolderFlavor::TypeScriptProduct
         );
         // A TS binary one level deeper than the takeover layout never
@@ -694,7 +694,7 @@ Session: ts01ab";
         assert_eq!(
             classify_from(
                 Some(Path::new(
-                    "/opt/other/prime-agent/9.9.9-release/prime-agent"
+                    "/opt/other/async-agent/9.9.9-release/async-agent"
                 )),
                 Some(own)
             ),
@@ -715,8 +715,8 @@ Session: ts01ab";
             classify_from(Some(Path::new("/usr/bin/less")), Some(own)),
             HolderFlavor::AnotherProcess
         );
-        // The own-exe equality wins even under the prime-agent substring.
-        let dev = Path::new("/w/repo/target/debug/prime-agent");
+        // The own-exe equality wins even under the async-agent substring.
+        let dev = Path::new("/w/repo/target/debug/async-agent");
         assert_eq!(classify_from(Some(dev), Some(dev)), HolderFlavor::ThisBuild);
     }
 

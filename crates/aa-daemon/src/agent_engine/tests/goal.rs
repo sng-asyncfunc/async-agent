@@ -14,7 +14,7 @@ fn recovery_rebuild_rehydrates_the_goal_from_the_session_file() {
     store.append_entry(
         "custom",
         json!({
-            "customType": pa_core::goals::GOAL_STATE_CUSTOM_TYPE,
+            "customType": aa_core::goals::GOAL_STATE_CUSTOM_TYPE,
             "data": {
                 "active": true,
                 "status": "active",
@@ -127,7 +127,7 @@ fn goal_start_keeps_the_prompt_images_on_the_context_row() {
         0,
         PromptRequest {
             batch: Vec::new(),
-            images: vec![pa_agent::types::ImageContent {
+            images: vec![aa_agent::types::ImageContent {
                 data: "aGVsbG8gZ29hbA==".to_string(),
                 mime_type: "image/png".to_string(),
             }],
@@ -168,9 +168,9 @@ fn goal_start_keeps_the_prompt_images_on_the_context_row() {
 
 /// A durable message row in the worker's persisted wire shape.
 fn wire_user_message(text: String) -> Value {
-    serde_json::to_value(pa_types::session::AgentMessage::User(
-        pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text(text),
+    serde_json::to_value(aa_types::session::AgentMessage::User(
+        aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text(text),
             timestamp: 1,
             rest: Map::default(),
         },
@@ -180,10 +180,10 @@ fn wire_user_message(text: String) -> Value {
 
 /// A durable assistant row in the worker's persisted wire shape.
 fn wire_assistant_message(text: String) -> Value {
-    serde_json::to_value(pa_types::session::AgentMessage::Assistant(
-        pa_types::ai::AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+    serde_json::to_value(aa_types::session::AgentMessage::Assistant(
+        aa_types::ai::AssistantMessage {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text,
                     text_signature: None,
                     rest: Map::default(),
@@ -195,8 +195,8 @@ fn wire_assistant_message(text: String) -> Value {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 2,
@@ -256,15 +256,15 @@ fn recovered_engine_compaction_walk_sees_the_durable_history() {
     let entries = engine_session_entries(&engine);
     assert!(
         entries.iter().any(|entry| match entry {
-            pa_types::session::FileEntry::Message {
-                message: pa_types::session::AgentMessage::User(user),
+            aa_types::session::FileEntry::Message {
+                message: aa_types::session::AgentMessage::User(user),
                 ..
             } => user.content.text().contains("work turn one"),
             _ => false,
         }),
         "the recovery build adopted the durable history: {entries:?}"
     );
-    let controller = std::sync::Arc::new(pa_agent::abort::AbortController::new());
+    let controller = std::sync::Arc::new(aa_agent::abort::AbortController::new());
     let signal = controller.signal();
     let outcome = engine.run_compaction(
         crate::engine::CompactionRequest {
@@ -777,7 +777,7 @@ fn running_children_owe_the_continuation_and_settle_delivers_it() {
 
 /// The engine session's entries as their persisted wire shapes (the
 /// hydrating snapshot: a windowed manager holds only the suffix).
-fn engine_session_entries(engine: &AgentSessionEngine) -> Vec<pa_types::session::FileEntry> {
+fn engine_session_entries(engine: &AgentSessionEngine) -> Vec<aa_types::session::FileEntry> {
     let guard = engine.session.blocking_lock();
     let core = guard.as_deref().expect("session built");
     let persistence = core.session.shared_persistence();
@@ -848,7 +848,7 @@ fn injected_custom_turn_holds_one_representation() {
     let notice_rows = entries
         .iter()
         .filter(|entry| {
-            matches!(entry, pa_types::session::FileEntry::CustomMessage { payload, .. }
+            matches!(entry, aa_types::session::FileEntry::CustomMessage { payload, .. }
                 if payload.custom_type == "rlm_child_terminal_notice")
         })
         .count();
@@ -856,8 +856,8 @@ fn injected_custom_turn_holds_one_representation() {
     let user_rows = entries
         .iter()
         .filter(|entry| match entry {
-            pa_types::session::FileEntry::Message {
-                message: pa_types::session::AgentMessage::User(user),
+            aa_types::session::FileEntry::Message {
+                message: aa_types::session::AgentMessage::User(user),
                 ..
             } => user.content.text().contains(notice_text),
             _ => false,
@@ -872,8 +872,8 @@ fn injected_custom_turn_holds_one_representation() {
         .filter(|entry| {
             matches!(
                 entry,
-                pa_types::session::FileEntry::Message {
-                    message: pa_types::session::AgentMessage::Assistant(_),
+                aa_types::session::FileEntry::Message {
+                    message: aa_types::session::AgentMessage::Assistant(_),
                     ..
                 }
             )
@@ -899,7 +899,7 @@ fn goal_start_continuation_holds_one_representation() {
     let goal_rows: Vec<String> = entries
         .iter()
         .filter_map(|entry| match entry {
-            pa_types::session::FileEntry::CustomMessage { payload, .. } => {
+            aa_types::session::FileEntry::CustomMessage { payload, .. } => {
                 (payload.custom_type == "goal_context").then(|| payload.content.text())
             }
             _ => None,
@@ -910,8 +910,8 @@ fn goal_start_continuation_holds_one_representation() {
     let user_rows = entries
         .iter()
         .filter(|entry| match entry {
-            pa_types::session::FileEntry::Message {
-                message: pa_types::session::AgentMessage::User(user),
+            aa_types::session::FileEntry::Message {
+                message: aa_types::session::AgentMessage::User(user),
                 ..
             } => user.content.text().contains(&goal_prompt),
             _ => false,
@@ -1115,7 +1115,7 @@ fn shared_window_goal_seed_matches_persisted_goal_state() {
         json!({
             "type": "custom", "id": id, "parentId": parent,
             "timestamp": "2026-01-01T00:00:02.000Z",
-            "customType": pa_core::goals::GOAL_STATE_CUSTOM_TYPE,
+            "customType": aa_core::goals::GOAL_STATE_CUSTOM_TYPE,
             "data": {
                 "active": true, "status": "active", "goalId": "goal-1",
                 "objective": "ship the port", "tokensUsed": 340,
@@ -1179,7 +1179,7 @@ fn shared_window_goal_seed_matches_persisted_goal_state() {
             content.push('\n');
         }
         std::fs::write(&path, content).unwrap();
-        let opened = pa_core::session::window::WindowedSessionStore::open(&path);
+        let opened = aa_core::session::window::WindowedSessionStore::open(&path);
         let window_served = opened.as_ref().is_ok_and(std::option::Option::is_some);
         assert_eq!(
             window_served, window_serves,

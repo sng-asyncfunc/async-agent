@@ -49,7 +49,7 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
 }
 
 fn spawn_supervisor_env(socket: &Path, agent_dir: &Path, extra_env: &[(&str, String)]) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let mut command = Command::new(binary);
     let command = command
         .arg("supervisor")
@@ -63,13 +63,13 @@ fn spawn_supervisor_env(socket: &Path, agent_dir: &Path, extra_env: &[(&str, Str
         // into later test binaries: the worker's supervisor-lost exit runs
         // on this short window instead of the 5-minute default.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         );
     for (key, value) in extra_env {
         command.env(key, value);
     }
-    let child = command.spawn().expect("spawn pa-daemon supervisor");
+    let child = command.spawn().expect("spawn aa-daemon supervisor");
     Daemon {
         child,
         socket: socket.to_path_buf(),
@@ -156,7 +156,7 @@ impl Client {
         self.send(&json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }));
     }
@@ -249,10 +249,10 @@ impl WorkerClient {
     }
 
     fn send_frame(&mut self, header: &Value, payload: &Value) {
-        let frame = pa_daemon::framing::encode_private_frame(
+        let frame = aa_daemon::framing::encode_private_frame(
             header,
             &serde_json::to_vec(payload).expect("payload"),
-            pa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+            aa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
         )
         .expect("encode frame");
         self.stream.write_all(&frame).expect("write frame");
@@ -327,7 +327,7 @@ struct WorkerDescriptor {
 /// (the durable busy-at-crash evidence): the kill that follows provably
 /// lands mid-turn, whatever the runner's pacing does to the stream.
 fn wait_for_busy_journal_evidence(agent_dir: &Path, socket: &Path, session_id: &str) {
-    let journal_path = pa_daemon::descriptor::descriptor_dir(agent_dir, socket)
+    let journal_path = aa_daemon::descriptor::descriptor_dir(agent_dir, socket)
         .join(format!("{session_id}.recovery.jsonl"));
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {
@@ -352,7 +352,7 @@ fn wait_for_busy_journal_evidence(agent_dir: &Path, socket: &Path, session_id: &
 }
 
 fn load_worker_descriptor(agent_dir: &Path, socket: &Path, worker_id: &str) -> WorkerDescriptor {
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(agent_dir, socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(agent_dir, socket);
     let content = std::fs::read_to_string(descriptor_dir.join(format!("{worker_id}.json")))
         .expect("descriptor file");
     let value: Value = serde_json::from_str(&content).expect("descriptor json");

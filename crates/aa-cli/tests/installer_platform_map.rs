@@ -1,11 +1,11 @@
 //! The installer's platform map, pinned against the script's own text:
-//! the uname rows install-rust.sh resolves (the MSYS/Cygwin/MINGW Windows
+//! the uname rows install.sh resolves (the MSYS/Cygwin/MINGW Windows
 //! arm included) and the Windows contract install.ps1 serves. The map is
 //! the load-bearing seam the mission names — a user on an unsupported
 //! machine must see the honest refusal, and a Windows user (Git Bash,
 //! MSYS2, Cygwin) must land on the MSVC build's win32-x64 channel row.
 //!
-//! The detection block is EXTRACTED from install-rust.sh and driven through
+//! The detection block is EXTRACTED from install.sh and driven through
 //! `sh` with a stubbed uname (the release-workflow test pattern: the real
 //! step code, fixture inputs), so the pin holds the shipped text, not a
 //! copy of it.
@@ -15,7 +15,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-/// The repo root (crates/pa-cli -> crates -> root): install-rust.sh and
+/// The repo root (crates/aa-cli -> crates -> root): install.sh and
 /// install.ps1 live there.
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -43,7 +43,7 @@ fn platform_block(script: &str) -> String {
 /// harness stubs `die` (the full script's function) and prints the
 /// resolved map row.
 fn detect(os: &str, arch: &str) -> Output {
-    let block = platform_block("install-rust.sh");
+    let block = platform_block("install.sh");
     let harness = format!(
         "#!/bin/sh\n\
          die() {{ printf '%s\n' \"$1\" >&2; exit 1; }}\n\
@@ -78,24 +78,24 @@ fn map_row(output: &Output) -> String {
 #[test]
 fn the_uname_map_resolves_the_published_platforms() {
     let cases = [
-        ("Darwin", "arm64", "darwin-arm64|no|prime-agent"),
-        ("Darwin", "x86_64", "darwin-x64|no|prime-agent"),
-        ("Linux", "x86_64", "linux-x64|no|prime-agent"),
-        ("Linux", "aarch64", "linux-arm64|no|prime-agent"),
+        ("Darwin", "arm64", "darwin-arm64|no|async-agent"),
+        ("Darwin", "x86_64", "darwin-x64|no|async-agent"),
+        ("Linux", "x86_64", "linux-x64|no|async-agent"),
+        ("Linux", "aarch64", "linux-arm64|no|async-agent"),
         (
             "MINGW64_NT-10.0-19045",
             "x86_64",
-            "win32-x64|yes|prime-agent.exe",
+            "win32-x64|yes|async-agent.exe",
         ),
         (
             "MSYS_NT-10.0-19045",
             "x86_64",
-            "win32-x64|yes|prime-agent.exe",
+            "win32-x64|yes|async-agent.exe",
         ),
         (
             "CYGWIN_NT-10.0-19045",
             "x86_64",
-            "win32-x64|yes|prime-agent.exe",
+            "win32-x64|yes|async-agent.exe",
         ),
     ];
     for (os, arch, expected) in cases {
@@ -150,7 +150,7 @@ fn install_ps1_carries_the_windows_contract() {
         "the ps1 serves win32-x64"
     );
     assert!(
-        text.contains("prime-agent-$version-$platform.tar.gz"),
+        text.contains("async-agent-$version-$platform.tar.gz"),
         "the ps1 validates the channel-named artifact row"
     );
     // The arch refusal: an ARM64 Windows machine fails loudly.
@@ -168,16 +168,16 @@ fn install_ps1_carries_the_windows_contract() {
         text.contains("$ReleaseChannelDefault = '"),
         "the channel-default line the publish stamps must exist"
     );
-    // The same layout as install-rust.sh (share\prime-agent + bin):
+    // The same layout as install.sh (share\async-agent + bin):
     // the two routes must interoperate on one install.
     assert!(
-        text.contains("share\\prime-agent") && text.contains("prime-agent.exe"),
+        text.contains("share\\async-agent") && text.contains("async-agent.exe"),
         "the ps1 publishes the same payload layout with the .exe name"
     );
     // The marker write: the same ownership proof the sh installer writes
     // (the update funnel's channel-stickiness read keys on its shape).
     assert!(
-        text.contains("install-rust.sh channel"),
+        text.contains("install.sh channel"),
         "the ps1 writes the funnel-readable install marker"
     );
 }
@@ -189,7 +189,7 @@ fn install_ps1_carries_the_windows_contract() {
 /// script shares the caller's session - the operator's real-machine report
 /// (2026-10-06). The installer pins both preferences to `SilentlyContinue`
 /// around its download calls, prints its own one-line progress instead
-/// (the file name plus the size, install-rust.sh's discipline), and
+/// (the file name plus the size, install.sh's discipline), and
 /// restores the caller's values after: the quiet zone is the download,
 /// never the session.
 #[test]
@@ -244,7 +244,7 @@ fn install_ps1_pins_the_download_preferences_around_the_downloads() {
         );
     }
     // The installer's own progress: the download's name before it starts,
-    // the name plus the size after it lands (install-rust.sh's
+    // the name plus the size after it lands (install.sh's
     // step_start/step_ok "Downloaded <MB>" discipline).
     let download_at = positions[4];
     let announcing = block
@@ -341,7 +341,7 @@ fn install_ps1_names_the_dll_not_found_failure_honestly() {
 /// Windows HAS a canonical user-PATH setting (the registry's User scope,
 /// no admin needed), so the installer ADDS the launcher's bin dir there
 /// itself: idempotent (appended only when the entry is absent, never
-/// duplicated), mirrored into the CURRENT session so `prime-agent` works
+/// duplicated), mirrored into the CURRENT session so `async-agent` works
 /// in the same console immediately, and the printed hint says a NEW
 /// terminal gets it automatically instead of telling the user to go edit
 /// the registry by hand.
@@ -417,7 +417,7 @@ fn install_ps1_adds_bin_to_the_user_path_and_the_session_path() {
     // The printed note never tells the user to edit their own PATH by hand
     // anymore: the installer did it.
     assert!(
-        !section.contains("add it for the prime-agent command"),
+        !section.contains("add it for the async-agent command"),
         "the PATH note must not tell the user to edit their own PATH by hand"
     );
     // The flattened write route is gone: SetEnvironmentVariable turns a
@@ -456,26 +456,26 @@ fn install_ps1_adds_bin_to_the_user_path_and_the_session_path() {
     );
 }
 
-/// install-rust.sh's uv target honors the same knob install.ps1 does (the
+/// install.sh's uv target honors the same knob install.ps1 does (the
 /// reviewer's finding: BOTH e2e routes must be isolatable - the sh route's
 /// Git Bash run would otherwise still write the shared ~/.local/bin): the
 /// operator-set dir wins, the Windows C:\ spelling normalizes through
-/// cygpath exactly like `PRIME_AGENT_RUST_PREFIX`, and the knob is
+/// cygpath exactly like `ASYNC_AGENT_RUST_PREFIX`, and the knob is
 /// documented in the header's Configuration block.
 #[test]
 fn install_rust_sh_honors_the_uv_bin_dir_knob() {
     let text =
-        std::fs::read_to_string(repo_root().join("install-rust.sh")).expect("read install-rust.sh");
+        std::fs::read_to_string(repo_root().join("install.sh")).expect("read install.sh");
     assert!(
-        text.contains("[ -n \"${PRIME_AGENT_UV_BIN_DIR:-}\" ]"),
-        "install-rust.sh must honor PRIME_AGENT_UV_BIN_DIR (both e2e routes isolate)"
+        text.contains("[ -n \"${ASYNC_AGENT_UV_BIN_DIR:-}\" ]"),
+        "install.sh must honor ASYNC_AGENT_UV_BIN_DIR (both e2e routes isolate)"
     );
     assert!(
         text.contains("cygpath -u \"$uv_bin_dir\""),
-        "the Windows spelling of the knob must normalize exactly like PRIME_AGENT_RUST_PREFIX"
+        "the Windows spelling of the knob must normalize exactly like ASYNC_AGENT_RUST_PREFIX"
     );
     assert!(
-        text.contains("#   PRIME_AGENT_UV_BIN_DIR"),
+        text.contains("#   ASYNC_AGENT_UV_BIN_DIR"),
         "the knob must be documented in the header's Configuration block"
     );
     assert!(
@@ -491,11 +491,11 @@ fn install_rust_sh_honors_the_uv_bin_dir_knob() {
         "every target probe must use the platform uv name, never a bare /uv (uv.exe misses on Windows)"
     );
     assert!(
-        text.contains("case \"$uv_bin_dir\" in\n    /*) ;;\n    *) die \"PRIME_AGENT_UV_BIN_DIR must be an absolute path: ${PRIME_AGENT_UV_BIN_DIR}\" ;;\n  esac"),
+        text.contains("case \"$uv_bin_dir\" in\n    /*) ;;\n    *) die \"ASYNC_AGENT_UV_BIN_DIR must be an absolute path: ${ASYNC_AGENT_UV_BIN_DIR}\" ;;\n  esac"),
         "a relative knob must be refused outright (a relative target in PATH guidance breaks every later shell)"
     );
     assert!(
-        text.contains("PRIME_AGENT_UV_BIN_DIR must not contain a colon"),
+        text.contains("ASYNC_AGENT_UV_BIN_DIR must not contain a colon"),
         "the knob must refuse the PATH separator (a target with a colon corrupts every PATH export and prepend)"
     );
     assert!(
@@ -568,7 +568,7 @@ fn install_rust_sh_honors_the_uv_bin_dir_knob() {
 }
 
 /// The install ledger + the streaming download (the operator's
-/// flow-parity ask, 2026-10-06): install-rust.sh runs a real progress UI -
+/// flow-parity ask, 2026-10-06): install.sh runs a real progress UI -
 /// `step_ok` / `step_fail` lines plus a download bar fed by the fetched
 /// bytes - while the ps1's download was one silent web-cmdlet call. The
 /// ps1's mirror, as far as PowerShell sensibly allows: an ASCII step
@@ -583,11 +583,11 @@ fn install_ps1_runs_a_step_ledger_and_its_own_download_progress() {
     // The ledger functions exist.
     assert!(
         text.contains("function Step-Ok"),
-        "the installer must define Step-Ok (install-rust.sh's step_ok)"
+        "the installer must define Step-Ok (install.sh's step_ok)"
     );
     assert!(
         text.contains("function Step-Fail"),
-        "the installer must define Step-Fail (install-rust.sh's step_fail)"
+        "the installer must define Step-Fail (install.sh's step_fail)"
     );
     // The streaming helper: a `HttpClient` copy loop with the installer's
     // own in-place progress line and the sh installer's three-attempt
@@ -636,7 +636,7 @@ fn install_ps1_runs_a_step_ledger_and_its_own_download_progress() {
         !block.contains("Invoke-WebRequest -Uri \"$baseUrl/$releasePrefix/$expectedFile\""),
         "the payload download must not be the noisy web cmdlet anymore"
     );
-    // The ledger marks the phases (install-rust.sh's step_ok lines).
+    // The ledger marks the phases (install.sh's step_ok lines).
     for (phase, marker) in [
         ("checksum", "Step-Ok 'checksum verified'"),
         ("extract", "Step-Ok 'extracted'"),
@@ -651,16 +651,16 @@ fn install_ps1_runs_a_step_ledger_and_its_own_download_progress() {
     }
 }
 
-/// The uv parity (the operator's ask, 2026-10-06): install-rust.sh INSTALLS
+/// The uv parity (the operator's ask, 2026-10-06): install.sh INSTALLS
 /// uv when it is missing (the astral one-liner with the destination
 /// passed explicitly via `UV_INSTALL_DIR`, the fetch and the script run
 /// checked SEPARATELY so a dead network cannot masquerade as success) and
-/// then pre-warms the kernel (`prime-agent --prime-agent-bootstrap`); the
+/// then pre-warms the kernel (`async-agent --async-agent-bootstrap`); the
 /// ps1 only printed a note. The ps1 mirrors the whole flow: the astral
 /// installer is FETCHED (into a file, checked non-empty), RUN with
 /// `UV_INSTALL_DIR` set explicitly, and its verdict is never trusted - the
 /// `uv.exe` FILE decides; the uv bin dir rides the session PATH
-/// (install-rust.sh's pre-warm PATH fix), and a failure degrades to the
+/// (install.sh's pre-warm PATH fix), and a failure degrades to the
 /// honest note plus the exact manual command (the sh installer's
 /// note/todo shape).
 #[test]
@@ -675,8 +675,8 @@ fn install_ps1_installs_uv_like_the_linux_installer() {
     let section = &text[section_start..section_end];
     let markers: [(&str, &str); 11] = [
         (
-            "the uv target knob (install-rust.sh's own PRIME_AGENT_UV_BIN_DIR parity: an operator-set dir wins - a packaged install keeps uv inside its own tree, the e2e harnesses point it at their scratch so a run never touches the shared ~/.local/bin; the knob validated early with the other knobs)",
-            "if ($env:PRIME_AGENT_UV_BIN_DIR) { $uvInstallDir = $env:PRIME_AGENT_UV_BIN_DIR }",
+            "the uv target knob (install.sh's own ASYNC_AGENT_UV_BIN_DIR parity: an operator-set dir wins - a packaged install keeps uv inside its own tree, the e2e harnesses point it at their scratch so a run never touches the shared ~/.local/bin; the knob validated early with the other knobs)",
+            "if ($env:ASYNC_AGENT_UV_BIN_DIR) { $uvInstallDir = $env:ASYNC_AGENT_UV_BIN_DIR }",
         ),
         (
             "the default-location presence check (a uv that predates the knob at ~/.local/bin is still honored: no duplicate install)",
@@ -735,7 +735,7 @@ fn install_ps1_installs_uv_like_the_linux_installer() {
     }
     // The pre-warm itself and the honest fallbacks.
     assert!(
-        section.contains("--prime-agent-bootstrap"),
+        section.contains("--async-agent-bootstrap"),
         "the pre-warm still runs the kernel bootstrap"
     );
     assert!(
@@ -759,7 +759,7 @@ fn install_ps1_installs_uv_like_the_linux_installer() {
 fn install_ps1_validates_the_uv_knob_before_any_side_effect() {
     let text = std::fs::read_to_string(repo_root().join("install.ps1")).expect("read install.ps1");
     let validation_at = text
-        .find("PRIME_AGENT_UV_BIN_DIR must be a fully qualified absolute path")
+        .find("ASYNC_AGENT_UV_BIN_DIR must be a fully qualified absolute path")
         .expect("the fully-qualified validation message exists");
     let stage_at = text
         .find("$stage = Join-Path (Join-Path $prefix 'share')")
@@ -769,7 +769,7 @@ fn install_ps1_validates_the_uv_knob_before_any_side_effect() {
         "the knob validation must fail before the publish stage (a late refusal leaves a half-applied install)"
     );
     assert!(
-        text.contains("PRIME_AGENT_UV_BIN_DIR -notmatch '^[a-zA-Z]:[\\\\/]'"),
+        text.contains("ASYNC_AGENT_UV_BIN_DIR -notmatch '^[a-zA-Z]:[\\\\/]'"),
         "the validation demands a drive-based spelling (drive + separator)"
     );
     assert!(
@@ -781,7 +781,7 @@ fn install_ps1_validates_the_uv_knob_before_any_side_effect() {
         "the rooted-only check is gone: it accepts drive-relative spellings like C:uv-bin"
     );
     assert!(
-        text.contains("PRIME_AGENT_UV_BIN_DIR must not contain a semicolon"),
+        text.contains("ASYNC_AGENT_UV_BIN_DIR must not contain a semicolon"),
         "the knob must refuse the PATH separator (a target carrying a semicolon corrupts the registry PATH append)"
     );
 }
@@ -926,7 +926,7 @@ fn install_ps1_download_survives_a_stalled_body() {
 /// finding) and must make the uv the installer ACTUALLY knows about
 /// findable (the reviewer's finding): the product's `ensure_uv` searches
 /// PATH and `~/.local/bin/uv(.exe)` - it does NOT know the
-/// `PRIME_AGENT_UV_BIN_DIR` target - so the prepend serves the uv THIS
+/// `ASYNC_AGENT_UV_BIN_DIR` target - so the prepend serves the uv THIS
 /// RUN installed or found at the target when nothing usable is on PATH,
 /// while a working PATH uv is never shadowed (a stale target file cannot
 /// displace it) and a uv at the canonical `~/.local/bin` needs no prepend
@@ -978,7 +978,7 @@ fn install_ps1_passes_the_uv_installer_path_as_process_data() {
         .expect("the PATH-add section follows");
     let section = &text[section_start..section_end];
     assert!(
-        section.contains("& `$env:PRIME_AGENT_UV_INSTALLER"),
+        section.contains("& `$env:ASYNC_AGENT_UV_INSTALLER"),
         "the child script must invoke the fetched installer through the handoff variable, never an embedded literal"
     );
     assert!(
@@ -992,12 +992,12 @@ fn install_ps1_passes_the_uv_installer_path_as_process_data() {
         "the child-shell fallback must resolve to an ABSOLUTE executable (a bare 'powershell' can be intercepted by a caller alias or function)"
     );
     assert!(
-        section.contains("$env:PRIME_AGENT_UV_INSTALLER = $uvInstallerPath"),
+        section.contains("$env:ASYNC_AGENT_UV_INSTALLER = $uvInstallerPath"),
         "the parent must hand the installer path to the child through the environment"
     );
     assert!(
-        section.contains("$callerUvInstaller = $env:PRIME_AGENT_UV_INSTALLER")
-            && section.contains("$env:PRIME_AGENT_UV_INSTALLER = $callerUvInstaller"),
+        section.contains("$callerUvInstaller = $env:ASYNC_AGENT_UV_INSTALLER")
+            && section.contains("$env:ASYNC_AGENT_UV_INSTALLER = $callerUvInstaller"),
         "the handoff must save and restore the caller's value like UV_INSTALL_DIR beside it"
     );
     assert!(
@@ -1015,7 +1015,7 @@ fn install_ps1_passes_the_uv_installer_path_as_process_data() {
 /// never be proven airtightly (a transcript's uv-branch line proves an
 /// attempt, not the landing; a concurrent external install races the
 /// attribution) - so the harnesses never touch the shared dir at all:
-/// both installers honor the `PRIME_AGENT_UV_BIN_DIR` knob and the
+/// both installers honor the `ASYNC_AGENT_UV_BIN_DIR` knob and the
 /// harnesses point it at their own scratch dir, with the caller's value
 /// saved and restored. The cleanup has no uv work left to do, and the
 /// user's ~/.local/bin is referenced only by the read-only pre-state
@@ -1034,13 +1034,13 @@ fn windows_e2e_harnesses_isolate_the_uv_install() {
         )
         .unwrap_or_else(|_| panic!("read {harness_name}"));
         assert!(
-            harness.contains("$env:PRIME_AGENT_UV_BIN_DIR = Join-Path $scratch 'uv-bin'"),
+            harness.contains("$env:ASYNC_AGENT_UV_BIN_DIR = Join-Path $scratch 'uv-bin'"),
             "{harness_name} must steer BOTH installers' uv installs into its own scratch dir (ownership of shared-profile files is unprovable; isolation removes the class)"
         );
         assert!(
-            harness.contains("$callerUvBinDir = $env:PRIME_AGENT_UV_BIN_DIR")
-                && harness.contains("$env:PRIME_AGENT_UV_BIN_DIR = $callerUvBinDir"),
-            "{harness_name} must save and restore the caller's PRIME_AGENT_UV_BIN_DIR like the other override knobs"
+            harness.contains("$callerUvBinDir = $env:ASYNC_AGENT_UV_BIN_DIR")
+                && harness.contains("$env:ASYNC_AGENT_UV_BIN_DIR = $callerUvBinDir"),
+            "{harness_name} must save and restore the caller's ASYNC_AGENT_UV_BIN_DIR like the other override knobs"
         );
         // The cleanup finally must never touch the user's uv binaries at
         // all: no snapshot, no restore, no delete, no ownership guess.
@@ -1134,7 +1134,7 @@ fn windows_e2e_harnesses_keep_the_kernel_prewarm_writes_in_scratch() {
         for (what, marker) in [
             (
                 "the venv redirect",
-                "$env:PRIME_AGENT_KERNEL_VENV = Join-Path $scratch 'kernel-venv'",
+                "$env:ASYNC_AGENT_KERNEL_VENV = Join-Path $scratch 'kernel-venv'",
             ),
             (
                 "the uv cache redirect",
@@ -1146,11 +1146,11 @@ fn windows_e2e_harnesses_keep_the_kernel_prewarm_writes_in_scratch() {
             ),
             (
                 "the caller's venv value saved",
-                "$callerKernelVenv = $env:PRIME_AGENT_KERNEL_VENV",
+                "$callerKernelVenv = $env:ASYNC_AGENT_KERNEL_VENV",
             ),
             (
                 "the caller's venv value restored",
-                "$env:PRIME_AGENT_KERNEL_VENV = $callerKernelVenv",
+                "$env:ASYNC_AGENT_KERNEL_VENV = $callerKernelVenv",
             ),
         ] {
             assert!(
@@ -1159,7 +1159,7 @@ fn windows_e2e_harnesses_keep_the_kernel_prewarm_writes_in_scratch() {
             );
         }
         assert!(
-            !harness.contains("Remove-Item 'Env:PRIME_AGENT_KERNEL_VENV'"),
+            !harness.contains("Remove-Item 'Env:ASYNC_AGENT_KERNEL_VENV'"),
             "{harness_name}'s cleanup must RESTORE the caller's override values, never delete the knobs (a caller with its own redirect loses it on an in-process run)"
         );
     }

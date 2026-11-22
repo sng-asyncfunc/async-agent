@@ -4,20 +4,20 @@
 use super::*;
 use crate::refinement::HarnessEntry;
 use crate::session::manager::SessionManager;
-use pa_types::ai::{AssistantContentBlock, AssistantMessage, StopReason, TextContent, Usage};
+use aa_types::ai::{AssistantContentBlock, AssistantMessage, StopReason, TextContent, Usage};
 
 /// One wire user row (the writer's shape).
-fn wire_user(text: &str) -> pa_types::session::AgentMessage {
-    pa_types::session::AgentMessage::User(pa_types::ai::UserMessage {
-        content: pa_types::ai::UserContent::Text(text.to_string()),
+fn wire_user(text: &str) -> aa_types::session::AgentMessage {
+    aa_types::session::AgentMessage::User(aa_types::ai::UserMessage {
+        content: aa_types::ai::UserContent::Text(text.to_string()),
         timestamp: 0,
         rest: serde_json::Map::default(),
     })
 }
 
 /// One wire assistant row (the writer's shape).
-fn wire_assistant(text: &str) -> pa_types::session::AgentMessage {
-    pa_types::session::AgentMessage::Assistant(AssistantMessage {
+fn wire_assistant(text: &str) -> aa_types::session::AgentMessage {
+    aa_types::session::AgentMessage::Assistant(AssistantMessage {
         content: vec![AssistantContentBlock::Text(TextContent {
             text: text.to_string(),
             text_signature: None,
@@ -35,7 +35,7 @@ fn wire_assistant(text: &str) -> pa_types::session::AgentMessage {
             cache_read: 0,
             cache_write: 0,
             total_tokens: 120,
-            cost: pa_types::ai::UsageCost::default(),
+            cost: aa_types::ai::UsageCost::default(),
         },
         stop_reason: StopReason::Stop,
         stop_reason_raw: None,
@@ -85,7 +85,7 @@ async fn direction_rig(
     tmp: &tempfile::TempDir,
     texts: &[&str],
 ) -> crate::session_engine::AgentSession {
-    let rows: Vec<pa_types::session::AgentMessage> = texts
+    let rows: Vec<aa_types::session::AgentMessage> = texts
         .iter()
         .enumerate()
         .map(|(index, text)| {
@@ -101,8 +101,8 @@ async fn direction_rig(
         .map(crate::session_engine::session_message_to_loop)
         .collect::<Option<Vec<_>>>()
         .expect("the rig's wire rows all convert to loop rows");
-    let agent = std::sync::Arc::new(pa_agent::agent::Agent::new(pa_agent::agent::AgentOptions {
-        initial_state: pa_agent::agent::AgentInitialState {
+    let agent = std::sync::Arc::new(aa_agent::agent::Agent::new(aa_agent::agent::AgentOptions {
+        initial_state: aa_agent::agent::AgentInitialState {
             messages: Some(live),
             ..Default::default()
         },

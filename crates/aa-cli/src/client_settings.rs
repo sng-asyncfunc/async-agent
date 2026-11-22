@@ -5,7 +5,7 @@ use anyhow::Result;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use pa_tui::client_settings::ClientSettings;
+use aa_tui::client_settings::ClientSettings;
 
 /// The seam handle the interactive run carries.
 #[derive(Clone)]
@@ -19,8 +19,8 @@ impl CliClientSettings {
         Arc::new(Self { cwd, agent_dir })
     }
 
-    fn manager(&self) -> pa_core::settings::SettingsManager {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+    fn manager(&self) -> aa_core::settings::SettingsManager {
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
     }
 }
 
@@ -60,8 +60,8 @@ impl ClientSettings for CliClientSettings {
         if let Ok(runtime) = tokio::runtime::Handle::try_current() {
             let agent_dir = self.agent_dir.clone();
             runtime.spawn_blocking(move || {
-                let client = pa_core::session_engine::telemetry::build_client(&manager, &agent_dir);
-                let mut properties = pa_telemetry::Properties::new();
+                let client = aa_core::session_engine::telemetry::build_client(&manager, &agent_dir);
+                let mut properties = aa_telemetry::Properties::new();
                 properties.set("enabled", serde_json::json!(enabled));
                 client.track("harness refinements changed", properties);
             });
@@ -83,8 +83,8 @@ impl ClientSettings for CliClientSettings {
                     return;
                 }
                 let client =
-                    pa_core::session_engine::telemetry::build_client(&manager, &settings.agent_dir);
-                let mut properties = pa_telemetry::base_properties("interactive");
+                    aa_core::session_engine::telemetry::build_client(&manager, &settings.agent_dir);
+                let mut properties = aa_telemetry::base_properties("interactive");
                 properties.set("threshold_percent", serde_json::json!(percent));
                 client.track("autocompact threshold changed", properties);
                 let _ = client.shutdown().await;
@@ -98,7 +98,7 @@ impl ClientSettings for CliClientSettings {
     }
 
     fn set_web_search_provider(&self, provider: &str) -> Result<()> {
-        let parsed: pa_core::settings::WebSearchProvider = serde_json::from_value(
+        let parsed: aa_core::settings::WebSearchProvider = serde_json::from_value(
             serde_json::Value::String(provider.to_string()),
         )
         .map_err(|error| anyhow::anyhow!("Invalid web search provider \"{provider}\": {error}"))?;
@@ -111,8 +111,8 @@ impl ClientSettings for CliClientSettings {
                     return;
                 }
                 let client =
-                    pa_core::session_engine::telemetry::build_client(&manager, &settings.agent_dir);
-                let mut properties = pa_telemetry::base_properties("interactive");
+                    aa_core::session_engine::telemetry::build_client(&manager, &settings.agent_dir);
+                let mut properties = aa_telemetry::base_properties("interactive");
                 properties.set("provider", serde_json::json!(parsed.id()));
                 client.track("web search provider changed", properties);
                 let _ = client.shutdown().await;
@@ -139,7 +139,7 @@ impl ClientSettings for CliClientSettings {
     }
 
     fn set_default_service_tier(&self, tier: &str) -> Result<()> {
-        let parsed: pa_types::ai::ServiceTier =
+        let parsed: aa_types::ai::ServiceTier =
             serde_json::from_value(serde_json::Value::String(tier.to_string()))
                 .map_err(|error| anyhow::anyhow!("Invalid service tier \"{tier}\": {error}"))?;
         self.manager().set_default_service_tier(parsed)
@@ -278,8 +278,8 @@ impl ClientSettings for CliClientSettings {
         let channel = self.manager().get_update_channel()?;
         Some(
             match channel {
-                pa_core::settings::UpdateChannel::Stable => "stable",
-                pa_core::settings::UpdateChannel::Nightly => "nightly",
+                aa_core::settings::UpdateChannel::Stable => "stable",
+                aa_core::settings::UpdateChannel::Nightly => "nightly",
             }
             .to_string(),
         )
@@ -287,8 +287,8 @@ impl ClientSettings for CliClientSettings {
 
     fn set_update_channel(&self, channel: &str) -> Result<()> {
         let channel = match channel {
-            "stable" => pa_core::settings::UpdateChannel::Stable,
-            "nightly" => pa_core::settings::UpdateChannel::Nightly,
+            "stable" => aa_core::settings::UpdateChannel::Stable,
+            "nightly" => aa_core::settings::UpdateChannel::Nightly,
             _ => anyhow::bail!("unknown update channel: {channel}"),
         };
         self.manager().set_update_channel(channel)
@@ -299,24 +299,24 @@ impl ClientSettings for CliClientSettings {
             .manager()
             .get_update_channel()
             .map(|channel| match channel {
-                pa_core::settings::UpdateChannel::Stable => {
-                    pa_core::update::version::UpdateChannel::Stable
+                aa_core::settings::UpdateChannel::Stable => {
+                    aa_core::update::version::UpdateChannel::Stable
                 }
-                pa_core::settings::UpdateChannel::Nightly => {
-                    pa_core::update::version::UpdateChannel::Nightly
+                aa_core::settings::UpdateChannel::Nightly => {
+                    aa_core::update::version::UpdateChannel::Nightly
                 }
             });
-        pa_core::update::version::resolve_update_channel(version, preferred)
+        aa_core::update::version::resolve_update_channel(version, preferred)
             .wire_name()
             .to_string()
     }
 
     fn telemetry_status(&self) -> String {
-        pa_core::session_engine::telemetry::telemetry_status_text(&self.manager(), &self.agent_dir)
+        aa_core::session_engine::telemetry::telemetry_status_text(&self.manager(), &self.agent_dir)
     }
 
     fn set_telemetry_enabled(&self, enabled: bool) -> Result<String> {
-        pa_core::session_engine::telemetry::set_telemetry_enabled_text(
+        aa_core::session_engine::telemetry::set_telemetry_enabled_text(
             &mut self.manager(),
             &self.agent_dir,
             enabled,
@@ -329,7 +329,7 @@ impl ClientSettings for CliClientSettings {
         // onboarding screen; the notice surfaces on the next launch),
         // and the notice not yet shown.
         let manager = self.manager();
-        pa_core::session_engine::telemetry::telemetry_switch(&manager).enabled()
+        aa_core::session_engine::telemetry::telemetry_switch(&manager).enabled()
             && manager.get_onboarding_shown()
             && !manager.get_telemetry_notice_shown()
     }
@@ -343,7 +343,7 @@ impl ClientSettings for CliClientSettings {
 mod tests {
     use super::*;
 
-    /// The seam over the real pa-core settings store.
+    /// The seam over the real aa-core settings store.
     #[test]
     fn seam_round_trips_through_the_settings_store() {
         let dir = tempfile::TempDir::new().expect("temp dir");

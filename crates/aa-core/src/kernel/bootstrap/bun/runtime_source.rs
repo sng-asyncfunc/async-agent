@@ -1,4 +1,4 @@
-//! The runtime source concern: the packaged `prime-agent-runtime/` sidecar
+//! The runtime source concern: the packaged `async-agent-runtime/` sidecar
 //! layout, source-checkout fallback, and content identity that invalidates an
 //! existing `kernel-bun` directory on any runtime change.
 
@@ -10,7 +10,7 @@ use sha2::Digest;
 
 use super::layout::expand_home;
 
-/// Directory of the installed `prime-agent-runtime` sources.
+/// Directory of the installed `async-agent-runtime` sources.
 pub(crate) fn package_dir() -> PathBuf {
     if let Ok(env_dir) = std::env::var("PI_PACKAGE_DIR") {
         if !env_dir.is_empty() {
@@ -40,16 +40,16 @@ pub(in crate::kernel::bootstrap) fn validate_runtime_source_dir(
     }
     let manifest_raw = std::fs::read_to_string(candidate.join("package.json")).ok()?;
     let manifest: serde_json::Value = serde_json::from_str(&manifest_raw).ok()?;
-    (manifest.get("name")?.as_str()? == "prime-agent-runtime").then_some(candidate)
+    (manifest.get("name")?.as_str()? == "async-agent-runtime").then_some(candidate)
 }
 
 fn resolve_runtime_source_dir(package: &Path, checkout: Option<&Path>) -> Option<PathBuf> {
     let mut candidates = vec![
-        package.join("prime-agent-runtime"),
-        package.join("dist").join("prime-agent-runtime"),
+        package.join("async-agent-runtime"),
+        package.join("dist").join("async-agent-runtime"),
     ];
     if let Some(root) = checkout {
-        candidates.push(root.join("prime-agent-runtime"));
+        candidates.push(root.join("async-agent-runtime"));
     }
     candidates
         .into_iter()
@@ -60,13 +60,13 @@ pub(crate) fn require_runtime_source_dir(override_dir: Option<&Path>) -> anyhow:
     if let Some(dir) = override_dir {
         return validate_runtime_source_dir(dir).with_context(|| {
             format!(
-                "Invalid prime-agent-runtime source directory {}: expected package.json (name = \"prime-agent-runtime\") and src/repl.ts",
+                "Invalid async-agent-runtime source directory {}: expected package.json (name = \"async-agent-runtime\") and src/repl.ts",
                 dir.display()
             )
         });
     }
     resolve_runtime_source_dir(&package_dir(), crate::packages::source_checkout_root()).context(
-        "Prime Agent requires a local prime-agent-runtime directory containing its package.json and src/repl.ts sources; reinstall Prime Agent with the runtime beside the binary, or set PI_PACKAGE_DIR to the complete trusted package directory.",
+        "Async Agent requires a local async-agent-runtime directory containing its package.json and src/repl.ts sources; reinstall Async Agent with the runtime beside the binary, or set PI_PACKAGE_DIR to the complete trusted package directory.",
     )
 }
 
@@ -167,7 +167,7 @@ mod tests {
         std::fs::write(machines.join("MACHINE.md"), machine_body)?;
         std::fs::write(
             temp.join("package.json"),
-            r#"{"name":"prime-agent-runtime","type":"module","dependencies":{"acorn":"^8.18.0"}}"#,
+            r#"{"name":"async-agent-runtime","type":"module","dependencies":{"acorn":"^8.18.0"}}"#,
         )?;
         Ok(())
     }
@@ -177,7 +177,7 @@ mod tests {
         let temp = tempfile::tempdir()?;
         let package = temp.path();
         assert_eq!(resolve_runtime_source_dir(package, None), None);
-        let runtime = package.join("prime-agent-runtime");
+        let runtime = package.join("async-agent-runtime");
         runtime_fixture(&runtime, "machine")?;
         for file in ["package.json", "src/repl.ts"] {
             let path = runtime.join(file);
@@ -201,9 +201,9 @@ mod tests {
         let temp = tempfile::tempdir()?;
         let package = temp.path().join("package");
         let checkout = temp.path().join("checkout");
-        let direct = package.join("prime-agent-runtime");
-        let dist = package.join("dist").join("prime-agent-runtime");
-        let source = checkout.join("prime-agent-runtime");
+        let direct = package.join("async-agent-runtime");
+        let dist = package.join("dist").join("async-agent-runtime");
+        let source = checkout.join("async-agent-runtime");
         for runtime in [&source, &dist, &direct] {
             runtime_fixture(runtime, "machine")?;
             assert_eq!(

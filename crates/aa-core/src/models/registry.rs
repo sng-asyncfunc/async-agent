@@ -4,7 +4,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
-use pa_types::ai::{
+use aa_types::ai::{
     CompatKind, Model, ModelCompat, ModelThinkingLevel, OpenAiResponsesCompat, ThinkingLevelMap,
 };
 
@@ -94,7 +94,7 @@ pub struct ModelRegistry {
     xai_model_sources: HashMap<String, Model>,
     /// The process-shared live catalog chain (`catalog_chain::catalog_for`);
     /// `resolve()` sources built-ins from it.
-    catalog: std::sync::Arc<pa_models::ModelCatalog>,
+    catalog: std::sync::Arc<aa_models::ModelCatalog>,
 }
 
 /// Under a stored xAI subscription the provider's models switch onto the
@@ -186,13 +186,13 @@ impl ModelRegistry {
 
     /// The Prime Inference credentials for the credentialed catalog layer
     /// (Bearer + team headers, as the TS refresh sends).
-    fn prime_credentials(&mut self) -> Option<pa_models::PrimeCredentials> {
+    fn prime_credentials(&mut self) -> Option<aa_models::PrimeCredentials> {
         let api_key = self.auth.get_api_key(PRIME_INFERENCE_PROVIDER_ID)?;
         let team_id = self
             .auth
             .get_provider_headers(PRIME_INFERENCE_PROVIDER_ID)
             .and_then(|headers| headers.get("X-Prime-Team-ID").cloned());
-        Some(pa_models::PrimeCredentials { api_key, team_id })
+        Some(aa_models::PrimeCredentials { api_key, team_id })
     }
 
     pub fn get_error(&self) -> Option<&str> {
@@ -359,7 +359,7 @@ impl ModelRegistry {
         }) = copilot_credential
         {
             let base_url =
-                pa_ai::oauth::get_github_copilot_base_url(Some(&access), enterprise_url.as_deref());
+                aa_ai::oauth::get_github_copilot_base_url(Some(&access), enterprise_url.as_deref());
             for model in &mut self.models {
                 if model.provider == crate::auth::GITHUB_COPILOT_PROVIDER_ID {
                     model.base_url.clone_from(&base_url);
@@ -400,9 +400,9 @@ impl ModelRegistry {
         };
         let mut result = load_custom_models(
             &content,
-            &|provider| !pa_ai::models_generated::get_models(provider).is_empty(),
+            &|provider| !aa_ai::models_generated::get_models(provider).is_empty(),
             &|provider| {
-                pa_ai::models_generated::get_models(provider)
+                aa_ai::models_generated::get_models(provider)
                     .first()
                     .map(|model| (model.api.clone(), model.base_url.clone()))
             },
@@ -479,7 +479,7 @@ impl ModelRegistry {
     fn load_built_in_models(
         &self,
         custom: &CustomModelsResult,
-        credentials: Option<&pa_models::PrimeCredentials>,
+        credentials: Option<&aa_models::PrimeCredentials>,
     ) -> Vec<Model> {
         self.catalog
             .resolve(credentials)
@@ -539,7 +539,7 @@ impl ModelRegistry {
     /// gate, picker-open keeps it.
     pub async fn refresh_available_models_with_trigger(
         &mut self,
-        trigger: pa_models::RefreshTrigger,
+        trigger: aa_models::RefreshTrigger,
     ) -> Vec<Model> {
         self.refresh_available_models_forced(trigger.forced()).await
     }

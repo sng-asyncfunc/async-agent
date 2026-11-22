@@ -9,8 +9,8 @@ use script::write_executable;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use pa_core::kernel::manager::{KernelStartOptions, ReplKernelManager};
-use pa_core::kernel::shared::{
+use aa_core::kernel::manager::{KernelStartOptions, ReplKernelManager};
+use aa_core::kernel::shared::{
     ExecuteOptions, ExecuteStatus, HostRequestHandlers, KernelManagerOptions, KernelShutdownOptions,
 };
 

@@ -226,7 +226,7 @@ mod tests {
     use serde_json::json;
 
     fn theme() -> Theme {
-        Theme::builtin("prime", ColorMode::TrueColor)
+        Theme::builtin("async", ColorMode::TrueColor)
     }
 
     /// The instant `ms` milliseconds ago: the live timer's start.

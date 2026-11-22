@@ -2,7 +2,7 @@
 //! and continuation context, with persistence via `thread_goal_state`
 //! custom entries and the branch-seed/reload rules.
 
-use pa_types::session::CustomMessage;
+use aa_types::session::CustomMessage;
 
 use crate::goals::{
     create_goal_context_message, empty_goal_state, goal_token_delta_for_usage,
@@ -332,7 +332,7 @@ impl GoalDriver {
     /// Count one billed row's call toward the goal: the session's store
     /// reports each row it appends here, and the next accounted assistant
     /// turn charges the sum (the store's append cannot take the driver lock).
-    pub fn billed_row_recorder(&self) -> impl Fn(&pa_types::ai::Usage) + Send + Sync + 'static {
+    pub fn billed_row_recorder(&self) -> impl Fn(&aa_types::ai::Usage) + Send + Sync + 'static {
         let billed_tokens = std::sync::Arc::clone(&self.billed_tokens);
         move |usage| {
             billed_tokens.fetch_add(
@@ -353,7 +353,7 @@ impl GoalDriver {
         &mut self,
         session: &mut SessionManager,
         message_id: &str,
-        usage: &pa_types::ai::Usage,
+        usage: &aa_types::ai::Usage,
     ) -> anyhow::Result<UsageOutcome> {
         if self.state.status != GoalStatus::Active {
             // Calls billed while no goal runs never charge a later one.
@@ -530,10 +530,10 @@ impl GoalDriver {
     pub fn finish_for_terminal_message(
         &mut self,
         session: &mut SessionManager,
-        stop_reason: pa_types::ai::StopReason,
+        stop_reason: aa_types::ai::StopReason,
         error_message: Option<&str>,
     ) -> anyhow::Result<()> {
-        use pa_types::ai::StopReason;
+        use aa_types::ai::StopReason;
         if self.state.status != GoalStatus::Active {
             return Ok(());
         }
@@ -564,7 +564,7 @@ impl GoalDriver {
     pub fn next_continuation_message(
         &mut self,
         session: &mut SessionManager,
-        last_turn: Option<&pa_agent::types::AssistantMessage>,
+        last_turn: Option<&aa_agent::types::AssistantMessage>,
     ) -> anyhow::Result<Option<CustomMessage>> {
         if self.state.status != GoalStatus::Active || self.state.objective.is_none() {
             return Ok(None);
@@ -650,7 +650,7 @@ impl GoalDriver {
     pub fn take_owed_continuation(
         &mut self,
         session: &mut SessionManager,
-        last_turn: Option<&pa_agent::types::AssistantMessage>,
+        last_turn: Option<&aa_agent::types::AssistantMessage>,
     ) -> anyhow::Result<Option<CustomMessage>> {
         let owed = self.owed_continuation_for_rlm_work;
         if !owed {

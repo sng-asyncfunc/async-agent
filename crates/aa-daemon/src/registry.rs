@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use pa_types::daemon::DaemonWorkerDescriptor;
+use aa_types::daemon::DaemonWorkerDescriptor;
 use serde_json::Value;
 use tokio::sync::{Mutex, OwnedMutexGuard};
 
@@ -242,7 +242,7 @@ pub(crate) struct WorkerHeartbeatSnapshot {
 /// generation: trustworthy only while current, so an invalidation forces the next consult.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct WorkerCronSnapshot {
-    pub(crate) jobs: Vec<pa_core::cron::AgentCronJob>,
+    pub(crate) jobs: Vec<aa_core::cron::AgentCronJob>,
     pub(crate) generation: u64,
 }
 
@@ -435,7 +435,7 @@ impl ResidentWorker {
     /// generation-monotonic discipline as [`Self::store_heartbeat_snapshot`].
     pub(crate) async fn store_cron_snapshot(
         &self,
-        jobs: Vec<pa_core::cron::AgentCronJob>,
+        jobs: Vec<aa_core::cron::AgentCronJob>,
         generation: u64,
     ) {
         let mut snapshot = self.cron_snapshot.lock().await;
@@ -731,8 +731,8 @@ mod tests {
                 telemetry_disabled: None,
                 created_at: "t".to_string(),
                 updated_at: "t".to_string(),
-                lifecycle: pa_types::daemon::DaemonWorkerLifecycle::Ready,
-                create_command: pa_types::daemon::DurableDaemonCreateCommand {
+                lifecycle: aa_types::daemon::DaemonWorkerLifecycle::Ready,
+                create_command: aa_types::daemon::DurableDaemonCreateCommand {
                     session_path: None,
                     no_session: None,
                     rest: Map::default(),

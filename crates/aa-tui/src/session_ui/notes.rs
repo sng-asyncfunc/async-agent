@@ -10,7 +10,7 @@ impl SessionUi {
     /// One `goal_update` session event: store the state, announce as a status
     /// row when the dedupe rules say so, and sync the tray goal label.
     pub(super) fn apply_goal_update(&mut self, goal: Value, view: &mut AgentView) {
-        let Ok(goal) = serde_json::from_value::<pa_types::goal::GoalState>(goal) else {
+        let Ok(goal) = serde_json::from_value::<aa_types::goal::GoalState>(goal) else {
             return;
         };
         let announce = self.goal_view.apply_update(goal.clone());
@@ -186,8 +186,8 @@ impl SessionUi {
         }
         view.push_entry(ChatEntry::Status {
             // The same disclosure text the print-mode notice carries
-            // (pa-cli `telemetry_notice`), plus the interactive switch.
-            text: "Prime Agent sends pseudonymous usage and performance metrics without prompts, responses, tool content, file paths, or repository data. Disable this with /telemetry off, telemetry.enabled=false, PRIME_AGENT_TELEMETRY=0, DO_NOT_TRACK=1, or offline mode."
+            // (aa-cli `telemetry_notice`), plus the interactive switch.
+            text: "Async Agent sends pseudonymous usage and performance metrics without prompts, responses, tool content, file paths, or repository data. Disable this with /telemetry off, telemetry.enabled=false, ASYNC_AGENT_TELEMETRY=0, DO_NOT_TRACK=1, or offline mode."
                 .to_string(),
             kind: StatusKind::Info,
         });

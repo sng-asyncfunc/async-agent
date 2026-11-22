@@ -152,7 +152,7 @@ describe("rlm namespace", () => {
 		expect(emitted.length).toBe(1);
 		expect(emitted[0]!.event).toBe("display");
 		const displayData = emitted[0]!.data as Record<string, unknown>;
-		expect(displayData["application/vnd.prime-agent.transcript-read+json"]).toEqual({
+		expect(displayData["application/vnd.async-agent.transcript-read+json"]).toEqual({
 			returned: 2,
 			first: 0,
 			total: 2,

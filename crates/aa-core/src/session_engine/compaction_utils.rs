@@ -3,7 +3,7 @@
 
 use std::collections::BTreeSet;
 
-use pa_types::session::AgentMessage;
+use aa_types::session::AgentMessage;
 
 /// File operations extracted from tool calls and results.
 #[derive(Debug, Default, Clone)]
@@ -38,7 +38,7 @@ const TOOL_RESULT_TAIL_CHARS: usize = 500;
 pub fn extract_file_ops_from_message(message: &AgentMessage, file_ops: &mut FileOperations) {
     match message {
         AgentMessage::ToolResult(result) => {
-            if !pa_types::ai::is_javascript_tool_name(&result.tool_name) {
+            if !aa_types::ai::is_javascript_tool_name(&result.tool_name) {
                 return;
             }
             let Some(details) = result.details.as_ref().and_then(|d| d.as_object()) else {
@@ -57,7 +57,7 @@ pub fn extract_file_ops_from_message(message: &AgentMessage, file_ops: &mut File
         }
         AgentMessage::Assistant(assistant) => {
             for block in &assistant.content {
-                let pa_types::ai::AssistantContentBlock::ToolCall(call) = block else {
+                let aa_types::ai::AssistantContentBlock::ToolCall(call) = block else {
                     continue;
                 };
                 let Some(path) = call.arguments.get("path").and_then(|p| p.as_str()) else {
@@ -179,13 +179,13 @@ fn truncate_for_summary(text: &str, max_chars: usize) -> String {
     format!("{head}\n\n[... {elided} characters truncated; first {head_chars} and last {TOOL_RESULT_TAIL_CHARS} kept ...]\n\n{tail}")
 }
 
-fn user_text(content: &pa_types::ai::UserContent) -> String {
+fn user_text(content: &aa_types::ai::UserContent) -> String {
     match content {
-        pa_types::ai::UserContent::Text(text) => text.clone(),
-        pa_types::ai::UserContent::Blocks(blocks) => blocks
+        aa_types::ai::UserContent::Text(text) => text.clone(),
+        aa_types::ai::UserContent::Blocks(blocks) => blocks
             .iter()
             .filter_map(|block| match block {
-                pa_types::ai::UserContentBlock::Text(text) => Some(text.text.clone()),
+                aa_types::ai::UserContentBlock::Text(text) => Some(text.text.clone()),
                 _ => None,
             })
             .collect::<String>(),
@@ -217,13 +217,13 @@ pub fn serialize_conversation(messages: &[AgentMessage]) -> String {
                 let mut tool_calls: Vec<String> = Vec::new();
                 for block in &assistant.content {
                     match block {
-                        pa_types::ai::AssistantContentBlock::Text(text) => {
+                        aa_types::ai::AssistantContentBlock::Text(text) => {
                             text_parts.push(text.text.clone());
                         }
-                        pa_types::ai::AssistantContentBlock::Thinking(thinking) => {
+                        aa_types::ai::AssistantContentBlock::Thinking(thinking) => {
                             thinking_parts.push(thinking.thinking.clone());
                         }
-                        pa_types::ai::AssistantContentBlock::ToolCall(call) => {
+                        aa_types::ai::AssistantContentBlock::ToolCall(call) => {
                             let args = call
                                 .arguments
                                 .iter()
@@ -259,7 +259,7 @@ pub fn serialize_conversation(messages: &[AgentMessage]) -> String {
                     .content
                     .iter()
                     .filter_map(|block| match block {
-                        pa_types::ai::UserContentBlock::Text(text) => Some(text.text.clone()),
+                        aa_types::ai::UserContentBlock::Text(text) => Some(text.text.clone()),
                         _ => None,
                     })
                     .collect::<String>();
@@ -309,8 +309,8 @@ mod tests {
     use super::*;
 
     fn user(text: &str) -> AgentMessage {
-        AgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text(text.to_string()),
+        AgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
         })
@@ -319,14 +319,14 @@ mod tests {
     fn assistant_with_tool_call() -> AgentMessage {
         let mut arguments = serde_json::Map::new();
         arguments.insert("path".to_string(), serde_json::json!("/src/main.rs"));
-        AgentMessage::Assistant(pa_types::ai::AssistantMessage {
+        AgentMessage::Assistant(aa_types::ai::AssistantMessage {
             content: vec![
-                pa_types::ai::AssistantContentBlock::Text(pa_types::ai::TextContent {
+                aa_types::ai::AssistantContentBlock::Text(aa_types::ai::TextContent {
                     text: "doing it".to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
                 }),
-                pa_types::ai::AssistantContentBlock::ToolCall(pa_types::ai::ToolCall {
+                aa_types::ai::AssistantContentBlock::ToolCall(aa_types::ai::ToolCall {
                     id: "tc1".to_string(),
                     name: "edit".to_string(),
                     arguments,
@@ -340,8 +340,8 @@ mod tests {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::ToolUse,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::ToolUse,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -365,7 +365,7 @@ mod tests {
     fn file_ops_from_kernel_diffs() {
         let mut ops = FileOperations::default();
         ops.read.insert("/tmp/other.rs".to_string());
-        let result = AgentMessage::ToolResult(pa_types::ai::ToolResultMessage {
+        let result = AgentMessage::ToolResult(aa_types::ai::ToolResultMessage {
             tool_call_id: "c".to_string(),
             tool_name: "javascript".to_string(),
             content: vec![],
@@ -397,11 +397,11 @@ mod tests {
         is_error: bool,
         tool_call_id: &str,
     ) -> AgentMessage {
-        AgentMessage::ToolResult(pa_types::ai::ToolResultMessage {
+        AgentMessage::ToolResult(aa_types::ai::ToolResultMessage {
             tool_call_id: tool_call_id.to_string(),
             tool_name: tool_name.to_string(),
-            content: vec![pa_types::ai::UserContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: vec![aa_types::ai::UserContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: text.to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -415,13 +415,13 @@ mod tests {
     }
 
     fn assistant_with_tool_calls(calls: &[(&str, &str, &str)]) -> AgentMessage {
-        AgentMessage::Assistant(pa_types::ai::AssistantMessage {
+        AgentMessage::Assistant(aa_types::ai::AssistantMessage {
             content: calls
                 .iter()
                 .map(|(id, name, code)| {
                     let mut arguments = serde_json::Map::new();
                     arguments.insert("code".to_string(), serde_json::json!(code));
-                    pa_types::ai::AssistantContentBlock::ToolCall(pa_types::ai::ToolCall {
+                    aa_types::ai::AssistantContentBlock::ToolCall(aa_types::ai::ToolCall {
                         id: id.to_string(),
                         name: name.to_string(),
                         arguments,
@@ -436,8 +436,8 @@ mod tests {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::ToolUse,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::ToolUse,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -584,11 +584,11 @@ mod tests {
     #[test]
     fn tool_result_truncated() {
         let long = "x".repeat(10_000);
-        let result = AgentMessage::ToolResult(pa_types::ai::ToolResultMessage {
+        let result = AgentMessage::ToolResult(aa_types::ai::ToolResultMessage {
             tool_call_id: "c".to_string(),
             tool_name: "bash".to_string(),
-            content: vec![pa_types::ai::UserContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: vec![aa_types::ai::UserContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: long,
                     text_signature: None,
                     rest: serde_json::Map::default(),

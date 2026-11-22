@@ -4,7 +4,7 @@
 //! un-tagged user text blocks and unknown entry types). Live sessions are opt-in with
 //! `PA_TYPES_LIVE_SESSIONS=1`; the default run is hermetic.
 
-use pa_types::session::FileEntry;
+use aa_types::session::FileEntry;
 use serde_json::Value;
 use std::path::PathBuf;
 
@@ -78,8 +78,7 @@ fn live_captured_sessions_roundtrip_losslessly() {
         .or_else(|| {
             std::env::var_os("HOME").map(|h| {
                 PathBuf::from(h)
-                    .join(".prime")
-                    .join("agent")
+                    .join(".async-agent")
                     .join("sessions")
             })
         })

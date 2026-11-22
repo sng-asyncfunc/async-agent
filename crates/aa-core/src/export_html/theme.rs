@@ -1,7 +1,7 @@
 //! Export theme resolution: a theme file to the CSS custom properties the
 //! export template consumes, over the bundled theme data
-//! ([`pa_types::themes`]) and custom files under `<agent-dir>/themes/`.
-//! Pure functions only; terminal-side rendering is pa-tui's.
+//! ([`aa_types::themes`]) and custom files under `<agent-dir>/themes/`.
+//! Pure functions only; terminal-side rendering is aa-tui's.
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -166,7 +166,7 @@ fn css_color(color: ResolvedColor, light: bool) -> String {
 /// The theme file for `name`: a built-in, or a custom theme under
 /// `<agent-dir>/themes/<name>.json`.
 fn load_theme_json(name: &str, agent_dir: &Path) -> Result<ExportThemeJson> {
-    let raw = if let Some(builtin) = pa_types::themes::builtin_theme_json(name) {
+    let raw = if let Some(builtin) = aa_types::themes::builtin_theme_json(name) {
         builtin.to_string()
     } else {
         let path = custom_theme_path(agent_dir, name);
@@ -212,12 +212,12 @@ fn parse_theme_json(raw: &str) -> Result<ExportThemeJson> {
 }
 
 /// The default theme when settings carry none: a light terminal background
-/// (`COLORFGBG`) selects the light theme, everything else gets Prime.
+/// (`COLORFGBG`) selects the light theme, everything else gets Async.
 pub(crate) fn default_theme_name() -> String {
     if detect_light_terminal_background(std::env::var("COLORFGBG").ok().as_deref()) {
         "light".to_string()
     } else {
-        "prime".to_string()
+        "async".to_string()
     }
 }
 
@@ -370,7 +370,7 @@ mod tests {
     /// The bundled prime theme resolves like the TS exporter.
     #[test]
     fn prime_theme_resolves_like_the_ts_exporter() {
-        let theme = resolve_export_theme(Some("prime"), Path::new("/nonexistent-agent-dir"))
+        let theme = resolve_export_theme(Some("async"), Path::new("/nonexistent-agent-dir"))
             .expect("resolve prime");
         assert!(theme.theme_vars.contains("--accent: #7c6faf;"));
         assert!(theme.theme_vars.contains("--exportPageBg: #050506;"));

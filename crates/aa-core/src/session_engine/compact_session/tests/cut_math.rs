@@ -2,7 +2,7 @@
 //! computation, the entry-message extraction, the tokens-before
 //! anchoring, and the summary-request window estimate.
 use super::*;
-use pa_types::session::EntryBase;
+use aa_types::session::EntryBase;
 
 #[test]
 fn cut_and_tokens_computed_from_entries() {
@@ -16,7 +16,7 @@ fn cut_and_tokens_computed_from_entries() {
 #[test]
 fn message_extraction_skips_compaction_and_tool_results() {
     let mut compaction = FileEntry::Compaction {
-        payload: pa_types::session::CompactionEntry {
+        payload: aa_types::session::CompactionEntry {
             summary: "s".to_string(),
             first_kept_entry_id: "x".to_string(),
             tokens_before: 1,
@@ -37,7 +37,7 @@ fn message_extraction_skips_compaction_and_tool_results() {
     let _ = &mut compaction;
     assert!(message_from_entry(&compaction).is_none());
     let tool_result = FileEntry::Message {
-        message: AgentMessage::ToolResult(pa_types::ai::ToolResultMessage {
+        message: AgentMessage::ToolResult(aa_types::ai::ToolResultMessage {
             tool_call_id: "c".to_string(),
             tool_name: "bash".to_string(),
             content: vec![],
@@ -60,14 +60,14 @@ fn message_extraction_skips_compaction_and_tool_results() {
 /// the last settled usage plus a chars/4 estimate of what trails it.
 #[test]
 fn tokens_before_anchors_on_last_valid_usage_plus_trailing() {
-    let reply = |usage: pa_types::ai::Usage, error: bool| {
+    let reply = |usage: aa_types::ai::Usage, error: bool| {
         // A failed request carries no content: the failure lives in
         // `errorMessage`.
         let content = if error {
             Vec::new()
         } else {
-            vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+            vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: "seed reply".to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -84,9 +84,9 @@ fn tokens_before_anchors_on_last_valid_usage_plus_trailing() {
             diagnostics: None,
             usage,
             stop_reason: if error {
-                pa_types::ai::StopReason::Error
+                aa_types::ai::StopReason::Error
             } else {
-                pa_types::ai::StopReason::Stop
+                aa_types::ai::StopReason::Stop
             },
             stop_reason_raw: None,
             error_message: None,
@@ -96,16 +96,16 @@ fn tokens_before_anchors_on_last_valid_usage_plus_trailing() {
     };
     let tmp = tempfile::tempdir().unwrap();
     let mut session = SessionManager::in_memory(tmp.path());
-    let settled = pa_types::ai::Usage {
+    let settled = aa_types::ai::Usage {
         input: 20,
         output: 10,
         cache_read: 80,
         cache_write: 0,
         total_tokens: 110,
-        cost: pa_types::ai::UsageCost::default(),
+        cost: aa_types::ai::UsageCost::default(),
     };
     let probe = |text: &str| {
-        AgentMessage::User(pa_types::ai::UserMessage {
+        AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -119,7 +119,7 @@ fn tokens_before_anchors_on_last_valid_usage_plus_trailing() {
     // The overflow error turn: zeroed usage, what the provider
     // returns for a failed request.
     session
-        .append_message(reply(pa_types::ai::Usage::default(), true))
+        .append_message(reply(aa_types::ai::Usage::default(), true))
         .unwrap();
     // TS: 110 (last valid usage) + ceil(415/4) (the probe turn) = 214.
     assert_eq!(
@@ -172,7 +172,7 @@ fn summary_window_estimate_covers_both_split_requests() {
 }
 
 fn user_message(text: &str) -> AgentMessage {
-    AgentMessage::User(pa_types::ai::UserMessage {
+    AgentMessage::User(aa_types::ai::UserMessage {
         content: UserContent::Text(text.to_string()),
         timestamp: 0,
         rest: serde_json::Map::default(),

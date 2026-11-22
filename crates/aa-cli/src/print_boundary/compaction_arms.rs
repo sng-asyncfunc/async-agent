@@ -181,7 +181,7 @@ impl TurnBoundary {
             return Ok(OverflowOutcome::NotApplicable);
         };
         // A settled non-error turn resets the recovery state.
-        if wire.stop_reason != pa_types::ai::StopReason::Error {
+        if wire.stop_reason != aa_types::ai::StopReason::Error {
             self.reset();
             return Ok(OverflowOutcome::NotApplicable);
         }
@@ -204,7 +204,7 @@ impl TurnBoundary {
         if !engine.session.auto_compaction_enabled() && !pending_scheduled {
             return Ok(OverflowOutcome::NotApplicable);
         }
-        let Some(assistant) = json_round_trip::<_, pa_agent::types::AssistantMessage>(&wire) else {
+        let Some(assistant) = json_round_trip::<_, aa_agent::types::AssistantMessage>(&wire) else {
             return Ok(OverflowOutcome::NotApplicable);
         };
         if !is_context_overflow_failure(&assistant, model.context_window) {

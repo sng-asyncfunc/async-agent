@@ -1,4 +1,4 @@
-//! End-to-end fd-lifecycle audit against the real `pa-daemon` supervisor: run
+//! End-to-end fd-lifecycle audit against the real `aa-daemon` supervisor: run
 //! create/prompt/kill session cycles and sample `/proc/<pid>/fd` per cycle so any
 //! monotonically growing fd class in the supervisor is caught as a regression.
 // Stack-resident futures by design; boxing for a lint tick is a perf regression.
@@ -67,7 +67,7 @@ fn fd_classes(targets: &[String]) -> Vec<(String, usize)> {
     rows
 }
 
-const DAEMON: &str = env!("CARGO_BIN_EXE_pa-daemon");
+const DAEMON: &str = env!("CARGO_BIN_EXE_aa-daemon");
 
 struct Daemon {
     child: Child,
@@ -97,11 +97,11 @@ fn spawn_daemon(mut launcher: Command, socket: &Path, agent_dir: &Path) -> Daemo
         // A supervisor killed at teardown must not leak its session workers into later
         // test binaries: the supervisor-lost exit runs here.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -145,7 +145,7 @@ impl Client {
         let envelope = serde_json::json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize command");
@@ -512,7 +512,7 @@ fn probe_worker(socket: &Path) {
 
 /// The persisted worker descriptor's socket path.
 fn worker_socket_path(agent_dir: &Path, socket: &Path, worker_id: &str) -> PathBuf {
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(agent_dir, socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(agent_dir, socket);
     let content = std::fs::read_to_string(descriptor_dir.join(format!("{worker_id}.json")))
         .expect("descriptor file");
     let value: serde_json::Value = serde_json::from_str(&content).expect("descriptor json");

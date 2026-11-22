@@ -5,8 +5,8 @@
 
 use std::path::PathBuf;
 
-use pa_agent::types::{AgentMessage, Message, UserContent, UserPart};
-use pa_types::session::{AgentMessage as SessionAgentMessage, FileEntry};
+use aa_agent::types::{AgentMessage, Message, UserContent, UserPart};
+use aa_types::session::{AgentMessage as SessionAgentMessage, FileEntry};
 
 use crate::refinement::ranking::{
     format_harness_state_for_prompt, harness_digest_fingerprint, harness_query_terms,
@@ -150,9 +150,9 @@ pub fn harness_digest_prompt_row(
     timestamp: u64,
     state_fingerprint: &str,
 ) -> AgentMessage {
-    let custom = pa_types::session::CustomMessage {
+    let custom = aa_types::session::CustomMessage {
         custom_type: super::headless::HARNESS_DIGEST_CUSTOM_TYPE.to_string(),
-        content: pa_types::ai::UserContent::Text(harness_digest_message_text(digest)),
+        content: aa_types::ai::UserContent::Text(harness_digest_message_text(digest)),
         display: false,
         details: Some(serde_json::json!({
             "digest": digest,
@@ -161,7 +161,7 @@ pub fn harness_digest_prompt_row(
         timestamp,
         rest: serde_json::Map::default(),
     };
-    AgentMessage::Custom(pa_agent::types::CustomAgentMessage {
+    AgentMessage::Custom(aa_agent::types::CustomAgentMessage {
         role: "custom".to_string(),
         payload: serde_json::to_value(&custom).expect("digest row payload serializes"),
     })
@@ -180,7 +180,7 @@ pub fn persist_digest(
 ) -> std::io::Result<String> {
     session.append_custom_message(
         super::headless::HARNESS_DIGEST_CUSTOM_TYPE,
-        pa_types::ai::UserContent::Text(harness_digest_message_text(digest)),
+        aa_types::ai::UserContent::Text(harness_digest_message_text(digest)),
         false,
         Some(serde_json::json!({
             "digest": digest,
@@ -370,7 +370,7 @@ pub fn digest_session_message(entry: &FileEntry) -> Option<SessionAgentMessage> 
         return None;
     }
     Some(SessionAgentMessage::Custom(
-        pa_types::session::CustomMessage {
+        aa_types::session::CustomMessage {
             custom_type: payload.custom_type.clone(),
             content: payload.content.clone(),
             display: payload.display,
@@ -498,7 +498,7 @@ impl super::AgentSession {
     /// The last four user/assistant texts, newest first (digest ranking) — the NEWEST
     /// four texts of the recent window, never the chronological head.
     async fn recent_message_texts_newest_first(&self) -> Vec<String> {
-        use pa_agent::types::{AgentMessage, AssistantContent, Message};
+        use aa_agent::types::{AgentMessage, AssistantContent, Message};
         let state = self.agent.state().await;
         let mut texts: Vec<String> = state
             .messages
@@ -531,14 +531,14 @@ impl super::AgentSession {
 }
 
 /// The text of a loop user message (string content or joined text parts).
-fn loop_user_text(content: &pa_agent::types::UserContent) -> String {
+fn loop_user_text(content: &aa_agent::types::UserContent) -> String {
     match content {
-        pa_agent::types::UserContent::Text(text) => text.clone(),
-        pa_agent::types::UserContent::Parts(parts) => parts
+        aa_agent::types::UserContent::Text(text) => text.clone(),
+        aa_agent::types::UserContent::Parts(parts) => parts
             .iter()
             .filter_map(|part| match part {
-                pa_agent::types::UserPart::Text(text) => Some(text.text.clone()),
-                pa_agent::types::UserPart::Image(_) => None,
+                aa_agent::types::UserPart::Text(text) => Some(text.text.clone()),
+                aa_agent::types::UserPart::Image(_) => None,
             })
             .collect::<Vec<_>>()
             .join(" "),

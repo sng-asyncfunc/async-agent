@@ -71,7 +71,7 @@ fn keeps_structured_lines_around_a_torn_multibyte_tail() {
     with_agent_dir(|agent_dir| {
         let listening = supervisor_line(
             "2026-09-10T20:02:39.764Z",
-            "Prime Agent daemon supervisor e14de15c listening on /tmp/prime-agent-501/daemon.sock",
+            "Async Agent daemon supervisor e14de15c listening on /tmp/async-agent-501/daemon.sock",
         );
         // The stderr-forward classifier keys on a 12-hex worker id
         // (STDERR_FORWARD), so the fixture carries one.
@@ -157,16 +157,16 @@ fn falls_back_to_the_newest_per_daemon_log_when_agent_jsonl_is_absent() {
 
 #[test]
 fn falls_back_to_daemon_logs_whose_socket_basename_has_no_sock_suffix() {
-    // A daemon started with `--daemon-socket /tmp/prime-daemon` writes
-    // prime-daemon.<hash>.log, which has no .sock segment to match on.
+    // A daemon started with `--daemon-socket /tmp/async-daemon` writes
+    // async-daemon.<hash>.log, which has no .sock segment to match on.
     with_agent_dir(|agent_dir| {
         std::fs::write(
-            agent_dir.join("logs/prime-daemon.a1b2c3d4.log"),
+            agent_dir.join("logs/async-daemon.a1b2c3d4.log"),
             "[2026-09-10T20:00:05.000Z] supervisor: Daemon supervisor startup failed: Error: Lock file is already being held\n",
         )
         .expect("write log");
         let text = report_text("2026-09-10T20:00", "2026-09-10T20:30");
-        assert!(text.contains("prime-daemon.a1b2c3d4.log"), "{text}");
+        assert!(text.contains("async-daemon.a1b2c3d4.log"), "{text}");
         assert!(text.contains("supervisor startup blocked: another daemon holds the lock"));
     });
 }

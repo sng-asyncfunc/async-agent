@@ -12,7 +12,7 @@
 use std::io::Write;
 
 /// The app key every report repeats (each report replaces its record).
-const APP: &str = "prime-agent";
+const APP: &str = "async-agent";
 
 /// The states a detection reply without `states=` accepts (fixed by the
 /// protocol's "Feature detection").

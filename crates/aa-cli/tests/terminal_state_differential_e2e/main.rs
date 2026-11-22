@@ -40,11 +40,11 @@ use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::Pid;
 use serde_json::json;
 
-use pa_tui::agents_view::AgentsViewUiMode;
-use pa_tui::config_selector::{
+use aa_tui::agents_view::AgentsViewUiMode;
+use aa_tui::config_selector::{
     run_config_selector, ConfigSelector, ConfigSelectorOptions, SelectorRow,
 };
-use pa_tui::interactive::{run_interactive, UiMode};
+use aa_tui::interactive::{run_interactive, UiMode};
 
 /// The kitty flags push (`1|2|4`, the TS `ProcessTerminal` set): the arm
 /// proof every mounted surface must show.
@@ -63,10 +63,10 @@ const PROGRAM_STATUS_ANSWER: &[u8] =
 /// Every OSC 7501 report's head.
 const STATUS_REPORT: &[u8] = b"\x1b]7501;state=";
 /// The OSC 7501 reports the chat surface writes while a turn runs and rests.
-const STATUS_WORKING: &[u8] = b"\x1b]7501;state=working:app=prime-agent\x1b\\";
-const STATUS_DONE: &[u8] = b"\x1b]7501;state=done:app=prime-agent\x1b\\";
-const STATUS_IDLE: &[u8] = b"\x1b]7501;state=idle:app=prime-agent\x1b\\";
-const STATUS_ERROR: &[u8] = b"\x1b]7501;state=error:app=prime-agent\x1b\\";
+const STATUS_WORKING: &[u8] = b"\x1b]7501;state=working:app=async-agent\x1b\\";
+const STATUS_DONE: &[u8] = b"\x1b]7501;state=done:app=async-agent\x1b\\";
+const STATUS_IDLE: &[u8] = b"\x1b]7501;state=idle:app=async-agent\x1b\\";
+const STATUS_ERROR: &[u8] = b"\x1b]7501;state=error:app=async-agent\x1b\\";
 
 /// The child-mode env: which surface this re-executed binary runs.
 const CHILD_MODE_ENV: &str = "PA_DIFF_CHILD_MODE";
@@ -101,7 +101,7 @@ fn diff_chat_child_mode() {
     if outcome.return_to_agents_view {
         let anchor = (!outcome.session_id.is_empty()).then(|| outcome.session_id.clone());
         let view_options = view_options(options.socket_path, anchor);
-        let view = runtime.block_on(pa_tui::agents_view::run_agents_view(
+        let view = runtime.block_on(aa_tui::agents_view::run_agents_view(
             view_options,
             AgentsViewUiMode::Terminal,
             None,
@@ -127,7 +127,7 @@ fn diff_view_child_mode() {
         .enable_all()
         .build()
         .expect("tokio runtime");
-    let view = runtime.block_on(pa_tui::agents_view::run_agents_view(
+    let view = runtime.block_on(aa_tui::agents_view::run_agents_view(
         options,
         AgentsViewUiMode::Terminal,
         None,
@@ -158,17 +158,17 @@ fn diff_selector_child_mode() {
             label: "kernel".to_string(),
             checked: true,
             type_label: "tool".to_string(),
-            path: "pa-core/kernel".to_string(),
+            path: "aa-core/kernel".to_string(),
         },
     ];
     let selector = ConfigSelector::new(rows);
-    let theme = pa_tui::app::load_theme("prime");
+    let theme = aa_tui::app::load_theme("async");
     let keybindings = if remap_exit {
-        let mut bindings = pa_tui::keybindings::KeybindingsConfig::new();
+        let mut bindings = aa_tui::keybindings::KeybindingsConfig::new();
         bindings.insert("app.clear".to_string(), vec!["ctrl+q".to_string()]);
-        pa_tui::keybindings::KeybindingsManager::with_user_bindings(bindings)
+        aa_tui::keybindings::KeybindingsManager::with_user_bindings(bindings)
     } else {
-        pa_tui::keybindings::KeybindingsManager::new()
+        aa_tui::keybindings::KeybindingsManager::new()
     };
     let options = ConfigSelectorOptions::new(theme, keybindings);
     let mut on_toggle = move |_key: &str, _enabled: bool| -> anyhow::Result<()> {
@@ -191,13 +191,13 @@ fn diff_replay_child_mode() {
     let flags = std::env::var(CHILD_REPLAY_FLAGS_ENV).unwrap_or_default();
     let panic_after_frame = flags.split(',').any(|flag| flag == "panic");
     let stream =
-        pa_tui::session::JsonlSessionStream::from_path(Path::new(&fixture)).expect("fixture");
-    let options = pa_tui::app::AppOptions {
-        theme: "prime".to_string(),
+        aa_tui::session::JsonlSessionStream::from_path(Path::new(&fixture)).expect("fixture");
+    let options = aa_tui::app::AppOptions {
+        theme: "async".to_string(),
         panic_after_frame,
         ..Default::default()
     };
-    let _ = pa_tui::app::run_app(Box::new(stream), &options, Box::new(|_text| {}));
+    let _ = aa_tui::app::run_app(Box::new(stream), &options, Box::new(|_text| {}));
     quiet_child_epilogue();
 }
 

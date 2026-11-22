@@ -2,7 +2,7 @@
 name: builder
 description: Build a documented status report from parallel section writers and merge their drafts.
 version: 1
-author: Prime Agent
+author: Async Agent
 ---
 
 # builder

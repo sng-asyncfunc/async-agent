@@ -531,7 +531,7 @@ fn disable(state: &mut RecorderState, ledger_path: &Path, error: &str) {
     // `_lastTurn`; an absent edge beats a wrong one).
     state.last_turn = None;
     eprintln!(
-        "pa-core: semantic-edge ledger disabled at {}: {error}",
+        "aa-core: semantic-edge ledger disabled at {}: {error}",
         ledger_path.display()
     );
 }

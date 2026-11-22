@@ -1,7 +1,7 @@
 //! The `factory_activity` worker arm: the `/factory` view's daemon lane.
 
 //! One session-addressed command reaches this session's kernel factory
-//! executor (the bridge registered by the pa-core session engine): the
+//! executor (the bridge registered by the aa-core session engine): the
 //! payload's `action` rides the out-of-band kernel frame, and the kernel's
 //! reply returns verbatim (the run registry stays kernel-owned); the
 //! unscoped graph also carries the session's stored spec count. The
@@ -22,7 +22,7 @@ use crate::worker::Worker;
 /// dock group, no page. Both hello surfaces (the supervisor's and the
 /// worker's) advertise the lane only while the setting reads enabled.
 pub(crate) fn factory_lane_enabled(agent_dir: &Path) -> bool {
-    pa_core::settings::SettingsManager::create(
+    aa_core::settings::SettingsManager::create(
         std::env::current_dir().unwrap_or_default(),
         agent_dir,
     )
@@ -33,9 +33,9 @@ pub(crate) fn factory_lane_enabled(agent_dir: &Path) -> bool {
 /// from disk without a kernel. The global store and the runtime's shared library machines are
 /// every session's, so they never count.
 pub(crate) fn stored_factory_spec_count(session_artifact_dir: &Path) -> usize {
-    pa_core::refinement::get_local_harness_state_dir(Some(session_artifact_dir)).map_or(0, |dir| {
-        pa_core::refinement::load_harness_state(&dir, pa_core::refinement::HarnessScope::Local)
-            .entries[&pa_core::refinement::RefinementKind::Factory]
+    aa_core::refinement::get_local_harness_state_dir(Some(session_artifact_dir)).map_or(0, |dir| {
+        aa_core::refinement::load_harness_state(&dir, aa_core::refinement::HarnessScope::Local)
+            .entries[&aa_core::refinement::RefinementKind::Factory]
             .len()
     })
 }
@@ -86,7 +86,7 @@ impl Worker {
                     .await
             }
             None => Err(anyhow::anyhow!(
-                pa_types::daemon::KERNEL_NOT_RUNNING_MESSAGE
+                aa_types::daemon::KERNEL_NOT_RUNNING_MESSAGE
             )),
         };
         // The unscoped graph (the dock's and the agents view's poll) also carries the session's
@@ -96,7 +96,7 @@ impl Worker {
         let reply = match reply {
             Err(error)
                 if lists_runs
-                    && error.to_string() == pa_types::daemon::KERNEL_NOT_RUNNING_MESSAGE =>
+                    && error.to_string() == aa_types::daemon::KERNEL_NOT_RUNNING_MESSAGE =>
             {
                 Ok(json!({ "runs": [] }))
             }
@@ -184,12 +184,12 @@ mod tests {
             crate::scheduled_jobs::session_artifact_dir(&store.path, store.session_id())
         };
         crate::test_support::write_factory_specs(
-            &pa_core::refinement::get_local_harness_state_dir(artifacts.as_deref())
+            &aa_core::refinement::get_local_harness_state_dir(artifacts.as_deref())
                 .expect("local harness dir"),
             &["a", "b"],
         );
         crate::test_support::write_factory_specs(
-            &pa_core::refinement::get_global_harness_state_dir(&agent_dir),
+            &aa_core::refinement::get_global_harness_state_dir(&agent_dir),
             &["shared"],
         );
         let graph = worker
@@ -205,9 +205,9 @@ mod tests {
         );
         #[cfg(unix)]
         {
-            let harness = pa_core::refinement::get_local_harness_state_dir(artifacts.as_deref())
+            let harness = aa_core::refinement::get_local_harness_state_dir(artifacts.as_deref())
                 .expect("local harness dir");
-            let state_path = pa_core::refinement::get_harness_state_path(&harness);
+            let state_path = aa_core::refinement::get_harness_state_path(&harness);
             let payload = serde_json::json!({ "action": "graph" });
             let slow_graph = crate::test_support::assert_async_file_read(
                 &state_path,

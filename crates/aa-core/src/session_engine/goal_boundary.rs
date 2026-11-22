@@ -3,7 +3,7 @@
 //! accounting, and the terminal-error finish — each transport drives the
 //! same state machine.
 
-use pa_types::session::CustomMessage;
+use aa_types::session::CustomMessage;
 
 use super::engine::SessionEngine;
 use super::goal_continuation::{ContinuationTrigger, GoalContinuationDecision};
@@ -14,10 +14,10 @@ use crate::goals::{create_goal_context_message, GoalContextKind, GoalStatus};
 /// embeddings that admit minted goal rows through the continuation hook.
 #[must_use]
 pub fn custom_message_to_loop_row(
-    message: &pa_types::session::CustomMessage,
-) -> Option<pa_agent::types::AgentMessage> {
+    message: &aa_types::session::CustomMessage,
+) -> Option<aa_agent::types::AgentMessage> {
     serde_json::from_value(
-        serde_json::to_value(pa_types::session::AgentMessage::Custom(message.clone())).ok()?,
+        serde_json::to_value(aa_types::session::AgentMessage::Custom(message.clone())).ok()?,
     )
     .ok()
 }
@@ -61,7 +61,7 @@ impl SessionEngine {
     pub async fn record_goal_usage(
         &self,
         message_id: &str,
-        usage: &pa_types::ai::Usage,
+        usage: &aa_types::ai::Usage,
     ) -> anyhow::Result<UsageOutcome> {
         let persistence = self.session.shared_persistence();
         let mut driver = self.goal_driver.lock().await;
@@ -87,12 +87,12 @@ impl SessionEngine {
 
     /// The latest settled assistant turn in its loop form: the natural mint
     /// gates on it and the RLM settle site's delivery decides from it.
-    pub async fn latest_settled_assistant(&self) -> Option<pa_agent::types::AssistantMessage> {
+    pub async fn latest_settled_assistant(&self) -> Option<aa_agent::types::AssistantMessage> {
         self.session
             .last_assistant_message()
             .await
             .and_then(|wire| match wire {
-                pa_types::session::AgentMessage::Assistant(assistant) => {
+                aa_types::session::AgentMessage::Assistant(assistant) => {
                     super::provider_adapter::json_round_trip(&assistant)
                 }
                 _ => None,
@@ -146,7 +146,7 @@ impl SessionEngine {
         let mut session = persistence.lock().await;
         driver.finish_for_terminal_message(
             &mut session,
-            pa_types::ai::StopReason::Error,
+            aa_types::ai::StopReason::Error,
             error_message,
         )
     }

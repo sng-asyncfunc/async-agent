@@ -1,6 +1,6 @@
-//! The client-settings seam: pa-tui depends on pa-types only, so
+//! The client-settings seam: aa-tui depends on aa-types only, so
 //! interactive commands that read or persist user settings call this
-//! trait; the composition root (pa-cli) implements it over the real
+//! trait; the composition root (aa-cli) implements it over the real
 //! settings manager. Setters persist the global scope.
 
 use anyhow::Result;

@@ -1,11 +1,11 @@
 //! ACP `session/list` and `session/load` over the daemon's saved-session
-//! catalog. The ACP session id is the prime-agent session id, so the ids
+//! catalog. The ACP session id is the async-agent session id, so the ids
 //! `session/new`, `session/list` and `session/load` report round-trip.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use pa_types::daemon::{DaemonCommand, DaemonSessionLifecycle};
+use aa_types::daemon::{DaemonCommand, DaemonSessionLifecycle};
 use serde_json::{json, Map, Value};
 use tokio::sync::Mutex;
 
@@ -255,7 +255,7 @@ pub(super) fn history_updates(
         let events = match message["role"].as_str() {
             Some("user") => {
                 let text =
-                    serde_json::from_value::<pa_types::ai::UserContent>(message["content"].clone())
+                    serde_json::from_value::<aa_types::ai::UserContent>(message["content"].clone())
                         .map(|content| content.text())
                         .unwrap_or_default();
                 if !text.is_empty() {

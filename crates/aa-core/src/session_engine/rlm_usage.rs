@@ -5,8 +5,8 @@
 
 use std::collections::HashMap;
 
-use pa_types::ai::Usage;
-use pa_types::session::ChildUsageOrigin;
+use aa_types::ai::Usage;
+use aa_types::session::ChildUsageOrigin;
 
 use super::model_usage::{ModelUsage, MODEL_USAGE_CUSTOM_TYPE};
 use crate::session::billed_row::BilledRowSink;
@@ -27,8 +27,8 @@ pub fn add_assistant_usage(total: &mut Usage, usage: &Usage) {
 }
 
 /// TS cost math runs on plain numbers; `JsNumber` keeps the wire parity.
-fn add_cost(total: pa_types::JsNumber, usage: pa_types::JsNumber) -> pa_types::JsNumber {
-    pa_types::JsNumber(total.as_f64() + usage.as_f64())
+fn add_cost(total: aa_types::JsNumber, usage: aa_types::JsNumber) -> aa_types::JsNumber {
+    aa_types::JsNumber(total.as_f64() + usage.as_f64())
 }
 
 /// Child work affects session-level billable totals, not the parent's
@@ -46,7 +46,7 @@ pub fn attribute_child_usage(parent_usage: &mut Usage, child_usage: &Usage) {
 ///
 /// Returns a serialization error if the supplied usage cannot use the wire representation.
 pub fn child_usage_identity_matches(
-    payload: &pa_types::session::ChildUsageAttributionEntry,
+    payload: &aa_types::session::ChildUsageAttributionEntry,
     target_id: &str,
     child_usage: Usage,
     origin: Option<ChildUsageOrigin>,
@@ -141,7 +141,7 @@ impl RlmChildUsageStore for SessionUsageStore {
                 .rev()
                 .find(|entry| entry.id() == Some(row_id.as_str()));
             if let Some(entry) = existing {
-                let pa_types::session::FileEntry::ChildUsageAttributed { payload, .. } = entry
+                let aa_types::session::FileEntry::ChildUsageAttributed { payload, .. } = entry
                 else {
                     return Err(attribution_id_collision());
                 };
@@ -203,8 +203,8 @@ fn target_assistant_usage(session: &SessionManager, target_id: &str) -> std::io:
         .iter()
         .rev()
         .find_map(|entry| match entry {
-            pa_types::session::FileEntry::Message {
-                message: pa_types::session::AgentMessage::Assistant(assistant),
+            aa_types::session::FileEntry::Message {
+                message: aa_types::session::AgentMessage::Assistant(assistant),
                 ..
             } if entry.id() == Some(target_id) => Some(assistant.usage),
             _ => None,
@@ -379,7 +379,7 @@ impl RlmChildUsageAttributions {
                     }
                 }
                 Err(error) => {
-                    eprintln!("pa-core: RLM child usage attribution not persisted: {error}");
+                    eprintln!("aa-core: RLM child usage attribution not persisted: {error}");
                     return false;
                 }
             }
@@ -499,9 +499,9 @@ impl RlmChildUsageAttributions {
 }
 
 /// Any assistant row counts — no stop-reason filter (TS `_findLastAssistantMessage`).
-fn last_assistant_row(entry: &pa_types::session::FileEntry) -> Option<(String, Usage)> {
-    let pa_types::session::FileEntry::Message {
-        message: pa_types::session::AgentMessage::Assistant(assistant),
+fn last_assistant_row(entry: &aa_types::session::FileEntry) -> Option<(String, Usage)> {
+    let aa_types::session::FileEntry::Message {
+        message: aa_types::session::AgentMessage::Assistant(assistant),
         base,
     } = entry
     else {
@@ -528,7 +528,7 @@ pub trait RlmChildUsageSink: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::ai::{AssistantMessage, StopReason, UsageCost};
+    use aa_types::ai::{AssistantMessage, StopReason, UsageCost};
 
     /// `Usage` block with a single cost total.
     fn usage_block(
@@ -546,17 +546,17 @@ mod tests {
             cache_write,
             total_tokens,
             cost: UsageCost {
-                input: pa_types::JsNumber(0.0),
-                output: pa_types::JsNumber(0.0),
-                cache_read: pa_types::JsNumber(0.0),
-                cache_write: pa_types::JsNumber(0.0),
-                total: pa_types::JsNumber(cost_total),
+                input: aa_types::JsNumber(0.0),
+                output: aa_types::JsNumber(0.0),
+                cache_read: aa_types::JsNumber(0.0),
+                cache_write: aa_types::JsNumber(0.0),
+                total: aa_types::JsNumber(cost_total),
             },
         }
     }
 
-    fn assistant_row(usage: Usage) -> pa_types::session::AgentMessage {
-        pa_types::session::AgentMessage::Assistant(AssistantMessage {
+    fn assistant_row(usage: Usage) -> aa_types::session::AgentMessage {
+        aa_types::session::AgentMessage::Assistant(AssistantMessage {
             content: vec![],
             api: "openai-completions".to_string(),
             provider: "openai".to_string(),

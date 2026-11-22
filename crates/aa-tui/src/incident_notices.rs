@@ -1,9 +1,9 @@
-//! Daemon incident notices for the agents view: reuse the `prime-agent
-//! incident` classifier (`pa_types::incident`) to surface one collapsed,
+//! Daemon incident notices for the agents view: reuse the `async-agent
+//! incident` classifier (`aa_types::incident`) to surface one collapsed,
 //! dismissible notice line (worker crash, command-timeout burst, or an
 //! update restart).
 
-use pa_types::incident::{
+use aa_types::incident::{
     collect_incident_events, collect_worker_pid_map, compute_incident_anomalies,
     latest_incident_stall_timeout_by_subject, parse_incident_log_line, IncidentEvent,
     IncidentLogEntry, IncidentSeverity,
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
-/// Recent-log window, matching the `prime-agent incident` default.
+/// Recent-log window, matching the `async-agent incident` default.
 pub const INCIDENT_NOTICE_WINDOW_MS: i64 = 24 * 60 * 60 * 1000;
 
 /// Initial tail bound: incidents older than the tail bytes are simply not seen.
@@ -25,7 +25,7 @@ pub const INCIDENT_NOTICE_MAX_WINDOW_ENTRIES: usize = 20_000;
 pub const INCIDENT_NOTICE_POLL_INTERVAL_MS: u64 = 30_000;
 
 /// The pointer to the full timeline.
-pub const INCIDENT_NOTICE_POINTER: &str = "— run prime-agent incident for the timeline";
+pub const INCIDENT_NOTICE_POINTER: &str = "— run async-agent incident for the timeline";
 
 const NEWLINE_BYTE: u8 = 0x0a;
 

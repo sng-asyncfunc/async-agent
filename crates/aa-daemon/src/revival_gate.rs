@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use pa_types::daemon::{DaemonWorkerDescriptor, DaemonWorkerLifecycle};
+use aa_types::daemon::{DaemonWorkerDescriptor, DaemonWorkerLifecycle};
 
 /// How long a `busy` recovery record still proves interrupted live work;
 /// beyond the bound the session reopens through the next client create.
@@ -130,7 +130,7 @@ mod tests {
             created_at: String::new(),
             updated_at: String::new(),
             lifecycle: DaemonWorkerLifecycle::Ready,
-            create_command: pa_types::daemon::DurableDaemonCreateCommand {
+            create_command: aa_types::daemon::DurableDaemonCreateCommand {
                 session_path: None,
                 no_session: None,
                 rest: Map::default(),

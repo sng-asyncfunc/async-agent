@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use pa_types::daemon::{DaemonCommand, DaemonWorkerCommand};
+use aa_types::daemon::{DaemonCommand, DaemonWorkerCommand};
 use serde_json::{json, Map, Value};
 
 use crate::backpressure::RouteAdmission;
@@ -500,7 +500,7 @@ mod tests {
     use super::*;
     use crate::registry::ResidentWorker;
     use crate::supervisor::SupervisorOptions;
-    use pa_types::daemon::{
+    use aa_types::daemon::{
         DaemonWorkerDescriptor, DaemonWorkerLifecycle, DurableDaemonCreateCommand,
     };
 

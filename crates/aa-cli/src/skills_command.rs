@@ -1,6 +1,6 @@
-//! `prime-agent skills`: list every discovered skill and why it is or is not
+//! `async-agent skills`: list every discovered skill and why it is or is not
 //! part of a session started in a directory, from the same resolution the
-//! session and `prime-agent prompt` use.
+//! session and `async-agent prompt` use.
 
 use crate::config::get_agent_dir;
 
@@ -35,7 +35,7 @@ pub fn run_skills_command(args: &[String]) -> i32 {
         Ok(parsed) => parsed,
         Err(error) => {
             eprintln!("Error: {error}");
-            eprintln!("Run `prime-agent help skills` for usage.");
+            eprintln!("Run `async-agent help skills` for usage.");
             return 1;
         }
     };

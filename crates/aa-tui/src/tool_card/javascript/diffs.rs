@@ -1,6 +1,6 @@
 //! Edit diffs in the cell card: one `╰─ <path> +N -M` summary line per edited file, always
 //! shown, and the numbered diff rows when edit diffs are expanded. Each `details.diffs` entry
-//! carries pa-core's edit-tool diff text, so the card only splits it into rows.
+//! carries aa-core's edit-tool diff text, so the card only splits it into rows.
 
 use std::path::Path;
 

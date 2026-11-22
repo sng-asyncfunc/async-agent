@@ -135,7 +135,7 @@ fn a_no_effect_success_response_reports_nothing_changed() {
         child_id: "child-c".to_string(),
         name: "worker one".to_string(),
     };
-    let response = pa_types::daemon::DaemonResponse {
+    let response = aa_types::daemon::DaemonResponse {
         success: true,
         data: Some(serde_json::json!({"cancelled": false})),
         error: None,
@@ -144,7 +144,7 @@ fn a_no_effect_success_response_reports_nothing_changed() {
         error_info: None,
     };
     assert!(!action.effect_happened(&response));
-    let response = pa_types::daemon::DaemonResponse {
+    let response = aa_types::daemon::DaemonResponse {
         success: true,
         data: Some(serde_json::json!({"cancelled": true})),
         error: None,
@@ -158,7 +158,7 @@ fn a_no_effect_success_response_reports_nothing_changed() {
         child_id: "child-c".to_string(),
         name: "worker one".to_string(),
     };
-    let response = pa_types::daemon::DaemonResponse {
+    let response = aa_types::daemon::DaemonResponse {
         success: true,
         data: Some(serde_json::json!({"deleted": false})),
         error: None,

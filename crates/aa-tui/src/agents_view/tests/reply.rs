@@ -4,7 +4,7 @@
 use super::*;
 use crate::agents_view::rename::{Rename, RenameTarget};
 use crate::agents_view::reply::{KillRequest, ReplyRequest, ReplySent};
-use pa_types::daemon::StreamingBehavior;
+use aa_types::daemon::StreamingBehavior;
 
 /// One armed composer over the fixture's live parent row.
 fn armed_live() -> AgentsViewMode {

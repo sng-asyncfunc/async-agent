@@ -8,7 +8,7 @@ fn kb() -> KeybindingsManager {
 }
 
 fn theme() -> Theme {
-    Theme::builtin("prime", ColorMode::TrueColor)
+    Theme::builtin("async", ColorMode::TrueColor)
 }
 
 fn job_value(id: &str, source: &str, status: &str) -> Value {

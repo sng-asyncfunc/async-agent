@@ -200,13 +200,13 @@ async fn a_relaunch_spawn_record_serves_the_durable_persist() {
         &replacement,
     );
     assert_eq!(
-        launch_env.get(pa_core::kernel::orphan_journal::ORPHAN_PROCESS_JOURNAL_ENV),
+        launch_env.get(aa_core::kernel::orphan_journal::ORPHAN_PROCESS_JOURNAL_ENV),
         Some(replacement_path),
         "the persisted replacement path is the worker launch environment",
     );
     let retained = b"replacement-owned journal records\n";
     std::fs::write(replacement_path, retained).expect("replacement journal");
-    pa_core::kernel::orphan_journal::reap_worker_orphan_processes(
+    aa_core::kernel::orphan_journal::reap_worker_orphan_processes(
         Path::new(&first_path),
         i32::try_from(persisted.pid).expect("worker pid"),
     );

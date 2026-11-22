@@ -1,7 +1,7 @@
 use super::*;
-use pa_core::session::manager::SessionManager;
-use pa_core::session_engine::engine::{create_session, SessionEngineConfig};
-use pa_types::session::FileEntry;
+use aa_core::session::manager::SessionManager;
+use aa_core::session_engine::engine::{create_session, SessionEngineConfig};
+use aa_types::session::FileEntry;
 use serde_json::json;
 
 /// The faux model's per-request output budget: threshold fixtures
@@ -50,15 +50,15 @@ async fn faux_engine_with_mock_telemetry(
     SessionEngine,
     tempfile::TempDir,
     Model,
-    std::sync::Arc<pa_telemetry::MockSink>,
+    std::sync::Arc<aa_telemetry::MockSink>,
 ) {
-    let mock = std::sync::Arc::new(pa_telemetry::MockSink::new());
-    let mut config = pa_telemetry::TelemetryClientConfig::new("install-1");
+    let mock = std::sync::Arc::new(aa_telemetry::MockSink::new());
+    let mut config = aa_telemetry::TelemetryClientConfig::new("install-1");
     config.batch_size = 1;
     config.flush_interval = std::time::Duration::from_mins(10);
-    config.sinks = vec![mock.clone() as std::sync::Arc<dyn pa_telemetry::TelemetrySink>];
-    let client = pa_telemetry::TelemetryClient::spawn(config).expect("spawn client");
-    let telemetry = pa_core::session_engine::telemetry::TelemetryWiring {
+    config.sinks = vec![mock.clone() as std::sync::Arc<dyn aa_telemetry::TelemetrySink>];
+    let client = aa_telemetry::TelemetryClient::spawn(config).expect("spawn client");
+    let telemetry = aa_core::session_engine::telemetry::TelemetryWiring {
         client,
         execution_mode: Some("print".to_string()),
         now: None,
@@ -73,23 +73,23 @@ async fn faux_engine_with_telemetry(
     script: Value,
     settings: Value,
     session_manager: Option<SessionManager>,
-    telemetry: Option<pa_core::session_engine::telemetry::TelemetryWiring>,
+    telemetry: Option<aa_core::session_engine::telemetry::TelemetryWiring>,
 ) -> (SessionEngine, tempfile::TempDir, Model) {
     let dir = tempfile::TempDir::new().unwrap();
     let agent_dir = dir.path().join("agent");
     std::fs::create_dir_all(&agent_dir).unwrap();
     std::fs::write(agent_dir.join("settings.json"), settings.to_string()).unwrap();
-    let parsed = pa_ai::faux::script::parse_faux_script(&script).unwrap();
+    let parsed = aa_ai::faux::script::parse_faux_script(&script).unwrap();
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             models: Some(vec![parsed.model]),
             ..Default::default()
         });
     registration.set_responses(parsed.responses);
     registration.set_repeat_last_response(parsed.repeat_last_response);
     let model = registration.get_model();
-    let stream_fn = pa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
-    let agent_model: pa_agent::types::Model =
+    let stream_fn = aa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
+    let agent_model: aa_agent::types::Model =
         json_round_trip(&model).expect("the faux model crosses the loop boundary");
     let session_manager = session_manager
         .or_else(|| {
@@ -157,7 +157,7 @@ async fn end_telemetry(engine: &SessionEngine) {
     tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 }
 
-fn mock_properties(mock: &std::sync::Arc<pa_telemetry::MockSink>, name: &str) -> Vec<Value> {
+fn mock_properties(mock: &std::sync::Arc<aa_telemetry::MockSink>, name: &str) -> Vec<Value> {
     mock.events()
         .iter()
         .filter(|event| event.name == name)
@@ -176,7 +176,7 @@ async fn admit(
     boundary.run_pre_turn(engine, model, None).await?;
     engine
         .session
-        .prompt(&prompt, pa_core::session_engine::PromptOptions::default())
+        .prompt(&prompt, aa_core::session_engine::PromptOptions::default())
         .await
         .expect("the prompt admits");
     engine.session.agent().wait_for_idle().await;
@@ -198,7 +198,7 @@ async fn admit_turn_with_scheduled_request(
 ) -> Result<(), String> {
     engine
         .session
-        .prompt(&prompt, pa_core::session_engine::PromptOptions::default())
+        .prompt(&prompt, aa_core::session_engine::PromptOptions::default())
         .await
         .expect("the prompt admits");
     engine.session.agent().wait_for_idle().await;
@@ -207,7 +207,7 @@ async fn admit_turn_with_scheduled_request(
     Ok(())
 }
 
-async fn outcome_rows(engine: &SessionEngine) -> Vec<pa_types::session::CustomMessageEntry> {
+async fn outcome_rows(engine: &SessionEngine) -> Vec<aa_types::session::CustomMessageEntry> {
     engine
         .session
         .entries()
@@ -251,7 +251,7 @@ async fn user_texts(engine: &SessionEngine) -> Vec<String> {
         .collect()
 }
 
-async fn last_assistant(engine: &SessionEngine) -> Option<pa_types::ai::AssistantMessage> {
+async fn last_assistant(engine: &SessionEngine) -> Option<aa_types::ai::AssistantMessage> {
     if let SessionAgentMessage::Assistant(assistant) =
         engine.session.last_assistant_message().await?
     {
@@ -306,7 +306,7 @@ async fn overflow_compacts_retries_once_then_reports_the_failure() {
     // The retried turn's settled timestamp lands past the compaction
     // boundary (the serve-time pacing).
     let last = last_assistant(&engine).await.expect("a settled error turn");
-    assert_eq!(last.stop_reason, pa_types::ai::StopReason::Error);
+    assert_eq!(last.stop_reason, aa_types::ai::StopReason::Error);
     assert_eq!(last.error_message.as_deref(), Some(OVERFLOW_ERROR));
     assert_eq!(user_texts(&engine).await.len(), 2);
 }
@@ -351,12 +351,12 @@ async fn overflow_retry_succeeds_on_the_compacted_context() {
         .content
         .iter()
         .filter_map(|block| match block {
-            pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+            aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
             _ => None,
         })
         .collect::<String>();
     assert_eq!(text, "recovered reply");
-    assert_eq!(last.stop_reason, pa_types::ai::StopReason::Stop);
+    assert_eq!(last.stop_reason, aa_types::ai::StopReason::Stop);
     assert_eq!(user_texts(&engine).await.len(), 2);
 }
 
@@ -402,7 +402,7 @@ async fn overflow_recovery_skip_surfaces_the_warning_row() {
     assert_eq!(compaction_count(&engine).await, 0);
     assert_eq!(outcome_rows(&engine).await.len(), 1);
     let last = last_assistant(&engine).await.expect("a settled turn");
-    assert_eq!(last.stop_reason, pa_types::ai::StopReason::Stop);
+    assert_eq!(last.stop_reason, aa_types::ai::StopReason::Stop);
     assert_eq!(
         user_texts(&engine).await,
         ["seed turn", "overflow probe", "next prompt"]
@@ -479,7 +479,7 @@ async fn stale_overflow_error_recovers_before_the_next_prompt_after_a_resume() {
     assert!(
         !matches!(
             &stale,
-            Some(message) if message.stop_reason == pa_types::ai::StopReason::Error
+            Some(message) if message.stop_reason == aa_types::ai::StopReason::Error
         ),
         "the stale overflow error is gone from the context"
     );
@@ -492,7 +492,7 @@ async fn stale_overflow_error_recovers_before_the_next_prompt_after_a_resume() {
     .await
     .unwrap();
     let last = last_assistant(&engine_b).await.expect("a settled turn");
-    assert_eq!(last.stop_reason, pa_types::ai::StopReason::Stop);
+    assert_eq!(last.stop_reason, aa_types::ai::StopReason::Stop);
     assert_eq!(user_texts(&engine_b).await.len(), 3);
 }
 
@@ -543,12 +543,12 @@ async fn autonomous_continuation_turns_cross_the_boundary_arms() {
     assert_eq!(compaction_count(&engine).await, 1);
     assert!(outcome_rows(&engine).await.is_empty());
     let last = last_assistant(&engine).await.expect("a settled turn");
-    assert_eq!(last.stop_reason, pa_types::ai::StopReason::Stop);
+    assert_eq!(last.stop_reason, aa_types::ai::StopReason::Stop);
     let text = last
         .content
         .iter()
         .filter_map(|block| match block {
-            pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+            aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
             _ => None,
         })
         .collect::<String>();
@@ -566,7 +566,7 @@ async fn autonomous_continuation_turns_cross_the_boundary_arms() {
         .into_iter()
         .all(|entry| !matches!(
             &entry,
-            pa_types::session::FileEntry::CustomMessage { payload, .. }
+            aa_types::session::FileEntry::CustomMessage { payload, .. }
                 if payload.custom_type == "autonomous_status"
         )));
     let stderr = run
@@ -585,7 +585,7 @@ fn capture_sink() -> (EventSink, std::sync::Arc<std::sync::Mutex<Vec<Value>>>) {
     (sink, events)
 }
 
-async fn refine_rows(engine: &SessionEngine) -> Vec<pa_types::session::CustomMessage> {
+async fn refine_rows(engine: &SessionEngine) -> Vec<aa_types::session::CustomMessage> {
     engine
         .session
         .entries()
@@ -593,7 +593,7 @@ async fn refine_rows(engine: &SessionEngine) -> Vec<pa_types::session::CustomMes
         .into_iter()
         .filter_map(|entry| match entry {
             FileEntry::CustomMessage { payload, base } => {
-                let row = pa_types::session::CustomMessage {
+                let row = aa_types::session::CustomMessage {
                     custom_type: payload.custom_type.clone(),
                     content: payload.content.clone(),
                     display: payload.display,
@@ -601,7 +601,7 @@ async fn refine_rows(engine: &SessionEngine) -> Vec<pa_types::session::CustomMes
                     timestamp: base
                         .timestamp
                         .as_deref()
-                        .map(pa_core::session::timestamp_to_millis)
+                        .map(aa_core::session::timestamp_to_millis)
                         .unwrap_or_default(),
                     rest: payload.rest,
                 };
@@ -1117,7 +1117,7 @@ async fn pre_turn_check_consumes_a_pending_request_before_the_prompt() {
         .content
         .iter()
         .filter_map(|block| match block {
-            pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+            aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
             _ => None,
         })
         .collect::<String>();
@@ -1209,7 +1209,7 @@ async fn pre_turn_threshold_arm_compacts_a_resumed_session_before_the_prompt() {
     .unwrap();
     assert_eq!(compaction_count(&engine_b).await, 1);
     let last = last_assistant(&engine_b).await.expect("a settled turn");
-    assert_eq!(last.stop_reason, pa_types::ai::StopReason::Stop);
+    assert_eq!(last.stop_reason, aa_types::ai::StopReason::Stop);
     assert_eq!(user_texts(&engine_b).await.len(), 3);
 }
 
@@ -1236,14 +1236,14 @@ async fn pre_turn_abort_arm_drops_pending_requests_and_continues() {
         .await
         .unwrap();
     let last = last_assistant(&engine).await.expect("a settled turn");
-    assert_eq!(last.stop_reason, pa_types::ai::StopReason::Aborted);
+    assert_eq!(last.stop_reason, aa_types::ai::StopReason::Aborted);
     engine
         .turn_boundary
         .schedule_compaction(Some("stale request".to_string()))
         .await;
     engine
         .turn_boundary
-        .schedule_refine(pa_core::session_engine::turn_boundary::PendingRefine {
+        .schedule_refine(aa_core::session_engine::turn_boundary::PendingRefine {
             instructions: None,
             global: false,
         })
@@ -1260,7 +1260,7 @@ async fn pre_turn_abort_arm_drops_pending_requests_and_continues() {
         .unwrap();
     assert_eq!(compaction_count(&engine).await, 0);
     let last = last_assistant(&engine).await.expect("a settled turn");
-    assert_eq!(last.stop_reason, pa_types::ai::StopReason::Stop);
+    assert_eq!(last.stop_reason, aa_types::ai::StopReason::Stop);
 }
 
 #[tokio::test]
@@ -1277,7 +1277,7 @@ async fn requested_refinement_failure_emits_the_refine_failed_event() {
     let mut boundary = TurnBoundary::with_sink(true, sink);
     engine
         .turn_boundary
-        .schedule_refine(pa_core::session_engine::turn_boundary::PendingRefine {
+        .schedule_refine(aa_core::session_engine::turn_boundary::PendingRefine {
             instructions: None,
             global: true,
         })
@@ -1313,7 +1313,7 @@ async fn requested_refinement_streams_rows_and_refine_complete() {
     let mut boundary = TurnBoundary::with_sink(true, sink);
     engine
         .turn_boundary
-        .schedule_refine(pa_core::session_engine::turn_boundary::PendingRefine {
+        .schedule_refine(aa_core::session_engine::turn_boundary::PendingRefine {
             instructions: None,
             global: true,
         })

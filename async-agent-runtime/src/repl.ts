@@ -38,7 +38,7 @@ import {
 	installPackage,
 	osModule,
 	pathModule,
-	primeFileSystem,
+	asyncFileSystem,
 	skillDisplay,
 	utilModule,
 } from "./runtime-globals.ts";
@@ -69,7 +69,7 @@ const rawStderrWrite = process.stderr.write.bind(process.stderr) as (
 const nativeBunWrite = Bun.write.bind(Bun);
 
 const RUNTIME_FILE_PATH = new URL(import.meta.url).pathname;
-const RUNTIME_STATE_ENTRY_NAME = "\0prime:runtime";
+const RUNTIME_STATE_ENTRY_NAME = "\0async:runtime";
 const MAX_CELL_STREAM_BYTES = 32 * 1024;
 const STREAM_FRAME_TEXT_CAP = 64 * 1024;
 const MAX_RESULT_PROJECTION_DEPTH = 8;
@@ -130,8 +130,8 @@ type AsyncExecutable = (...args: unknown[]) => Promise<unknown>;
 const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (
 	...args: string[]
 ) => AsyncExecutable;
-const restoreFunctionValue = new AsyncFunction("__primeSource", 'return (0, eval)("(" + __primeSource + "\\n)");');
-const restoreImportedValue = new AsyncFunction("__primeSpecifier", "return import(__primeSpecifier);");
+const restoreFunctionValue = new AsyncFunction("__asyncSource", 'return (0, eval)("(" + __asyncSource + "\\n)");');
+const restoreImportedValue = new AsyncFunction("__asyncSpecifier", "return import(__asyncSpecifier);");
 
 const cellContext = new AsyncLocalStorage<ActiveCell>();
 const bindings = new Set<string>();
@@ -164,7 +164,7 @@ function sendEvent(event: Record<string, unknown>): void {
 		rawStdoutWrite(`${JSON.stringify(event)}\n`);
 	} catch (error) {
 		try {
-			rawStderrWrite(`prime-agent-runtime: dropped protocol frame: ${String(error)}\n`);
+			rawStderrWrite(`async-agent-runtime: dropped protocol frame: ${String(error)}\n`);
 		} catch {
 			// ignore
 		}
@@ -1038,7 +1038,7 @@ async function handleExecute(req: Record<string, unknown>): Promise<void> {
 		if (conflict) {
 			throw new SyntaxError(`${conflict} conflicts with a runtime global and cannot be redeclared`);
 		}
-		const executor = new AsyncFunction("__primePersist", transformed.code);
+		const executor = new AsyncFunction("__asyncPersist", transformed.code);
 
 		const abortPromise = new Promise<never>((_res, reject) => {
 			if (cell.abortController.signal.aborted) {
@@ -1399,7 +1399,7 @@ function handleRequestLine(line: string): void {
 // ---------------------------------------------------------------------------
 
 function startOwnerWatchdog(): void {
-	const raw = (process.env.PRIME_AGENT_KERNEL_OWNER_PID ?? "").trim();
+	const raw = (process.env.ASYNC_AGENT_KERNEL_OWNER_PID ?? "").trim();
 	const parsed = Number.parseInt(raw, 10);
 	const initialPpid = process.ppid;
 	const ownerPid = Number.isInteger(parsed) && parsed > 0 ? parsed : initialPpid;
@@ -1447,7 +1447,7 @@ function defineRuntimeGlobal(name: string, value: unknown): void {
 
 function bootstrapRuntime(): void {
 	defineRuntimeGlobal("$", $);
-	defineRuntimeGlobal("fs", primeFileSystem);
+	defineRuntimeGlobal("fs", asyncFileSystem);
 	defineRuntimeGlobal("os", osModule);
 	defineRuntimeGlobal("path", pathModule);
 	defineRuntimeGlobal("util", utilModule);
@@ -1458,10 +1458,10 @@ function bootstrapRuntime(): void {
 	defineRuntimeGlobal("rlm", rlm);
 	defineRuntimeGlobal("installPackage", installPackage);
 	defineRuntimeGlobal("hostRequest", hostRequest);
-	defineRuntimeGlobal("__primeHostRequest", hostRequest);
-	defineRuntimeGlobal("__primeDisplay", skillDisplay);
-	defineRuntimeGlobal("__primeSetCompletionNoticesWired", setCompletionNoticesWired);
-	defineRuntimeGlobal("__primeLoadSkills", createSkillLoader(runtimeBindingNames, requireModule));
+	defineRuntimeGlobal("__asyncHostRequest", hostRequest);
+	defineRuntimeGlobal("__asyncDisplay", skillDisplay);
+	defineRuntimeGlobal("__asyncSetCompletionNoticesWired", setCompletionNoticesWired);
+	defineRuntimeGlobal("__asyncLoadSkills", createSkillLoader(runtimeBindingNames, requireModule));
 
 	process.stdout.write = createProcessStreamWrite("stdout");
 	process.stderr.write = createProcessStreamWrite("stderr");

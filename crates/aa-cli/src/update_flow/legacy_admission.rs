@@ -8,7 +8,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 
-const REGISTRY_OVERRIDE: &str = "PRIME_AGENT_INTERNAL_DAEMON_SUPERVISOR_REGISTRY_DIR";
+const REGISTRY_OVERRIDE: &str = "ASYNC_AGENT_INTERNAL_DAEMON_SUPERVISOR_REGISTRY_DIR";
 const LEASE_MS: u64 = 5_000;
 
 pub(super) struct Admission {
@@ -22,10 +22,10 @@ impl Admission {
             vec![PathBuf::from(path)]
         } else {
             let home =
-                pa_types::platform::home_dir().context("resolve supervisor registry home")?;
+                aa_types::platform::home_dir().context("resolve supervisor registry home")?;
             vec![
-                home.join(".prime/supervisor-owners"),
-                pa_daemon::socket::default_daemon_socket_path()
+                home.join(".async-agent/supervisor-owners"),
+                aa_daemon::socket::default_daemon_socket_path()
                     .parent()
                     .context("resolve legacy supervisor registry")?
                     .join("supervisor-owners"),
@@ -39,7 +39,7 @@ impl Admission {
     pub(super) async fn acquire(directories: &[PathBuf]) -> Result<Self> {
         for directory in directories {
             std::fs::create_dir_all(directory)?;
-            pa_core::platform::restrict_dir(directory)?;
+            aa_core::platform::restrict_dir(directory)?;
         }
         let now = crate::util_time::now_iso8601();
         let identity = super::status::coordinator_identity();
@@ -47,7 +47,7 @@ impl Admission {
             directories: Vec::new(),
             record: json!({"version":1,"token":uuid::Uuid::new_v4().to_string(),
                 "pid":identity.pid,"createdAt":now,"updatedAt":now,
-                "expiresAt":pa_daemon::util::iso_from_unix_ms(crate::util_time::now_ms()+LEASE_MS)}),
+                "expiresAt":aa_daemon::util::iso_from_unix_ms(crate::util_time::now_ms()+LEASE_MS)}),
         };
         if let Some(start_id) = identity.process_start_id {
             admission.record["processStartId"] = json!(start_id);
@@ -88,7 +88,7 @@ impl Admission {
                 "another TypeScript daemon shutdown is still running"
             );
             tokio::time::sleep(Duration::from_millis(50)).await;
-            admission.record["expiresAt"] = json!(pa_daemon::util::iso_from_unix_ms(
+            admission.record["expiresAt"] = json!(aa_daemon::util::iso_from_unix_ms(
                 crate::util_time::now_ms() + LEASE_MS
             ));
         }
@@ -96,7 +96,7 @@ impl Admission {
 
     pub(super) async fn refresh(&mut self) -> Result<()> {
         self.record["updatedAt"] = json!(crate::util_time::now_iso8601());
-        self.record["expiresAt"] = json!(pa_daemon::util::iso_from_unix_ms(
+        self.record["expiresAt"] = json!(aa_daemon::util::iso_from_unix_ms(
             crate::util_time::now_ms() + LEASE_MS
         ));
         for directory in &self.directories {
@@ -142,7 +142,7 @@ fn read_record(path: &Path) -> Result<Option<Value>> {
                     && value["pid"].as_u64().is_some_and(|pid| pid > 0)
                     && value["expiresAt"]
                         .as_str()
-                        .and_then(pa_daemon::util::iso_to_unix_ms)
+                        .and_then(aa_daemon::util::iso_to_unix_ms)
                         .is_some(),
                 "invalid TypeScript shutdown admission at {}",
                 path.display()
@@ -157,7 +157,7 @@ fn read_record(path: &Path) -> Result<Option<Value>> {
 fn record_is_active(record: &Value) -> bool {
     let unexpired = record["expiresAt"]
         .as_str()
-        .and_then(pa_daemon::util::iso_to_unix_ms)
+        .and_then(aa_daemon::util::iso_to_unix_ms)
         .is_some_and(|expires| expires > crate::util_time::now_ms());
     if !unexpired {
         return false;
@@ -168,10 +168,10 @@ fn record_is_active(record: &Value) -> bool {
     else {
         return true;
     };
-    if matches!(pa_daemon::lease::is_process_alive(pid), Ok(false)) {
+    if matches!(aa_daemon::lease::is_process_alive(pid), Ok(false)) {
         return false;
     }
-    !matches!((record["processStartId"].as_str(), pa_daemon::lease::get_process_start_id(pid)),
+    !matches!((record["processStartId"].as_str(), aa_daemon::lease::get_process_start_id(pid)),
         (Some(expected), Some(observed)) if expected != observed)
 }
 

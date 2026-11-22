@@ -97,7 +97,7 @@ impl Worker {
             // The ACTIVE tier: the preference clamped to the model's tier support.
             service_tier: crate::setting_switches::service_tier_wire_name(
                 core.active_service_tier
-                    .unwrap_or(pa_types::ai::ServiceTier::Auto),
+                    .unwrap_or(aa_types::ai::ServiceTier::Auto),
             )
             .to_string(),
             // The resolved model's supported levels (TS `getSupportedThinkingLevels`):

@@ -1,4 +1,4 @@
-//! `AgentSession`: the turn admission layer over the pa-agent loop
+//! `AgentSession`: the turn admission layer over the aa-agent loop
 //! (prompt normalization, busy-admission rules, `SessionManager`
 //! persistence); the Agent owns the loop, this layer decides admission.
 
@@ -57,10 +57,10 @@ mod wiring;
 
 use std::sync::Arc;
 
-use pa_agent::agent::Agent;
-use pa_agent::types::{AgentEvent, AgentMessage, ThinkingLevel};
-use pa_types::session::AgentMessage as SessionAgentMessage;
-use pa_types::session::FileEntry;
+use aa_agent::agent::Agent;
+use aa_agent::types::{AgentEvent, AgentMessage, ThinkingLevel};
+use aa_types::session::AgentMessage as SessionAgentMessage;
+use aa_types::session::FileEntry;
 
 use crate::session::manager::{capture_git_context, SessionManager};
 use crate::skills::PromptTemplate;
@@ -101,7 +101,7 @@ pub struct PromptOptions {
 #[derive(Debug, Clone)]
 pub struct PromptBatchRow {
     pub text: String,
-    pub images: Vec<pa_agent::types::ImageContent>,
+    pub images: Vec<aa_agent::types::ImageContent>,
 }
 
 /// Which trailing assistant messages [`AgentSession::drop_trailing_assistant`]
@@ -114,8 +114,8 @@ pub enum TrailingAssistantFilter {
     ErrorOnly,
 }
 
-fn standard_message(message: &pa_agent::types::AgentMessage) -> Option<&pa_agent::types::Message> {
-    let pa_agent::types::AgentMessage::Standard(message) = message else {
+fn standard_message(message: &aa_agent::types::AgentMessage) -> Option<&aa_agent::types::Message> {
+    let aa_agent::types::AgentMessage::Standard(message) = message else {
         return None;
     };
     Some(message)
@@ -152,7 +152,7 @@ pub struct AgentSession {
     kernel_state: Option<std::sync::Arc<dyn javascript_state::CompactionKernelProbe>>,
     /// TS `_pendingNextTurnMessages`: custom rows the NEXT admitted
     /// turn carries ahead of its own prompt row.
-    pending_next_turn_rows: std::sync::Arc<std::sync::Mutex<Vec<pa_types::session::CustomMessage>>>,
+    pending_next_turn_rows: std::sync::Arc<std::sync::Mutex<Vec<aa_types::session::CustomMessage>>>,
     /// The skill inventory `/skill:<name>` submissions expand against.
     skills: Vec<crate::skills::Skill>,
     /// The telemetry handle for the `skill_use_count` counter the prompt
@@ -172,7 +172,7 @@ pub struct AgentSession {
     /// Refinement runs currently planning or committing (`refine.status`'s
     /// `in_flight`): every run holds its flight guard for its whole body.
     refinements_in_flight: Arc<std::sync::atomic::AtomicUsize>,
-    refinement_cancel: std::sync::Mutex<pa_agent::abort::AbortController>,
+    refinement_cancel: std::sync::Mutex<aa_agent::abort::AbortController>,
     /// The session's semantic-edge recorder (TS
     /// `AgentSession._semanticEdges`): `None` in sessions the engine
     /// built without a semantic identity (verification harnesses
@@ -183,12 +183,12 @@ pub struct AgentSession {
     /// question carries no request id). `None` until the engine wires it;
     /// a side question on an unwired session fails with the model-selection
     /// error (no fallback to the agent's id-carrying fn).
-    side_question_stream_fn: std::sync::Mutex<Option<pa_agent::stream::StreamFn>>,
+    side_question_stream_fn: std::sync::Mutex<Option<aa_agent::stream::StreamFn>>,
     /// The session's agent dir (the settings root): the refine flow
     /// resolves the `factory.enabled` opt-in from its settings.json on
     /// every run, immediately before the plan applies, mirroring the
     /// kernel-side factory gate that reads the same file through
-    /// `PRIME_AGENT_CODING_AGENT_DIR`. `None` until the engine wiring
+    /// `ASYNC_AGENT_CODING_AGENT_DIR`. `None` until the engine wiring
     /// resolves it (verification harnesses building the session directly
     /// keep `None`, which reads as the fail-closed disabled default).
     agent_dir: Option<std::path::PathBuf>,
@@ -337,11 +337,11 @@ impl AgentSession {
     /// shape, or when the model-change row cannot be persisted.
     pub async fn set_model(
         &self,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         provider: &str,
         model_id: &str,
     ) -> anyhow::Result<()> {
-        let wire: pa_agent::types::Model = serde_json::from_value(
+        let wire: aa_agent::types::Model = serde_json::from_value(
             serde_json::to_value(model).map_err(|error| anyhow::anyhow!(error.to_string()))?,
         )
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
@@ -361,12 +361,12 @@ impl AgentSession {
     /// wire shape, or when the model-change row cannot be persisted.
     pub async fn set_model_and_thinking_level(
         &self,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         provider: &str,
         model_id: &str,
         thinking_level: ThinkingLevel,
     ) -> anyhow::Result<()> {
-        let wire: pa_agent::types::Model = serde_json::from_value(
+        let wire: aa_agent::types::Model = serde_json::from_value(
             serde_json::to_value(model).map_err(|error| anyhow::anyhow!(error.to_string()))?,
         )
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
@@ -419,7 +419,7 @@ async fn persist_event(
                 other => session.append_message_retained(other).1,
             };
             if let Some(error) = write_error {
-                eprintln!("pa-core: message row not persisted: {error}");
+                eprintln!("aa-core: message row not persisted: {error}");
             }
         }
         // Tool-call lifecycle rows: the start and running sides of the
@@ -435,7 +435,7 @@ async fn persist_event(
                 .await
                 .append_tool_started(&tool_call_id, &tool_name, args);
             if let Err(error) = result {
-                eprintln!("pa-core: tool_started row not persisted: {error}");
+                eprintln!("aa-core: tool_started row not persisted: {error}");
             }
         }
         AgentEvent::ToolExecutionProgress {
@@ -449,7 +449,7 @@ async fn persist_event(
                     .await
                     .append_tool_progress(&tool_call_id, &tool_name, elapsed_ms);
             if let Err(error) = result {
-                eprintln!("pa-core: tool_progress row not persisted: {error}");
+                eprintln!("aa-core: tool_progress row not persisted: {error}");
             }
         }
         // Git state is captured at both run boundaries, exactly like the
@@ -489,19 +489,19 @@ fn loop_message_to_session(message: &AgentMessage) -> Option<SessionAgentMessage
 
 /// Text first, images after, so a queued message matches a directly
 /// admitted one token for token.
-fn user_prompt_message(text: &str, images: &[pa_agent::types::ImageContent]) -> AgentMessage {
-    let mut parts = vec![pa_agent::types::UserPart::Text(
-        pa_agent::types::TextContent {
+fn user_prompt_message(text: &str, images: &[aa_agent::types::ImageContent]) -> AgentMessage {
+    let mut parts = vec![aa_agent::types::UserPart::Text(
+        aa_agent::types::TextContent {
             text: text.to_string(),
             text_signature: None,
         },
     )];
     for image in images {
-        parts.push(pa_agent::types::UserPart::Image(image.clone()));
+        parts.push(aa_agent::types::UserPart::Image(image.clone()));
     }
-    AgentMessage::Standard(pa_agent::types::Message::User(
-        pa_agent::types::UserMessage {
-            content: pa_agent::types::UserContent::Parts(parts),
+    AgentMessage::Standard(aa_agent::types::Message::User(
+        aa_agent::types::UserMessage {
+            content: aa_agent::types::UserContent::Parts(parts),
             timestamp: now_millis() as i64,
         },
     ))

@@ -1,7 +1,7 @@
 //! Project context files (AGENTS.md/CLAUDE.md discovery) and the resource
 //! loader: skills, prompt templates, agents files, and system-prompt
 //! sources, resolved from configured packages, settings, auto-discovery,
-//! and bundled skills through the package manager. Theme loading lives in pa-tui.
+//! and bundled skills through the package manager. Theme loading lives in aa-tui.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -377,15 +377,15 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let agent_dir = tmp.path().join("agent");
         let project = tmp.path().join("proj");
-        fs::create_dir_all(agent_dir.join(".prime").join("agent")).unwrap();
-        fs::create_dir_all(project.join(".prime").join("agent")).unwrap();
+        fs::create_dir_all(agent_dir.join(".async-agent")).unwrap();
+        fs::create_dir_all(project.join(".async-agent")).unwrap();
         fs::write(
-            agent_dir.join(".prime").join("agent").join("SYSTEM.md"),
+            agent_dir.join(".async-agent").join("SYSTEM.md"),
             "global system",
         )
         .unwrap();
         fs::write(
-            project.join(".prime").join("agent").join("SYSTEM.md"),
+            project.join(".async-agent").join("SYSTEM.md"),
             "project system",
         )
         .unwrap();
@@ -403,7 +403,7 @@ mod tests {
         let agent_dir = tmp.path().join("agent");
         let cwd = tmp.path().join("proj");
         fs::create_dir_all(agent_dir.join("skills").join("alpha")).unwrap();
-        fs::create_dir_all(cwd.join(".prime").join("agent").join("prompts")).unwrap();
+        fs::create_dir_all(cwd.join(".async-agent").join("prompts")).unwrap();
         fs::create_dir_all(&cwd).unwrap();
         fs::write(
             agent_dir.join("skills").join("alpha").join("SKILL.md"),
@@ -411,8 +411,7 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            cwd.join(".prime")
-                .join("agent")
+            cwd.join(".async-agent")
                 .join("prompts")
                 .join("fix.md"),
             "Fix $1",
@@ -420,7 +419,7 @@ mod tests {
         .unwrap();
         fs::write(cwd.join("AGENTS.md"), "Project rules").unwrap();
         fs::write(
-            cwd.join(".prime").join("agent").join("SYSTEM.md"),
+            cwd.join(".async-agent").join("SYSTEM.md"),
             "custom system",
         )
         .unwrap();
@@ -489,7 +488,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let cwd = tmp.path().join("project");
         let agent_dir = tmp.path().join("agent");
-        let project_skill = cwd.join(".prime/agent/skills/project-code");
+        let project_skill = cwd.join(".async-agent/skills/project-code");
         let configured_skill = tmp.path().join("configured/configured-code");
         let ancestor_skill = tmp.path().join(".agents/skills/ancestor-code");
         let user_skill = agent_dir.join("skills/user-code");
@@ -510,7 +509,7 @@ mod tests {
                 serde_json::json!({
                     "name": name,
                     "type": "module",
-                    "primeAgent": { "global": global, "entry": "src/index.ts" }
+                    "asyncAgent": { "global": global, "entry": "src/index.ts" }
                 })
                 .to_string(),
             )
@@ -518,7 +517,7 @@ mod tests {
             fs::write(dir.join("src/index.ts"), "export default () => {};\n").unwrap();
         }
         fs::write(
-            cwd.join(".prime/agent/settings.json"),
+            cwd.join(".async-agent/settings.json"),
             serde_json::json!({"skills": [configured_skill.display().to_string()] }).to_string(),
         )
         .unwrap();
@@ -558,8 +557,7 @@ mod tests {
         let cwd = tmp.path().join("proj");
         fs::create_dir_all(agent_dir.join("skills").join("alpha")).unwrap();
         fs::create_dir_all(
-            cwd.join(".prime")
-                .join("agent")
+            cwd.join(".async-agent")
                 .join("skills")
                 .join("alpha"),
         )
@@ -571,8 +569,7 @@ mod tests {
         )
         .unwrap();
         fs::write(
-            cwd.join(".prime")
-                .join("agent")
+            cwd.join(".async-agent")
                 .join("skills")
                 .join("alpha")
                 .join("SKILL.md"),
@@ -599,7 +596,7 @@ mod tests {
     }
 
     /// A skill directory: `SKILL.md` with `frontmatter`, plus a JavaScript
-    /// package (`package.json` with `primeAgent`) when given.
+    /// package (`package.json` with `asyncAgent`) when given.
     fn write_skill_dir(dir: &Path, frontmatter: &str, global: Option<&str>) -> PathBuf {
         fs::create_dir_all(dir).unwrap();
         let skill_file = dir.join("SKILL.md");
@@ -612,7 +609,7 @@ mod tests {
                 serde_json::json!({
                     "name": dir.file_name().unwrap().to_string_lossy(),
                     "type": "module",
-                    "primeAgent": { "global": global, "entry": "src/index.ts" }
+                    "asyncAgent": { "global": global, "entry": "src/index.ts" }
                 })
                 .to_string(),
             )
@@ -643,7 +640,7 @@ mod tests {
         let agent_dir = tmp.path().join("agent");
         let bundled = tmp.path().join("bundled");
         let cwd = tmp.path().join("proj");
-        let project_skills = cwd.join(".prime/agent/skills");
+        let project_skills = cwd.join(".async-agent/skills");
         let user_skills = agent_dir.join("skills");
         let bundled_goal = write_skill_dir(&bundled.join("goal"), &named("goal"), Some("goal"));
         let project_goal = write_skill_dir(&project_skills.join("goal"), &named("goal"), None);

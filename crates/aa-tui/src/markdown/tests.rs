@@ -702,7 +702,7 @@ fn code_block_indented_no_borders() {
 fn python_fence_renders_the_ts_token_colors() {
     // The TS markdown theme highlights ```python fences through cli-highlight; the fence line's
     // spans carry the syntax palette colors, the indent stays outside them.
-    let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+    let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
     let style = MarkdownStyle::from_theme(&theme);
     let keyword = theme.fg_style(crate::theme::ThemeColor::SyntaxKeyword);
     let number = theme.fg_style(crate::theme::ThemeColor::SyntaxNumber);
@@ -774,7 +774,7 @@ fn streaming_frames_cache_only_settled_blocks() {
 /// hole would replay one doc's rows under another.
 #[test]
 fn block_cache_key_covers_every_render_input() {
-    let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+    let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
     let style = MarkdownStyle::from_theme(&theme);
     let mut cache = MarkdownBlockCache::default();
     for doc in [
@@ -798,7 +798,7 @@ fn block_cache_key_covers_every_render_input() {
 fn python_fence_multiline_string_carries_across_rows() {
     // One highlight.js pass over the whole block: a triple-quoted
     // string keeps the string color on every row it spans.
-    let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+    let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
     let style = MarkdownStyle::from_theme(&theme);
     let string = theme.fg_style(crate::theme::ThemeColor::SyntaxString);
     let lines = render_markdown("```python\ns = '''a\nb'''\n```", 40, &style);
@@ -811,7 +811,7 @@ fn python_fence_multiline_string_carries_across_rows() {
 
 #[test]
 fn javascript_and_typescript_fences_highlight_all_aliases() {
-    let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+    let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
     let style = MarkdownStyle::from_theme(&theme);
     let keyword = theme.fg_style(crate::theme::ThemeColor::SyntaxKeyword);
     let number = theme.fg_style(crate::theme::ThemeColor::SyntaxNumber);

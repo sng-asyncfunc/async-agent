@@ -55,7 +55,7 @@ impl AgentSessionEngine {
         let model = match self.session_model() {
             Ok(model) => model,
             Err(error) => {
-                eprintln!("pa-daemon: boundary request could not resolve a model: {error:#}");
+                eprintln!("aa-daemon: boundary request could not resolve a model: {error:#}");
                 return BoundaryRun::Proceed;
             }
         };
@@ -113,7 +113,7 @@ impl AgentSessionEngine {
         let mut stopped_for_compaction = false;
         let mut compacted = false;
         match consumption {
-            Some(Ok(pa_core::session_engine::compact_session::CompactOutcome::Ran(run))) => {
+            Some(Ok(aa_core::session_engine::compact_session::CompactOutcome::Ran(run))) => {
                 // The post-compaction kernel notice goes out before the settled end;
                 // its pair precedes `compaction_end`.
                 if let Some(message) = &run.javascript_state {
@@ -149,13 +149,13 @@ impl AgentSessionEngine {
             }
             // A skip consumed the request: the disclosure row goes out
             // with its pair, then the end event carries the TS warning.
-            Some(Ok(pa_core::session_engine::compact_session::CompactOutcome::Skipped(
+            Some(Ok(aa_core::session_engine::compact_session::CompactOutcome::Skipped(
                 message,
             ))) => {
-                eprintln!("pa-daemon: requested compaction skipped: {message}");
+                eprintln!("aa-daemon: requested compaction skipped: {message}");
                 if !self.emit_unsuccessful_compaction(
-                    pa_core::session_engine::messages::CompactionOutcomeReason::Requested,
-                    pa_core::session_engine::messages::CompactionOutcomeKind::Skipped,
+                    aa_core::session_engine::messages::CompactionOutcomeReason::Requested,
+                    aa_core::session_engine::messages::CompactionOutcomeKind::Skipped,
                     &format!("Requested compaction skipped: {message}"),
                     None,
                     emit,
@@ -167,20 +167,20 @@ impl AgentSessionEngine {
             Some(Err(error)) => {
                 // An aborted run is user-initiated, not a failure: the request is
                 // consumed either way, so the run stops.
-                let cancelled = pa_agent::abort::is_abort_error(&error);
+                let cancelled = aa_agent::abort::is_abort_error(&error);
                 let message = if cancelled {
                     "Requested compaction cancelled".to_string()
                 } else {
-                    eprintln!("pa-daemon: requested compaction failed: {error:#}");
+                    eprintln!("aa-daemon: requested compaction failed: {error:#}");
                     format!("Requested compaction failed: {error:#}")
                 };
                 let outcome = if cancelled {
-                    pa_core::session_engine::messages::CompactionOutcomeKind::Cancelled
+                    aa_core::session_engine::messages::CompactionOutcomeKind::Cancelled
                 } else {
-                    pa_core::session_engine::messages::CompactionOutcomeKind::Failed
+                    aa_core::session_engine::messages::CompactionOutcomeKind::Failed
                 };
                 if !self.emit_unsuccessful_compaction(
-                    pa_core::session_engine::messages::CompactionOutcomeReason::Requested,
+                    aa_core::session_engine::messages::CompactionOutcomeReason::Requested,
                     outcome,
                     &message,
                     None,
@@ -207,8 +207,8 @@ mod tests {
     use crate::agent_engine::tests::{admit, write_compaction_settings};
     use crate::agent_engine::FAUX_TEST_LOCK;
     use crate::agent_engine::{AgentEngineConfig, AgentSessionEngine};
-    use pa_core::session_engine::refine::CommittedRefinement;
-    use pa_core::session_engine::turn_boundary::PendingRefine;
+    use aa_core::session_engine::refine::CommittedRefinement;
+    use aa_core::session_engine::turn_boundary::PendingRefine;
     use serde_json::json;
 
     /// One faux-driven engine over its own tempdir: the shared helper pins
@@ -352,40 +352,40 @@ mod tests {
         // conversation log implies.
         let committed = run_refinement(&engine, "Record the local seam", false);
         let local_store =
-            pa_core::session_engine::harness_digest::local_harness_dir_for_log(&conversation_log)
+            aa_core::session_engine::harness_digest::local_harness_dir_for_log(&conversation_log)
                 .expect("the conversation log implies the artifact store");
         assert_eq!(
             std::path::Path::new(&committed.result.harness_state_path),
-            pa_core::refinement::get_harness_state_path(&local_store),
+            aa_core::refinement::get_harness_state_path(&local_store),
             "the daemon's local refinement wrote the session's own artifact store"
         );
-        let local_state = pa_core::refinement::load_harness_state(
+        let local_state = aa_core::refinement::load_harness_state(
             &local_store,
-            pa_core::refinement::HarnessScope::Local,
+            aa_core::refinement::HarnessScope::Local,
         );
         assert!(
-            local_state.entries[&pa_core::refinement::RefinementKind::Memory].contains_key("l1"),
+            local_state.entries[&aa_core::refinement::RefinementKind::Memory].contains_key("l1"),
             "the local edit lands in the session's own harness store"
         );
         // The global half: the agent dir's harness store, the one the
         // session's digest context carries.
         let global_committed = run_refinement(&engine, "Record a durable global tactic", true);
         let agent_dir = dir.path().join("agent");
-        let global_dir = pa_core::refinement::get_global_harness_state_dir(&agent_dir);
-        let global_state = pa_core::refinement::load_harness_state(
+        let global_dir = aa_core::refinement::get_global_harness_state_dir(&agent_dir);
+        let global_state = aa_core::refinement::load_harness_state(
             &global_dir,
-            pa_core::refinement::HarnessScope::Global,
+            aa_core::refinement::HarnessScope::Global,
         );
         assert!(
-            global_state.entries[&pa_core::refinement::RefinementKind::Memory].contains_key("g1"),
+            global_state.entries[&aa_core::refinement::RefinementKind::Memory].contains_key("g1"),
             "the global edit lands in the agent dir's harness store"
         );
         assert_eq!(
             std::path::Path::new(&global_committed.result.harness_state_path),
-            pa_core::refinement::get_harness_state_path(&global_dir),
+            aa_core::refinement::get_harness_state_path(&global_dir),
             "the daemon's global refinement wrote the agent dir's harness store"
         );
-        // The digest half of the pair is pinned at the pa-core seam
+        // The digest half of the pair is pinned at the aa-core seam
         // (`daemon_shaped_local_refinement_writes_the_sessions_own_harness_store`):
         // the digest renders the session's own digest context, and the
         // refinement `harness_state_path` asserts above pin that same

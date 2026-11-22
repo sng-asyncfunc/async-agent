@@ -18,15 +18,15 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use pa_core::kernel::bootstrap::build_rlm_bootstrap_code;
-use pa_core::kernel::manager::{KernelStartOptions, ReplKernelManager};
-use pa_core::kernel::shared::{
+use aa_core::kernel::bootstrap::build_rlm_bootstrap_code;
+use aa_core::kernel::manager::{KernelStartOptions, ReplKernelManager};
+use aa_core::kernel::shared::{
     ExecuteOptions, ExecuteStatus, HostRequestHandlers, KernelBashCommands, KernelManagerOptions,
     KernelShutdownOptions, KernelSnapshotConfig,
 };
-use pa_core::kernel::state_snapshot::{manifest_path_in, snapshot_path_in};
+use aa_core::kernel::state_snapshot::{manifest_path_in, snapshot_path_in};
 
-/// The kernel Bun binary with `prime-agent-runtime` available. Skipped (with a note) when absent;
+/// The kernel Bun binary with `async-agent-runtime` available. Skipped (with a note) when absent;
 /// `PA_CORE_KERNEL_BUN` points at an explicit executable instead.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) = std::env::var_os("PA_CORE_KERNEL_BUN") {
@@ -38,20 +38,20 @@ fn kernel_bun() -> Option<PathBuf> {
         );
         return Some(explicit);
     }
-    let runtime_ready = pa_core::kernel::bootstrap::kernel_worker_entry(
-        &pa_core::kernel::bootstrap::kernel_bun_dir(),
+    let runtime_ready = aa_core::kernel::bootstrap::kernel_worker_entry(
+        &aa_core::kernel::bootstrap::kernel_bun_dir(),
     )
     .is_file()
         || std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(2)
-            .is_some_and(|root| root.join("prime-agent-runtime/src/repl.ts").is_file());
+            .is_some_and(|root| root.join("async-agent-runtime/src/repl.ts").is_file());
     if !runtime_ready {
-        eprintln!("prime-agent-runtime/src/repl.ts not found; skipping live kernel test");
+        eprintln!("async-agent-runtime/src/repl.ts not found; skipping live kernel test");
         return None;
     }
     for candidate in [
-        std::env::var_os("PRIME_AGENT_KERNEL_BUN").map(PathBuf::from),
+        std::env::var_os("ASYNC_AGENT_KERNEL_BUN").map(PathBuf::from),
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".bun/bin/bun")),
         Some(PathBuf::from("/usr/local/bin/bun")),
         Some(PathBuf::from("/usr/bin/bun")),
@@ -122,7 +122,7 @@ async fn started_manager(options: KernelManagerOptions) -> ReplKernelManager {
 async fn execute(
     manager: &ReplKernelManager,
     code: &str,
-) -> pa_core::kernel::shared::ExecuteResult {
+) -> aa_core::kernel::shared::ExecuteResult {
     let result = manager
         .execute(code, ExecuteOptions::default())
         .await
@@ -247,7 +247,7 @@ async fn host_requests_round_trip_to_registered_handlers() {
     let mut handlers = HostRequestHandlers::new();
     handlers.register(
         "rlm.find_models",
-        pa_core::kernel::shared::host_handler(|payload| async move {
+        aa_core::kernel::shared::host_handler(|payload| async move {
             assert_eq!(payload.data["query"], "glm");
             assert_eq!(payload.data["limit"], 2);
             Ok(serde_json::json!({
@@ -352,7 +352,7 @@ async fn kill9_then_restart_revives_snapshot_and_reports_unserializable() {
     assert!(pid > 0);
     // kill -9 the kernel process, like a host OOM/infra kill.
     let _ =
-        pa_core::platform::process::kill_pid(pid as i32, pa_core::platform::process::Signal::Kill);
+        aa_core::platform::process::kill_pid(pid as i32, aa_core::platform::process::Signal::Kill);
     for _ in 0..100 {
         if manager.is_defunct() {
             break;

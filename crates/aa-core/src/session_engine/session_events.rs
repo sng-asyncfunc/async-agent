@@ -2,8 +2,8 @@
 //! serializer, one source of truth (shared by the json print stream's
 //! per-line events and the RPC mode's forwarded session events).
 
-use pa_agent::stream::AssistantMessageEvent;
-use pa_agent::types::AgentEvent;
+use aa_agent::stream::AssistantMessageEvent;
+use aa_agent::types::AgentEvent;
 
 use super::provider_adapter::json_round_trip;
 
@@ -12,7 +12,7 @@ use super::provider_adapter::json_round_trip;
 /// Terminal `start`/`done`/`error` events never ride a `message_update`, so they map to `None`.
 #[must_use]
 pub fn assistant_message_event_json(event: &AssistantMessageEvent) -> Option<serde_json::Value> {
-    use pa_agent::stream::AssistantMessageEvent as StreamEvent;
+    use aa_agent::stream::AssistantMessageEvent as StreamEvent;
     Some(match event {
         StreamEvent::TextStart { content_index, .. } => serde_json::json!({
             "type": "text_start",
@@ -102,14 +102,14 @@ pub fn assistant_message_event_json(event: &AssistantMessageEvent) -> Option<ser
 /// The thinking text of one partial message block (the loop's thinking-end event drops
 /// the content; the partial still carries the accumulated text).
 fn thinking_block_text(
-    partial: &pa_agent::types::AssistantMessage,
+    partial: &aa_agent::types::AssistantMessage,
     content_index: usize,
 ) -> String {
     partial
         .content
         .get(content_index)
         .map(|block| match block {
-            pa_agent::types::AssistantContent::Thinking(thinking) => thinking.thinking.clone(),
+            aa_agent::types::AssistantContent::Thinking(thinking) => thinking.thinking.clone(),
             _ => String::new(),
         })
         .unwrap_or_default()
@@ -117,7 +117,7 @@ fn thinking_block_text(
 
 /// Serialize one loop event to the TS `session_event` wire shape.
 pub fn agent_event_json(event: &AgentEvent) -> Option<serde_json::Value> {
-    fn message_value(value: &pa_agent::types::AgentMessage) -> serde_json::Value {
+    fn message_value(value: &aa_agent::types::AgentMessage) -> serde_json::Value {
         serde_json::to_value(value).unwrap_or(serde_json::Value::Null)
     }
     let value = match event {
@@ -214,8 +214,8 @@ pub fn agent_event_json(event: &AgentEvent) -> Option<serde_json::Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_agent::stream::AssistantMessageEvent;
-    use pa_agent::types::{
+    use aa_agent::stream::AssistantMessageEvent;
+    use aa_agent::types::{
         AgentEvent, AgentMessage, AssistantContent, AssistantMessage, TextContent, ToolCall, Usage,
     };
 
@@ -230,7 +230,7 @@ mod tests {
             response_id: None,
             diagnostics: None,
             usage: Usage::zero(),
-            stop_reason: pa_agent::types::StopReason::Stop,
+            stop_reason: aa_agent::types::StopReason::Stop,
             error_message: None,
             stop_reason_raw: None,
             timestamp: 0,
@@ -245,7 +245,7 @@ mod tests {
         })]);
         let event = AgentEvent::MessageUpdate {
             message: std::sync::Arc::new(AgentMessage::Standard(
-                pa_agent::types::Message::Assistant(message.clone()),
+                aa_agent::types::Message::Assistant(message.clone()),
             )),
             assistant_message_event: std::sync::Arc::new(AssistantMessageEvent::TextDelta {
                 content_index: 0,
@@ -282,7 +282,7 @@ mod tests {
     /// (`{ type, toolCallId, toolName, result, isError }`).
     #[test]
     fn tool_execution_end_json_carries_the_error_flag() {
-        use pa_agent::types::AgentToolResult;
+        use aa_agent::types::AgentToolResult;
         for (result, is_error) in [
             (AgentToolResult::text("ok"), false),
             (AgentToolResult::error("synthetic failure"), true),
@@ -366,7 +366,7 @@ mod tests {
                             text: "answer".to_string(),
                             text_signature: None,
                         }),
-                        AssistantContent::Thinking(pa_agent::types::ThinkingContent {
+                        AssistantContent::Thinking(aa_agent::types::ThinkingContent {
                             thinking: "the reasoning".to_string(),
                             thinking_signature: None,
                             redacted: None,
@@ -434,12 +434,12 @@ mod tests {
         })
         .is_none());
         assert!(assistant_message_event_json(&AssistantMessageEvent::Done {
-            reason: pa_agent::types::StopReason::Stop,
+            reason: aa_agent::types::StopReason::Stop,
             message: message.clone(),
         })
         .is_none());
         assert!(assistant_message_event_json(&AssistantMessageEvent::Error {
-            reason: pa_agent::types::StopReason::Error,
+            reason: aa_agent::types::StopReason::Error,
             error: message,
         })
         .is_none());

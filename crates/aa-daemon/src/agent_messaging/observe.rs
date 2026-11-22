@@ -102,7 +102,7 @@ impl LinkAgentObserveController {
         limit: u64,
         roles: Vec<String>,
     ) -> anyhow::Result<Value> {
-        let command = pa_types::daemon::DaemonCommand::GetSessionMessages {
+        let command = aa_types::daemon::DaemonCommand::GetSessionMessages {
             id: None,
             active_session_id: agent.active_session_id.clone().unwrap_or_default(),
             start,

@@ -9,11 +9,11 @@ import * as utilModule from "node:util";
 import { $ } from "bun";
 import { emit, hostRequest } from "./bridge.ts";
 
-export const JAVASCRIPT_SKILL_IMPORT_ERROR_REPORT_MARKER = "__PRIME_AGENT_JAVASCRIPT_SKILL_IMPORT_ERRORS__";
+export const JAVASCRIPT_SKILL_IMPORT_ERROR_REPORT_MARKER = "__ASYNC_AGENT_JAVASCRIPT_SKILL_IMPORT_ERRORS__";
 const MAX_SKILL_UNAVAILABLE_REASON_CHARS = 512;
 const DEFAULT_SKILL_FACTORY_TIMEOUT_MS = 10_000;
 
-export type PrimeFileSystem = Omit<typeof fsModule, keyof typeof fsModule.promises | "promises"> &
+export type AsyncFileSystem = Omit<typeof fsModule, keyof typeof fsModule.promises | "promises"> &
 	typeof fsModule.promises & {
 		callbacks: typeof fsModule;
 		promises: typeof fsModule.promises;
@@ -35,7 +35,7 @@ export interface PreparedJavaScriptSkillInput {
 	unavailable_reason?: string | null;
 }
 
-const PRIME_RUNTIME_GLOBAL_NAMES = [
+const ASYNC_RUNTIME_GLOBAL_NAMES = [
 	"$",
 	"Bun",
 	"fs",
@@ -49,10 +49,10 @@ const PRIME_RUNTIME_GLOBAL_NAMES = [
 	"rlm",
 	"installPackage",
 	"hostRequest",
-	"__primeDisplay",
-	"__primeHostRequest",
-	"__primeSetCompletionNoticesWired",
-	"__primeLoadSkills",
+	"__asyncDisplay",
+	"__asyncHostRequest",
+	"__asyncSetCompletionNoticesWired",
+	"__asyncLoadSkills",
 ] as const;
 
 const BUN_ONLY_GLOBAL_NAMES = [
@@ -91,10 +91,10 @@ const BUN_ONLY_GLOBAL_NAMES = [
 export const BUN_RUNTIME_GLOBAL_NAMES: ReadonlySet<string> = new Set([
 	...Object.getOwnPropertyNames(globalThis),
 	...BUN_ONLY_GLOBAL_NAMES,
-	...PRIME_RUNTIME_GLOBAL_NAMES,
+	...ASYNC_RUNTIME_GLOBAL_NAMES,
 ]);
 
-export const primeFileSystem: PrimeFileSystem = Object.freeze({
+export const asyncFileSystem: AsyncFileSystem = Object.freeze({
 	...fsModule,
 	...fsModule.promises,
 	callbacks: fsModule,
@@ -102,14 +102,14 @@ export const primeFileSystem: PrimeFileSystem = Object.freeze({
 });
 
 export function resolveKernelDirectory(): string {
-	const envDir = (process.env.PRIME_AGENT_KERNEL_BUN_DIR ?? "").trim();
+	const envDir = (process.env.ASYNC_AGENT_KERNEL_BUN_DIR ?? "").trim();
 	if (envDir) return pathModule.resolve(envDir);
 	// Default to the runtime package root (parent of src/)
 	return pathModule.resolve(dirname(new URL(import.meta.url).pathname), "..");
 }
 
 export function resolveBunBinary(): string {
-	const envBun = (process.env.PRIME_AGENT_KERNEL_BUN ?? "").trim();
+	const envBun = (process.env.ASYNC_AGENT_KERNEL_BUN ?? "").trim();
 	if (envBun) return envBun;
 	return process.execPath || "bun";
 }
@@ -225,12 +225,12 @@ export function createSkillLoader(
 	requireFn: NodeJS.Require,
 	timeoutMs = DEFAULT_SKILL_FACTORY_TIMEOUT_MS,
 ): (skills: PreparedJavaScriptSkillInput[]) => Promise<Record<string, string>> {
-	return async function __primeLoadSkills(
+	return async function __asyncLoadSkills(
 		skills: PreparedJavaScriptSkillInput[],
 	): Promise<Record<string, string>> {
 		const errors: Record<string, string> = {};
 		if (!Array.isArray(skills)) {
-			throw new TypeError("__primeLoadSkills requires an array of skill descriptors");
+			throw new TypeError("__asyncLoadSkills requires an array of skill descriptors");
 		}
 		const context = {
 			get cwd(): string {

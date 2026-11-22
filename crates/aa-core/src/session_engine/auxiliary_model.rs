@@ -5,7 +5,7 @@
 
 use std::path::PathBuf;
 
-use pa_types::ai::Model;
+use aa_types::ai::Model;
 
 /// The directories the settings (`auxiliaryModel`, `allowedModels`) and the
 /// model registry resolve against; `None` keeps the session model.

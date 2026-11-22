@@ -1,19 +1,15 @@
-//! The `prime-agent update` body: the TS->Rust migration path. One step —
-//! the update fetches the update channel's installer (stable: the official
-//! domain's `https://app.primeintellect.ai/prime-agent/install.sh`;
-//! nightly: the download base's `install-beta.sh`; never a GitHub raw or
-//! workflow URL) and runs it; the script uninstalls the
-//! TypeScript version, installs the latest Rust build of the update
-//! channel, and never touches `~/.prime/agent` (the sessions and
-//! configuration). The TUI's `/update` runs the same core out-of-band
-//! (`client_update.rs`); both consult pa-core's Homebrew detector before
-//! entering the installer funnel.
+//! The `async-agent update` body: fetches the update channel's installer
+//! (hosted via `https://github.com/sng-asyncfunc/async-agent`) and runs it to
+//! install the latest Async Agent build without touching `~/.async-agent`
+//! (the sessions and configuration). The TUI's `/update` runs the same core
+//! out-of-band (`client_update.rs`); both consult aa-core's Homebrew detector
+//! before entering the installer funnel.
 
-use pa_core::update::homebrew;
-use pa_core::update::install::current_platform_alias;
-use pa_core::update::installer::{self, InstallerOutput};
-use pa_core::update::release::{artifact_for_platform, LatestRelease};
-use pa_core::update::version::UpdateChannel;
+use aa_core::update::homebrew;
+use aa_core::update::install::current_platform_alias;
+use aa_core::update::installer::{self, InstallerOutput};
+use aa_core::update::release::{artifact_for_platform, LatestRelease};
+use aa_core::update::version::UpdateChannel;
 
 /// TS self-update's no-install exit code: the package manager owns this update.
 const SELF_UPDATE_NOT_ATTEMPTED_EXIT_CODE: i32 = 75;
@@ -32,11 +28,11 @@ pub struct UpdateOptions {
 /// `--stable`).
 fn saved_channel() -> Option<UpdateChannel> {
     let cwd = std::env::current_dir().ok()?;
-    let saved = pa_core::settings::SettingsManager::create(&cwd, crate::config::get_agent_dir())
+    let saved = aa_core::settings::SettingsManager::create(&cwd, crate::config::get_agent_dir())
         .get_update_channel()?;
     Some(match saved {
-        pa_core::settings::UpdateChannel::Stable => UpdateChannel::Stable,
-        pa_core::settings::UpdateChannel::Nightly => UpdateChannel::Nightly,
+        aa_core::settings::UpdateChannel::Stable => UpdateChannel::Stable,
+        aa_core::settings::UpdateChannel::Nightly => UpdateChannel::Nightly,
     })
 }
 
@@ -62,7 +58,7 @@ fn resolve_channel(
             "stable" => UpdateChannel::Stable,
             _ => UpdateChannel::Nightly,
         }))
-        .unwrap_or_else(|| pa_core::update::version::resolve_update_channel(running, None))
+        .unwrap_or_else(|| aa_core::update::version::resolve_update_channel(running, None))
 }
 
 /// The channel `update`, `update --check`, and `/update` follow.
@@ -100,7 +96,7 @@ pub fn run(options: &UpdateOptions) -> i32 {
         // changes the instruction or the no-install exit code.
         if let Ok(cwd) = std::env::current_dir() {
             let agent_dir = crate::config::get_agent_dir();
-            let settings = pa_core::settings::SettingsManager::create(&cwd, &agent_dir);
+            let settings = aa_core::settings::SettingsManager::create(&cwd, &agent_dir);
             let telemetry_runtime = (!crate::mode::telemetry_disabled(&settings))
                 .then(|| {
                     tokio::runtime::Builder::new_current_thread()
@@ -111,14 +107,14 @@ pub fn run(options: &UpdateOptions) -> i32 {
             if let Some(runtime) = telemetry_runtime {
                 runtime.block_on(async {
                     let client =
-                        pa_core::session_engine::telemetry::build_client(&settings, &agent_dir);
-                    pa_telemetry::UpdateHomebrewRefusal {
+                        aa_core::session_engine::telemetry::build_client(&settings, &agent_dir);
+                    aa_telemetry::UpdateHomebrewRefusal {
                         kind: kind.as_str(),
                     }
                     .track(&client);
                     let _ = tokio::time::timeout(
                         std::time::Duration::from_millis(
-                            pa_tui::interactive::TELEMETRY_EXIT_TIMEOUT_MS,
+                            aa_tui::interactive::TELEMETRY_EXIT_TIMEOUT_MS,
                         ),
                         client.shutdown(),
                     )
@@ -138,7 +134,7 @@ pub fn run(options: &UpdateOptions) -> i32 {
     if options.check {
         return runtime.block_on(run_check(options.channel));
     }
-    // The RESOLVED URL, not the const: a PRIME_AGENT_RUST_INSTALLER_URL
+    // The RESOLVED URL, not the const: a ASYNC_AGENT_RUST_INSTALLER_URL
     // pin (a test or a pinned install) changes where the funnel actually
     // fetches from, and the banner must not claim a source the run will
     // not use.
@@ -154,11 +150,11 @@ pub fn run(options: &UpdateOptions) -> i32 {
         Ok(installed) => {
             match installed.version {
                 Some(version) => {
-                    println!("updated to {version} — restart prime-agent to run the new build");
+                    println!("updated to {version} — restart async-agent to run the new build");
                 }
                 None => {
                     println!(
-                        "updated to the latest build — restart prime-agent to run the new build"
+                        "updated to the latest build — restart async-agent to run the new build"
                     );
                 }
             }
@@ -223,7 +219,7 @@ pub fn run_local(prefix: &std::path::Path, archive: Option<&std::path::Path>) ->
                 "rolled back to"
             };
             let version = installed.version.as_deref().unwrap_or("the previous build");
-            println!("{done} {version} — restart prime-agent to run it");
+            println!("{done} {version} — restart async-agent to run it");
             0
         }
         Err(failure) => {
@@ -240,11 +236,11 @@ fn save_channel(channel: UpdateChannel) {
         return;
     };
     let setting = match channel {
-        UpdateChannel::Stable => pa_core::settings::UpdateChannel::Stable,
-        UpdateChannel::Nightly => pa_core::settings::UpdateChannel::Nightly,
+        UpdateChannel::Stable => aa_core::settings::UpdateChannel::Stable,
+        UpdateChannel::Nightly => aa_core::settings::UpdateChannel::Nightly,
     };
     let mut settings =
-        pa_core::settings::SettingsManager::create(&cwd, crate::config::get_agent_dir());
+        aa_core::settings::SettingsManager::create(&cwd, crate::config::get_agent_dir());
     if settings.set_update_channel(setting).is_ok() {
         println!("Updates now follow the {} channel.", channel.wire_name());
     }
@@ -266,7 +262,7 @@ async fn run_check(flag: Option<UpdateChannel>) -> i32 {
     println!("Platform: {target}");
     println!("Running:  {running}");
     println!("Channel:  {}", channel.wire_name());
-    let latest = pa_core::update::release::latest_release(
+    let latest = aa_core::update::release::latest_release(
         running,
         Some(channel),
         &base,
@@ -300,7 +296,7 @@ fn check_verdict(
     channel: UpdateChannel,
     flag: Option<UpdateChannel>,
 ) -> String {
-    if !pa_core::update::version::is_release_update_candidate(
+    if !aa_core::update::version::is_release_update_candidate(
         &latest.version,
         running,
         Some(channel),
@@ -316,9 +312,9 @@ fn check_verdict(
         );
     }
     let command = match flag {
-        Some(UpdateChannel::Nightly) => "prime-agent update --nightly",
-        Some(UpdateChannel::Stable) => "prime-agent update --stable",
-        None => "prime-agent update",
+        Some(UpdateChannel::Nightly) => "async-agent update --nightly",
+        Some(UpdateChannel::Stable) => "async-agent update --stable",
+        None => "async-agent update",
     };
     format!("An update is available — run `{command}` to install it.")
 }
@@ -327,7 +323,7 @@ fn check_verdict(
 mod tests {
     use super::*;
 
-    use pa_core::update::release::ReleaseArtifact;
+    use aa_core::update::release::ReleaseArtifact;
 
     /// A release with a build for this platform.
     fn release(version: &str) -> LatestRelease {
@@ -336,7 +332,7 @@ mod tests {
             version: version.to_string(),
             artifacts: vec![ReleaseArtifact {
                 platform: platform.to_string(),
-                file: format!("prime-agent-{version}-{platform}.tar.gz"),
+                file: format!("async-agent-{version}-{platform}.tar.gz"),
                 sha256: "0".repeat(64),
             }],
         }
@@ -350,7 +346,7 @@ mod tests {
         );
         assert_eq!(
             check_verdict(&release("1.2.4"), "1.2.3", UpdateChannel::Stable, None),
-            "An update is available — run `prime-agent update` to install it."
+            "An update is available — run `async-agent update` to install it."
         );
         // A switch onto nightly accepts the same-base prerelease the
         // installer would install.
@@ -361,7 +357,7 @@ mod tests {
                 UpdateChannel::Nightly,
                 Some(UpdateChannel::Nightly)
             ),
-            "An update is available — run `prime-agent update --nightly` to install it."
+            "An update is available — run `async-agent update --nightly` to install it."
         );
         assert_eq!(
             check_verdict(

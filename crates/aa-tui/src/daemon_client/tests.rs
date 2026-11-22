@@ -10,7 +10,7 @@ async fn spawn_mock_daemon(listener: UnixListener) {
     let mut reader = BufReader::new(reader);
     let hello = json!({
         "type": "daemon_hello",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "clientId": "srv",
         "serverCapabilities": [],
     });
@@ -51,8 +51,8 @@ async fn spawn_mock_daemon(listener: UnixListener) {
     }
 }
 
-fn empty_prompt_input() -> pa_types::daemon::PromptInput {
-    pa_types::daemon::PromptInput {
+fn empty_prompt_input() -> aa_types::daemon::PromptInput {
+    aa_types::daemon::PromptInput {
         content: None,
         images: None,
         streaming_behavior: None,
@@ -125,7 +125,7 @@ async fn request_timeout_reports_socket() {
         let mut writer = stream;
         let mut hello = json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "clientId": "srv",
             "serverCapabilities": [],
         })
@@ -170,7 +170,7 @@ async fn a_request_after_the_reader_died_refuses_instead_of_riding_the_budget() 
         let mut writer = stream;
         let mut hello = json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "clientId": "srv",
             "serverCapabilities": [],
         })
@@ -334,7 +334,7 @@ fn update_restarting_rejection_round_trips_the_wire() {
         .expect("typed rejection");
     assert_eq!(
         rejection.error_info,
-        Some(pa_types::daemon::DaemonErrorInfo::UpdateRestarting)
+        Some(aa_types::daemon::DaemonErrorInfo::UpdateRestarting)
     );
     let legacy = serde_json::from_str::<DaemonResponse>(
         r#"{"type":"response","command":"create","success":false,"error":"Daemon is preparing an update restart"}"#,
@@ -408,10 +408,10 @@ async fn spawn_mock_worker(listener: tokio::net::UnixListener) {
 
     let (stream, _) = listener.accept().await.expect("worker accept");
     let (mut reader, mut writer) = stream.into_split();
-    let hello = pa_types::daemon::framing::encode_private_frame(
+    let hello = aa_types::daemon::framing::encode_private_frame(
         &serde_json::json!({ "kind": "outbound", "outboundType": "daemon_hello" }),
-        br#"{"type":"daemon_hello","protocol":{"name":"prime-agent.daemon","version":7}}"#,
-        pa_types::daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+        br#"{"type":"daemon_hello","protocol":{"name":"async-agent.daemon","version":7}}"#,
+        aa_types::daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
     )
     .unwrap();
     writer.write_all(&hello).await.unwrap();
@@ -425,8 +425,8 @@ async fn spawn_mock_worker(listener: tokio::net::UnixListener) {
             break;
         }
         pending.extend_from_slice(&chunk[..read]);
-        let mut decoder = pa_types::daemon::framing::PrivateFrameDecoder::new(
-            pa_types::daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+        let mut decoder = aa_types::daemon::framing::PrivateFrameDecoder::new(
+            aa_types::daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
         );
         let frames = decoder.push(&pending).expect("decode frames");
         pending.clear();
@@ -465,14 +465,14 @@ async fn spawn_mock_worker(listener: tokio::net::UnixListener) {
                 "success": success,
                 "data": data,
             });
-            let frame = pa_types::daemon::framing::encode_private_frame(
+            let frame = aa_types::daemon::framing::encode_private_frame(
                 &serde_json::json!({
                     "kind": "outbound",
                     "requestId": request_id,
                     "outboundType": "response",
                 }),
                 &serde_json::to_vec(&response).unwrap(),
-                pa_types::daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+                aa_types::daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
             )
             .unwrap();
             writer.write_all(&frame).await.unwrap();
@@ -484,14 +484,14 @@ async fn spawn_mock_worker(listener: tokio::net::UnixListener) {
                 "activeSessionId": "s1",
                 "event": { "type": "turn_end" },
             });
-            let frame = pa_types::daemon::framing::encode_private_frame(
+            let frame = aa_types::daemon::framing::encode_private_frame(
                 &serde_json::json!({
                     "kind": "outbound",
                     "outboundType": "session_event",
                     "activeSessionId": "s1",
                 }),
                 &serde_json::to_vec(&event).unwrap(),
-                pa_types::daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+                aa_types::daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
             )
             .unwrap();
             writer.write_all(&frame).await.unwrap();
@@ -519,7 +519,7 @@ async fn direct_upgrade_routes_attach_and_streams_events() {
         let mut line = String::new();
         let hello = serde_json::json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": ["direct_peer_transport"],
         });
         writer
@@ -535,7 +535,7 @@ async fn direct_upgrade_routes_attach_and_streams_events() {
             let id = envelope["id"].as_str().unwrap().to_string();
             let command_type = envelope["command"]["type"].as_str().unwrap();
             let response = if command_type == "get_direct_worker_transport" {
-                let identity = pa_types::platform::socket_identity(&ticket_socket).unwrap();
+                let identity = aa_types::platform::socket_identity(&ticket_socket).unwrap();
                 serde_json::json!({
                     "type": "response",
                     "id": id,
@@ -629,7 +629,7 @@ async fn dead_connection_fails_pending_requests_immediately() {
         let mut writer = stream;
         let mut hello = json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "clientId": "srv",
             "serverCapabilities": [],
         })

@@ -8,10 +8,10 @@ pub use registry::{
 pub use catalog_chain::{
     catalog_for, install_catalog, prime_credentials_for_dir, spawn_hourly_refresh, startup_refresh,
 };
-/// The refresh triggers (`pa-models`' own enum — the daemon's picker-open
-/// and auth-change wiring selects it; pa-daemon's runtime surface goes
-/// through pa-core, so the trigger rides this re-export).
-pub use pa_models::RefreshTrigger;
+/// The refresh triggers (`aa-models`' own enum — the daemon's picker-open
+/// and auth-change wiring selects it; aa-daemon's runtime surface goes
+/// through aa-core, so the trigger rides this re-export).
+pub use aa_models::RefreshTrigger;
 
 pub mod allowlist;
 pub(crate) mod catalog_chain;

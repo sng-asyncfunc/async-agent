@@ -1,7 +1,7 @@
-# pa-telemetry
+# aa-telemetry
 
 Modular telemetry: the event schema, queueing/batching, sinks, and the
-pseudonymous installation identity for Prime Agent product analytics.
+pseudonymous installation identity for Async Agent product analytics.
 
 ## Scope
 
@@ -12,38 +12,40 @@ pseudonymous installation identity for Prime Agent product analytics.
   `shutdown`. One background worker, capped queue (drop-oldest), batched
   flush (size + interval + explicit), fan-out to every sink. Best-effort by
   contract: never blocks, never panics, never fails the agent.
-- `TelemetrySink` trait + shipped sinks: `AnalyticsSink` (the one product
-  destination: the TS endpoint `ANALYTICS_ENDPOINT` and wire format
-  `{installation_id, events: [{id, name, timestamp, properties}]}`, no
-  credentials, 1.5s timeout; the platform backend forwards to PostHog),
+- `TelemetrySink` trait + shipped sinks: `AnalyticsSink` (opt-in HTTP sink
+  disabled by default unless `ASYNC_AGENT_TELEMETRY_ENDPOINT` is explicitly
+  configured; wire format `{installation_id, events: [{id, name, timestamp,
+  properties}]}`, no credentials, 1.5s timeout),
   `FileSink` (local JSONL transparency mirror at `<agentDir>/telemetry.jsonl`),
   `NoopSink` (opt-out fast path), `MockSink` (tests, also re-exported for
   downstream crate tests).
 - `install_id`: `<agentDir>/telemetry.json` `{version, installationId}`,
-  exclusive 0600 create, validated on load (TS parity).
+  exclusive 0600 create, validated on load.
 - `rename_onto`: the shared rename-onto-destination primitive for durable
-  persist writes (TS `renameOntoSync`: bounded win32 destination-busy
+  persist writes (`renameOntoSync`: bounded win32 destination-busy
   retry, `10ms * attempt` backoff, every failure immediate off Windows).
-  Lives in this crate because every persist owner (pa-core's settings and
-  session writes, pa-daemon's descriptors/journals/session store, this
+  Lives in this crate because every persist owner (aa-core's settings and
+  session writes, aa-daemon's descriptors/journals/session store, this
   crate's install id) already depends on it while it depends on no other
-  workspace crate; pa-core re-exports it as `platform::rename_onto` so its
+  workspace crate; aa-core re-exports it as `platform::rename_onto` so its
   platform wall stays the engine's single platform entry.
-- The TS boolean env parsing (`parse_bool_override`); the opt-out
-  precedence (`PI_OFFLINE`, `DO_NOT_TRACK`, `PRIME_AGENT_TELEMETRY`,
-  settings) lives in pa-core's `telemetry_switch`.
+- Boolean env parsing (`parse_bool_override`); the opt-out
+  precedence (`PI_OFFLINE`, `DO_NOT_TRACK`, `ASYNC_AGENT_TELEMETRY`,
+  settings) lives in aa-core's `telemetry_switch`.
 
 ## Non-goals
 
-- No settings reading: the enabled/disclosure flow is owned by pa-core
-  settings + pa-cli wiring (this crate only answers "does the environment
+- No settings reading: the enabled/disclosure flow is owned by aa-core
+  settings + aa-cli wiring (this crate only answers "does the environment
   override?").
-- No event emission from this crate: seams live in pa-core/pa-daemon/pa-cli,
+- No event emission from this crate: seams live in aa-core/aa-daemon/aa-cli,
   which call `track` with schema-documented events.
 - No prompt/session content, tool arguments, file paths, or user identity —
   by construction (primitives-only properties).
+- No default remote phone-home endpoint: without `ASYNC_AGENT_TELEMETRY_ENDPOINT`,
+  remote telemetry delivery is disabled/no-op.
 - No retries or delivery guarantees: batches are best-effort and offline-safe
-  (dropped on failure), matching the TS product.
+  (dropped on failure).
 
 ## Public API
 
@@ -54,15 +56,15 @@ pseudonymous installation identity for Prime Agent product analytics.
 - `install_id(agent_dir)`
 - `rename_onto(from, to)`
 - `parse_bool_override(value)`, `existing_install_id(agent_dir)`
-- Sinks: `AnalyticsSink` (+ `ANALYTICS_ENDPOINT`), `FileSink`, `NoopSink`, `MockSink`
-  (+ `RecordedBatch`)
+- Sinks: `AnalyticsSink` (+ `TELEMETRY_ENDPOINT_ENV`, `configured_endpoint`),
+  `FileSink`, `NoopSink`, `MockSink` (+ `RecordedBatch`)
 - `AnalyticsSink::new(endpoint)` and `with_timeout(endpoint, duration)` retain
   their default HTTP clients. `with_http_builder(endpoint, builder)` lets the
   caller supply its trust configuration while retaining the product timeout;
-  pa-core composition supplies the shared extra-CA builder without adding a
+  aa-core composition supplies the shared extra-CA builder without adding a
   workspace dependency to this leaf crate.
 
 ## Placement
 
-Depends on no workspace crate (sits beside pa-types at the bottom of the
-dependency graph). Consumers: pa-core, pa-daemon, pa-cli.
+Depends on no workspace crate (sits beside aa-types at the bottom of the
+dependency graph). Consumers: aa-core, aa-daemon, aa-cli.

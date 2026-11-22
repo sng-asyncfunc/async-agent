@@ -212,7 +212,7 @@ async fn kill_cancels_the_sessions_scheduled_jobs() {
     let job = worker
         .scheduled
         .store()
-        .create(&pa_core::cron::store::CreateAgentCronJobInput {
+        .create(&aa_core::cron::store::CreateAgentCronJobInput {
             active_session_id: "kill-jobs-session".to_string(),
             session_id: session_id.to_string(),
             session_file: session_file.to_string(),
@@ -224,7 +224,7 @@ async fn kill_cancels_the_sessions_scheduled_jobs() {
             ..Default::default()
         })
         .expect("the store creates the job");
-    assert_eq!(job.status, pa_core::cron::JobStatus::Active);
+    assert_eq!(job.status, aa_core::cron::JobStatus::Active);
 
     let killed = worker.dispatch("kill", &json!({})).await;
     assert!(killed.success, "kill failed: {killed:?}");
@@ -235,7 +235,7 @@ async fn kill_cancels_the_sessions_scheduled_jobs() {
         .iter()
         .find(|candidate| candidate.id == job.id)
         .expect("the job stays in the store");
-    assert_eq!(cancelled.status, pa_core::cron::JobStatus::Cancelled);
+    assert_eq!(cancelled.status, aa_core::cron::JobStatus::Cancelled);
     assert_eq!(cancelled.next_run_at, None);
     // The close archived the session file (the wake scan's state gate).
     let info = crate::session_store::read_session_info(std::path::Path::new(session_file)).unwrap();

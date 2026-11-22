@@ -1,4 +1,4 @@
-//! `prime-agent telemetry [status|on|off]` end to end: the binary reports
+//! `async-agent telemetry [status|on|off]` end to end: the binary reports
 //! the switch and why, persists the TS settings key, and names an
 //! environment opt-out that still wins over a saved `on`.
 
@@ -6,19 +6,19 @@ use std::path::Path;
 use std::process::Command;
 
 fn run(sandbox: &Path, args: &[&str], env: &[(&str, &str)]) -> (Option<i32>, String) {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(args)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", sandbox.join("agent"))
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", sandbox.join("agent"))
         .env("HOME", sandbox)
         .env_remove("PI_OFFLINE")
         .env_remove("DO_NOT_TRACK")
-        .env_remove("PRIME_AGENT_TELEMETRY")
+        .env_remove("ASYNC_AGENT_TELEMETRY")
         .current_dir(sandbox);
     for (key, value) in env {
         command.env(key, value);
     }
-    let output = command.output().expect("spawn prime-agent");
+    let output = command.output().expect("spawn async-agent");
     (
         output.status.code(),
         String::from_utf8_lossy(&output.stdout).into_owned(),

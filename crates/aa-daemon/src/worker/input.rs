@@ -252,7 +252,7 @@ impl Worker {
             .and_then(Value::as_str)
             .unwrap_or_default();
         if let Err(error) =
-            pa_core::session_engine::agent_messaging::normalize_agent_session_message(message)
+            aa_core::session_engine::agent_messaging::normalize_agent_session_message(message)
         {
             return response_failure(None, "worker_deliver_message", &error.to_string(), None);
         }
@@ -303,7 +303,7 @@ impl Worker {
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             sender_is_child_of(&sender, &core).then_some(AgentFamilyRelationship::Child)
         };
-        let prompt = pa_core::session_engine::agent_messaging::create_agent_session_message_prompt(
+        let prompt = aa_core::session_engine::agent_messaging::create_agent_session_message_prompt(
             &AgentMessagePromptPayload {
                 message: message.to_string(),
                 sender_name,
@@ -319,7 +319,7 @@ impl Worker {
             let (mut core, inputs) = self.summary_inputs();
             let pending = core.steering.len() + core.follow_up.len();
             if let Err(error) =
-                pa_core::session_engine::agent_messaging::assert_agent_message_queue_capacity(
+                aa_core::session_engine::agent_messaging::assert_agent_message_queue_capacity(
                     pending,
                     DEFAULT_AGENT_MESSAGE_MAX_PENDING_PER_SESSION,
                 )
@@ -327,7 +327,7 @@ impl Worker {
                 drop(core);
                 return response_failure(None, "worker_deliver_message", &error.to_string(), None);
             }
-            let id = pa_core::session_engine::agent_messaging::create_agent_session_message_id();
+            let id = aa_core::session_engine::agent_messaging::create_agent_session_message_id();
             let queued = core.busy;
             let summary = self.summary_locked(&core, inputs);
             // The receiving session's endpoint: the receipt's `target`
@@ -348,8 +348,8 @@ impl Worker {
             // the collapsed card, while the row's `content` IS the rendered prompt —
             // the model context stays byte-identical to the plain-prompt delivery.
             let custom_message =
-                pa_core::session_engine::agent_messaging::create_agent_session_message_row(
-                    &pa_core::session_engine::agent_messaging::AgentSessionMessageRowPayload {
+                aa_core::session_engine::agent_messaging::create_agent_session_message_row(
+                    &aa_core::session_engine::agent_messaging::AgentSessionMessageRowPayload {
                         id: &id,
                         prompt: &prompt,
                         message,
@@ -365,7 +365,7 @@ impl Worker {
                 // received: <details.message>".
                 preview: Some(format!(
                     "{}: {message}",
-                    pa_core::session_engine::agent_messaging::AGENT_MESSAGE_RECEIVED_PREVIEW_LABEL
+                    aa_core::session_engine::agent_messaging::AGENT_MESSAGE_RECEIVED_PREVIEW_LABEL
                 )),
                 message: prompt,
                 custom_message: Some(custom_message),

@@ -1,7 +1,7 @@
-//! `prime-agent incident`: reconstructs what the daemon did during a time
+//! `async-agent incident`: reconstructs what the daemon did during a time
 //! window from its diagnostic logs (the shared classifier lives in
-//! `pa_types::incident`). The primary source is the shared structured log
-//! (`~/.prime/agent/logs/agent.jsonl` plus its `.old` rotation); when it is
+//! `aa_types::incident`). The primary source is the shared structured log
+//! (`~/.async-agent/logs/agent.jsonl` plus its `.old` rotation); when it is
 //! missing, empty, or unreadable, the newest per-daemon log is the fallback.
 
 pub(crate) mod report;
@@ -9,7 +9,7 @@ pub(crate) mod time;
 
 use self::report::{build_incident_report, IncidentReportOptions};
 use crate::config::get_agent_dir;
-use pa_types::incident::{
+use aa_types::incident::{
     parse_incident_daemon_log_line, parse_incident_log_line, IncidentLogEntry,
 };
 use std::path::{Path, PathBuf};
@@ -292,7 +292,7 @@ pub(crate) fn incident_report_text(
     Ok(Some(report.text))
 }
 
-/// Entry point for `prime-agent incident`; prints the timeline (or the
+/// Entry point for `async-agent incident`; prints the timeline (or the
 /// missing-logs message) to stdout. A passed-back window resolves relative
 /// `HH:MM` bounds exactly once.
 ///
@@ -391,7 +391,7 @@ mod tests {
         assert!(is_daemon_log_file_name("daemon.sock.98ed5cb2.log"));
         assert!(is_daemon_log_file_name("old-sock.a1b2c3d4.log"));
         // A custom socket basename without `.sock`.
-        assert!(is_daemon_log_file_name("prime-daemon.a1b2c3d4.log"));
+        assert!(is_daemon_log_file_name("async-daemon.a1b2c3d4.log"));
         assert!(!is_daemon_log_file_name("agent.jsonl"));
         assert!(!is_daemon_log_file_name("agent.jsonl.old"));
         assert!(!is_daemon_log_file_name("daemon.sock.log"));

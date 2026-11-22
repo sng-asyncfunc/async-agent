@@ -21,7 +21,7 @@
 //!   - the runner pin: windows-2022, never the mutable `windows-latest`
 //!     (the reviewed-baseline rule the release build already carries);
 //!   - the deep `windows-battery` job stays the on-demand/nightly loop,
-//!     not a per-PR gate (the full pa-cli e2e set runs past three hours
+//!     not a per-PR gate (the full aa-cli e2e set runs past three hours
 //!     on that runner - measured twice).
 //!
 //! The battery source file's three scenario tests are asserted by name, so
@@ -30,7 +30,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-/// The repo root (crates/pa-cli -> crates -> root): the workflow and the
+/// The repo root (crates/aa-cli -> crates -> root): the workflow and the
 /// battery live there.
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -94,7 +94,7 @@ const SCENARIO_TESTS: [&str; 3] = [
 #[test]
 fn the_battery_source_defines_the_three_scenarios() {
     let battery =
-        fs::read_to_string(repo_root().join("crates/pa-cli/tests/windows_runtime_triage_e2e.rs"))
+        fs::read_to_string(repo_root().join("crates/aa-cli/tests/windows_runtime_triage_e2e.rs"))
             .expect("read the battery source");
     for scenario in SCENARIO_TESTS {
         assert!(
@@ -219,18 +219,18 @@ fn the_tui_battery_job_boots_the_binary_and_dumps_the_panes() {
     let runs = step_runs(&job);
     let build = runs
         .iter()
-        .find(|run| run.contains("cargo build --locked -p pa-cli --bin prime-agent"))
+        .find(|run| run.contains("cargo build --locked -p aa-cli --bin async-agent"))
         .expect("the job builds the freshly-built binary");
     assert!(
         build.contains("--target x86_64-pc-windows-msvc")
-            || build.contains("-p pa-cli --bin prime-agent"),
+            || build.contains("-p aa-cli --bin async-agent"),
         "the build step names the binary: {build}"
     );
 
     // Console mode regression; CI stdout may be redirected.
     runs.iter()
-        .find(|run| run.contains("cargo test --locked -p pa-types --lib console"))
-        .expect("the job runs the pa-types console battery on the runner");
+        .find(|run| run.contains("cargo test --locked -p aa-types --lib console"))
+        .expect("the job runs the aa-types console battery on the runner");
 
     // The battery: the three scripted TUI scenarios, with the dump dir the
     // panes land in for the artifact.
@@ -239,7 +239,7 @@ fn the_tui_battery_job_boots_the_binary_and_dumps_the_panes() {
         .find(|run| run.contains("--test windows_runtime_triage_e2e"))
         .expect("the job runs the windows_runtime_triage_e2e battery");
     assert!(
-        battery.contains("cargo test --locked -p pa-cli"),
+        battery.contains("cargo test --locked -p aa-cli"),
         "the battery runs locked: {battery}"
     );
     assert!(

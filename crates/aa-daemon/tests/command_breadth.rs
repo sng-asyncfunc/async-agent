@@ -1,9 +1,9 @@
 //! Daemon command-type breadth coverage: every wire fixture below must parse,
 //! keep its wire `type`, and route by selector.
 
-use pa_daemon::protocol::command_active_session_id;
-use pa_daemon::protocol::command_type_name;
-use pa_daemon::protocol::parse_daemon_command_line;
+use aa_daemon::protocol::command_active_session_id;
+use aa_daemon::protocol::command_type_name;
+use aa_daemon::protocol::parse_daemon_command_line;
 
 /// Minimal wire fixture per command type: the fields the `DaemonCommand` union
 /// requires on the wire (everything else is optional or in the lossless `rest`
@@ -429,7 +429,7 @@ fn every_command_type_parses_and_routes() {
     for (type_name, wire) in WIRE_FIXTURES {
         // String concat keeps the raw fixture braces intact (a format! call would treat them as
         // placeholders).
-        let line = r#"{"type":"command","id":"c1","protocol":{"name":"prime-agent.daemon","version":7},"command":"#
+        let line = r#"{"type":"command","id":"c1","protocol":{"name":"async-agent.daemon","version":7},"command":"#
             .to_string()
             + wire
             + "}";
@@ -454,13 +454,13 @@ fn every_command_type_parses_and_routes() {
 /// Unknown types keep the TS wire error, not a parse accident.
 #[test]
 fn unknown_type_keeps_the_ts_error_string() {
-    let line = r#"{"type":"command","id":"c1","protocol":{"name":"prime-agent.daemon","version":7},"command":{"type":"not_a_command"}}"#;
+    let line = r#"{"type":"command","id":"c1","protocol":{"name":"async-agent.daemon","version":7},"command":{"type":"not_a_command"}}"#;
     let error = parse_daemon_command_line(line).unwrap_err();
     assert_eq!(error.to_string(), "Unknown daemon command: not_a_command");
 
     // A known type with a malformed body is a malformed command, not unknown (the TS second-pass
     // error class).
-    let line = r#"{"type":"command","id":"c2","protocol":{"name":"prime-agent.daemon","version":7},"command":{"type":"kill"}}"#;
+    let line = r#"{"type":"command","id":"c2","protocol":{"name":"async-agent.daemon","version":7},"command":{"type":"kill"}}"#;
     let error = parse_daemon_command_line(line).unwrap_err();
     assert_eq!(
         error.to_string(),

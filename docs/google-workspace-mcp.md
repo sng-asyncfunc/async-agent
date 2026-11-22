@@ -9,7 +9,7 @@ They are in the
 [Google Workspace Developer Preview Program](https://developers.google.com/workspace/preview).
 Google offers no dynamic client registration and requires a client secret, so
 there is no one-click login. You create your own OAuth client in Google Cloud
-and add it to Prime Agent's `mcpServers` setting. Google's own setup guide is
+and add it to Async Agent's `mcpServers` setting. Google's own setup guide is
 [Configure the Google Workspace MCP servers](https://developers.google.com/workspace/guides/configure-mcp-servers).
 
 ## 1. Google Cloud project
@@ -43,11 +43,11 @@ In **Google Auth Platform > Clients > Create Client**:
    requests from clients without this flag.
 4. Create the client and copy the client ID and client secret.
 
-## 3. Prime Agent settings
+## 3. Async Agent settings
 
 Add the servers to `mcpServers` in the user-level settings file
-`~/.prime/agent/settings.json`. MCP servers are read only from user settings;
-a project's `.prime/agent/settings.json` cannot add them.
+`~/.async-agent/settings.json`. MCP servers are read only from user settings;
+a project's `.async-agent/settings.json` cannot add them.
 
 ```json
 {
@@ -76,12 +76,12 @@ a project's `.prime/agent/settings.json` cannot add them.
 ```
 
 - `callbackPort` must match the redirect URI registered on the client.
-- `scopes` is space-separated. Without it, Prime Agent requests every scope the
+- `scopes` is space-separated. Without it, Async Agent requests every scope the
   server advertises, which includes full `drive` access.
 - `callTimeoutMs` raises the default 60 s tool-call timeout for large writes.
 
-Then run `/mcp login google-drive` and `/mcp login google-sheets` inside Prime
-Agent and finish Google's consent screen in the browser. Prime Agent asks Google
+Then run `/mcp login google-drive` and `/mcp login google-sheets` inside Async
+Agent and finish Google's consent screen in the browser. Async Agent asks Google
 for offline access, so the stored grant includes a refresh token and renews
 itself. The client secret stays in settings (it is not copied into the stored
 login grant) and is sent to Google only on token requests. For SSH sessions, forward the callback port or paste the final
@@ -89,7 +89,7 @@ redirect URL into the auth panel.
 
 ## Tools
 
-Read each tool's `inputSchema` with `mcp.describe_tool` before calling it.
+Read each tool's `inputSchema` with `mcp.describeTool` before calling it.
 
 | Task | Server | Tool |
 | --- | --- | --- |
@@ -102,13 +102,13 @@ Read each tool's `inputSchema` with `mcp.describe_tool` before calling it.
 `get_values` returns formatted strings and has no `valueRenderOption`. For
 unformatted typed values, read the effective values through `get_spreadsheet`:
 
-```python
-grid = await mcp.call_tool("google-sheets", "get_spreadsheet", {
-    "spreadsheetId": spreadsheet_id,
-    "ranges": ["Ledger!A1:F2000"],
-    "includeGridData": True,
-    "fields": ["sheets.data.rowData.values.effectiveValue"],
-})
+```js
+const grid = await mcp.callTool("google-sheets", "get_spreadsheet", {
+  spreadsheetId: spreadsheet_id,
+  ranges: ["Ledger!A1:F2000"],
+  includeGridData: true,
+  fields: ["sheets.data.rowData.values.effectiveValue"],
+});
 ```
 
 Each cell's `effectiveValue` carries `numberValue`, `stringValue`, or
@@ -116,6 +116,6 @@ Each cell's `effectiveValue` carries `numberValue`, `stringValue`, or
 
 For large or exact payloads, follow the "Large or integrity-critical payloads"
 section of the `mcp` skill (`skills/mcp/SKILL.md`): load the arguments from a
-file in the Python kernel, write results to a file, and verify them in code.
+file in the Bun kernel, write results to a file, and verify them in code.
 
 Disconnect with `/mcp logout google-drive` (or `google-sheets`).

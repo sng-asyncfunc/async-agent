@@ -3,7 +3,7 @@ use crate::theme::{ColorMode, Theme};
 use serde_json::json;
 
 fn theme() -> Theme {
-    Theme::builtin("prime", ColorMode::TrueColor)
+    Theme::builtin("async", ColorMode::TrueColor)
 }
 
 fn cell_card(code: &str, details: Value, is_error: bool, partial: bool) -> ToolCallCard {
@@ -631,7 +631,7 @@ fn no_output_placeholder() {
 #[test]
 fn bash_dominated_cell_renders_as_bash() {
     let code =
-        "const r = await sh(`\ncd crates/pa-tui\ncargo test -p pa-tui\n`);\nconsole.log(r.output);";
+        "const r = await sh(`\ncd crates/aa-tui\ncargo test -p aa-tui\n`);\nconsole.log(r.output);";
     let card = cell_card(
         code,
         json!({
@@ -639,7 +639,7 @@ fn bash_dominated_cell_renders_as_bash() {
             "durationMs": 2,
             "stdout": "ok\n",
             "bashCommands": {
-                "first": "\ncd crates/pa-tui\ncargo test -p pa-tui\n",
+                "first": "\ncd crates/aa-tui\ncargo test -p aa-tui\n",
                 "count": 3,
                 "lines": 4,
             },
@@ -651,7 +651,7 @@ fn bash_dominated_cell_renders_as_bash() {
     assert_eq!(lines.len(), 1);
     assert_eq!(
         text_of(&lines[0]),
-        " \u{2713} bash \u{00b7} cargo test -p pa-tui \u{00b7} +2 more \u{00b7} \u{2191} 5 \u{2193} 1 lines \u{00b7} 2ms"
+        " \u{2713} bash \u{00b7} cargo test -p aa-tui \u{00b7} +2 more \u{00b7} \u{2191} 5 \u{2193} 1 lines \u{00b7} 2ms"
     );
     assert_eq!(
         bash_dominated_stats(&card),

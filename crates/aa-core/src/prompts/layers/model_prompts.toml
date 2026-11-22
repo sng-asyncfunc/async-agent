@@ -2,7 +2,7 @@
 #
 # File names resolve inside the agent dir; absolute paths and ".." are rejected.
 # The user map is <agent_dir>/model-prompts.toml; matching, order, and
-# error rules live in pa_core::prompts::model_prompts.
+# error rules live in aa_core::prompts::model_prompts.
 
 [[rule]]
 match = ["glm-5.3*"]

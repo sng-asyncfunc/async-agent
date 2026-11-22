@@ -11,16 +11,16 @@ use super::{
 impl AgentSessionEngine {
     pub(super) fn retry_policy(
         &self,
-    ) -> pa_core::session_engine::provider_retry::ProviderRetryPolicy {
-        pa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir)
+    ) -> aa_core::session_engine::provider_retry::ProviderRetryPolicy {
+        aa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir)
             .get_provider_retry_policy()
     }
 
     /// The provider-failover policy from settings (`retry.failover`).
     pub(super) fn failover_policy(
         &self,
-    ) -> pa_core::session_engine::provider_failover::ProviderFailoverPolicy {
-        pa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir)
+    ) -> aa_core::session_engine::provider_failover::ProviderFailoverPolicy {
+        aa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir)
             .get_provider_failover_policy()
     }
 
@@ -30,23 +30,23 @@ impl AgentSessionEngine {
     /// fail over.
     pub(super) fn failover_candidates(
         &self,
-        model: &pa_types::ai::Model,
-    ) -> Vec<pa_types::ai::Model> {
+        model: &aa_types::ai::Model,
+    ) -> Vec<aa_types::ai::Model> {
         if self.config.faux_script.is_some() {
             return Vec::new();
         }
-        let auth = pa_core::auth::AuthStorage::create(&self.config.agent_dir);
+        let auth = aa_core::auth::AuthStorage::create(&self.config.agent_dir);
         let registry =
-            pa_core::models::ModelRegistry::create(auth, self.config.agent_dir.join("models.json"));
-        let available: Vec<pa_types::ai::Model> =
+            aa_core::models::ModelRegistry::create(auth, self.config.agent_dir.join("models.json"));
+        let available: Vec<aa_types::ai::Model> =
             registry.get_available().into_iter().cloned().collect();
-        let candidates = pa_core::models::failover_candidates(model, &available);
+        let candidates = aa_core::models::failover_candidates(model, &available);
         match crate::model_allowlist::load(&self.cwd(), &self.config.agent_dir) {
             DaemonAllowlist::Unrestricted => candidates,
             DaemonAllowlist::Allowed(patterns) => candidates
                 .into_iter()
                 .filter(|candidate| {
-                    pa_core::models::model_allowed(
+                    aa_core::models::model_allowed(
                         &format!("{}/{}", candidate.provider, candidate.id),
                         &patterns,
                     )
@@ -67,12 +67,12 @@ impl AgentSessionEngine {
     #[allow(clippy::too_many_arguments)]
     pub(super) async fn run_turn_once(
         &self,
-        agent: &std::sync::Arc<pa_agent::agent::Agent>,
+        agent: &std::sync::Arc<aa_agent::agent::Agent>,
         prompt: &TurnPrompt,
         first_attempt: bool,
         boundary_passed: &std::sync::Arc<std::sync::atomic::AtomicBool>,
         pending_model_changes: &std::sync::Arc<
-            std::sync::Mutex<Vec<pa_types::session::ModelChangeEntry>>,
+            std::sync::Mutex<Vec<aa_types::session::ModelChangeEntry>>,
         >,
         aborted: &dyn Fn() -> bool,
         emit: &mut dyn FnMut(EngineEvent) -> bool,
@@ -107,16 +107,16 @@ impl AgentSessionEngine {
                     let goal_runtime = goal_runtime.clone();
                     let goal_budget_crossed = goal_budget_crossed.clone();
                     Box::pin(async move {
-                        use pa_agent::types::AgentEvent;
+                        use aa_agent::types::AgentEvent;
                         if let AgentEvent::MessageEnd {
                             message:
-                                pa_agent::types::AgentMessage::Standard(
-                                    pa_agent::types::Message::Assistant(assistant),
+                                aa_agent::types::AgentMessage::Standard(
+                                    aa_agent::types::Message::Assistant(assistant),
                                 ),
                         } = &event
                         {
                             if let Some(message) =
-                                json_round_trip::<_, pa_types::ai::AssistantMessage>(assistant)
+                                json_round_trip::<_, aa_types::ai::AssistantMessage>(assistant)
                             {
                                 let mut state = autonomous_state.lock().await;
                                 autonomous_driver.account_message(&mut state, &message);
@@ -126,8 +126,8 @@ impl AgentSessionEngine {
                                 if let Some(handles) = goal_runtime.as_ref() {
                                     if !matches!(
                                         message.stop_reason,
-                                        pa_types::ai::StopReason::Error
-                                            | pa_types::ai::StopReason::Aborted
+                                        aa_types::ai::StopReason::Error
+                                            | aa_types::ai::StopReason::Aborted
                                     ) {
                                         let mut driver = handles.driver.lock().await;
                                         let mut session = handles.session.lock().await;
@@ -143,7 +143,7 @@ impl AgentSessionEngine {
                                             .record_assistant_usage(&mut session, &message_id, &message.usage)
                                         {
                                             Ok(
-                                                pa_core::session_engine::goal_driver::UsageOutcome::BudgetReached,
+                                                aa_core::session_engine::goal_driver::UsageOutcome::BudgetReached,
                                             ) => {
                                                 goal_budget_crossed
                                                     .store(true, std::sync::atomic::Ordering::SeqCst);
@@ -151,7 +151,7 @@ impl AgentSessionEngine {
                                             Ok(_) => {}
                                             Err(error) => {
                                                 eprintln!(
-                                                    "pa-daemon: goal usage accounting persist failed: {error:#}"
+                                                    "aa-daemon: goal usage accounting persist failed: {error:#}"
                                                 );
                                             }
                                         }
@@ -165,8 +165,8 @@ impl AgentSessionEngine {
                             } => {
                                 if matches!(
                                     agent_message,
-                                    pa_agent::types::AgentMessage::Standard(
-                                        pa_agent::types::Message::Assistant(_)
+                                    aa_agent::types::AgentMessage::Standard(
+                                        aa_agent::types::Message::Assistant(_)
                                     )
                                 ) {
                                     if let Some(value) = session_wire_value(agent_message) {
@@ -183,8 +183,8 @@ impl AgentSessionEngine {
                             } => {
                                 if matches!(
                                     agent_message.as_ref(),
-                                    pa_agent::types::AgentMessage::Standard(
-                                        pa_agent::types::Message::Assistant(_)
+                                    aa_agent::types::AgentMessage::Standard(
+                                        aa_agent::types::Message::Assistant(_)
                                     )
                                 ) {
                                     let _ = tx.send(EngineEvent::AssistantUpdate {
@@ -202,15 +202,15 @@ impl AgentSessionEngine {
                                 // clients: every assistant and tool-result
                                 // message.
                                 match agent_message {
-                                    pa_agent::types::AgentMessage::Standard(
-                                        pa_agent::types::Message::Assistant(_)
-                                            | pa_agent::types::Message::ToolResult(_),
+                                    aa_agent::types::AgentMessage::Standard(
+                                        aa_agent::types::Message::Assistant(_)
+                                            | aa_agent::types::Message::ToolResult(_),
                                     ) => {
                                         if let Some(value) = session_wire_value(agent_message) {
                                             let event = if matches!(
                                                 agent_message,
-                                                pa_agent::types::AgentMessage::Standard(
-                                                    pa_agent::types::Message::ToolResult(_)
+                                                aa_agent::types::AgentMessage::Standard(
+                                                    aa_agent::types::Message::ToolResult(_)
                                                 )
                                             ) {
                                                 EngineEvent::ToolResultMessage(value)
@@ -229,8 +229,8 @@ impl AgentSessionEngine {
                                     // `boundary_passed` gate separates it from
                                     // the admitted prompt's row, which the loop
                                     // already emitted.
-                                    pa_agent::types::AgentMessage::Standard(
-                                        pa_agent::types::Message::User(_),
+                                    aa_agent::types::AgentMessage::Standard(
+                                        aa_agent::types::Message::User(_),
                                     ) if boundary_passed
                                         .load(std::sync::atomic::Ordering::SeqCst) =>
                                     {
@@ -273,7 +273,7 @@ impl AgentSessionEngine {
                                     let tool_results = tool_results
                                         .iter()
                                         .filter_map(|result| {
-                                            session_wire_value(&pa_agent::types::AgentMessage::from(
+                                            session_wire_value(&aa_agent::types::AgentMessage::from(
                                                 result.clone(),
                                             ))
                                         })
@@ -348,12 +348,12 @@ impl AgentSessionEngine {
                 let engine = session.expect("session built");
                 if std::env::var_os("PA_COMPACTION_TRACE").is_some() {
                     let state = engine.session.agent().state().await;
-                    pa_core::session_engine::compaction_trace::trace(
+                    aa_core::session_engine::compaction_trace::trace(
                         "daemon.before_prompt_admission",
                         &json!({
                             "liveUserRows": state.messages.iter().filter(|message|
-                                matches!(message, pa_agent::types::AgentMessage::Standard(
-                                    pa_agent::types::Message::User(_)))).count(),
+                                matches!(message, aa_agent::types::AgentMessage::Standard(
+                                    aa_agent::types::Message::User(_)))).count(),
                         }),
                     );
                 }
@@ -367,10 +367,10 @@ impl AgentSessionEngine {
                     } => {
                         // The batched co-delivery rows ride the same admission: one run over
                         // the primary plus every batched row.
-                        let options = pa_core::session_engine::PromptOptions {
+                        let options = aa_core::session_engine::PromptOptions {
                             batch: batch
                                 .iter()
-                                .map(|row| pa_core::session_engine::PromptBatchRow {
+                                .map(|row| aa_core::session_engine::PromptBatchRow {
                                     text: row.text.clone(),
                                     images: row.images.clone(),
                                 })
@@ -452,12 +452,12 @@ impl AgentSessionEngine {
         }
         let state = agent.state().await;
         for message in state.messages.iter().rev() {
-            if let pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::Assistant(
+            if let aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::Assistant(
                 assistant,
             )) = message
             {
                 // A round-trip failure means no usable outcome.
-                if json_round_trip::<_, pa_types::ai::AssistantMessage>(assistant).is_none() {
+                if json_round_trip::<_, aa_types::ai::AssistantMessage>(assistant).is_none() {
                     return Ok(TurnOnce::None);
                 }
                 return Ok(TurnOnce::Message {
@@ -471,8 +471,8 @@ impl AgentSessionEngine {
 
 /// Wire form of one provider stream event: the event `type` plus the
 /// `delta` when the event carries one.
-fn stream_event_value(event: &pa_agent::stream::AssistantMessageEvent) -> Option<Value> {
-    use pa_agent::stream::AssistantMessageEvent;
+fn stream_event_value(event: &aa_agent::stream::AssistantMessageEvent) -> Option<Value> {
+    use aa_agent::stream::AssistantMessageEvent;
     let (kind, delta) = match event {
         AssistantMessageEvent::Start { .. } => ("start", None),
         AssistantMessageEvent::TextStart { .. } => ("text_start", None),
@@ -497,7 +497,7 @@ fn stream_event_value(event: &pa_agent::stream::AssistantMessageEvent) -> Option
 }
 
 /// Wire form of one tool result (the TS tool-execution event payload).
-fn tool_result_wire_value(result: &pa_agent::types::AgentToolResult) -> Value {
+fn tool_result_wire_value(result: &aa_agent::types::AgentToolResult) -> Value {
     let content: Vec<Value> = result
         .content
         .iter()

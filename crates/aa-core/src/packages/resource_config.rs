@@ -1,6 +1,6 @@
 //! Resource configuration (TS `config-selector.ts` data layer): the grouped
 //! view of every resolved skill/prompt/theme and the settings mutation that
-//! flips one resource's enablement. The UI lives in pa-tui / pa-cli; this
+//! flips one resource's enablement. The UI lives in aa-tui / aa-cli; this
 //! module owns the grouping rules and the settings writes.
 
 use std::path::{Path, PathBuf};
@@ -469,7 +469,7 @@ mod tests {
                 true,
             ),
             resource(
-                "/work/.prime/agent/skills/project-skill/SKILL.md",
+                "/work/.async-agent/skills/project-skill/SKILL.md",
                 metadata(
                     MetadataSource::Local,
                     SourceScope::Project,
@@ -498,7 +498,7 @@ mod tests {
             labels,
             vec![
                 "npm:foo/bar (user)",
-                "User (~/.prime/agent/)",
+                "User (~/.async-agent/)",
                 "Built-in",
                 "Project settings"
             ]
@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn prompt_display_names_show_the_file_name() {
         let item = resource(
-            "/work/.prime/agent/prompts/fix.md",
+            "/work/.async-agent/prompts/fix.md",
             metadata(
                 MetadataSource::Local,
                 SourceScope::Project,

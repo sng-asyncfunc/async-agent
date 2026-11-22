@@ -7,12 +7,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use pa_agent::abort::AbortSignal;
-use pa_agent::agent::{Agent, AgentOptions};
-use pa_agent::agent_loop::{run_agent_loop_continue, AgentEventSink, AgentLoopConfig};
-use pa_agent::scripted::ScriptedProvider;
-use pa_agent::stream::AssistantMessageEvent;
-use pa_agent::types::{
+use aa_agent::abort::AbortSignal;
+use aa_agent::agent::{Agent, AgentOptions};
+use aa_agent::agent_loop::{run_agent_loop_continue, AgentEventSink, AgentLoopConfig};
+use aa_agent::scripted::ScriptedProvider;
+use aa_agent::stream::AssistantMessageEvent;
+use aa_agent::types::{
     AgentContext, AgentEvent, AgentMessage, AgentTool, AgentToolResult, AgentToolUpdateCallback,
     AssistantContent, AssistantMessage, Message, Model, StopReason, TextContent, ToolExecutionMode,
     ToolResultContent, ToolResultMessage, UserContent,
@@ -26,7 +26,7 @@ fn test_model() -> Model {
         provider: "test".into(),
         base_url: String::new(),
         reasoning: false,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 100_000,
         max_tokens: 4_096,
         max_tokens_explicit: false,
@@ -87,7 +87,7 @@ impl AgentTool for EchoTool {
         params: serde_json::Value,
         _signal: AbortSignal,
         _on_update: AgentToolUpdateCallback,
-    ) -> pa_agent::BoxFut<'static, anyhow::Result<AgentToolResult>> {
+    ) -> aa_agent::BoxFut<'static, anyhow::Result<AgentToolResult>> {
         Box::pin(async move {
             self.calls.fetch_add(1, Ordering::SeqCst);
             let running = self.concurrent.fetch_add(1, Ordering::SeqCst) + 1;
@@ -133,7 +133,7 @@ impl AgentTool for TerminatingTool {
         _params: serde_json::Value,
         _signal: AbortSignal,
         _on_update: AgentToolUpdateCallback,
-    ) -> pa_agent::BoxFut<'static, anyhow::Result<AgentToolResult>> {
+    ) -> aa_agent::BoxFut<'static, anyhow::Result<AgentToolResult>> {
         Box::pin(async move {
             let mut result = AgentToolResult::text("stopping");
             result.terminate = Some(true);
@@ -280,7 +280,7 @@ async fn scripted_agent_with(
     let provider = Arc::new(ScriptedProvider::new(test_model()));
     let events: Arc<Mutex<Vec<&'static str>>> = Arc::new(Mutex::new(Vec::new()));
     let agent = Agent::new(AgentOptions {
-        initial_state: pa_agent::agent::AgentInitialState {
+        initial_state: aa_agent::agent::AgentInitialState {
             tools: Some(tools),
             ..Default::default()
         },
@@ -639,7 +639,7 @@ async fn max_iterations_stops_after_configured_turn_count() {
     let count_turns = Arc::clone(&turn_count);
     let turn_count_snapshot = Arc::clone(&turn_count);
     let bounded = Agent::new(AgentOptions {
-        initial_state: pa_agent::agent::AgentInitialState {
+        initial_state: aa_agent::agent::AgentInitialState {
             tools: Some(vec![echo.clone()]),
             ..Default::default()
         },
@@ -806,7 +806,7 @@ fn scripted_event_shapes_round_trip_through_the_event_enum() {
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_agent::types::Usage::zero(),
+        usage: aa_agent::types::Usage::zero(),
         stop_reason: StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,
@@ -830,14 +830,14 @@ fn scripted_event_shapes_round_trip_through_the_event_enum() {
     assert!(done.terminal_message().is_some());
     assert!(!done.is_delta());
 
-    let steps = pa_agent::scripted::text_turn_steps(&model, "hi");
+    let steps = aa_agent::scripted::text_turn_steps(&model, "hi");
     assert!(steps
         .iter()
-        .any(|s| matches!(s, pa_agent::scripted::ScriptStep::Event(event) if event.terminal_message().is_some())));
-    let failure = pa_agent::scripted::stream_failure_steps(&model, "partial", "boom");
+        .any(|s| matches!(s, aa_agent::scripted::ScriptStep::Event(event) if event.terminal_message().is_some())));
+    let failure = aa_agent::scripted::stream_failure_steps(&model, "partial", "boom");
     assert!(failure.iter().any(|s| matches!(
         s,
-        pa_agent::scripted::ScriptStep::Event(event)
+        aa_agent::scripted::ScriptStep::Event(event)
             if matches!(**event, AssistantMessageEvent::Error { .. })
     )));
 }

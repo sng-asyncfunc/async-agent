@@ -95,7 +95,7 @@ pub(super) mod tests {
     /// component's `expanded`): the cleared flip re-renders.
     #[test]
     fn the_detail_cycle_resets_a_toggled_card() {
-        let mut view = AgentView::new(Theme::builtin("prime", ColorMode::TrueColor));
+        let mut view = AgentView::new(Theme::builtin("async", ColorMode::TrueColor));
         view.push_entry(finished_tool_card("c0", "alpha"));
         view.push_entry(finished_tool_card("c1", "beta"));
         assert_eq!(view.detail, Detail::Overview);

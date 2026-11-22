@@ -30,15 +30,15 @@ pub fn home_dir() -> Option<PathBuf> {
     None
 }
 
-/// `PRIME_AGENT_CODING_AGENT_DIR`: the agent state directory override
+/// `ASYNC_AGENT_CODING_AGENT_DIR`: the agent state directory override
 /// (byte-compatible with the TS product).
-pub const ENV_AGENT_DIR: &str = "PRIME_AGENT_CODING_AGENT_DIR";
+pub const ENV_AGENT_DIR: &str = "ASYNC_AGENT_CODING_AGENT_DIR";
 
-/// The agent state directory name (TS `CONFIG_DIR_NAME`, `.prime/agent`).
-pub const CONFIG_DIR_NAME: &str = ".prime/agent";
+/// The agent state directory name (TS `CONFIG_DIR_NAME`, `.async-agent`).
+pub const CONFIG_DIR_NAME: &str = ".async-agent";
 
 /// The agent state directory: the env override with a leading `~`/`~/` expanded, else
-/// `<home>/.prime/agent`; `None` when the home directory does not resolve (each caller owns its
+/// `<home>/.async-agent`; `None` when the home directory does not resolve (each caller owns its
 /// fallback).
 #[must_use]
 pub fn agent_dir() -> Option<PathBuf> {
@@ -104,7 +104,7 @@ mod tests {
         with_env(
             &[
                 ("HOME", Some("/home/tester")),
-                ("PRIME_AGENT_CODING_AGENT_DIR", Some("~/state")),
+                ("ASYNC_AGENT_CODING_AGENT_DIR", Some("~/state")),
             ],
             || {
                 assert_eq!(agent_dir(), Some(PathBuf::from("/home/tester/state")));
@@ -118,7 +118,7 @@ mod tests {
         with_env(
             &[
                 ("HOME", None),
-                ("PRIME_AGENT_CODING_AGENT_DIR", Some("/opt/state")),
+                ("ASYNC_AGENT_CODING_AGENT_DIR", Some("/opt/state")),
             ],
             || {
                 assert_eq!(agent_dir(), Some(PathBuf::from("/opt/state")));
@@ -132,12 +132,12 @@ mod tests {
         with_env(
             &[
                 ("HOME", Some("/home/tester")),
-                ("PRIME_AGENT_CODING_AGENT_DIR", None),
+                ("ASYNC_AGENT_CODING_AGENT_DIR", None),
             ],
             || {
                 assert_eq!(
                     agent_dir(),
-                    Some(PathBuf::from("/home/tester/.prime/agent"))
+                    Some(PathBuf::from("/home/tester/.async-agent"))
                 );
             },
         );
@@ -147,7 +147,7 @@ mod tests {
     #[cfg(unix)]
     fn agent_dir_without_home_is_none() {
         with_env(
-            &[("HOME", None), ("PRIME_AGENT_CODING_AGENT_DIR", None)],
+            &[("HOME", None), ("ASYNC_AGENT_CODING_AGENT_DIR", None)],
             || {
                 assert_eq!(agent_dir(), None);
             },
@@ -188,7 +188,7 @@ mod tests {
             &[
                 ("HOME", None),
                 ("USERPROFILE", Some(r"C:\Users\tester")),
-                ("PRIME_AGENT_CODING_AGENT_DIR", Some(r"~\state")),
+                ("ASYNC_AGENT_CODING_AGENT_DIR", Some(r"~\state")),
             ],
             || {
                 assert_eq!(agent_dir(), Some(PathBuf::from(r"C:\Users\tester\state")));

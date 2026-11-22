@@ -168,7 +168,7 @@ fn slash_completion_applies_separator_by_argument() {
 
 #[test]
 fn path_completion_lists_directories_first() {
-    let dir = std::env::temp_dir().join("pa-tui-path-completion");
+    let dir = std::env::temp_dir().join("aa-tui-path-completion");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("src")).expect("mkdir");
     std::fs::create_dir_all(dir.join("docs")).expect("mkdir");
@@ -290,7 +290,7 @@ fn should_trigger_file_completion_skips_slash_names() {
 }
 
 fn theme() -> crate::theme::Theme {
-    crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor)
+    crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor)
 }
 
 #[test]
@@ -609,25 +609,25 @@ fn at_item_values(provider: &CombinedAutocompleteProvider, text: &str) -> Vec<St
 #[test]
 fn at_directory_scope_lists_its_children() {
     let base = tempfile::TempDir::new().expect("temp dir");
-    std::fs::create_dir_all(base.path().join("prime-agent/src")).expect("mkdir");
+    std::fs::create_dir_all(base.path().join("async-agent/src")).expect("mkdir");
     for file in [
-        "prime-agent/src/lib.rs",
-        "prime-agent/README.md",
-        "prime-agent/Cargo.toml",
-        "prime-agent/.env",
+        "async-agent/src/lib.rs",
+        "async-agent/README.md",
+        "async-agent/Cargo.toml",
+        "async-agent/.env",
         "other.md",
     ] {
         std::fs::write(base.path().join(file), "x").expect("write");
     }
     let provider = provider(base.path().to_str().expect("utf8"));
     assert_eq!(
-        at_item_values(&provider, "@prime-agent/"),
+        at_item_values(&provider, "@async-agent/"),
         [
-            "@prime-agent/src/",
-            "@prime-agent/README.md",
-            "@prime-agent/Cargo.toml",
-            "@prime-agent/src/lib.rs",
-            "@prime-agent/.env",
+            "@async-agent/src/",
+            "@async-agent/README.md",
+            "@async-agent/Cargo.toml",
+            "@async-agent/src/lib.rs",
+            "@async-agent/.env",
         ]
     );
 }

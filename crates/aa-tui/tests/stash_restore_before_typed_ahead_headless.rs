@@ -24,7 +24,7 @@ use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, SessionSelection, UiMode,
 };
 use serde_json::{json, Value};
@@ -118,7 +118,7 @@ fn attach_data(id: &str) -> Value {
 
 fn options(
     socket: PathBuf,
-    keybindings: pa_tui::keybindings::KeybindingsManager,
+    keybindings: aa_tui::keybindings::KeybindingsManager,
 ) -> InteractiveOptions {
     InteractiveOptions {
         session: SessionSelection::Attach("s1".to_string()),
@@ -145,7 +145,7 @@ fn the_reopen_restores_the_stash_before_the_queued_exit_key_evaluates() {
 
     // The shared stash store: the first run's auto-stash is the second
     // run's restore-on-open head.
-    let stash: std::sync::Arc<std::sync::Mutex<pa_tui::prompt_stash::PromptStashStore>> =
+    let stash: std::sync::Arc<std::sync::Mutex<aa_tui::prompt_stash::PromptStashStore>> =
         std::sync::Arc::default();
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -171,7 +171,7 @@ fn the_reopen_restores_the_stash_before_the_queued_exit_key_evaluates() {
 
     // Run two: reopen the SAME session against the stalled attach and
     // press Ctrl+D while the open is still in flight.
-    let mut second = options(socket, pa_tui::keybindings::KeybindingsManager::new());
+    let mut second = options(socket, aa_tui::keybindings::KeybindingsManager::new());
     second.prompt_stash = std::sync::Arc::clone(&stash);
     let second_plan = HeadlessPlan {
         steps: vec![
@@ -222,10 +222,10 @@ fn the_reopen_restores_the_stash_before_the_queued_exit_key_evaluates() {
 /// `app.session.resume` user-bound to Ctrl+Q: the one agents-view way
 /// out that fires with a draft in the editor (agents-back's
 /// empty-editor gate would turn the exit key into a cursor motion).
-fn agents_view_exit_bindings() -> pa_tui::keybindings::KeybindingsManager {
+fn agents_view_exit_bindings() -> aa_tui::keybindings::KeybindingsManager {
     use std::collections::BTreeMap;
     let config = [("app.session.resume".to_string(), vec!["ctrl+q".to_string()])]
         .into_iter()
         .collect::<BTreeMap<_, _>>();
-    pa_tui::keybindings::KeybindingsManager::with_user_bindings(config)
+    aa_tui::keybindings::KeybindingsManager::with_user_bindings(config)
 }

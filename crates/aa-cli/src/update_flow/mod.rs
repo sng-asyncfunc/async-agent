@@ -27,6 +27,6 @@ use anyhow::{anyhow, Result};
 /// Returns an error when the executable path cannot be resolved or the binary
 /// does not run from a managed install root.
 pub fn activation_root() -> Result<PathBuf> {
-    pa_core::update::install::install_root_of(&std::env::current_exe()?)
+    aa_core::update::install::install_root_of(&std::env::current_exe()?)
         .ok_or_else(|| anyhow!("the current binary does not run from a managed install root"))
 }

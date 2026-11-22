@@ -109,8 +109,8 @@ pub struct LlmContext {
     pub tools: Vec<ToolDefinition>,
 }
 
-/// Provider response as the response hook sees it (the pa-ai mirror lives
-/// in `pa-types`).
+/// Provider response as the response hook sees it (the aa-ai mirror lives
+/// in `aa-types`).
 #[derive(Debug, Clone)]
 pub struct ProviderResponse {
     pub status: u16,

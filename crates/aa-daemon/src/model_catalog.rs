@@ -28,8 +28,8 @@ impl Worker {
         }
         let agent_dir = self.config.agent_dir.clone();
         let models_json = agent_dir.join("models.json");
-        let registry = pa_core::models::ModelRegistry::create(
-            pa_core::auth::AuthStorage::create(&agent_dir),
+        let registry = aa_core::models::ModelRegistry::create(
+            aa_core::auth::AuthStorage::create(&agent_dir),
             models_json.clone(),
         );
         let available = registry
@@ -40,12 +40,12 @@ impl Worker {
         let served = catalog_payload(&registry, &available);
         // An observed credential-scope change forces the refresh; the
         // observation consumes the scope, so one change forces exactly once.
-        let credentials = pa_core::models::prime_credentials_for_dir(&agent_dir);
-        let catalog = pa_core::models::catalog_for(Some(&models_json));
+        let credentials = aa_core::models::prime_credentials_for_dir(&agent_dir);
+        let catalog = aa_core::models::catalog_for(Some(&models_json));
         let trigger = if catalog.credentials_changed(credentials.as_ref()) {
-            pa_core::models::RefreshTrigger::AuthChange
+            aa_core::models::RefreshTrigger::AuthChange
         } else {
-            pa_core::models::RefreshTrigger::PickerOpen
+            aa_core::models::RefreshTrigger::PickerOpen
         };
         self.spawn_catalog_refresh(trigger, served.clone());
         response_success(None, "get_model_catalog", Some(served))
@@ -54,7 +54,7 @@ impl Worker {
     /// The background catalog refresh: the same awaited chain the TS
     /// request runs, settled off the response path; failures keep the
     /// last-good snapshot and stay silent.
-    fn spawn_catalog_refresh(&self, trigger: pa_core::models::RefreshTrigger, served: Value) {
+    fn spawn_catalog_refresh(&self, trigger: aa_core::models::RefreshTrigger, served: Value) {
         let gate = std::sync::Arc::clone(&self.model_catalog_refresh_gate);
         if gate.in_flight.swap(true, Ordering::SeqCst) {
             // A refresh already runs: remember the request and return — the
@@ -68,9 +68,9 @@ impl Worker {
             let mut baseline = served;
             let mut trigger = trigger;
             loop {
-                let auth = pa_core::auth::AuthStorage::create(&agent_dir);
+                let auth = aa_core::auth::AuthStorage::create(&agent_dir);
                 let mut registry =
-                    pa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
+                    aa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
                 let available = registry
                     .refresh_available_models_with_trigger(trigger)
                     .await;
@@ -90,7 +90,7 @@ impl Worker {
                 }
                 // The trailing re-arm stays gated: the next request's own
                 // scope observation re-detects and forces any flip.
-                trigger = pa_core::models::RefreshTrigger::PickerOpen;
+                trigger = aa_core::models::RefreshTrigger::PickerOpen;
             }
         });
     }
@@ -99,8 +99,8 @@ impl Worker {
 /// The wire payload of one catalog snapshot: the full catalog minus
 /// unauthorized private Prime Inference models, plus sorted providers.
 fn catalog_payload(
-    registry: &pa_core::models::ModelRegistry,
-    available: &[pa_types::ai::Model],
+    registry: &aa_core::models::ModelRegistry,
+    available: &[aa_types::ai::Model],
 ) -> Value {
     let mut providers: Vec<String> = available
         .iter()
@@ -114,11 +114,11 @@ fn catalog_payload(
         .collect();
     // Canonical (provider, id) order: the served and refreshed snapshots
     // compare verbatim.
-    let mut entries: Vec<&pa_types::ai::Model> = registry
+    let mut entries: Vec<&aa_types::ai::Model> = registry
         .get_all()
         .iter()
         .filter(|model| {
-            !pa_core::models::is_private_prime_inference_model(model)
+            !aa_core::models::is_private_prime_inference_model(model)
                 || available_keys.contains(&format!("{}/{}", model.provider, model.id))
         })
         .collect();
@@ -261,7 +261,7 @@ mod tests {
     /// One provider-catalog aggregate entry riding a compiled transport
     /// tuple (probe ids must stay outside the compiled catalog).
     fn catalog_aggregate(ids: &[&str]) -> String {
-        let anthropic = pa_models::transports::compiled_models()
+        let anthropic = aa_models::transports::compiled_models()
             .iter()
             .find(|model| model.provider == "anthropic")
             .expect("compiled anthropic tuple")
@@ -295,7 +295,7 @@ mod tests {
 
     /// [`pi_snapshot_payload`] plus the account's private route items.
     fn pi_snapshot_payload_with(marker: &str, private: Vec<Value>) -> String {
-        let mut data: Vec<Value> = pa_models::transports::prime_inference_offline_entries()
+        let mut data: Vec<Value> = aa_models::transports::prime_inference_offline_entries()
             .iter()
             .map(|model| {
                 json!({
@@ -431,13 +431,13 @@ mod tests {
         let server = CatalogServer::start(create_answers).await;
         let bundled_dir = dir.join("bundled");
         std::fs::create_dir_all(&bundled_dir).expect("bundled dir");
-        let catalog = pa_models::ModelCatalog::with_urls(
+        let catalog = aa_models::ModelCatalog::with_urls(
             Some(agent_dir.join("models")),
             Some(bundled_dir),
             &server.url("/catalog"),
             &server.url("/api/v1"),
         );
-        pa_core::models::install_catalog(&agent_dir.join("models.json"), Arc::new(catalog));
+        aa_core::models::install_catalog(&agent_dir.join("models.json"), Arc::new(catalog));
         let config = WorkerConfig {
             socket_path: dir.join("worker.sock"),
             supervisor_socket_path: PathBuf::new(),

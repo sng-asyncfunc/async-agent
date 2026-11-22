@@ -30,7 +30,7 @@ pub struct RpcOptions {
     /// The agent dir (model registry auth).
     pub agent_dir: std::path::PathBuf,
     /// The CLI autonomous flags seeding the host-owned autonomous state (`None` starts disabled).
-    pub autonomous_config: Option<pa_core::autonomous::AgentAutonomousConfig>,
+    pub autonomous_config: Option<aa_core::autonomous::AgentAutonomousConfig>,
 }
 
 /// The ordered stdout writer: one queue for responses and events, in
@@ -136,7 +136,7 @@ pub async fn run_rpc_mode(options: RpcOptions) -> anyhow::Result<i32> {
         agent_dir: options.agent_dir.clone(),
         compacting: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
         autonomous: Arc::new(tokio::sync::Mutex::new(
-            pa_core::autonomous::create_autonomous_runtime_state(
+            aa_core::autonomous::create_autonomous_runtime_state(
                 options.autonomous_config.as_ref(),
                 None,
             ),
@@ -154,9 +154,9 @@ pub async fn run_rpc_mode(options: RpcOptions) -> anyhow::Result<i32> {
     // With no create command, the FIRST `get_available_models` would pay
     // the whole awaited refresh chain; this spawn warms the caches early.
     tokio::spawn(async move {
-        let auth = pa_core::auth::AuthStorage::create(&options.agent_dir);
+        let auth = aa_core::auth::AuthStorage::create(&options.agent_dir);
         let mut registry =
-            pa_core::models::ModelRegistry::create(auth, options.agent_dir.join("models.json"));
+            aa_core::models::ModelRegistry::create(auth, options.agent_dir.join("models.json"));
         let _ = registry.refresh_available_models().await;
     });
     spawn_signal_handlers(&session, writer.clone());

@@ -97,7 +97,7 @@ async fn stream_assistant_response_inner(
 
     let stream_fn = stream_fn.ok_or_else(|| {
         anyhow::anyhow!(
-            "No stream function provided; the agent loop requires a model stream function (pa-ai integration supplies the default)"
+            "No stream function provided; the agent loop requires a model stream function (aa-ai integration supplies the default)"
         )
     })?;
 

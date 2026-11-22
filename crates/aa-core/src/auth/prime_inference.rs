@@ -40,12 +40,12 @@ impl PrimeInferenceAuthConfig {
 pub fn resolve_prime_inference_auth_config() -> PrimeInferenceAuthConfig {
     PrimeInferenceAuthConfig {
         base_url: normalize_base_url(
-            std::env::var("PRIME_AGENT_INFERENCE_API_BASE_URL")
+            std::env::var("ASYNC_AGENT_INFERENCE_API_BASE_URL")
                 .ok()
                 .as_deref(),
         ),
         frontend_url: normalize_url(
-            std::env::var("PRIME_AGENT_INFERENCE_FRONTEND_URL")
+            std::env::var("ASYNC_AGENT_INFERENCE_FRONTEND_URL")
                 .ok()
                 .as_deref(),
             DEFAULT_PRIME_FRONTEND_URL,
@@ -115,7 +115,7 @@ impl PrimeHttp for ReqwestPrimeHttp {
         let url = url.to_string();
         let api_key = api_key.to_string();
         Box::pin(async move {
-            let client = pa_ai::utils::tls::http_client_builder()
+            let client = aa_ai::utils::tls::http_client_builder()
                 .timeout(Duration::from_millis(timeout_ms))
                 .build()
                 .map_err(|error| error.to_string())?;
@@ -146,7 +146,7 @@ impl PrimeHttp for ReqwestPrimeHttp {
         timeout_ms: u64,
     ) -> Pin<Box<dyn Future<Output = Result<PrimeHttpResponse, String>> + Send + 'a>> {
         Box::pin(async move {
-            let client = pa_ai::utils::tls::http_client_builder()
+            let client = aa_ai::utils::tls::http_client_builder()
                 .timeout(Duration::from_millis(timeout_ms))
                 .build()
                 .map_err(|error| error.to_string())?;
@@ -183,7 +183,7 @@ pub struct PrimeCliConfig {
 /// The default prime-cli config path: `~/.prime/config.json`.
 #[must_use]
 pub fn default_prime_cli_config_path() -> PathBuf {
-    pa_types::platform::home_dir()
+    aa_types::platform::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join(".prime")
         .join("config.json")

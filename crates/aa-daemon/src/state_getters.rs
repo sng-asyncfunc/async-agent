@@ -5,7 +5,7 @@
 
 use serde_json::{json, Value};
 
-use pa_core::models::ModelRegistry;
+use aa_core::models::ModelRegistry;
 
 use crate::protocol::{response_failure, response_success, DaemonResponse};
 use crate::worker::Worker;
@@ -191,7 +191,7 @@ impl Worker {
             );
         };
         let entries = store.branch_file_entries();
-        let context = pa_core::session::build_session_context(&entries, store.leaf_id());
+        let context = aa_core::session::build_session_context(&entries, store.leaf_id());
         let messages: Vec<Value> = context
             .messages
             .iter()

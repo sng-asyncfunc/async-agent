@@ -9,7 +9,7 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use pa_core::mcp::AcpMcpServerConfig;
+use aa_core::mcp::AcpMcpServerConfig;
 
 /// Wire shape of one `session/new` `mcpServers` entry (ACP SDK
 /// `McpServer` union: stdio by `command`, http by `type`).

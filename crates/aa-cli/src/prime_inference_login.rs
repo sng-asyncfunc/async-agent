@@ -8,14 +8,14 @@ use std::pin::{pin, Pin};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use pa_core::auth::{
+use aa_core::auth::{
     check_prime_inference_access, fetch_prime_teams, login_prime_inference, AuthStorage,
     PrimeAccessError, PrimeAuthInfo, PrimeHttp, PrimeInferenceAuthConfig,
     PrimeInferenceLoginCallbacks, PrimeInferenceLoginOptions, PrimeInferenceLoginResult,
     PrimeTeamAssignment, PrimeTeamCredential, StoredPrimeTeam, DEFAULT_REQUEST_TIMEOUT_MS,
 };
-use pa_tui::auth_panel::{PastePromptTone, PasteStyle, PrimeTeamOption, PrimeTeamPick};
-use pa_tui::provider_auth::ProviderAuthOutcome;
+use aa_tui::auth_panel::{PastePromptTone, PasteStyle, PrimeTeamOption, PrimeTeamPick};
+use aa_tui::provider_auth::ProviderAuthOutcome;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum TeamChoice {
@@ -316,11 +316,11 @@ fn default_team_status(auth: &AuthStorage, prime_team_id: Option<&str>) -> Strin
 /// The login's inline-panel surface: the prompts and the picker drive
 /// the auth panel through the request channel.
 pub(crate) struct PanelPrimeLoginUi {
-    panel: pa_tui::auth_panel::AuthPanelHandle,
+    panel: aa_tui::auth_panel::AuthPanelHandle,
 }
 
 impl PanelPrimeLoginUi {
-    pub(crate) fn new(panel: pa_tui::auth_panel::AuthPanelHandle) -> Self {
+    pub(crate) fn new(panel: aa_tui::auth_panel::AuthPanelHandle) -> Self {
         PanelPrimeLoginUi { panel }
     }
 }
@@ -336,7 +336,7 @@ impl PrimeLoginUi for PanelPrimeLoginUi {
 
     fn on_auth(&self, url: &str, instructions: &str) {
         self.panel.auth_url(url, Some(instructions));
-        pa_core::platform::browser::open_in_browser(url);
+        aa_core::platform::browser::open_in_browser(url);
     }
 
     fn is_cancelled(&self) -> bool {
@@ -392,7 +392,7 @@ impl PrimeLoginUi for PanelPrimeLoginUi {
 /// The prime CLI config is consulted only when the agent dir is the
 /// resolved default.
 pub(crate) fn prime_cli_config_path(agent_dir: &Path) -> Option<PathBuf> {
-    (agent_dir == crate::config::get_agent_dir()).then(pa_core::auth::default_prime_cli_config_path)
+    (agent_dir == crate::config::get_agent_dir()).then(aa_core::auth::default_prime_cli_config_path)
 }
 
 #[cfg(test)]
@@ -404,7 +404,7 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::{Arc, Mutex};
 
-    type PrimeHttpResponse = pa_core::auth::PrimeHttpResponse;
+    type PrimeHttpResponse = aa_core::auth::PrimeHttpResponse;
 
     /// A scripted transport: exact URL -> response, in call order; the served
     /// requests land in the log. The status poll answers pending once, then the
@@ -621,8 +621,8 @@ mod tests {
     /// The production challenge config (requests stay hermetic).
     fn production_config() -> PrimeInferenceAuthConfig {
         PrimeInferenceAuthConfig {
-            base_url: pa_core::auth::DEFAULT_PRIME_API_BASE_URL.to_string(),
-            frontend_url: pa_core::auth::DEFAULT_PRIME_FRONTEND_URL.to_string(),
+            base_url: aa_core::auth::DEFAULT_PRIME_API_BASE_URL.to_string(),
+            frontend_url: aa_core::auth::DEFAULT_PRIME_FRONTEND_URL.to_string(),
         }
     }
 
@@ -1094,7 +1094,7 @@ mod tests {
         let auth = AuthStorage::create(&agent_dir);
         assert!(matches!(
             auth.get_all().credential("prime-inference"),
-            Some(pa_core::auth::AuthCredential::ApiKey { key, .. }) if key == "fixture-browser-key"
+            Some(aa_core::auth::AuthCredential::ApiKey { key, .. }) if key == "fixture-browser-key"
         ));
         assert_eq!(
             auth.get_prime_inference_team_selection(),

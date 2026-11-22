@@ -8,15 +8,15 @@ use serde_json::Value;
 
 use crate::theme::{Theme, ThemeBg, ThemeColor};
 
-/// The compact 7-row brand butterfly.
-pub const PRIME_COMPACT_BUTTERFLY_LOGO: &str = concat!(
-    "                 \u{2597}\u{2584}\u{2584}\u{2588}\u{2580}\n",
-    "   \u{2588}\u{2588}\u{2588}\u{2584}       \u{2597}\u{2584}\u{2588}\u{2588}\u{2588}\u{2580}\n",
-    "  \u{2597}\u{2588}\u{259b}\u{2590}\u{2588}\u{2599}   \u{2597}\u{2584}\u{2588}\u{2580}\u{2597}\u{2588}\u{2580}\n",
-    " \u{2597}\u{2588}\u{259b} \u{259f}\u{2588}\u{2588}\u{2599}\u{2584}\u{2588}\u{2588}\u{259b} \u{259f}\u{259b}\n",
-    " \u{2597}\u{259f}\u{258c} \u{2590}\u{2588}\u{2588}\u{2588}\u{259b}\u{2598}\u{2597}\u{2584}\u{2588}\u{2596}\n",
-    "\u{259f}\u{2588}\u{2588}\u{2588}\u{2584}  \u{2584}\u{2584}\u{259f}\u{2588}\u{2588}\u{2588}\u{2580}\n",
-    "\u{259c}\u{2588}\u{259b}\u{2580}\u{2598}  \u{259c}\u{2588}\u{259b}\u{2580}\u{2598}",
+/// The compact 7-row Async Agent monogram.
+pub const ASYNC_AGENT_LOGO: &str = concat!(
+    " \u{2597}\u{2584}\u{2584}\u{2584}\u{2584}\u{2596}    \u{2597}\u{2584}\u{2584}\u{2584}\u{2584}\u{2596}\n",
+    "\u{259f}\u{2588}\u{259b}\u{2580}\u{2580}\u{259c}\u{2588}\u{2599}  \u{259f}\u{2588}\u{259b}\u{2580}\u{2580}\u{259c}\u{2588}\u{2599}\n",
+    "\u{2588}\u{2588}\u{258c}  \u{2590}\u{2588}\u{2588}  \u{2588}\u{2588}\u{258c}  \u{2590}\u{2588}\u{2588}\n",
+    "\u{2588}\u{2588}\u{2588}\u{2584}\u{2584}\u{2588}\u{2588}\u{2588}  \u{2588}\u{2588}\u{2588}\u{2584}\u{2584}\u{2588}\u{2588}\u{2588}\n",
+    "\u{2588}\u{2588}\u{2588}\u{2580}\u{2580}\u{2588}\u{2588}\u{2588}  \u{2588}\u{2588}\u{2588}\u{2580}\u{2580}\u{2588}\u{2588}\u{2588}\n",
+    "\u{2588}\u{2588}\u{258c}  \u{2590}\u{2588}\u{2588}  \u{2588}\u{2588}\u{258c}  \u{2590}\u{2588}\u{2588}\n",
+    "\u{2580}\u{2580}\u{2580}  \u{2580}\u{2580}\u{2580}  \u{2580}\u{2580}\u{2580}  \u{2580}\u{2580}\u{2580}",
 );
 
 /// Truncate a plain string to a visible width (cut on grapheme
@@ -41,7 +41,7 @@ fn truncate_to_width(value: &str, max_width: usize, ellipsis: &str) -> String {
 /// Where a session runs; drives labels that depend on persistence.
 #[derive(Debug, Clone, Default)]
 pub struct ChromeState {
-    /// Product version shown in the splash (`prime agent vX`).
+    /// Product version shown in the splash (`async agent vX`).
     pub version: String,
     /// Session working directory (splash `cwd` line; `~`-compressed).
     pub cwd: String,
@@ -353,14 +353,14 @@ pub fn render_top_bar(state: &ChromeState, theme: &Theme, width: usize) -> Line 
     line
 }
 
-/// The brand splash: butterfly logo beside the version/model/cwd metadata
+/// The brand splash: AA monogram beside the version/model/cwd metadata
 /// (TS `BrandSplashHeader`, `topPadding` always on).
 #[must_use]
 pub fn render_splash(state: &ChromeState, theme: &Theme, width: usize) -> Vec<Line> {
     let safe_width = width.max(1);
     let padding_x = usize::from(safe_width > 1);
     let content_width = safe_width.saturating_sub(padding_x * 2).max(1);
-    let logo_raw: Vec<&str> = PRIME_COMPACT_BUTTERFLY_LOGO.split('\n').collect();
+    let logo_raw: Vec<&str> = ASYNC_AGENT_LOGO.split('\n').collect();
     let logo_canvas_width = logo_raw
         .iter()
         .map(|line| str_width(line))
@@ -378,7 +378,7 @@ pub fn render_splash(state: &ChromeState, theme: &Theme, width: usize) -> Vec<Li
     let text = theme.fg_style(ThemeColor::Text);
     let muted = theme.fg_style(ThemeColor::Muted);
     let dim = theme.fg_style(ThemeColor::Dim);
-    let title = "prime agent";
+    let title = "async agent";
     let version = format!("v{}", state.version);
     let mut meta_lines: Vec<Line> = Vec::new();
     if str_width(&format!("{title} {version}")) <= meta_width {
@@ -414,7 +414,7 @@ pub fn render_splash(state: &ChromeState, theme: &Theme, width: usize) -> Vec<Li
     }
     if !state.splash_hide_cwd {
         let cwd_label = "cwd ";
-        let home = pa_types::platform::home_dir().map(|home| home.to_string_lossy().into_owned());
+        let home = aa_types::platform::home_dir().map(|home| home.to_string_lossy().into_owned());
         let cwd = truncate_path_middle(
             &format_splash_cwd(&state.cwd, home.as_deref()),
             meta_width.saturating_sub(str_width(cwd_label)).max(1),
@@ -599,7 +599,7 @@ pub(crate) fn tray_thinking_suffix(state: &Value) -> Option<String> {
     state
         .get("thinkingLevel")
         .and_then(Value::as_str)
-        .and_then(pa_types::ai::thinking_level_from_str)
+        .and_then(aa_types::ai::thinking_level_from_str)
         .map(|level| level.wire_name().to_string())
 }
 

@@ -100,7 +100,7 @@ pub(crate) fn parse_lsof_listeners(stdout: &str) -> Vec<DiscoveredDaemonProcess>
 
 /// Parse `ps -axo pid=,comm=,args=` output into pids whose command or
 /// argv0 names this product.
-pub(crate) fn parse_prime_agent_process_ids(stdout: &str, app_name: &str) -> Vec<u32> {
+pub(crate) fn parse_async_agent_process_ids(stdout: &str, app_name: &str) -> Vec<u32> {
     let mut pids = Vec::new();
     for line in stdout.split('\n') {
         let trimmed = line.trim_start();
@@ -367,7 +367,7 @@ fn scan_listening_daemons_machine_wide(app_name: &str) -> Vec<DiscoveredDaemonPr
     }
     let mut by_pid = Vec::new();
     if let Some(stdout) = capture_stdout("ps", &["-axo", "pid=,comm=,args="]) {
-        let pids = parse_prime_agent_process_ids(&stdout, app_name);
+        let pids = parse_async_agent_process_ids(&stdout, app_name);
         if !pids.is_empty() {
             let pid_list = pids
                 .iter()
@@ -427,8 +427,8 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn proc_and_ss_parsers_agree_on_one_listener() {
-        let ss_line = "u_str LISTEN 0      4096   /tmp/agent/daemon.sock 21049121            * 0    users:((\"prime-agent\",pid=123,fd=14))\n";
-        let ss = parse_ss_listeners(ss_line, "prime-agent");
+        let ss_line = "u_str LISTEN 0      4096   /tmp/agent/daemon.sock 21049121            * 0    users:((\"async-agent\",pid=123,fd=14))\n";
+        let ss = parse_ss_listeners(ss_line, "async-agent");
         let proc_rows = parse_proc_net_unix(
             b"Num RefCount Protocol Flags Type St Inode Path\n0000000047ecc27d: 00000002 00000000 00010000 0001 01  9703 /tmp/agent/daemon.sock\n",
         );
@@ -444,6 +444,6 @@ mod tests {
     #[test]
     fn ss_parse_skips_foreign_process_names() {
         let sample = "u_str LISTEN 0      4096   /tmp/bus.sock 1 * 0    users:((\"dbus-daemon\",pid=7,fd=3))\n";
-        assert!(parse_ss_listeners(sample, "prime-agent").is_empty());
+        assert!(parse_ss_listeners(sample, "async-agent").is_empty());
     }
 }

@@ -146,33 +146,33 @@ fn autonomous_gate_pass_and_failure_drive_the_loop() {
 #[cfg(test)]
 struct ScriptedDriver {
     /// Pops from the end, so reverse the desired order when building.
-    follow_ups: std::sync::Mutex<Vec<pa_core::autonomous::AutonomousFollowUp>>,
+    follow_ups: std::sync::Mutex<Vec<aa_core::autonomous::AutonomousFollowUp>>,
     accounted: std::sync::atomic::AtomicUsize,
 }
 
 #[cfg(test)]
-impl pa_core::autonomous::AutonomousDriver for ScriptedDriver {
+impl aa_core::autonomous::AutonomousDriver for ScriptedDriver {
     fn account_message(
         &self,
-        _state: &mut pa_core::autonomous::AutonomousRuntimeState,
-        message: &pa_types::ai::AssistantMessage,
+        _state: &mut aa_core::autonomous::AutonomousRuntimeState,
+        message: &aa_types::ai::AssistantMessage,
     ) {
-        assert_ne!(message.stop_reason, pa_types::ai::StopReason::Error);
+        assert_ne!(message.stop_reason, aa_types::ai::StopReason::Error);
         self.accounted
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
 
     fn after_turn<'a>(
         &'a self,
-        _state: &'a mut pa_core::autonomous::AutonomousRuntimeState,
-        _message: &'a pa_types::ai::AssistantMessage,
-    ) -> pa_core::autonomous::AutonomousFollowUpFuture<'a> {
+        _state: &'a mut aa_core::autonomous::AutonomousRuntimeState,
+        _message: &'a aa_types::ai::AssistantMessage,
+    ) -> aa_core::autonomous::AutonomousFollowUpFuture<'a> {
         let next = self
             .follow_ups
             .lock()
             .unwrap()
             .pop()
-            .unwrap_or(pa_core::autonomous::AutonomousFollowUp::Inactive);
+            .unwrap_or(aa_core::autonomous::AutonomousFollowUp::Inactive);
         Box::pin(async move { next })
     }
 }
@@ -200,18 +200,18 @@ fn the_turn_loop_is_driven_by_the_driver_trait() {
     );
     // The in-run continuation hook upgrades the engine's registered arc.
     engine.register_arc();
-    let status = pa_core::autonomous::autonomous_status(&engine.autonomous.blocking_lock());
+    let status = aa_core::autonomous::autonomous_status(&engine.autonomous.blocking_lock());
     // The queue pops from the end: the continuation is consulted first,
     // the stop on the second settled turn.
     let driver = std::sync::Arc::new(ScriptedDriver {
         follow_ups: std::sync::Mutex::new(vec![
-            pa_core::autonomous::AutonomousFollowUp::Stop {
-                reason: pa_core::autonomous::AutonomousStopReason::Limit(
-                    pa_core::autonomous::AutonomousLimitReason::MaxTurns,
+            aa_core::autonomous::AutonomousFollowUp::Stop {
+                reason: aa_core::autonomous::AutonomousStopReason::Limit(
+                    aa_core::autonomous::AutonomousLimitReason::MaxTurns,
                 ),
                 status: Box::new(status),
             },
-            pa_core::autonomous::AutonomousFollowUp::Continue {
+            aa_core::autonomous::AutonomousFollowUp::Continue {
                 text: "scripted continuation".to_string(),
             },
         ]),
@@ -219,7 +219,7 @@ fn the_turn_loop_is_driven_by_the_driver_trait() {
     });
     engine
         .set_autonomous_driver(std::sync::Arc::clone(&driver)
-            as std::sync::Arc<dyn pa_core::autonomous::AutonomousDriver>);
+            as std::sync::Arc<dyn aa_core::autonomous::AutonomousDriver>);
     let mut events: Vec<EngineEvent> = Vec::new();
     engine.run_prompt(
         0,

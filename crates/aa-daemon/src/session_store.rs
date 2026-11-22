@@ -5,7 +5,7 @@
 //! tooling read the same files.
 
 use anyhow::{anyhow, Context, Result};
-use pa_types::ai::Usage;
+use aa_types::ai::Usage;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::borrow::Cow;
@@ -83,7 +83,7 @@ pub(crate) use info_sidecar::persist_info_sidecar;
 #[cfg(test)]
 mod tests;
 
-pub use pa_types::session::SessionHeader;
+pub use aa_types::session::SessionHeader;
 
 /// The roster scan lives in `session_scan`; re-exported for the listing call sites.
 pub use crate::session_scan::list_sessions;
@@ -196,7 +196,7 @@ impl SessionMessagesQuery {
         }
         let slice = self.read(&mut SessionFile::open(path)?, &idle);
         // The whole-file load was transient: release its freed heap.
-        pa_types::memory_release::trim_freed_heap();
+        aa_types::memory_release::trim_freed_heap();
         slice.ok_or_else(|| anyhow!("Session history is unavailable"))
     }
 }
@@ -225,7 +225,7 @@ pub struct SessionFile {
     /// by [`Self::set_leaf`], `None` while stale (the next read recounts).
     branch_roles: Option<HashMap<String, usize>>,
     pub(crate) window: Option<SessionWindow>,
-    pub(crate) trace_upload: Option<std::sync::Arc<pa_core::agent_traces::ContinuousTraceUpload>>,
+    pub(crate) trace_upload: Option<std::sync::Arc<aa_core::agent_traces::ContinuousTraceUpload>>,
     pub(crate) lease: Option<std::sync::Arc<crate::lease::SessionLease>>,
     child_usage_recovery: child_usage::ChildUsageRecovery,
     /// Rows the full reader skipped as unparsable (the TS loader's
@@ -236,7 +236,7 @@ pub struct SessionFile {
     /// Whether this session has already drawn the Anthropic subscription
     /// ban-risk warning (the once-per-session-lifecycle gate, operator
     /// directive 2026-09-29): hydrated from the persisted
-    /// [`pa_core::session::ANTHROPIC_WARNING_SHOWN_CUSTOM_TYPE`] row at open
+    /// [`aa_core::session::ANTHROPIC_WARNING_SHOWN_CUSTOM_TYPE`] row at open
     /// (full or windowed), flipped by
     /// [`SessionFile::mark_anthropic_warning_shown`]. Client-facing reads
     /// serve it through `get_state`
@@ -248,7 +248,7 @@ pub struct SessionFile {
 }
 
 #[derive(Clone, Default)]
-pub(crate) struct BilledRowSinkSlot(pub(crate) Option<pa_core::session::billed_row::BilledRowSink>);
+pub(crate) struct BilledRowSinkSlot(pub(crate) Option<aa_core::session::billed_row::BilledRowSink>);
 
 impl std::fmt::Debug for BilledRowSinkSlot {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -272,9 +272,9 @@ pub(crate) struct SessionWindow {
     /// `model_change` in the discarded prefix): the per-model fold's timeline seed.
     boundary_model: Option<(String, String)>,
     thinking_level: String,
-    service_tier: Option<pa_types::ai::ServiceTier>,
+    service_tier: Option<aa_types::ai::ServiceTier>,
     retained_ids: std::collections::HashSet<String>,
     /// The discarded prefix's on-chain spend (attribution-folded): added by the
     /// active stats when no compaction bounds the region.
-    pub(crate) older_path_stats: pa_core::session::window::WindowStats,
+    pub(crate) older_path_stats: aa_core::session::window::WindowStats,
 }

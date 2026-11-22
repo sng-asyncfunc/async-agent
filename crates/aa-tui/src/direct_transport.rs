@@ -11,10 +11,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
-use pa_types::daemon::{
+use aa_types::daemon::{
     framing, DaemonClientCapability, DaemonPeerCommand, DaemonPeerTransportTicket,
 };
-use pa_types::platform::transport::connect_transport;
+use aa_types::platform::transport::connect_transport;
 use serde_json::{json, Map, Value};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
@@ -152,7 +152,7 @@ pub(crate) fn read_session_transport_ticket(
     if expires <= unix_now_ms() {
         bail!("direct transport ticket expired");
     }
-    let Some(current) = pa_types::platform::socket_identity(Path::new(&ticket.socket_path)) else {
+    let Some(current) = aa_types::platform::socket_identity(Path::new(&ticket.socket_path)) else {
         bail!("direct transport socket is gone");
     };
     if current != ticket.socket_identity {
@@ -269,7 +269,7 @@ pub(crate) async fn connect_direct(
                 };
                 if header_type == "response" {
                     if let Ok(response) =
-                        serde_json::from_value::<pa_types::daemon::DaemonResponse>(payload)
+                        serde_json::from_value::<aa_types::daemon::DaemonResponse>(payload)
                     {
                         let request_id = frame
                             .header
@@ -324,7 +324,7 @@ async fn read_peer_auth_response<R: tokio::io::AsyncRead + Unpin>(
         {
             continue;
         }
-        let response: pa_types::daemon::DaemonResponse = serde_json::from_slice(&frame.payload)?;
+        let response: aa_types::daemon::DaemonResponse = serde_json::from_slice(&frame.payload)?;
         if !response.success {
             bail!(
                 "peer authentication failed: {}",
@@ -433,7 +433,7 @@ mod tests {
         let socket = dir.path().join("worker.sock");
         // A real socket file so the identity check has something to stat.
         std::os::unix::net::UnixListener::bind(&socket).unwrap();
-        let identity = pa_types::platform::socket_identity(&socket).unwrap();
+        let identity = aa_types::platform::socket_identity(&socket).unwrap();
         let ticket = json!({
             "purpose": "session_client",
             "socketPath": socket.to_string_lossy(),
@@ -507,7 +507,7 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let socket = dir.path().join("worker.sock");
         let listener = tokio::net::UnixListener::bind(&socket).unwrap();
-        let identity = pa_types::platform::socket_identity(&socket).unwrap();
+        let identity = aa_types::platform::socket_identity(&socket).unwrap();
         let ticket = DaemonPeerTransportTicket {
             purpose: "session_client".to_string(),
             socket_path: socket.to_string_lossy().to_string(),
@@ -577,7 +577,7 @@ mod tests {
             let ticket = DaemonPeerTransportTicket {
                 purpose: "session_client".to_string(),
                 socket_path: socket.to_string_lossy().to_string(),
-                socket_identity: pa_types::platform::socket_identity(&socket).unwrap(),
+                socket_identity: aa_types::platform::socket_identity(&socket).unwrap(),
                 worker_instance_id: "inst-1".to_string(),
                 active_session_id: "abc123".to_string(),
                 grant_id: "g1".to_string(),

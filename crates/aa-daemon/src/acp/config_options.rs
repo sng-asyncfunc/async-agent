@@ -15,7 +15,7 @@
 
 use std::sync::Arc;
 
-use pa_types::ai::Model;
+use aa_types::ai::Model;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -187,7 +187,7 @@ pub async fn publish_config_options(
         config_options: options,
     };
     let _ = producer
-        .publish(&update, 0, super::meta::PrimeAgentEventPhase::Event, None)
+        .publish(&update, 0, super::meta::AsyncAgentEventPhase::Event, None)
         .await;
 }
 
@@ -205,12 +205,12 @@ mod tests {
             base_url: "http://localhost:0".to_string(),
             reasoning,
             thinking_level_map: None,
-            input: vec![pa_types::ai::ModelInput::Text],
-            cost: pa_types::ai::ModelCost {
-                input: pa_types::JsNumber::from(0.0),
-                output: pa_types::JsNumber::from(0.0),
-                cache_read: pa_types::JsNumber::from(0.0),
-                cache_write: pa_types::JsNumber::from(0.0),
+            input: vec![aa_types::ai::ModelInput::Text],
+            cost: aa_types::ai::ModelCost {
+                input: aa_types::JsNumber::from(0.0),
+                output: aa_types::JsNumber::from(0.0),
+                cache_read: aa_types::JsNumber::from(0.0),
+                cache_write: aa_types::JsNumber::from(0.0),
             },
             context_window: 128_000,
             max_tokens: 4_096,

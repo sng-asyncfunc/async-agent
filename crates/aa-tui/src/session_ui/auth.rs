@@ -329,7 +329,7 @@ impl SessionUi {
     /// `/mcp`: the bare command opens the inline connections view.
     pub(crate) async fn handle_mcp_command(
         &mut self,
-        resolved: &pa_types::slash_commands::ResolvedSlashCommand,
+        resolved: &aa_types::slash_commands::ResolvedSlashCommand,
         view: &mut AgentView,
     ) -> Result<()> {
         // `/mcp` is menu-only: the TS `handleMcpCommand` typed subcommands

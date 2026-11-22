@@ -53,7 +53,7 @@ const TRACE_UPLOAD_ALL_MIN_REQUEST_INTERVAL_MS: u64 = TRACE_UPLOAD_RATE_LIMIT_WI
     + TRACE_UPLOAD_RATE_LIMIT_SAFETY_MS;
 const MAX_LOG_BYTES: u64 = 5 * 1024 * 1024;
 
-pub const PRIME_AGENT_TRACES_PROVIDER_ID: &str = "prime-agent-traces";
+pub const ASYNC_AGENT_TRACES_PROVIDER_ID: &str = "async-agent-traces";
 pub const PRIME_INFERENCE_PROVIDER_ID: &str = "prime-inference";
 
 // Credential
@@ -75,21 +75,21 @@ pub struct TraceCredential {
 
 #[must_use]
 pub fn trace_credential(agent_dir: &Path) -> Option<TraceCredential> {
-    if let Ok(value) = std::env::var("PRIME_AGENT_TRACES_API_KEY") {
+    if let Ok(value) = std::env::var("ASYNC_AGENT_TRACES_API_KEY") {
         if !value.trim().is_empty() {
             return Some(TraceCredential {
                 api_key: value,
                 source: TraceCredentialSource::Environment,
-                label: "PRIME_AGENT_TRACES_API_KEY".to_string(),
+                label: "ASYNC_AGENT_TRACES_API_KEY".to_string(),
             });
         }
     }
     let mut auth = crate::auth::AuthStorage::create(agent_dir);
-    if let Some(key) = stored_key(&mut auth, PRIME_AGENT_TRACES_PROVIDER_ID) {
+    if let Some(key) = stored_key(&mut auth, ASYNC_AGENT_TRACES_PROVIDER_ID) {
         return Some(TraceCredential {
             api_key: key,
             source: TraceCredentialSource::Stored,
-            label: "Prime Agent Traces credential".to_string(),
+            label: "Async Agent Traces credential".to_string(),
         });
     }
     if let Ok(value) = std::env::var("PRIME_API_KEY") {
@@ -119,7 +119,7 @@ fn stored_key(auth: &mut crate::auth::AuthStorage, provider_id: &str) -> Option<
 
 #[must_use]
 pub fn resolve_traces_base_url(base_url: Option<&str>) -> String {
-    crate::auth::resolve_prime_agent_traces_base_url(base_url)
+    crate::auth::resolve_async_agent_traces_base_url(base_url)
 }
 
 // Results
@@ -289,13 +289,13 @@ impl TraceUploadSignature {
 
 // Session header + context
 
-fn read_trace_session_header(path: &Path) -> Option<pa_types::session::SessionHeader> {
+fn read_trace_session_header(path: &Path) -> Option<aa_types::session::SessionHeader> {
     read_trace_session_header_checked(path).ok().flatten()
 }
 
 fn read_trace_session_header_checked(
     path: &Path,
-) -> std::io::Result<Option<pa_types::session::SessionHeader>> {
+) -> std::io::Result<Option<aa_types::session::SessionHeader>> {
     use std::io::BufRead;
     let file = std::fs::File::open(path)?;
     let mut first_line = String::new();
@@ -368,7 +368,7 @@ fn resolve_parent_session_path(session_file: &Path, parent_session: &str) -> Pat
 /// Leaf-to-root walk: the first `git_state` on the active branch's chain wins.
 fn active_git_context(
     body: &str,
-    header: &pa_types::session::SessionHeader,
+    header: &aa_types::session::SessionHeader,
 ) -> (Option<String>, Option<String>) {
     struct Entry {
         parent_id: Option<String>,
@@ -446,7 +446,7 @@ fn active_git_context(
 /// under their parent's id); the immediate parent feeds `X-Parent-Session`.
 fn resolve_trace_context(
     session_file: &Path,
-    header: &pa_types::session::SessionHeader,
+    header: &aa_types::session::SessionHeader,
 ) -> (String, Option<String>) {
     let mut trace_id = header.id.clone();
     let mut parent_session_id = None;

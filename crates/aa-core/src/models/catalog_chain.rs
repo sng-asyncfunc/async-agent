@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use pa_models::{ModelCatalog, PrimeCredentials};
+use aa_models::{ModelCatalog, PrimeCredentials};
 
 use crate::auth::types::PRIME_INFERENCE_PROVIDER_ID;
 use crate::auth::AuthStorage;
@@ -77,7 +77,7 @@ pub fn prime_credentials_for_dir(agent_dir: &Path) -> Option<PrimeCredentials> {
 pub fn startup_refresh(agent_dir: &Path) -> Arc<ModelCatalog> {
     let catalog = catalog_for(Some(&agent_dir.join("models.json")));
     catalog.trigger_refresh_with_credentials(
-        pa_models::RefreshTrigger::Startup,
+        aa_models::RefreshTrigger::Startup,
         prime_credentials_for_dir(agent_dir),
     );
     catalog

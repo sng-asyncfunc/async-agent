@@ -8,30 +8,30 @@ fn mcp_settings_stay_global_after_refresh_and_cwd_rebind() {
     std::fs::create_dir_all(&agent_dir).unwrap();
     let mut global: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../pa-core/tests/fixtures/mcp/global-settings.json"
+        "/../aa-core/tests/fixtures/mcp/global-settings.json"
     )))
     .unwrap();
     global["mcpCatalogSources"] = json!([concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../pa-core/tests/fixtures/mcp/global-services.json"
+        "/../aa-core/tests/fixtures/mcp/global-services.json"
     )]);
     let mut project: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../pa-core/tests/fixtures/mcp/project-settings.json"
+        "/../aa-core/tests/fixtures/mcp/project-settings.json"
     )))
     .unwrap();
     project["mcpCatalogSources"] = json!([concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../pa-core/tests/fixtures/mcp/project-services.json"
+        "/../aa-core/tests/fixtures/mcp/project-services.json"
     )]);
     std::fs::write(agent_dir.join("settings.json"), global.to_string()).unwrap();
     for cwd in [dir.path().to_path_buf(), dir.path().join("other-project")] {
-        std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
-        std::fs::write(cwd.join(".prime/agent/settings.json"), project.to_string()).unwrap();
+        std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
+        std::fs::write(cwd.join(".async-agent/settings.json"), project.to_string()).unwrap();
     }
     let engine = bare_engine(dir.path());
     let mut handlers = HostRequestHandlers::default();
-    pa_core::mcp::McpManager::register_host_handlers(&engine.mcp, &mut handlers);
+    aa_core::mcp::McpManager::register_host_handlers(&engine.mcp, &mut handlers);
     let config = handlers.get("mcp.config").unwrap();
     for cwd in [dir.path().to_path_buf(), dir.path().join("other-project")] {
         engine.set_cwd(cwd);
@@ -48,7 +48,7 @@ fn mcp_settings_stay_global_after_refresh_and_cwd_rebind() {
         for (name, expected) in global["mcpServers"].as_object().unwrap() {
             let actual = engine
                 .runtime
-                .block_on(config(pa_core::kernel::shared::HostRequestPayload {
+                .block_on(config(aa_core::kernel::shared::HostRequestPayload {
                     data: json!({ "server": name }),
                 }))
                 .unwrap();
@@ -57,7 +57,7 @@ fn mcp_settings_stay_global_after_refresh_and_cwd_rebind() {
         assert_eq!(
             engine
                 .runtime
-                .block_on(config(pa_core::kernel::shared::HostRequestPayload {
+                .block_on(config(aa_core::kernel::shared::HostRequestPayload {
                     data: json!({ "server": "project-server" }),
                 },))
                 .unwrap(),

@@ -18,7 +18,7 @@ use crate::settings::Settings;
 use crate::skills::diagnostics::ResourceDiagnostic;
 
 fn home_dir() -> PathBuf {
-    pa_types::platform::home_dir().unwrap_or_else(|| PathBuf::from("."))
+    aa_types::platform::home_dir().unwrap_or_else(|| PathBuf::from("."))
 }
 
 impl PackageManager {

@@ -1,5 +1,5 @@
 //! The plugins service-catalog fetch lane: the background keep-warm for the `/mcp` view's remote
-//! catalog over pa-models' [`CatalogCache`] machinery; the reader.
+//! catalog over aa-models' [`CatalogCache`] machinery; the reader.
 //!
 //! TS parity (sanctioned divergence): the TS `SERVICE_CATALOG` is compile-time baked —
 //! TS never fetches at runtime.
@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use pa_models::cache::{CatalogCache, CatalogParse, RefreshOptions, PUBLIC_SCOPE};
-use pa_models::fetch::{CatalogFetcher, MCP_SERVICE_CATALOG_URL};
-use pa_models::CATALOG_REFRESH_INTERVAL_MS;
+use aa_models::cache::{CatalogCache, CatalogParse, RefreshOptions, PUBLIC_SCOPE};
+use aa_models::fetch::{CatalogFetcher, MCP_SERVICE_CATALOG_URL};
+use aa_models::CATALOG_REFRESH_INTERVAL_MS;
 
 use super::catalog_schema::{parse_plugins_catalog, PluginsCatalog};
 use super::remote_source::PLUGINS_CACHE_FILE;

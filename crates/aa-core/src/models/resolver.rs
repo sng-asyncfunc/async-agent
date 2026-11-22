@@ -1,7 +1,7 @@
 //! Model resolution, scoping, and CLI selection.
 
-use pa_agent::types::ThinkingLevel;
-use pa_types::ai::Model;
+use aa_agent::types::ThinkingLevel;
+use aa_types::ai::Model;
 
 use super::prime_inference::{is_private_prime_inference_model, private_prime_inference_models};
 
@@ -418,7 +418,7 @@ pub fn resolve_cli_model(
             provider = Some(p);
         } else {
             result.error = Some(format!(
-                "Unknown provider \"{cli_provider}\". Use \"prime-agent model list\" to see available providers/models."
+                "Unknown provider \"{cli_provider}\". Use \"async-agent model list\" to see available providers/models."
             ));
             return result;
         }
@@ -533,7 +533,7 @@ pub fn resolve_cli_model(
         None => cli_model.to_string(),
     };
     result.error = Some(format!(
-        "Model \"{display}\" not found. Use \"prime-agent model list\" to see available models."
+        "Model \"{display}\" not found. Use \"async-agent model list\" to see available models."
     ));
     result
 }
@@ -896,11 +896,11 @@ mod tests {
     /// inherit the zai thinking format from its template.
     #[test]
     fn fallback_models_never_inherit_the_zai_thinking_format() {
-        use pa_ai::types::ModelExt;
-        use pa_types::ai::{CompatKind, ThinkingFormat};
+        use aa_ai::types::ModelExt;
+        use aa_types::ai::{CompatKind, ThinkingFormat};
         let mut catalog: Vec<Model> =
             vec![
-                pa_ai::models_generated::get_model("prime-inference", "z-ai/glm-5.3")
+                aa_ai::models_generated::get_model("prime-inference", "z-ai/glm-5.3")
                     .expect("the compiled prime-inference default")
                     .clone(),
             ];

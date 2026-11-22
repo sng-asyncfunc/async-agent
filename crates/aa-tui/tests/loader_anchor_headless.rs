@@ -10,7 +10,7 @@ mod support;
 use std::os::unix::net::UnixListener;
 
 use crossterm::event::KeyCode;
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, UiMode,
 };
 use serde_json::{json, Value};

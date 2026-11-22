@@ -26,7 +26,7 @@ use serde_json::{json, Value};
 
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) =
-        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("PRIME_AGENT_KERNEL_BUN"))
+        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("ASYNC_AGENT_KERNEL_BUN"))
     {
         return Some(PathBuf::from(explicit));
     }
@@ -89,26 +89,26 @@ fn group_alive(pgid: i32) -> bool {
 #[allow(clippy::zombie_processes)]
 fn spawn_supervisor(socket: &Path, agent_dir: &Path, kernel_bun: Option<&Path>) -> Daemon {
     std::fs::create_dir_all(agent_dir).expect("agent dir");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pa-daemon"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_aa-daemon"));
     command
         .arg("supervisor")
         .arg("--socket")
         .arg(socket)
         .arg("--agent-dir")
         .arg(agent_dir)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", agent_dir)
         .env_remove("RLM_SESSION_DIR")
         .env_remove("RLM_HARNESS_STATE_DIR")
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     if let Some(bun) = kernel_bun {
-        command.env("PRIME_AGENT_KERNEL_BUN", bun);
+        command.env("ASYNC_AGENT_KERNEL_BUN", bun);
     }
-    let child = command.spawn().expect("spawn pa-daemon supervisor");
+    let child = command.spawn().expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(15);
     while UnixStream::connect(socket).is_err() {
         assert!(Instant::now() < deadline, "supervisor socket never came up");
@@ -141,7 +141,7 @@ impl Client {
         let mut line = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         })
         .to_string();
@@ -197,7 +197,7 @@ fn persistent_bun_unit_regressions() {
         );
         return;
     };
-    let runtime = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../prime-agent-runtime");
+    let runtime = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../async-agent-runtime");
     let output = Command::new(bun)
         .current_dir(&runtime)
         .args(["test", "test/bash.test.ts"])
@@ -235,7 +235,7 @@ fn saved_row_lists_its_live_shells_and_the_machine_wide_list_every_shell() {
     let _guard = GroupGuard(sleeper.id() as i32);
     let mut gone = Command::new("true").spawn().expect("spawn true");
     gone.wait().expect("reap true");
-    let sleeper_start_id = pa_daemon::lease::get_process_start_id(sleeper.id()).expect("start id");
+    let sleeper_start_id = aa_daemon::lease::get_process_start_id(sleeper.id()).expect("start id");
     let home = agent_dir.join("persistent-shells");
     std::fs::create_dir_all(&home).expect("persistent-shell home");
     for (id, pid, start_id, session) in [

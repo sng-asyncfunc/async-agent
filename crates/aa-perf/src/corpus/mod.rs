@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use clap::ValueEnum;
-use pa_daemon::rlm_ledger::RlmSpawnLedger;
+use aa_daemon::rlm_ledger::RlmSpawnLedger;
 use serde::{Deserialize, Serialize};
 
 use crate::rng::Rng;
@@ -547,7 +547,7 @@ fn warm_sidecars(sessions_dir: &Path, archive_dir: &Path) -> anyhow::Result<()> 
         for entry in std::fs::read_dir(dir)? {
             let path = entry?.path();
             if path.extension().is_some_and(|ext| ext == "jsonl") {
-                let _ = pa_core::session::window::WindowedSessionStore::open(&path)?;
+                let _ = aa_core::session::window::WindowedSessionStore::open(&path)?;
             }
         }
     }
@@ -643,7 +643,7 @@ mod tests {
             let manifest = super::generate(&options).expect("generate child trees");
             // Two direct children, four grandchildren, and three wide children.
             assert_eq!(manifest.counts.child_sessions, 9);
-            let ledger = pa_daemon::rlm_ledger::RlmSpawnLedger::new(
+            let ledger = aa_daemon::rlm_ledger::RlmSpawnLedger::new(
                 &manifest.paths.agent_dir,
                 &manifest.paths.sessions_dir,
                 |_| {},

@@ -3,7 +3,7 @@
 //! file-block stripping, the update-mode boundary, and the fallback +
 //! guard arms — over raw session entries with explicit ids.
 use super::*;
-use pa_types::session::EntryBase;
+use aa_types::session::EntryBase;
 
 /// The split arm of the skip guard: a mid-turn cut with no history still has
 /// the turn prefix to summarize, so the compaction prepares.
@@ -12,7 +12,7 @@ fn prepare_compaction_split_arm_counts_the_turn_prefix_as_content() {
     let tmp = tempfile::tempdir().unwrap();
     let mut session = SessionManager::in_memory(tmp.path());
     let user = |text: &str| {
-        AgentMessage::User(pa_types::ai::UserMessage {
+        AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -23,8 +23,8 @@ fn prepare_compaction_split_arm_counts_the_turn_prefix_as_content() {
         .unwrap();
     session
         .append_message(AgentMessage::Assistant(AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: format!("reply {}", "y".repeat(4_000)),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -36,8 +36,8 @@ fn prepare_compaction_split_arm_counts_the_turn_prefix_as_content() {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -62,7 +62,7 @@ fn prepare_compaction_split_arm_counts_the_turn_prefix_as_content() {
 /// A raw entry builder for prepare-level tests (explicit ids).
 fn raw_user_entry(id: &str, text: &str) -> FileEntry {
     FileEntry::Message {
-        message: AgentMessage::User(pa_types::ai::UserMessage {
+        message: AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -78,7 +78,7 @@ fn raw_user_entry(id: &str, text: &str) -> FileEntry {
 
 fn raw_compaction_entry(id: &str, first_kept: &str, summary: &str) -> FileEntry {
     FileEntry::Compaction {
-        payload: pa_types::session::CompactionEntry {
+        payload: aa_types::session::CompactionEntry {
             summary: summary.to_string(),
             first_kept_entry_id: first_kept.to_string(),
             tokens_before: 100,
@@ -95,9 +95,9 @@ fn raw_compaction_entry(id: &str, first_kept: &str, summary: &str) -> FileEntry 
 
 fn raw_assistant_text_entry(id: &str, text: &str) -> FileEntry {
     FileEntry::Message {
-        message: AgentMessage::Assistant(pa_types::ai::AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+        message: AgentMessage::Assistant(aa_types::ai::AssistantMessage {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: text.to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -109,8 +109,8 @@ fn raw_assistant_text_entry(id: &str, text: &str) -> FileEntry {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -150,9 +150,9 @@ fn prepare_compaction_anchors_on_the_newest_kept_tail_assistant_text() {
     // A newest assistant with thinking but no text skips; the older
     // text-bearing assistant wins.
     let thinking_only = FileEntry::Message {
-        message: AgentMessage::Assistant(pa_types::ai::AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Thinking(
-                pa_types::ai::ThinkingContent {
+        message: AgentMessage::Assistant(aa_types::ai::AssistantMessage {
+            content: vec![aa_types::ai::AssistantContentBlock::Thinking(
+                aa_types::ai::ThinkingContent {
                     thinking: "2".repeat(400),
                     thinking_signature: None,
                     redacted: None,
@@ -165,8 +165,8 @@ fn prepare_compaction_anchors_on_the_newest_kept_tail_assistant_text() {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,

@@ -236,11 +236,11 @@ fn optional_integer(value: Option<&Value>, label: &str) -> anyhow::Result<Option
 
 #[must_use]
 pub fn create_agent_observe_message_preview(
-    message: &pa_types::session::AgentMessage,
+    message: &aa_types::session::AgentMessage,
     index: usize,
     max_chars: usize,
 ) -> AgentObserveMessagePreview {
-    use pa_types::session::AgentMessage;
+    use aa_types::session::AgentMessage;
     let text = observe_message_text(message);
     let (text, truncated) = if text.chars().count() <= max_chars {
         (text, false)
@@ -257,7 +257,7 @@ pub fn create_agent_observe_message_preview(
                 .content
                 .iter()
                 .filter_map(|block| match block {
-                    pa_types::ai::AssistantContentBlock::ToolCall(call) => Some(call.name.clone()),
+                    aa_types::ai::AssistantContentBlock::ToolCall(call) => Some(call.name.clone()),
                     _ => None,
                 })
                 .collect(),
@@ -295,36 +295,36 @@ pub fn create_agent_observe_message_preview(
     }
 }
 
-fn user_content_text(content: &pa_types::ai::UserContent) -> String {
+fn user_content_text(content: &aa_types::ai::UserContent) -> String {
     match content {
-        pa_types::ai::UserContent::Text(text) => text.clone(),
-        pa_types::ai::UserContent::Blocks(blocks) => blocks
+        aa_types::ai::UserContent::Text(text) => text.clone(),
+        aa_types::ai::UserContent::Blocks(blocks) => blocks
             .iter()
             .filter_map(|block| match block {
-                pa_types::ai::UserContentBlock::Text(text) => Some(text.text.clone()),
+                aa_types::ai::UserContentBlock::Text(text) => Some(text.text.clone()),
                 _ => None,
             })
             .collect::<String>(),
     }
 }
 
-fn observe_message_text(message: &pa_types::session::AgentMessage) -> String {
-    use pa_types::session::AgentMessage;
+fn observe_message_text(message: &aa_types::session::AgentMessage) -> String {
+    use aa_types::session::AgentMessage;
     match message {
         AgentMessage::User(message) => user_content_text(&message.content),
         AgentMessage::Assistant(message) => message
             .content
             .iter()
             .filter_map(|block| match block {
-                pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
-                pa_types::ai::AssistantContentBlock::Thinking(thinking) => {
+                aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+                aa_types::ai::AssistantContentBlock::Thinking(thinking) => {
                     Some(thinking.thinking.clone())
                 }
-                pa_types::ai::AssistantContentBlock::ToolCall(_) => None,
+                aa_types::ai::AssistantContentBlock::ToolCall(_) => None,
             })
             .collect::<String>(),
         AgentMessage::ToolResult(message) => {
-            user_content_text(&pa_types::ai::UserContent::Blocks(message.content.clone()))
+            user_content_text(&aa_types::ai::UserContent::Blocks(message.content.clone()))
         }
         AgentMessage::BashExecution(message) => [message.command.clone(), message.output.clone()]
             .into_iter()

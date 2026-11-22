@@ -259,7 +259,7 @@ impl SessionManager {
 
     /// Newest `git_state` reachable without hydration: the loaded active
     /// branch first, then the window's pre-boundary metadata (newest first).
-    pub(crate) fn latest_git_context(&self) -> Option<pa_types::session::GitContext> {
+    pub(crate) fn latest_git_context(&self) -> Option<aa_types::session::GitContext> {
         let on_branch = self.active_branch_entries().iter().rev().find_map(|entry| {
             if let FileEntry::GitState { payload, .. } = entry {
                 Some(payload.git.clone())

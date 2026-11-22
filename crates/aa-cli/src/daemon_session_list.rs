@@ -142,8 +142,8 @@ pub(crate) fn live_session_summary(data: &Value) -> Option<&Value> {
 pub(crate) fn format_table<const N: usize>(headers: &[&str; N], rows: &[[String; N]]) -> String {
     let widths: [usize; N] = std::array::from_fn(|column| {
         rows.iter()
-            .map(|row| pa_tui::width::str_width(&row[column]))
-            .chain(std::iter::once(pa_tui::width::str_width(headers[column])))
+            .map(|row| aa_tui::width::str_width(&row[column]))
+            .chain(std::iter::once(aa_tui::width::str_width(headers[column])))
             .max()
             .unwrap_or(0)
     });
@@ -153,7 +153,7 @@ pub(crate) fn format_table<const N: usize>(headers: &[&str; N], rows: &[[String;
             .map(|(cell, width)| {
                 // Pad only, never truncate — a wider cell renders whole; its
                 // escape bytes are skipped by both measures.
-                let pad = width.saturating_sub(pa_tui::width::str_width(cell));
+                let pad = width.saturating_sub(aa_tui::width::str_width(cell));
                 format!("{cell}{}", " ".repeat(pad))
             })
             .collect::<Vec<_>>()

@@ -84,24 +84,24 @@ fn detect_javascript_skill(
             return None;
         }
     };
-    let Some(prime_agent) = parsed
-        .get("primeAgent")
+    let Some(async_agent) = parsed
+        .get("asyncAgent")
         .and_then(serde_json::Value::as_object)
     else {
         diagnostics.push(ResourceDiagnostic::Warning {
-            message: "package.json is missing a \"primeAgent\" object".to_string(),
+            message: "package.json is missing a \"asyncAgent\" object".to_string(),
             path: Some(package_json_path.display().to_string()),
         });
         return None;
     };
-    let Some(global_name) = prime_agent
+    let Some(global_name) = async_agent
         .get("global")
         .and_then(serde_json::Value::as_str)
         .map(str::trim)
         .filter(|s| !s.is_empty())
     else {
         diagnostics.push(ResourceDiagnostic::Warning {
-            message: "package.json primeAgent.global must be a non-empty string".to_string(),
+            message: "package.json asyncAgent.global must be a non-empty string".to_string(),
             path: Some(package_json_path.display().to_string()),
         });
         return None;
@@ -122,14 +122,14 @@ fn detect_javascript_skill(
         });
         return None;
     }
-    let Some(entry) = prime_agent
+    let Some(entry) = async_agent
         .get("entry")
         .and_then(serde_json::Value::as_str)
         .map(str::trim)
         .filter(|s| !s.is_empty())
     else {
         diagnostics.push(ResourceDiagnostic::Warning {
-            message: "package.json primeAgent.entry must be a non-empty relative path".to_string(),
+            message: "package.json asyncAgent.entry must be a non-empty relative path".to_string(),
             path: Some(package_json_path.display().to_string()),
         });
         return None;

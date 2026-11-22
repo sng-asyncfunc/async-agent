@@ -43,7 +43,7 @@ pub(crate) fn assert_supported_bun_version(version: &str) -> anyhow::Result<()> 
     let minimum = parse_bun_version(MINIMUM_BUN_VERSION)?;
     if actual < minimum {
         return Err(anyhow!(
-            "Prime Agent requires Bun {MINIMUM_BUN_VERSION} or newer, found {}",
+            "Async Agent requires Bun {MINIMUM_BUN_VERSION} or newer, found {}",
             version.trim()
         ));
     }
@@ -131,14 +131,14 @@ fn resolve_bun_candidate(
     project: Option<&Path>,
     prefer_home: bool,
 ) -> anyhow::Result<(PathBuf, String)> {
-    if let Ok(override_bun) = std::env::var("PRIME_AGENT_KERNEL_BUN") {
+    if let Ok(override_bun) = std::env::var("ASYNC_AGENT_KERNEL_BUN") {
         let trimmed = override_bun.trim();
         if !trimmed.is_empty() {
             let path = expand_home(trimmed);
             let version = probe_bun_version(&path).map_err(|error| {
                 anyhow!(
-                    "PRIME_AGENT_KERNEL_BUN points to an unusable Bun executable ({}): {error:#}. \
-                     Install Bun {MINIMUM_BUN_VERSION} or newer, or unset PRIME_AGENT_KERNEL_BUN.",
+                    "ASYNC_AGENT_KERNEL_BUN points to an unusable Bun executable ({}): {error:#}. \
+                     Install Bun {MINIMUM_BUN_VERSION} or newer, or unset ASYNC_AGENT_KERNEL_BUN.",
                     path.display()
                 )
             })?;
@@ -166,7 +166,7 @@ fn resolve_bun_candidate(
     let version = probe_bun_version(&candidate).map_err(|error| {
         anyhow!(
             "Unable to use Bun at {}. Install Bun {MINIMUM_BUN_VERSION} or newer, or set \
-             PRIME_AGENT_KERNEL_BUN to a supported executable. ({error:#})",
+             ASYNC_AGENT_KERNEL_BUN to a supported executable. ({error:#})",
             candidate.display()
         )
     })?;
@@ -195,8 +195,8 @@ async fn install_bun_unix(options: &EnsureKernelBunOptions) -> anyhow::Result<()
 }
 
 /// Resolve a supported Bun executable (`>= 1.3.14`), honoring
-/// `PRIME_AGENT_KERNEL_BUN`, safe `PATH`, `~/.bun/bin/bun`, and (on Unix when
-/// `PRIME_AGENT_INSTALL_BUN=1` and no explicit override is set) installing Bun.
+/// `ASYNC_AGENT_KERNEL_BUN`, safe `PATH`, `~/.bun/bin/bun`, and (on Unix when
+/// `ASYNC_AGENT_INSTALL_BUN=1` and no explicit override is set) installing Bun.
 pub(crate) async fn resolve_or_install_bun(
     options: &EnsureKernelBunOptions,
     project: Option<&Path>,
@@ -205,9 +205,9 @@ pub(crate) async fn resolve_or_install_bun(
         Ok(found) => Ok(found),
         Err(initial_error) => {
             let has_override =
-                std::env::var("PRIME_AGENT_KERNEL_BUN").is_ok_and(|v| !v.trim().is_empty());
+                std::env::var("ASYNC_AGENT_KERNEL_BUN").is_ok_and(|v| !v.trim().is_empty());
             let allow_install =
-                !has_override && std::env::var("PRIME_AGENT_INSTALL_BUN").as_deref() == Ok("1");
+                !has_override && std::env::var("ASYNC_AGENT_INSTALL_BUN").as_deref() == Ok("1");
             #[cfg(unix)]
             if allow_install {
                 install_bun_unix(options).await.map_err(|install_error| {
@@ -221,8 +221,8 @@ pub(crate) async fn resolve_or_install_bun(
             let _ = allow_install;
             Err(anyhow!(
                 "Bun {MINIMUM_BUN_VERSION}+ is required for the persistent JavaScript runtime. \
-                 Install it with `{BUN_INSTALL_COMMAND}`, or set PRIME_AGENT_INSTALL_BUN=1 to let \
-                 Prime Agent run that installer. {initial_error:#}"
+                 Install it with `{BUN_INSTALL_COMMAND}`, or set ASYNC_AGENT_INSTALL_BUN=1 to let \
+                 Async Agent run that installer. {initial_error:#}"
             ))
         }
     }

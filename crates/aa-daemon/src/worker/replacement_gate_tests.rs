@@ -26,8 +26,8 @@ impl SessionEngine for RecordingEngine {
 
     fn rebuild_session_context(
         &self,
-        _: Vec<pa_types::session::FileEntry>,
-        _: pa_core::session_engine::goal_driver::GoalBranchReload,
+        _: Vec<aa_types::session::FileEntry>,
+        _: aa_core::session_engine::goal_driver::GoalBranchReload,
     ) -> anyhow::Result<()> {
         self.events.lock().unwrap().push("rebuild".to_string());
         Ok(())
@@ -45,8 +45,8 @@ impl SessionEngine for RecordingEngine {
     fn run_side_question(
         &self,
         request: crate::engine::SideQuestionRequest,
-        signal: &pa_agent::abort::AbortSignal,
-        sink: &pa_core::session_engine::side_question::SideQuestionSink,
+        signal: &aa_agent::abort::AbortSignal,
+        sink: &aa_core::session_engine::side_question::SideQuestionSink,
     ) -> crate::engine::SideQuestionOutcome {
         ScriptedEngine::default().run_side_question(request, signal, sink)
     }
@@ -54,7 +54,7 @@ impl SessionEngine for RecordingEngine {
     fn run_compaction(
         &self,
         request: crate::engine::CompactionRequest,
-        signal: &pa_agent::abort::AbortSignal,
+        signal: &aa_agent::abort::AbortSignal,
     ) -> crate::engine::CompactionOutcome {
         ScriptedEngine::default().run_compaction(request, signal)
     }
@@ -62,7 +62,7 @@ impl SessionEngine for RecordingEngine {
     fn run_branch_summary(
         &self,
         request: crate::engine::BranchSummaryRequest,
-        signal: &pa_agent::abort::AbortSignal,
+        signal: &aa_agent::abort::AbortSignal,
     ) -> crate::engine::BranchSummaryOutcome {
         ScriptedEngine::default().run_branch_summary(request, signal)
     }
@@ -403,7 +403,7 @@ fn a_large_valid_last_row_stays_intact_during_tail_repair() {
     session.rewrite().unwrap();
     let original = std::fs::read(&path).unwrap();
     assert!(original.len() > 1024 * 1024);
-    pa_core::session::manager::repair_jsonl_damage(&path);
+    aa_core::session::manager::repair_jsonl_damage(&path);
     assert_eq!(std::fs::read(&path).unwrap(), original);
 
     {
@@ -415,7 +415,7 @@ fn a_large_valid_last_row_stays_intact_during_tail_repair() {
         torn.write_all(b"{\"type\":\"message\",\"id\":\"torn\"\xc3")
             .unwrap();
     }
-    pa_core::session::manager::repair_jsonl_damage(&path);
+    aa_core::session::manager::repair_jsonl_damage(&path);
     assert_eq!(std::fs::read(&path).unwrap(), original);
     let reopened = crate::session_store::SessionFile::open(&path).unwrap();
     assert!(reopened.entry(&id).is_some(), "the large row reloads");

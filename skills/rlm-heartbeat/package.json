@@ -1,8 +1,8 @@
 {
-	"name": "@prime-agent/skill-rlm-heartbeat",
+	"name": "@async-agent/skill-rlm-heartbeat",
 	"private": true,
 	"type": "module",
-	"primeAgent": {
+	"asyncAgent": {
 		"entry": "src/index.ts",
 		"global": "rlmHeartbeat"
 	}

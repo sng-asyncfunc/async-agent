@@ -1,10 +1,10 @@
-# pa-perf
+# aa-perf
 
-The prime-agent performance tooling: a deterministic corpus generator over
+The async-agent performance tooling: a deterministic corpus generator over
 the product's real on-disk layout, and a pty bench harness that drives the
-REAL release binary (`target/release/prime-agent`) headlessly. A dev/CI
+REAL release binary (`target/release/async-agent`) headlessly. A dev/CI
 crate at the top of the workspace dependency graph — nothing depends on it,
-and it never ships (the release lanes build `-p pa-cli --bin prime-agent`
+and it never ships (the release lanes build `-p aa-cli --bin async-agent`
 only).
 
 ## Scope and non-goals
@@ -20,7 +20,7 @@ only).
 ## The corpus generator
 
 ```
-pa-perf corpus --profile medium --out DIR [--seed N] [knob overrides]
+aa-perf corpus --profile medium --out DIR [--seed N] [knob overrides]
 ```
 
 `DIR` must be absent or empty. A populated output is rejected before any writes,
@@ -35,16 +35,16 @@ Writes the product's real layout under `DIR/`:
 DIR/
   corpus.json                      # manifest: counts, needle markers, the file-set baseline
   project/                         # the sessions' cwd + @-completion tree
-  agent/                           # point PRIME_AGENT_CODING_AGENT_DIR here
+  agent/                           # point ASYNC_AGENT_CODING_AGENT_DIR here
     settings.json                  # onboarding pre-answered, traces off
     sessions/<uuid>.jsonl          # current-format session files (flat)
     sessions-archive/<uuid>.jsonl
-    rlm-ledger/<hash16>.jsonl      # written through pa-daemon's RlmSpawnLedger
+    rlm-ledger/<hash16>.jsonl      # written through aa-daemon's RlmSpawnLedger
     session-artifacts/...          # kernel-state stubs, harness/, sub-<id>/ trees
 ```
 
-Row payloads are serialized from the product's own types (pa-types message
-shapes inside pa-daemon's `SessionEntry` envelope and `session_header_line`
+Row payloads are serialized from the product's own types (aa-types message
+shapes inside aa-daemon's `SessionEntry` envelope and `session_header_line`
 header) — no hand-copied JSON. Entry ids are counter-based unique 8-hex: the
 product's own ids are uuid4 prefixes with a 100-try collision check, which
 collide around ~22K rows and silently break branch reconstruction.
@@ -82,15 +82,15 @@ records (`parentSession`/`child` are canonical paths).
 
 ### Caches (cold vs warm)
 
-- `--cache warm` runs the product's own `pa_core::session::window::WindowedSessionStore::open`
+- `--cache warm` runs the product's own `aa_core::session::window::WindowedSessionStore::open`
   over every openable session file, writing real `<id>.window-cache.json`
   sidecars. On a real store warm window-cache sidecars are the common state
   (the operator's live store: 71 of 111 sessions carry one).
 - The `<id>.info-cache.json` sidecar is written only at worker lease
-  release (pa-daemon, no public writer), so generated corpora carry none —
+  release (aa-daemon, no public writer), so generated corpora carry none —
   matching real stores (9 of 111). The `agents-view-warm` scenario measures
   the warm scan via the daemon's in-process cache instead.
-- `pa-perf run` generates BOTH corpora (cold for the cold scenarios, warm
+- `aa-perf run` generates BOTH corpora (cold for the cold scenarios, warm
   for warm-start/warm-ready) — every scenario runs on the state it needs.
 
 ## The bench harness
@@ -98,10 +98,10 @@ records (`parentSession`/`child` are canonical paths).
 ```
 # the whole suite (CI + make perf): generates the corpora, routes every
 # scenario to the corpus state it needs, writes one results/<scenario>.json
-pa-perf run --binary target/release/prime-agent --profile medium --out DIR [--runs N]
+aa-perf run --binary target/release/async-agent --profile medium --out DIR [--runs N]
 
 # one scenario over one corpus (investigation)
-pa-perf bench --binary target/release/prime-agent --corpus DIR --scenario S --runs 10 --json OUT
+aa-perf bench --binary target/release/async-agent --corpus DIR --scenario S --runs 10 --json OUT
 ```
 
 Scenarios (timed from a triggering action to an observable needle — literal
@@ -145,7 +145,7 @@ idle-cost walks `/proc` from the owned pids down
 and context switches (`task/*/status`) over the processes alive at the
 window's end; a process that exits inside the window is not counted, and
 the run fails if the daemon or the TUI exits. It runs once per suite on the
-medium leg: `pa-perf run` skips it elsewhere and on non-Linux, and
+medium leg: `aa-perf run` skips it elsewhere and on non-Linux, and
 `bench --scenario idle-cost` errors on non-Linux. CPU resolution is one
 clock tick (10 ms at 100 Hz).
 
@@ -157,7 +157,7 @@ paints unbracketed, so its needles see bytes as they arrive.
 Mechanics (the repo's pty-e2e discipline): the TUI child runs in its own
 session with NO controlling tty (`setsid` pre-exec; vendored crossterm
 falls back to the stdio pty), 120x36, kitty probe answered identically every
-run, `PRIME_AGENT_CODING_AGENT_DIR` + `--daemon-socket` isolate it, and the
+run, `ASYNC_AGENT_CODING_AGENT_DIR` + `--daemon-socket` isolate it, and the
 env is rebuilt from scratch (no ambient credentials leak in). Between runs
 the harness restores the corpus to the manifest's file set (the product's
 new session files, sidecars, logs, and leases are deleted) so every run
@@ -170,7 +170,7 @@ pid/name-based kill.
 ## report + baseline
 
 ```
-pa-perf report --baseline crates/pa-perf/baseline.json --results results/*.json [--markdown OUT]
+aa-perf report --baseline crates/aa-perf/baseline.json --results results/*.json [--markdown OUT]
 ```
 
 Prints the aggregate table (scenario/profile, median, p95, first-paint
@@ -186,15 +186,15 @@ ones.
 ## Local run
 
 `make perf` builds the release binaries and runs the whole suite
-(`pa-perf run --profile small`) with the report table printed at the end.
+(`aa-perf run --profile small`) with the report table printed at the end.
 Run it on a quiet machine; the numbers are wall-clock latencies.
 
 ## Dependencies
 
-pa-perf adds ONE new third-party dependency: `vt100` (MIT), the screen
+aa-perf adds ONE new third-party dependency: `vt100` (MIT), the screen
 model behind the content needles (the agents view's heading counts repaint
 as terminal cell diffs, which the raw byte stream cannot see). The crate
-never ships — the release lanes build `-p pa-cli --bin prime-agent` only —
+never ships — the release lanes build `-p aa-cli --bin async-agent` only —
 and `make deny` stays clean.
 
 ## CI

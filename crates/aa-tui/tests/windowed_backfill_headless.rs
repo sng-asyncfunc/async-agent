@@ -6,7 +6,7 @@ use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, SessionSelection, UiMode,
 };
 use serde_json::{json, Value};
@@ -165,7 +165,7 @@ fn attach_response(id: &str, windowed: bool) -> Value {
         "command": "attach",
         "success": true,
         "data": {
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "activeSessionId": "s1",
             "snapshot": snapshot,
             "replay": { "status": "complete", "toSequence": 0 },

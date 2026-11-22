@@ -2,19 +2,19 @@
 
 use std::path::PathBuf;
 
-pub const APP_NAME: &str = "prime-agent";
+pub const APP_NAME: &str = "async-agent";
 
-pub const CONFIG_DIR_NAME: &str = ".prime/agent";
+pub const CONFIG_DIR_NAME: &str = ".async-agent";
 
-pub const ENV_AGENT_DIR: &str = "PRIME_AGENT_CODING_AGENT_DIR";
+pub const ENV_AGENT_DIR: &str = "ASYNC_AGENT_CODING_AGENT_DIR";
 
-pub const ENV_SESSION_DIR: &str = "PRIME_AGENT_SESSION_DIR";
+pub const ENV_SESSION_DIR: &str = "ASYNC_AGENT_SESSION_DIR";
 
-/// `PRIME_AGENT_DAEMON_SOCKET`: overrides the daemon socket path when no explicit
+/// `ASYNC_AGENT_DAEMON_SOCKET`: overrides the daemon socket path when no explicit
 /// `--daemon-socket` flag is given. The launcher pins it so the Rust daemon runs
 /// beside — never replacing — the TS daemon (a Rust CLI that found the TS daemon
 /// on the default socket would treat the schema-id mismatch as staleness).
-pub const ENV_DAEMON_SOCKET: &str = "PRIME_AGENT_DAEMON_SOCKET";
+pub const ENV_DAEMON_SOCKET: &str = "ASYNC_AGENT_DAEMON_SOCKET";
 
 /// The daemon socket path: an explicit `--daemon-socket` flag wins, then
 /// [`ENV_DAEMON_SOCKET`], then the per-user default.
@@ -27,7 +27,7 @@ pub fn resolve_daemon_socket_path(daemon_socket: Option<&str>) -> PathBuf {
                 .as_deref()
                 .map(expand_tilde_path_os)
         })
-        .unwrap_or_else(pa_daemon::socket::default_daemon_socket_path)
+        .unwrap_or_else(aa_daemon::socket::default_daemon_socket_path)
 }
 
 /// [`expand_tilde_path`] over a raw environment value: anything but a
@@ -40,7 +40,7 @@ pub fn expand_tilde_path_os(value: &std::ffi::OsStr) -> PathBuf {
     PathBuf::from(value)
 }
 
-pub const ENV_LEGACY_SESSION_DIR: &str = "PRIME_AGENT_CODING_AGENT_SESSION_DIR";
+pub const ENV_LEGACY_SESSION_DIR: &str = "ASYNC_AGENT_CODING_AGENT_SESSION_DIR";
 
 /// The version compiled into this build, used when no packaged manifest
 /// overrides it.
@@ -57,7 +57,7 @@ pub fn version() -> &'static str {
 }
 
 /// The packaged package-dir (`PI_PACKAGE_DIR` wins, else the directory of
-/// the executable, launcher symlinks resolved through pa-core's
+/// the executable, launcher symlinks resolved through aa-core's
 /// `exe_dir_of`).
 fn package_dir() -> PathBuf {
     if let Ok(env_dir) = std::env::var("PI_PACKAGE_DIR") {
@@ -67,7 +67,7 @@ fn package_dir() -> PathBuf {
     }
     std::env::current_exe()
         .ok()
-        .and_then(|exe| pa_core::packages::exe_dir_of(&exe))
+        .and_then(|exe| aa_core::packages::exe_dir_of(&exe))
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
@@ -85,7 +85,7 @@ pub const ENV_STARTUP_BENCHMARK: &str = "PI_STARTUP_BENCHMARK";
 /// Expand a leading `~`, `~/`, or (Windows) `~\` segment against the
 /// home directory.
 pub fn expand_tilde_path(path: &str) -> PathBuf {
-    let Some(home) = pa_types::platform::home_dir() else {
+    let Some(home) = aa_types::platform::home_dir() else {
         return PathBuf::from(path);
     };
     if path == "~" {
@@ -104,8 +104,8 @@ pub fn expand_tilde_path(path: &str) -> PathBuf {
 pub fn get_agent_dir() -> PathBuf {
     match std::env::var(ENV_AGENT_DIR) {
         Ok(dir) if !dir.is_empty() => expand_tilde_path(&dir),
-        _ => pa_types::platform::home_dir()
-            .expect("HOME or PRIME_AGENT_CODING_AGENT_DIR is required for agent settings")
+        _ => aa_types::platform::home_dir()
+            .expect("HOME or ASYNC_AGENT_CODING_AGENT_DIR is required for agent settings")
             .join(CONFIG_DIR_NAME),
     }
 }
@@ -115,7 +115,7 @@ pub fn get_agent_dir() -> PathBuf {
 /// panic or a fallback into the repository.
 pub fn require_agent_dir() -> Result<(), String> {
     if std::env::var(ENV_AGENT_DIR).is_ok_and(|dir| !dir.is_empty())
-        || pa_types::platform::home_dir().is_some()
+        || aa_types::platform::home_dir().is_some()
     {
         Ok(())
     } else {
@@ -161,7 +161,7 @@ mod tests {
     /// The flag/env/default order is the co-existence contract (the launcher pins the env).
     #[test]
     fn daemon_socket_resolution_prefers_flag_then_env_then_default() {
-        let default = pa_daemon::socket::default_daemon_socket_path();
+        let default = aa_daemon::socket::default_daemon_socket_path();
         std::env::set_var(ENV_DAEMON_SOCKET, "/tmp/rust-launcher.sock");
         assert_eq!(
             resolve_daemon_socket_path(None),
@@ -188,7 +188,7 @@ mod tests {
         assert_eq!(expand_tilde_path("~foo"), PathBuf::from("~foo"));
     }
 
-    /// The TS `expandTildePath` win32 arm (the pa-types twin carries it too).
+    /// The TS `expandTildePath` win32 arm (the aa-types twin carries it too).
     #[test]
     #[cfg(windows)]
     fn expands_the_win32_backslash_tilde() {

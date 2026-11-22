@@ -7,7 +7,7 @@ use crate::supervisor_roster_seed::tests::{
     append_family_edge, drain_pending_seeds_for_tests, live_child_summary, register_root_worker,
     roster_fixture, roster_row_for_child, write_display_file,
 };
-use pa_types::daemon::agent_roster::AgentRosterStatus;
+use aa_types::daemon::agent_roster::AgentRosterStatus;
 
 /// `roster_subscribe` is a pure in-memory snapshot: a family the
 /// ledger knows (with readable transcripts, unseeded) never enters
@@ -419,7 +419,7 @@ async fn a_saved_delete_without_a_roster_row_bills_the_parent() {
     );
     // The selector-less saved delete of the child: the supervisor arm.
     let mut events = supervisor.events.subscribe();
-    let command = pa_types::daemon::DaemonCommand::DeleteSavedSession {
+    let command = aa_types::daemon::DaemonCommand::DeleteSavedSession {
         id: None,
         active_session_id: None,
         session_path: child_artifact.to_string_lossy().to_string(),

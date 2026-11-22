@@ -9,7 +9,7 @@ mod support;
 
 use std::os::unix::net::UnixListener;
 
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep};
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep};
 use serde_json::{json, Value};
 
 use support::{
@@ -136,7 +136,7 @@ impl MockSupervisor {
             "command": "attach",
             "success": true,
             "data": {
-                "protocol": { "name": "prime-agent.daemon", "version": 7 },
+                "protocol": { "name": "async-agent.daemon", "version": 7 },
                 "activeSessionId": "s1",
                 "snapshot": {
                     "activeSessionId": "s1",

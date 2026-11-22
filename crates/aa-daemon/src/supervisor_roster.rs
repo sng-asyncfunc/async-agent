@@ -6,8 +6,8 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use pa_types::daemon::agent_roster::AgentRosterEntry;
-use pa_types::daemon::DaemonOutbound;
+use aa_types::daemon::agent_roster::AgentRosterEntry;
+use aa_types::daemon::DaemonOutbound;
 use serde_json::{json, Value};
 
 use crate::backpressure::RouteAdmission;

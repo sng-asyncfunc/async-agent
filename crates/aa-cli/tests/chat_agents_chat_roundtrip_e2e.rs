@@ -16,14 +16,14 @@ use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
-use pa_tui::interactive::{
+use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
+use aa_tui::interactive::{
     HeadlessPlan, HeadlessStep, InteractiveOptions, ModelSelection, SessionSelection, UiMode,
 };
 
 /// The layout handoff store is process-wide: the two round-trip tests
 /// serialize through this lock so one test's stash is never adopted by
-/// the other's (the slot lives inside pa-tui and cannot be reset from
+/// the other's (the slot lives inside aa-tui and cannot be reset from
 /// this crate).
 static HANDOFF_E2E_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
@@ -56,7 +56,7 @@ fn graceful_shutdown(socket: &Path) {
     let command = serde_json::json!({
         "type": "command",
         "id": "test-shutdown",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "shutdown" },
     });
     let Ok(mut line) = serde_json::to_string(&command) else {
@@ -73,31 +73,31 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     let socket = dir.join("daemon.sock");
     let agent_dir = dir.join("agent");
     std::fs::create_dir_all(&agent_dir).expect("agent dir");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -163,7 +163,7 @@ fn chat_options(socket: PathBuf, cwd: PathBuf) -> InteractiveOptions {
         initial_message: None,
         show_images: true,
         fullscreen_mouse: true,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -175,7 +175,7 @@ fn chat_options(socket: PathBuf, cwd: PathBuf) -> InteractiveOptions {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -207,7 +207,7 @@ async fn the_roundtrip_reentry_renders_the_same_transcript() {
     // The first chat run exits through the agents-back LEFT handoff.
     let mut first = chat_options(supervisor.socket.clone(), dir.path().to_path_buf());
     first.session = SessionSelection::Resume(fixture.clone());
-    let first_outcome = pa_tui::interactive::run_interactive(
+    let first_outcome = aa_tui::interactive::run_interactive(
         first,
         UiMode::Headless(HeadlessPlan {
             steps: vec![
@@ -245,7 +245,7 @@ async fn the_roundtrip_reentry_renders_the_same_transcript() {
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         version: "0.0.0".to_string(),
         anchor_session_id: (!first_outcome.session_id.is_empty())
             .then(|| first_outcome.session_id.clone())
@@ -256,12 +256,12 @@ async fn the_roundtrip_reentry_renders_the_same_transcript() {
         selected_row_identity: None,
         selected_key: None,
         status_message: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         show_hardware_cursor: false,
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     };
-    let view_run = pa_tui::agents_view::run_agents_view(
+    let view_run = aa_tui::agents_view::run_agents_view(
         view_options,
         AgentsViewUiMode::Headless(AgentsHeadlessPlan {
             steps: vec![
@@ -289,7 +289,7 @@ async fn the_roundtrip_reentry_renders_the_same_transcript() {
     // the adopted packs.
     let mut reentry = chat_options(supervisor.socket.clone(), dir.path().to_path_buf());
     reentry.session = selection;
-    let reentry_outcome = pa_tui::interactive::run_interactive(
+    let reentry_outcome = aa_tui::interactive::run_interactive(
         reentry,
         UiMode::Headless(HeadlessPlan {
             steps: vec![
@@ -357,7 +357,7 @@ async fn a_post_turn_sojourn_reentry_still_serves_the_held_packs() {
     let mut first = chat_options(supervisor.socket.clone(), dir.path().to_path_buf());
     first.session = SessionSelection::Resume(fixture.clone());
     first.script_path = Some(script_path.clone());
-    let first_outcome = pa_tui::interactive::run_interactive(
+    let first_outcome = aa_tui::interactive::run_interactive(
         first,
         UiMode::Headless(HeadlessPlan {
             steps: vec![
@@ -403,7 +403,7 @@ async fn a_post_turn_sojourn_reentry_still_serves_the_held_packs() {
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         version: "0.0.0".to_string(),
         anchor_session_id: (!first_outcome.session_id.is_empty())
             .then(|| first_outcome.session_id.clone())
@@ -414,12 +414,12 @@ async fn a_post_turn_sojourn_reentry_still_serves_the_held_packs() {
         selected_row_identity: None,
         selected_key: None,
         status_message: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         show_hardware_cursor: false,
         incident_notice_state: None,
         create_config: serde_json::json!({}),
     };
-    let view_run = pa_tui::agents_view::run_agents_view(
+    let view_run = aa_tui::agents_view::run_agents_view(
         view_options,
         AgentsViewUiMode::Headless(AgentsHeadlessPlan {
             steps: vec![
@@ -449,7 +449,7 @@ async fn a_post_turn_sojourn_reentry_still_serves_the_held_packs() {
     let mut reentry = chat_options(supervisor.socket.clone(), dir.path().to_path_buf());
     reentry.session = selection;
     reentry.script_path = Some(script_path);
-    let reentry_outcome = pa_tui::interactive::run_interactive(
+    let reentry_outcome = aa_tui::interactive::run_interactive(
         reentry,
         UiMode::Headless(HeadlessPlan {
             steps: vec![

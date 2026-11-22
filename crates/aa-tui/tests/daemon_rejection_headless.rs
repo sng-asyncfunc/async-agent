@@ -12,7 +12,7 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::{Arc, Mutex};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, SessionSelection, UiMode,
 };
 use serde_json::{json, Value};
@@ -137,7 +137,7 @@ impl SharedAnswers {
 
         let hello = json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": [],
             "clientId": "mock",
         });
@@ -479,7 +479,7 @@ fn run_plan(
     };
     let outcome = runtime.block_on(async {
         if agents_view_open {
-            Box::pin(pa_tui::interactive::run_interactive_agents_view_open(
+            Box::pin(aa_tui::interactive::run_interactive_agents_view_open(
                 options,
                 UiMode::Headless(plan),
                 None,
@@ -792,7 +792,7 @@ fn an_agents_view_open_waits_through_the_update_restart_window() {
     let frames = run.frames.join("\n");
     assert!(
         frames.contains(
-            "Waited for the Prime Agent daemon update restart to finish before opening this agent"
+            "Waited for the Async Agent daemon update restart to finish before opening this agent"
         ),
         "the session shows the wait row: {frames}"
     );
@@ -802,7 +802,7 @@ fn an_agents_view_open_waits_through_the_update_restart_window() {
     assert_eq!(
         run.agents_view_notice.as_deref(),
         Some(
-            "Waited for the Prime Agent daemon update restart to finish before opening this agent"
+            "Waited for the Async Agent daemon update restart to finish before opening this agent"
         )
     );
 }
@@ -835,7 +835,7 @@ fn a_permanent_create_failure_after_the_window_surfaces_unmasked() {
         "the refusal surfaces unmasked: {notice}"
     );
     assert!(
-        !notice.contains("Waited for the Prime Agent daemon update restart"),
+        !notice.contains("Waited for the Async Agent daemon update restart"),
         "no wait notice for an open that never completed: {notice}"
     );
 }

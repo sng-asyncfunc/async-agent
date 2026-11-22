@@ -385,7 +385,7 @@ impl AuthStorage {
                     provider: provider_id.to_string(),
                     reason,
                 };
-                pa_ai::utils::log::get_logger("auth").warn(
+                aa_ai::utils::log::get_logger("auth").warn(
                     "oauth refresh failed",
                     serde_json::json!({
                         "provider": failure.provider,

@@ -3,7 +3,7 @@
 //! is the verifier. Live descriptors are real daemon state, opt-in with `PA_TYPES_LIVE_WORKERS=1`;
 //! the default run is hermetic.
 
-use pa_types::daemon::DaemonWorkerDescriptor;
+use aa_types::daemon::DaemonWorkerDescriptor;
 use serde_json::Value;
 use std::path::PathBuf;
 
@@ -55,8 +55,7 @@ fn live_worker_descriptors_roundtrip_losslessly() {
         .or_else(|| {
             std::env::var_os("HOME").map(|h| {
                 PathBuf::from(h)
-                    .join(".prime")
-                    .join("agent")
+                    .join(".async-agent")
                     .join("daemon-workers")
             })
         })

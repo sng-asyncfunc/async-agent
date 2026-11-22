@@ -27,7 +27,7 @@ use nix::fcntl::{fcntl, FcntlArg::F_SETFL, OFlag};
 use nix::pty::{openpty, Winsize};
 use serde_json::{json, Map, Value};
 
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 
 /// The parent hands the child its launch through this env var; unset, the
 /// test passes trivially (a plain `cargo test` runs only the parent).
@@ -49,7 +49,7 @@ fn interactive_fork_child_mode() {
         "--daemon-socket".to_string(),
         config["socket"].as_str().expect("socket").to_string(),
     ];
-    let code = pa_cli::main_with_runtime(&args, &pa_cli::PrintRuntime);
+    let code = aa_cli::main_with_runtime(&args, &aa_cli::PrintRuntime);
     std::fs::write(
         config["outcome"].as_str().expect("outcome path"),
         code.to_string(),
@@ -139,7 +139,7 @@ fn child_pids_of(parent_pid: u32) -> Vec<u32> {
 /// Liveness without `/proc`: the platform probe, which also reads zombies as dead.
 #[cfg(not(target_os = "linux"))]
 fn process_alive(pid: u32) -> bool {
-    pa_types::platform::process::is_process_alive(pid).unwrap_or(false)
+    aa_types::platform::process::is_process_alive(pid).unwrap_or(false)
 }
 
 fn kill_worker(pid: u32) {
@@ -178,7 +178,7 @@ fn graceful_shutdown(socket: &Path) -> Option<u32> {
     let shutdown = json!({
         "type": "command",
         "id": "fork-e2e-shutdown",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "shutdown" },
     });
     let mut line = serde_json::to_string(&shutdown).expect("serialize shutdown");
@@ -199,37 +199,37 @@ fn graceful_shutdown(socket: &Path) -> Option<u32> {
 // the kill, and the wait; the lint wants the reap inline instead.
 #[allow(clippy::zombie_processes)]
 fn spawn_supervisor(socket: &Path, agent_dir: &Path, session_dir: &Path) -> Supervisor {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", agent_dir)
-        .env("PRIME_AGENT_SESSION_DIR", session_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", agent_dir)
+        .env("ASYNC_AGENT_SESSION_DIR", session_dir)
         .env("PI_OFFLINE", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
-        pa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV,
     ] {
         command.env_remove(var);
     }
     // The supervisor-lost exit window (a short one for the teardown) and
     // the worker connect budget (the gate boxes are slower than a laptop).
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
     command.env("PA_DAEMON_WORKER_CONNECT_TIMEOUT_MS", "90000");
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -247,7 +247,7 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path, session_dir: &Path) -> Supe
 /// `sessionPath` over the socket), so the fork runs against a session the
 /// daemon already hosts. Returns the worker's active session id.
 async fn make_session_active(socket: &Path, session_path: &Path, cwd: &Path) -> String {
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(socket)
         .await
         .expect("connect daemon");
     let data = client
@@ -281,7 +281,7 @@ async fn make_session_active(socket: &Path, session_path: &Path, cwd: &Path) -> 
 /// The live daemon roster rows: `sessionFile` (canonical) and
 /// `activeSessionId` per hosted session.
 async fn daemon_roster(socket: &Path) -> Vec<(PathBuf, String)> {
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(socket)
         .await
         .expect("connect daemon");
     let list = client
@@ -400,7 +400,7 @@ async fn interactive_fork_launch_copies_and_the_daemon_opens_the_fork() {
     // The home has onboarding behind it: a completed first run is the only
     // thing that skips the flow, and the launch must open the fork, not the
     // welcome.
-    pa_core::settings::SettingsManager::create(&cwd, &agent_dir)
+    aa_core::settings::SettingsManager::create(&cwd, &agent_dir)
         .set_onboarding_shown(true)
         .expect("onboarding flag");
     let socket = root.join("daemon.sock");
@@ -409,14 +409,14 @@ async fn interactive_fork_launch_copies_and_the_daemon_opens_the_fork() {
     // The source session: a real print-mode run of the real binary (the
     // same isolated-home contract the print runtime e2e uses). The print
     // runtime reads the script env as the script JSON itself.
-    let seeded = Command::new(env!("CARGO_BIN_EXE_prime-agent"))
+    let seeded = Command::new(env!("CARGO_BIN_EXE_async-agent"))
         .args(["-p", "seedphrase4fork tell me"])
         .current_dir(&cwd)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
-        .env("PRIME_AGENT_SESSION_DIR", &session_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_SESSION_DIR", &session_dir)
         .env("PI_OFFLINE", "1")
         .env(
-            "PRIME_AGENT_FAUX_SCRIPT",
+            "ASYNC_AGENT_FAUX_SCRIPT",
             json!({ "responses": ["seedonlyanswer"] }).to_string(),
         )
         .env_remove("RLM_DEPTH")
@@ -442,7 +442,7 @@ async fn interactive_fork_launch_copies_and_the_daemon_opens_the_fork() {
     let source_before = std::fs::read(&source).expect("read source");
 
     // The interactive launch child on a pty, forking the hosted source by
-    // its id; the seam reads PRIME_AGENT_FAUX_SCRIPT as a script FILE path.
+    // its id; the seam reads ASYNC_AGENT_FAUX_SCRIPT as a script FILE path.
     // The scripted engine indexes responses by the prompt ordinal
     // (message_count / 2): the copied exchange occupies index 0, so the
     // first LIVE turn runs at index 1.
@@ -477,10 +477,10 @@ async fn interactive_fork_launch_copies_and_the_daemon_opens_the_fork() {
             })
             .to_string(),
         )
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
-        .env("PRIME_AGENT_SESSION_DIR", &session_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_SESSION_DIR", &session_dir)
         .env("PI_OFFLINE", "1")
-        .env("PRIME_AGENT_FAUX_SCRIPT", fork_script.display().to_string())
+        .env("ASYNC_AGENT_FAUX_SCRIPT", fork_script.display().to_string())
         .env_remove("TMUX")
         .env_remove("RLM_DEPTH")
         .stdin(slave.try_clone().expect("clone pty slave"))
@@ -495,12 +495,12 @@ async fn interactive_fork_launch_copies_and_the_daemon_opens_the_fork() {
 
     // The daemon hosts the fork: a roster row naming a new session file —
     // never the source — under its own id.
-    let source_canonical = pa_daemon::lease::canonical_session_path(&source);
+    let source_canonical = aa_daemon::lease::canonical_session_path(&source);
     let deadline = Instant::now() + Duration::from_secs(45);
     let (fork_file, fork_id) = 'hosted: {
         loop {
             for (file, id) in daemon_roster(&socket).await {
-                if pa_daemon::lease::canonical_session_path(&file) != source_canonical {
+                if aa_daemon::lease::canonical_session_path(&file) != source_canonical {
                     break 'hosted (file, id);
                 }
             }
@@ -582,13 +582,13 @@ async fn interactive_fork_launch_copies_and_the_daemon_opens_the_fork() {
     let roster = daemon_roster(&socket).await;
     let canonical: Vec<_> = roster
         .iter()
-        .map(|(file, _)| pa_daemon::lease::canonical_session_path(file))
+        .map(|(file, _)| aa_daemon::lease::canonical_session_path(file))
         .collect();
     assert!(
         canonical.contains(&source_canonical),
         "the hosted source survives the fork"
     );
-    let fork_canonical = pa_daemon::lease::canonical_session_path(&fork_file);
+    let fork_canonical = aa_daemon::lease::canonical_session_path(&fork_file);
     assert!(
         canonical.contains(&fork_canonical),
         "the fork stays hosted after the client exits"

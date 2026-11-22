@@ -1,7 +1,7 @@
 import { asRecord, emitDisplay, requireString, type SkillContext } from "../../_shared/context.ts";
 
 type ReceiverRole = "parent" | "sibling" | "child";
-const MESSAGE_DISPLAY_MIME = "application/vnd.prime-agent.agent-message+json";
+const MESSAGE_DISPLAY_MIME = "application/vnd.async-agent.agent-message+json";
 
 interface SendOptions {
 	receiverRole: ReceiverRole;

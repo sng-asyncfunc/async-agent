@@ -67,7 +67,7 @@ fn legacy_read_session_info(path: &Path) -> Option<SessionInfo> {
             "child_usage_attributed" => {
                 let usage_field = |name: &str| {
                     entry.fields.get(name).and_then(|usage| {
-                        serde_json::from_value::<pa_types::ai::Usage>(usage.clone()).ok()
+                        serde_json::from_value::<aa_types::ai::Usage>(usage.clone()).ok()
                     })
                 };
                 usage_scan.fold_child_attribution(
@@ -85,7 +85,7 @@ fn legacy_read_session_info(path: &Path) -> Option<SessionInfo> {
                         &entry.id,
                         role,
                         message.get("usage").and_then(|usage| {
-                            serde_json::from_value::<pa_types::ai::Usage>(usage.clone()).ok()
+                            serde_json::from_value::<aa_types::ai::Usage>(usage.clone()).ok()
                         }),
                     );
                     if role == Some("assistant") {
@@ -504,8 +504,8 @@ fn a_persisted_scan_state_resumes_like_the_full_fold() {
     // The sidecar carries message text (the search corpus, the first
     // message): it is owner-only like the session files it derives from.
     assert_eq!(
-        pa_core::platform::perms::file_mode(&path.with_extension("info-cache.json")),
-        Some(pa_core::platform::perms::PRIVATE_FILE_MODE)
+        aa_core::platform::perms::file_mode(&path.with_extension("info-cache.json")),
+        Some(aa_core::platform::perms::PRIVATE_FILE_MODE)
     );
     super::session_info_cache()
         .lock()
@@ -536,7 +536,7 @@ fn a_persisted_scan_state_resumes_like_the_full_fold() {
 }
 
 /// The sidecar round trip through a real lease, for a session opened by
-/// a symlinked dir (macOS `/var`, a symlinked `~/.prime`): the release
+/// a symlinked dir (macOS `/var`, a symlinked `~/.async-agent`): the release
 /// persists what the holder's raw-path reads cached, though the lease
 /// keys the file canonically. The next read then serves a valid sidecar
 /// (here a name the file does not carry - a cold scan cannot produce

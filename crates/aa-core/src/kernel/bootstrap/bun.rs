@@ -1,4 +1,4 @@
-//! Bun kernel runtime provisioning: sync `prime-agent-runtime/` into
+//! Bun kernel runtime provisioning: sync `async-agent-runtime/` into
 //! `kernel-bun`, install production dependencies, and prepare JavaScript skills.
 
 use std::collections::BTreeMap;
@@ -118,7 +118,7 @@ fn copy_runtime_tree(src: &Path, dst: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Sync `prime-agent-runtime/src` into `kernel_dir/src`, merge `package.json`
+/// Sync `async-agent-runtime/src` into `kernel_dir/src`, merge `package.json`
 /// dependencies (preserving any user-installed packages from `installPackage`),
 /// run `bun install --production`, and write `.bootstrap-version`.
 pub(crate) async fn provision_kernel_runtime(
@@ -146,7 +146,7 @@ pub(crate) async fn provision_kernel_runtime(
         merged_deps.insert(name.clone(), version.clone());
     }
     let package_json = serde_json::to_string_pretty(&serde_json::json!({
-        "name": "prime-agent-runtime",
+        "name": "async-agent-runtime",
         "private": true,
         "type": "module",
         "dependencies": merged_deps,

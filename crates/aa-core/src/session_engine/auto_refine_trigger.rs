@@ -2,7 +2,7 @@
 //! the one consumption order the servicing surfaces share — gates first,
 //! then the review, and only an approving review runs the refinement.
 
-use pa_types::ai::Model;
+use aa_types::ai::Model;
 
 use crate::refinement::executor::AutoRefineReview;
 use crate::refinement::RefinementResult;
@@ -106,7 +106,7 @@ impl AgentSession {
             .lock()
             .expect("refinement cancellation lock");
         cancel.abort();
-        *cancel = pa_agent::abort::AbortController::new();
+        *cancel = aa_agent::abort::AbortController::new();
     }
 
     /// # Panics
@@ -264,7 +264,7 @@ impl AgentSession {
 mod tests {
     use std::sync::Arc;
 
-    use pa_types::ai::Model;
+    use aa_types::ai::Model;
 
     use super::super::refine::AutoRefineGates;
     use super::*;
@@ -277,7 +277,7 @@ mod tests {
             "responses": responses.to_vec(),
         });
         let parsed =
-            pa_ai::faux::script::parse_faux_script(&script).expect("the faux script parses");
+            aa_ai::faux::script::parse_faux_script(&script).expect("the faux script parses");
         let api = format!(
             "faux-trigger-{}",
             std::time::SystemTime::now()
@@ -286,7 +286,7 @@ mod tests {
                 .as_nanos()
         );
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 api: Some(api),
                 provider: Some("faux-trigger".to_string()),
                 models: Some(vec![parsed.model]),
@@ -300,21 +300,21 @@ mod tests {
     /// under test is the trigger bookkeeping, not the engine wiring.
     async fn session(persisted: bool) -> AgentSession {
         let model = faux_model(&[serde_json::json!({"text": "unused"})]);
-        let agent_model: pa_agent::types::Model =
+        let agent_model: aa_agent::types::Model =
             super::super::provider_adapter::json_round_trip(&model)
                 .expect("the faux model crosses the loop boundary");
-        let provider = Arc::new(pa_agent::scripted::ScriptedProvider::new(
+        let provider = Arc::new(aa_agent::scripted::ScriptedProvider::new(
             agent_model.clone(),
         ));
-        let options = pa_agent::agent::AgentOptions {
-            initial_state: pa_agent::agent::AgentInitialState {
+        let options = aa_agent::agent::AgentOptions {
+            initial_state: aa_agent::agent::AgentInitialState {
                 model: Some(agent_model),
                 ..Default::default()
             },
             stream_fn: Some(provider.stream_fn()),
             ..Default::default()
         };
-        let agent = pa_agent::agent::Agent::new(options);
+        let agent = aa_agent::agent::Agent::new(options);
         let tmp = tempfile::tempdir().unwrap();
         let mut manager = crate::session::manager::SessionManager::in_memory(tmp.path());
         if persisted {

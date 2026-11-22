@@ -5,8 +5,8 @@
 //! session's next request without a restart.
 use std::sync::Arc;
 
-use pa_agent::stream::{LlmContext, StreamFn, StreamRequestOptions};
-use pa_agent::types::Model as AgentModel;
+use aa_agent::stream::{LlmContext, StreamFn, StreamRequestOptions};
+use aa_agent::types::Model as AgentModel;
 
 use super::*;
 
@@ -64,7 +64,7 @@ fn live_auth_engine_with_oauth(
     api_key: Option<&str>,
     provider: &str,
     model_id: &str,
-    request_auth_oauth: Option<std::sync::Arc<dyn pa_core::auth::OAuthIntegration>>,
+    request_auth_oauth: Option<std::sync::Arc<dyn aa_core::auth::OAuthIntegration>>,
 ) -> std::sync::Arc<AgentSessionEngine> {
     let mut engine = AgentSessionEngine::new(AgentEngineConfig {
         cwd: dir.to_path_buf(),
@@ -94,17 +94,17 @@ fn live_auth_engine_with_oauth(
 
 /// One registered faux provider serving `api: "faux"`, recording every
 /// request's api key.
-fn register_recording_faux() -> pa_ai::faux::FauxProviderRegistration {
+fn register_recording_faux() -> aa_ai::faux::FauxProviderRegistration {
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             api: Some("faux".to_string()),
             ..Default::default()
         });
     registration.set_repeat_last_response(true);
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-        pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+        aa_ai::faux::faux_assistant_text_message(
             "ok",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
     )]);
     registration
@@ -125,7 +125,7 @@ fn call_stream_once(engine: &AgentSessionEngine, stream_fn: &StreamFn) {
 }
 
 /// The api keys the faux provider served, in order.
-fn served_keys(registration: &pa_ai::faux::FauxProviderRegistration) -> Vec<Option<String>> {
+fn served_keys(registration: &aa_ai::faux::FauxProviderRegistration) -> Vec<Option<String>> {
     registration.received_api_keys()
 }
 
@@ -356,7 +356,7 @@ fn a_held_document_lock_keeps_serving_the_last_read_credential() {
     // document's lock through the read budget: the engine's reload fails
     // and the last-read credential keeps serving.
     write_oauth_credential(&agent_dir, "fresh-access");
-    let held = pa_core::platform::lock_dir::LockDir::acquire(
+    let held = aa_core::platform::lock_dir::LockDir::acquire(
         &agent_dir.join("auth.json"),
         std::time::Duration::from_secs(10),
     )
@@ -447,7 +447,7 @@ fn a_create_config_key_keeps_serving_while_the_store_read_fails() {
 
     call_stream_once(&engine, &stream_fn);
     write_oauth_credential(&agent_dir, "fresh-access");
-    let held = pa_core::platform::lock_dir::LockDir::acquire(
+    let held = aa_core::platform::lock_dir::LockDir::acquire(
         &agent_dir.join("auth.json"),
         std::time::Duration::from_secs(10),
     )
@@ -488,14 +488,14 @@ struct CountingRefresh {
     succeeds: bool,
 }
 
-impl pa_core::auth::OAuthIntegration for CountingRefresh {
+impl aa_core::auth::OAuthIntegration for CountingRefresh {
     fn api_key_for(
         &self,
         _provider: &str,
-        credential: &pa_core::auth::AuthCredential,
+        credential: &aa_core::auth::AuthCredential,
     ) -> Option<String> {
         match credential {
-            pa_core::auth::AuthCredential::Oauth { access, .. } => Some(access.clone()),
+            aa_core::auth::AuthCredential::Oauth { access, .. } => Some(access.clone()),
             _ => None,
         }
     }
@@ -503,13 +503,13 @@ impl pa_core::auth::OAuthIntegration for CountingRefresh {
     fn refresh(
         &self,
         _provider: &str,
-        _credentials: &pa_core::auth::AuthStorageData,
-    ) -> Result<pa_core::auth::AuthCredential, String> {
+        _credentials: &aa_core::auth::AuthStorageData,
+    ) -> Result<aa_core::auth::AuthCredential, String> {
         *self.attempts.lock().unwrap() += 1;
         if !self.succeeds {
             return Err("invalid_grant: the refresh token was revoked".to_string());
         }
-        Ok(pa_core::auth::AuthCredential::Oauth {
+        Ok(aa_core::auth::AuthCredential::Oauth {
             access: "refreshed-access".to_string(),
             refresh: Some("rotated-refresh".to_string()),
             expires: 4_102_444_800_000,
@@ -667,26 +667,26 @@ fn run_live_prompt(engine: &AgentSessionEngine) -> Vec<EngineEvent> {
 
 /// A faux `battery` provider that rejects `rejected-access` with a
 /// 401-classified auth failure and answers any other key.
-fn register_rejecting_faux() -> pa_ai::faux::FauxProviderRegistration {
+fn register_rejecting_faux() -> aa_ai::faux::FauxProviderRegistration {
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             api: Some("faux".to_string()),
             provider: Some("battery".to_string()),
             ..Default::default()
         });
     registration.set_repeat_last_response(true);
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Factory(Arc::new(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Factory(Arc::new(
         |_, options, _, _| {
             if options.and_then(|options| options.api_key.as_deref()) != Some("rejected-access") {
-                return Ok(pa_ai::faux::faux_assistant_text_message(
+                return Ok(aa_ai::faux::faux_assistant_text_message(
                     "ok",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ));
             }
-            let mut rejection = pa_ai::faux::faux_assistant_message(
+            let mut rejection = aa_ai::faux::faux_assistant_message(
                 Vec::new(),
-                pa_ai::faux::FauxAssistantMessageOptions {
-                    stop_reason: Some(pa_types::ai::StopReason::Error),
+                aa_ai::faux::FauxAssistantMessageOptions {
+                    stop_reason: Some(aa_types::ai::StopReason::Error),
                     error_message: Some("401 invalid bearer token".to_string()),
                     ..Default::default()
                 },
@@ -1054,18 +1054,18 @@ fn a_mid_session_xai_login_switches_the_request_model_live() {
     // register first: a shadow registered before the process's first
     // dispatch would be replaced by `resolve_provider`'s one-time
     // `ensure_builtins`.
-    pa_ai::registry::ensure_builtins();
+    aa_ai::registry::ensure_builtins();
     let pre_login = register_recording_faux();
     let adapted: Arc<std::sync::Mutex<Vec<ServedAdapted>>> =
         Arc::new(std::sync::Mutex::new(Vec::new()));
     let captured = Arc::clone(&adapted);
     let adapted_registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             api: Some("openai-responses".to_string()),
             ..Default::default()
         });
     adapted_registration.set_repeat_last_response(true);
-    adapted_registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Factory(Arc::new(
+    adapted_registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Factory(Arc::new(
         move |_, options, _, model| {
             captured.lock().unwrap().push((
                 model.id.clone(),
@@ -1073,9 +1073,9 @@ fn a_mid_session_xai_login_switches_the_request_model_live() {
                 model.base_url.clone(),
                 options.and_then(|options| options.api_key.clone()),
             ));
-            Ok(pa_ai::faux::faux_assistant_text_message(
+            Ok(aa_ai::faux::faux_assistant_text_message(
                 "ok",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ))
         },
     ))]);
@@ -1142,7 +1142,7 @@ fn a_mid_session_xai_login_switches_the_request_model_live() {
     pre_login.unregister();
     adapted_registration.unregister();
     // Restore the built-in the shadowed registration replaced.
-    pa_ai::registry::register_builtin_api_providers();
+    aa_ai::registry::register_builtin_api_providers();
 }
 
 /// A logout after a subscription build changes the very next call: the
@@ -1186,18 +1186,18 @@ fn a_mid_session_xai_logout_serves_the_api_key_shape_never_the_captured_token() 
         .to_string(),
     )
     .unwrap();
-    pa_ai::registry::ensure_builtins();
+    aa_ai::registry::ensure_builtins();
     let api_key_shape = register_recording_faux();
     let adapted: Arc<std::sync::Mutex<Vec<ServedAdapted>>> =
         Arc::new(std::sync::Mutex::new(Vec::new()));
     let captured = Arc::clone(&adapted);
     let adapted_registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             api: Some("openai-responses".to_string()),
             ..Default::default()
         });
     adapted_registration.set_repeat_last_response(true);
-    adapted_registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Factory(Arc::new(
+    adapted_registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Factory(Arc::new(
         move |_, options, _, model| {
             captured.lock().unwrap().push((
                 model.id.clone(),
@@ -1205,9 +1205,9 @@ fn a_mid_session_xai_logout_serves_the_api_key_shape_never_the_captured_token() 
                 model.base_url.clone(),
                 options.and_then(|options| options.api_key.clone()),
             ));
-            Ok(pa_ai::faux::faux_assistant_text_message(
+            Ok(aa_ai::faux::faux_assistant_text_message(
                 "ok",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ))
         },
     ))]);
@@ -1231,7 +1231,7 @@ fn a_mid_session_xai_logout_serves_the_api_key_shape_never_the_captured_token() 
     api_key_shape.unregister();
     adapted_registration.unregister();
     // Restore the built-in the shadowed registration replaced.
-    pa_ai::registry::register_builtin_api_providers();
+    aa_ai::registry::register_builtin_api_providers();
     assert_eq!(
         subscription_calls,
         vec![(
@@ -1284,18 +1284,18 @@ fn a_mid_session_xai_login_never_switches_a_create_config_key_session() {
     // The explicit key wins over the provider's configured fallback, and
     // the subscription shape dispatches to a separate registration so a
     // re-shaped call is observable without any network.
-    pa_ai::registry::ensure_builtins();
+    aa_ai::registry::ensure_builtins();
     let explicit_shape = register_recording_faux();
     let adapted: Arc<std::sync::Mutex<Vec<ServedAdapted>>> =
         Arc::new(std::sync::Mutex::new(Vec::new()));
     let captured = Arc::clone(&adapted);
     let adapted_registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             api: Some("openai-responses".to_string()),
             ..Default::default()
         });
     adapted_registration.set_repeat_last_response(true);
-    adapted_registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Factory(Arc::new(
+    adapted_registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Factory(Arc::new(
         move |_, options, _, model| {
             captured.lock().unwrap().push((
                 model.id.clone(),
@@ -1303,9 +1303,9 @@ fn a_mid_session_xai_login_never_switches_a_create_config_key_session() {
                 model.base_url.clone(),
                 options.and_then(|options| options.api_key.clone()),
             ));
-            Ok(pa_ai::faux::faux_assistant_text_message(
+            Ok(aa_ai::faux::faux_assistant_text_message(
                 "ok",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ))
         },
     ))]);
@@ -1353,5 +1353,5 @@ fn a_mid_session_xai_login_never_switches_a_create_config_key_session() {
     explicit_shape.unregister();
     adapted_registration.unregister();
     // Restore the built-in the shadowed registration replaced.
-    pa_ai::registry::register_builtin_api_providers();
+    aa_ai::registry::register_builtin_api_providers();
 }

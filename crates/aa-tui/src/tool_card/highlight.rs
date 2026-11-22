@@ -642,7 +642,7 @@ const JS_KEYWORDS: [&str; 48] = [
 /// JavaScript literal value names (`literal` scope).
 const JS_LITERALS: [&str; 6] = ["Infinity", "NaN", "false", "null", "true", "undefined"];
 
-/// JavaScript / Bun / Prime Agent REPL built-ins (`built_in` scope).
+/// JavaScript / Bun / Async Agent REPL built-ins (`built_in` scope).
 const JS_BUILT_INS: [&str; 42] = [
     "AbortController",
     "AbortSignal",
@@ -987,7 +987,7 @@ mod tests {
     use crate::theme::{ColorMode, Theme};
 
     fn theme() -> Theme {
-        Theme::builtin("prime", ColorMode::TrueColor)
+        Theme::builtin("async", ColorMode::TrueColor)
     }
 
     fn scopes(code: &str) -> Vec<(String, Scope)> {

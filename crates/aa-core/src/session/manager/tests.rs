@@ -27,7 +27,7 @@ fn append_compaction_serializes_the_full_ts_record() {
     let tmp = tempfile::tempdir().unwrap();
     let mut manager = SessionManager::in_memory(tmp.path());
     manager
-        .append_compaction(pa_types::session::CompactionEntry {
+        .append_compaction(aa_types::session::CompactionEntry {
             summary: "the overflow summary".to_string(),
             first_kept_entry_id: "e4".to_string(),
             tokens_before: 214,
@@ -37,13 +37,13 @@ fn append_compaction_serializes_the_full_ts_record() {
             })),
             from_hook: Some(false),
             custom_instructions: None,
-            usage: Some(pa_types::ai::Usage {
+            usage: Some(aa_types::ai::Usage {
                 input: 20,
                 output: 10,
                 cache_read: 80,
                 cache_write: 0,
                 total_tokens: 110,
-                cost: pa_types::ai::UsageCost::default(),
+                cost: aa_types::ai::UsageCost::default(),
             }),
             harness_digest: None,
             harness_state_fingerprint: None,
@@ -71,7 +71,7 @@ fn persist_appends_after_first_assistant() {
     let first = manager.append_thinking_level_change("high");
     assert!(!manager.get_session_file().unwrap().exists());
     manager
-        .append_message(AgentMessage::Assistant(pa_types::ai::AssistantMessage {
+        .append_message(AgentMessage::Assistant(aa_types::ai::AssistantMessage {
             content: vec![],
             api: "anthropic-messages".to_string(),
             provider: "anthropic".to_string(),
@@ -79,8 +79,8 @@ fn persist_appends_after_first_assistant() {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -106,7 +106,7 @@ fn open_repairs_and_resumes() {
     let dir = tmp.path().join("sessions");
     std::fs::create_dir_all(&dir).unwrap();
     let mut manager = SessionManager::persisted(tmp.path(), &dir);
-    let assistant = AgentMessage::Assistant(pa_types::ai::AssistantMessage {
+    let assistant = AgentMessage::Assistant(aa_types::ai::AssistantMessage {
         content: vec![],
         api: "openai-completions".to_string(),
         provider: "openai".to_string(),
@@ -114,8 +114,8 @@ fn open_repairs_and_resumes() {
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_types::ai::Usage::default(),
-        stop_reason: pa_types::ai::StopReason::Stop,
+        usage: aa_types::ai::Usage::default(),
+        stop_reason: aa_types::ai::StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,
         timestamp: 0,
@@ -155,14 +155,14 @@ fn fork_from_copies_the_branch_under_a_fresh_header() {
     std::fs::create_dir_all(&source_cwd).unwrap();
     let mut source = SessionManager::persisted(&source_cwd, &source_dir);
     source
-        .append_message(AgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text("original question".to_string()),
+        .append_message(AgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text("original question".to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
         }))
         .unwrap();
     let user_id = source.get_leaf_id().unwrap().to_string();
-    let assistant = AgentMessage::Assistant(pa_types::ai::AssistantMessage {
+    let assistant = AgentMessage::Assistant(aa_types::ai::AssistantMessage {
         content: vec![],
         api: "openai-completions".to_string(),
         provider: "openai".to_string(),
@@ -170,8 +170,8 @@ fn fork_from_copies_the_branch_under_a_fresh_header() {
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_types::ai::Usage::default(),
-        stop_reason: pa_types::ai::StopReason::Stop,
+        usage: aa_types::ai::Usage::default(),
+        stop_reason: aa_types::ai::StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,
         timestamp: 0,
@@ -181,7 +181,7 @@ fn fork_from_copies_the_branch_under_a_fresh_header() {
     let assistant_id = source.get_leaf_id().unwrap().to_string();
     source
         .append_entry(FileEntry::GitState {
-            payload: pa_types::session::GitStateEntry {
+            payload: aa_types::session::GitStateEntry {
                 git: GitContext::default(),
             },
             base: EntryBase {
@@ -246,8 +246,8 @@ fn fork_from_copies_the_branch_under_a_fresh_header() {
     assert!(trailing_line.contains("\"keep\":true"));
     let mut forked = forked;
     forked
-        .append_message(AgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text("follow up".to_string()),
+        .append_message(AgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text("follow up".to_string()),
             timestamp: 1,
             rest: serde_json::Map::default(),
         }))

@@ -10,7 +10,7 @@ mod support;
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
-use pa_tui::interactive::{run_interactive, HeadlessPlan, HeadlessStep, UiMode};
+use aa_tui::interactive::{run_interactive, HeadlessPlan, HeadlessStep, UiMode};
 use serde_json::{json, Value};
 
 use support::{

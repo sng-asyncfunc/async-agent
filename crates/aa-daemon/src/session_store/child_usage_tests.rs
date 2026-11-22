@@ -1,6 +1,6 @@
 use super::SessionFile;
-use pa_core::session_engine::rlm_usage::ChildUsageAppendResult;
-use pa_types::ai::Usage;
+use aa_core::session_engine::rlm_usage::ChildUsageAppendResult;
+use aa_types::ai::Usage;
 use serde_json::json;
 
 fn fixture() -> (tempfile::TempDir, SessionFile, String) {
@@ -95,7 +95,7 @@ fn completed_append_error_retry_keeps_one_physical_attribution() {
         .append_child_usage_once("report-a", &target, child(), None)
         .unwrap();
     let mut expected = Usage::default();
-    pa_core::session_engine::rlm_usage::attribute_child_usage(&mut expected, &child());
+    aa_core::session_engine::rlm_usage::attribute_child_usage(&mut expected, &child());
     let confirmed = match result {
         ChildUsageAppendResult::Created(usage) | ChildUsageAppendResult::Existing(usage) => usage,
     };
@@ -146,8 +146,8 @@ fn windowed_fixture() -> (tempfile::TempDir, SessionFile, String, Usage) {
 
 #[test]
 fn hydration_after_an_uncertain_append_does_not_lose_child_usage() {
-    use pa_core::session_engine::rlm_usage::attribute_child_usage;
-    use pa_types::session::ChildUsageOrigin;
+    use aa_core::session_engine::rlm_usage::attribute_child_usage;
+    use aa_types::session::ChildUsageOrigin;
 
     let (_dir, mut live, target, raw) = windowed_fixture();
 
@@ -416,16 +416,16 @@ fn changed_session_identity_cannot_confirm_an_owned_attribution() {
 
 #[test]
 fn nonzero_cost_hydration_confirms_the_complete_wire_decoded_owned_row() {
-    use pa_types::ai::UsageCost;
+    use aa_types::ai::UsageCost;
     let (_dir, mut live, target, _raw) = windowed_fixture();
     let spend = Usage {
         input: 10,
         output: 7,
         total_tokens: 17,
         cost: UsageCost {
-            input: pa_types::JsNumber(0.007_531_199_999_999_999),
-            output: pa_types::JsNumber(0.001_464_499_999_999_999_9),
-            total: pa_types::JsNumber(0.008_995_7),
+            input: aa_types::JsNumber(0.007_531_199_999_999_999),
+            output: aa_types::JsNumber(0.001_464_499_999_999_999_9),
+            total: aa_types::JsNumber(0.008_995_7),
             ..UsageCost::default()
         },
         ..Usage::default()
@@ -436,7 +436,7 @@ fn nonzero_cost_hydration_confirms_the_complete_wire_decoded_owned_row() {
         .is_err());
     let before = std::fs::read(&live.path).unwrap();
     let full = SessionFile::open(&live.path).unwrap();
-    let wire_expected = serde_json::from_value::<pa_types::session::ChildUsageAttributionEntry>(
+    let wire_expected = serde_json::from_value::<aa_types::session::ChildUsageAttributionEntry>(
         full.entry("cost-a").unwrap().fields.clone(),
     )
     .unwrap()
@@ -553,7 +553,7 @@ fn exact_owned_partial_tail_completes_without_truncation_and_unblocks_generic_wr
     FAIL_CHILD_TAIL_COMPLETION.with(|fault| fault.set(false));
     let partial = std::fs::read(&store.path).unwrap();
     let mut expected = Usage::default();
-    pa_core::session_engine::rlm_usage::attribute_child_usage(&mut expected, &child());
+    aa_core::session_engine::rlm_usage::attribute_child_usage(&mut expected, &child());
     let confirmed = store
         .append_child_usage_once("partial-a", &target, child(), None)
         .unwrap();
@@ -660,7 +660,7 @@ fn admitted_confirmation_finishes_while_release_drains_and_later_writes_are_refu
         let result = store.append_child_usage_once("release-a", &target, child(), None);
         release.join().unwrap();
         let mut expected = Usage::default();
-        pa_core::session_engine::rlm_usage::attribute_child_usage(&mut expected, &child());
+        aa_core::session_engine::rlm_usage::attribute_child_usage(&mut expected, &child());
         assert!(
             matches!(result.unwrap(), ChildUsageAppendResult::Created(usage) if usage == expected)
         );

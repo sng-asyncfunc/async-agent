@@ -326,7 +326,7 @@ impl crate::supervisor::Supervisor {
     /// is always instant), forward best-effort, declare terminal a run past the grace.
     pub(crate) async fn handle_abort_compaction(
         self: &Arc<Self>,
-        command: &pa_types::daemon::DaemonCommand,
+        command: &aa_types::daemon::DaemonCommand,
         client_id: &str,
         attached: &Arc<crate::supervisor::subscribers::ClientSubscriptions>,
         command_id: &str,
@@ -418,9 +418,9 @@ impl crate::supervisor::Supervisor {
     fn forward_abort_compaction(
         self: &Arc<Self>,
         resident: &Arc<crate::registry::ResidentWorker>,
-        command: &pa_types::daemon::DaemonCommand,
+        command: &aa_types::daemon::DaemonCommand,
         client_id: &str,
-    ) -> impl std::future::Future<Output = Option<Result<pa_types::daemon::DaemonResponse>>> + Send
+    ) -> impl std::future::Future<Output = Option<Result<aa_types::daemon::DaemonResponse>>> + Send
     {
         let payload = crate::supervisor::client_command_payload(command, client_id)
             .ok()
@@ -519,7 +519,7 @@ impl crate::supervisor::Supervisor {
             error_severity,
             None,
         );
-        let frame = serde_json::to_value(pa_types::daemon::DaemonOutbound::SessionEvent {
+        let frame = serde_json::to_value(aa_types::daemon::DaemonOutbound::SessionEvent {
             active_session_id: terminal.active_session_id.clone(),
             event,
             meta: None,
@@ -1014,7 +1014,7 @@ mod tests {
         let mut original = serde_json::to_vec(&first).unwrap();
         original.push(b'\n');
         std::fs::write(&path, original).unwrap();
-        let listener = pa_types::platform::transport::bind_transport(&options.socket_path)
+        let listener = aa_types::platform::transport::bind_transport(&options.socket_path)
             .await
             .unwrap();
         // A legacy writer does not take the proposed journal sidecar lock.

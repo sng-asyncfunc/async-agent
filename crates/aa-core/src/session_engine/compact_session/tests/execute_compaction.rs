@@ -63,13 +63,13 @@ async fn execute_compaction_persists_and_rebuilds() {
 async fn rebuilt_live_context_prevents_repeat_auto_compaction_until_new_usage() {
     let registration = faux_registration();
     registration.set_responses(vec![
-        pa_ai::faux::FauxResponseStep::Message(pa_ai::faux::faux_assistant_text_message(
+        aa_ai::faux::FauxResponseStep::Message(aa_ai::faux::faux_assistant_text_message(
             "## Goal\nsummarized goal",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         )),
-        pa_ai::faux::FauxResponseStep::Message(pa_ai::faux::faux_assistant_text_message(
+        aa_ai::faux::FauxResponseStep::Message(aa_ai::faux::faux_assistant_text_message(
             "## Turn Context\nsummarized prefix",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         )),
     ]);
     let model = registration.get_model();
@@ -83,7 +83,7 @@ async fn rebuilt_live_context_prevents_repeat_auto_compaction_until_new_usage() 
     assistant.usage.total_tokens = 126_010;
     assistant.timestamp = 1;
     session
-        .append_message(AgentMessage::User(pa_types::ai::UserMessage {
+        .append_message(AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text("threshold crossing turn".to_string()),
             timestamp: 0,
             rest: Map::default(),
@@ -131,7 +131,7 @@ async fn rebuilt_live_context_prevents_repeat_auto_compaction_until_new_usage() 
     )));
     // Cross the same session/agent wire boundary as `set_messages` and
     // `auto_compaction_due`: the live role must survive both round trips.
-    let loop_messages: Vec<pa_agent::types::AgentMessage> = live
+    let loop_messages: Vec<aa_agent::types::AgentMessage> = live
         .iter()
         .map(|message| {
             super::super::session_message_to_loop(message)
@@ -152,7 +152,7 @@ async fn rebuilt_live_context_prevents_repeat_auto_compaction_until_new_usage() 
         ("agent_message", "message from agent"),
         ("javascript_state", "kernel survived compaction"),
     ] {
-        live.push(AgentMessage::Custom(pa_types::session::CustomMessage {
+        live.push(AgentMessage::Custom(aa_types::session::CustomMessage {
             custom_type: custom_type.to_string(),
             content: UserContent::Text(text.to_string()),
             display: true,
@@ -228,7 +228,7 @@ async fn split_turn_compaction_streams_in_final_order_and_converges() {
     let tmp = tempfile::tempdir().unwrap();
     let mut session = SessionManager::in_memory(tmp.path());
     let user = |text: &str| {
-        AgentMessage::User(pa_types::ai::UserMessage {
+        AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: Map::default(),
@@ -236,8 +236,8 @@ async fn split_turn_compaction_streams_in_final_order_and_converges() {
     };
     let reply = |text: &str| {
         AgentMessage::Assistant(AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: text.to_string(),
                     text_signature: None,
                     rest: Map::default(),
@@ -249,8 +249,8 @@ async fn split_turn_compaction_streams_in_final_order_and_converges() {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -275,13 +275,13 @@ async fn split_turn_compaction_streams_in_final_order_and_converges() {
     // Two scripted summaries (the factories answer in issue order,
     // whichever call reaches the faux provider first).
     registration.set_responses(vec![
-        pa_ai::faux::FauxResponseStep::Message(pa_ai::faux::faux_assistant_text_message(
+        aa_ai::faux::FauxResponseStep::Message(aa_ai::faux::faux_assistant_text_message(
             "the history summary",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         )),
-        pa_ai::faux::FauxResponseStep::Message(pa_ai::faux::faux_assistant_text_message(
+        aa_ai::faux::FauxResponseStep::Message(aa_ai::faux::faux_assistant_text_message(
             "the turn prefix summary",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         )),
     ]);
     let deltas: std::sync::Arc<std::sync::Mutex<Vec<String>>> = std::sync::Arc::default();
@@ -495,11 +495,11 @@ async fn execute_compaction_attaches_harness_digest_snapshot() {
 async fn execute_compaction_fails_on_an_error_summarizer_response() {
     let registration = faux_registration();
     let model = registration.get_model();
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-        pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+        aa_ai::faux::faux_assistant_text_message(
             "",
-            pa_ai::faux::FauxAssistantMessageOptions {
-                stop_reason: Some(pa_types::ai::StopReason::Error),
+            aa_ai::faux::FauxAssistantMessageOptions {
+                stop_reason: Some(aa_types::ai::StopReason::Error),
                 error_message: Some("summarizer exploded".to_string()),
                 ..Default::default()
             },
@@ -544,10 +544,10 @@ async fn execute_compaction_fails_on_an_error_summarizer_response() {
 async fn execute_compaction_fails_on_an_empty_summarizer_response() {
     let registration = faux_registration();
     let model = registration.get_model();
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-        pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+        aa_ai::faux::faux_assistant_text_message(
             "  \n",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
     )]);
     let tmp = tempfile::tempdir().unwrap();
@@ -587,16 +587,16 @@ async fn execute_compaction_retries_a_length_capped_summarizer_response() {
     let registration = faux_registration();
     let model = registration.get_model();
     registration.set_responses(vec![
-        pa_ai::faux::FauxResponseStep::Message(pa_ai::faux::faux_assistant_text_message(
+        aa_ai::faux::FauxResponseStep::Message(aa_ai::faux::faux_assistant_text_message(
             "cut-off summary",
-            pa_ai::faux::FauxAssistantMessageOptions {
-                stop_reason: Some(pa_types::ai::StopReason::Length),
+            aa_ai::faux::FauxAssistantMessageOptions {
+                stop_reason: Some(aa_types::ai::StopReason::Length),
                 ..Default::default()
             },
         )),
-        pa_ai::faux::FauxResponseStep::Message(pa_ai::faux::faux_assistant_text_message(
+        aa_ai::faux::FauxResponseStep::Message(aa_ai::faux::faux_assistant_text_message(
             "shorter summary",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         )),
     ]);
     let tmp = tempfile::tempdir().unwrap();
@@ -637,10 +637,10 @@ async fn execute_compaction_accepts_a_twice_capped_summary_behind_the_marker() {
     let registration = faux_registration();
     let model = registration.get_model();
     let capped = |text: &str| {
-        pa_ai::faux::FauxResponseStep::Message(pa_ai::faux::faux_assistant_text_message(
+        aa_ai::faux::FauxResponseStep::Message(aa_ai::faux::faux_assistant_text_message(
             text,
-            pa_ai::faux::FauxAssistantMessageOptions {
-                stop_reason: Some(pa_types::ai::StopReason::Length),
+            aa_ai::faux::FauxAssistantMessageOptions {
+                stop_reason: Some(aa_types::ai::StopReason::Length),
                 ..Default::default()
             },
         ))

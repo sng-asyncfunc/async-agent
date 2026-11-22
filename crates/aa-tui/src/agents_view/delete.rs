@@ -81,7 +81,7 @@ impl DeleteAction {
 
     /// Whether the wire's own outcome fields say the effect actually happened (a `cancelled:
     /// false` in a `success` response means the command ran but changed nothing, never a success).
-    pub(super) fn effect_happened(&self, response: &pa_types::daemon::DaemonResponse) -> bool {
+    pub(super) fn effect_happened(&self, response: &aa_types::daemon::DaemonResponse) -> bool {
         let Some(data) = response.data.as_ref() else {
             return true;
         };

@@ -12,7 +12,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use pa_core::auth::{AuthCredential, AuthStorage, AuthStorageData, OAuthIntegration};
+use aa_core::auth::{AuthCredential, AuthStorage, AuthStorageData, OAuthIntegration};
 
 const CHILD_ENV: &str = "PA_CROSS_PROCESS_REFRESH_CHILD_DIR";
 #[cfg(unix)]

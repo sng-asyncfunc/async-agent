@@ -4,7 +4,7 @@
 use super::*;
 use crate::session_engine::tool_bridge::{bridge_tool, ToolDefinitionBridge};
 use crate::tools::tool_definition::{ExecutionMode, ToolDefinition, ToolExecutionResult};
-use pa_agent::scripted::ScriptedProvider;
+use aa_agent::scripted::ScriptedProvider;
 
 /// Exercise the startup gate without starting a session or a configured process.
 #[tokio::test]
@@ -13,7 +13,7 @@ async fn mcp_startup_gating_ignores_project_settings() {
     let agent_dir = dir.path().join("agent");
     let cwd = dir.path().join("project");
     std::fs::create_dir_all(&agent_dir).unwrap();
-    std::fs::create_dir_all(cwd.join(".prime/agent")).unwrap();
+    std::fs::create_dir_all(cwd.join(".async-agent")).unwrap();
     let global: serde_json::Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/fixtures/mcp/global-settings.json"
@@ -21,7 +21,7 @@ async fn mcp_startup_gating_ignores_project_settings() {
     .unwrap();
     std::fs::write(agent_dir.join("settings.json"), global.to_string()).unwrap();
     std::fs::write(
-        cwd.join(".prime/agent/settings.json"),
+        cwd.join(".async-agent/settings.json"),
         include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/fixtures/mcp/project-settings.json"
@@ -71,14 +71,14 @@ fn echo_definition() -> ToolDefinition {
 
 #[tokio::test]
 async fn engine_runs_tool_loop_and_persists() {
-    let model = pa_agent::types::Model {
+    let model = aa_agent::types::Model {
         id: "m".into(),
         name: "m".into(),
         api: "test".into(),
         provider: "test".into(),
         base_url: "http://localhost".into(),
         reasoning: false,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 1_000,
         max_tokens: 100,
         max_tokens_explicit: false,
@@ -98,7 +98,7 @@ async fn engine_runs_tool_loop_and_persists() {
     let observed_ids: Arc<std::sync::Mutex<Vec<Option<String>>>> = Arc::default();
     let capture_ids = Arc::clone(&observed_ids);
     let inner_stream = provider.stream_fn();
-    let stream: pa_agent::stream::StreamFn = Arc::new(move |model, context, options| {
+    let stream: aa_agent::stream::StreamFn = Arc::new(move |model, context, options| {
         capture_ids.lock().unwrap().push(options.session_id.clone());
         inner_stream(model, context, options)
     });
@@ -147,7 +147,7 @@ async fn engine_runs_tool_loop_and_persists() {
 
     // The system prompt is the layered assembly: static core layer
     // first, dynamic tail after.
-    assert!(engine.system_prompt.starts_with("# prime-agent harness"));
+    assert!(engine.system_prompt.starts_with("# async-agent harness"));
     assert!(engine
         .system_prompt
         .contains("Recursive agent depth: 0 (root)"));
@@ -166,17 +166,17 @@ async fn engine_runs_tool_loop_and_persists() {
     );
     let state = engine.session.agent().state().await;
     assert!(state.messages.iter().any(|message| match message {
-        pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::ToolResult(result)) => {
+        aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::ToolResult(result)) => {
             result.tool_name == "echo"
         }
         _ => false,
     }));
     assert!(state.messages.iter().any(|message| match message {
-        pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::Assistant(assistant)) => {
+        aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::Assistant(assistant)) => {
             assistant.content.iter().any(|block| {
                 matches!(
                     block,
-                    pa_agent::types::AssistantContent::Text(text) if text.text == "all done"
+                    aa_agent::types::AssistantContent::Text(text) if text.text == "all done"
                 )
             })
         }
@@ -185,8 +185,8 @@ async fn engine_runs_tool_loop_and_persists() {
     let entries = engine.session.entries().await;
     assert!(entries.iter().any(|entry| matches!(
         entry,
-        pa_types::session::FileEntry::Message {
-            message: pa_types::session::AgentMessage::User(user),
+        aa_types::session::FileEntry::Message {
+            message: aa_types::session::AgentMessage::User(user),
             ..
         } if user.content.text() == "run the echo tool"
     )));
@@ -197,14 +197,14 @@ async fn engine_runs_tool_loop_and_persists() {
 /// at depth N reads "depth: N (not root)", never the root identity.
 #[tokio::test]
 async fn spawned_child_prompt_stamps_its_depth() {
-    let model = pa_agent::types::Model {
+    let model = aa_agent::types::Model {
         id: "m".into(),
         name: "m".into(),
         api: "test".into(),
         provider: "test".into(),
         base_url: "http://localhost".into(),
         reasoning: false,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 1_000,
         max_tokens: 100,
         max_tokens_explicit: false,
@@ -267,15 +267,15 @@ async fn spawned_child_prompt_stamps_its_depth() {
 /// session, and one bound to another endpoint does not.
 #[tokio::test]
 async fn oauth_creds_unlock_generic_mcp_gating_in_new_sessions() {
-    fn model() -> pa_agent::types::Model {
-        pa_agent::types::Model {
+    fn model() -> aa_agent::types::Model {
+        aa_agent::types::Model {
             id: "m".into(),
             name: "m".into(),
             api: "test".into(),
             provider: "test".into(),
             base_url: "http://localhost".into(),
             reasoning: false,
-            cost: pa_agent::types::UsageCost::default(),
+            cost: aa_agent::types::UsageCost::default(),
             context_window: 1_000,
             max_tokens: 100,
             max_tokens_explicit: false,
@@ -285,7 +285,7 @@ async fn oauth_creds_unlock_generic_mcp_gating_in_new_sessions() {
     fn config(
         cwd: &std::path::Path,
         agent_dir: &std::path::Path,
-        stream_fn: pa_agent::stream::StreamFn,
+        stream_fn: aa_agent::stream::StreamFn,
     ) -> SessionEngineConfig {
         SessionEngineConfig {
             on_late_sent_agent_message: None,
@@ -398,22 +398,22 @@ async fn oauth_creds_unlock_generic_mcp_gating_in_new_sessions() {
 async fn create_session_registers_the_kernel_backed_tools_without_cron_wiring() {
     let dir = tempfile::TempDir::new().unwrap();
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
-            models: Some(vec![pa_ai::faux::FauxModelDefinition {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
+            models: Some(vec![aa_ai::faux::FauxModelDefinition {
                 id: "faux-1".to_string(),
                 name: Some("Faux".to_string()),
                 reasoning: Some(false),
-                input: Some(vec![pa_types::ai::ModelInput::Text]),
+                input: Some(vec![aa_types::ai::ModelInput::Text]),
                 cost: None,
                 context_window: Some(100_000),
                 max_tokens: Some(4_096),
             }]),
             ..Default::default()
         });
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-        pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+        aa_ai::faux::faux_assistant_text_message(
             "ok",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
     )]);
     let model = registration.get_model();
@@ -451,14 +451,14 @@ async fn create_session_registers_the_kernel_backed_tools_without_cron_wiring() 
 /// thinking-level and service-tier rows (#3350's gate regression).
 #[tokio::test]
 async fn create_session_appends_missing_resume_settings_rows() {
-    let model = pa_agent::types::Model {
+    let model = aa_agent::types::Model {
         id: "m".into(),
         name: "m".into(),
         api: "test".into(),
         provider: "test".into(),
         base_url: "http://localhost".into(),
         reasoning: false,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 1_000,
         max_tokens: 100,
         max_tokens_explicit: false,
@@ -470,9 +470,9 @@ async fn create_session_appends_missing_resume_settings_rows() {
     let mut session_manager =
         crate::session::manager::SessionManager::in_memory_in_session_dir(&cwd, tmp.path());
     session_manager
-        .append_message(pa_types::session::AgentMessage::User(
-            pa_types::ai::UserMessage {
-                content: pa_types::ai::UserContent::Text("resumed".into()),
+        .append_message(aa_types::session::AgentMessage::User(
+            aa_types::ai::UserMessage {
+                content: aa_types::ai::UserContent::Text("resumed".into()),
                 timestamp: 0,
                 rest: serde_json::Map::default(),
             },
@@ -525,14 +525,14 @@ async fn create_session_appends_missing_resume_settings_rows() {
     assert!(
         entries.iter().any(|entry| matches!(
             entry,
-            pa_types::session::FileEntry::ThinkingLevelChange { .. }
+            aa_types::session::FileEntry::ThinkingLevelChange { .. }
         )),
         "entries: {entries:?}"
     );
     assert!(
         entries.iter().any(|entry| matches!(
             entry,
-            pa_types::session::FileEntry::ServiceTierChange { .. }
+            aa_types::session::FileEntry::ServiceTierChange { .. }
         )),
         "entries: {entries:?}"
     );
@@ -575,14 +575,14 @@ async fn engine_over(
     cron_store: Option<KernelCronWiring>,
     daemonless: bool,
 ) -> (SessionEngine, tempfile::TempDir) {
-    let model = pa_agent::types::Model {
+    let model = aa_agent::types::Model {
         id: "m".into(),
         name: "m".into(),
         api: "test".into(),
         provider: "test".into(),
         base_url: "http://localhost".into(),
         reasoning: false,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 1_000,
         max_tokens: 100,
         max_tokens_explicit: false,
@@ -691,7 +691,7 @@ async fn engine_build_restores_late_sent_agent_message_receipts() {
     // The durable-append rule delays non-assistant rows until the first
     // assistant entry, so the history needs one to reach the file.
     manager
-        .append_message(pa_types::session::AgentMessage::Assistant(
+        .append_message(aa_types::session::AgentMessage::Assistant(
             serde_json::from_value(serde_json::json!({
                 "role": "assistant",
                 "content": [{ "type": "text", "text": "history reply" }],
@@ -710,15 +710,15 @@ async fn engine_build_restores_late_sent_agent_message_receipts() {
         ))
         .unwrap();
     manager
-        .append_message(pa_types::session::AgentMessage::ToolResult(
-            pa_types::ai::ToolResultMessage {
+        .append_message(aa_types::session::AgentMessage::ToolResult(
+            aa_types::ai::ToolResultMessage {
                 tool_call_id: "call-1".to_string(),
                 tool_name: "javascript".to_string(),
                 content: Vec::new(),
                 details: Some(serde_json::json!({ "status": "ok" })),
                 is_error: false,
                 timestamp: 1,
-                rest: pa_types::JsonMap::new(),
+                rest: aa_types::JsonMap::new(),
             },
         ))
         .unwrap();
@@ -747,14 +747,14 @@ async fn engine_build_restores_late_sent_agent_message_receipts() {
         .to_path_buf();
     let manager = SessionManager::open(&cwd, &sessions, &session_file);
 
-    let model = pa_agent::types::Model {
+    let model = aa_agent::types::Model {
         id: "m".into(),
         name: "m".into(),
         api: "test".into(),
         provider: "test".into(),
         base_url: "http://localhost".into(),
         reasoning: false,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 1_000,
         max_tokens: 100,
         max_tokens_explicit: false,
@@ -777,7 +777,7 @@ async fn engine_build_restores_late_sent_agent_message_receipts() {
         .messages
         .iter()
         .find_map(|row| match row {
-            pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::ToolResult(
+            aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::ToolResult(
                 result,
             )) if result.tool_call_id == "call-1" => Some(result.clone()),
             _ => None,
@@ -799,14 +799,14 @@ async fn engine_build_restores_late_sent_agent_message_receipts() {
 /// live state row and the persisted one both carry it.
 #[tokio::test]
 async fn late_receipts_recorded_before_the_row_lands_apply_on_landing() {
-    let model = pa_agent::types::Model {
+    let model = aa_agent::types::Model {
         id: "m".into(),
         name: "m".into(),
         api: "test".into(),
         provider: "test".into(),
         base_url: "http://localhost".into(),
         reasoning: false,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 1_000,
         max_tokens: 100,
         max_tokens_explicit: false,
@@ -920,7 +920,7 @@ async fn late_receipts_recorded_before_the_row_lands_apply_on_landing() {
         .messages
         .iter()
         .find_map(|message| match message {
-            pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::ToolResult(
+            aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::ToolResult(
                 result,
             )) if result.tool_call_id == "call-1" => Some(result.clone()),
             _ => None,
@@ -938,8 +938,8 @@ async fn late_receipts_recorded_before_the_row_lands_apply_on_landing() {
     let persisted = entries
         .iter()
         .find_map(|entry| match entry {
-            pa_types::session::FileEntry::Message {
-                message: pa_types::session::AgentMessage::ToolResult(result),
+            aa_types::session::FileEntry::Message {
+                message: aa_types::session::AgentMessage::ToolResult(result),
                 ..
             } if result.tool_call_id == "call-1" => Some(result.clone()),
             _ => None,
@@ -956,7 +956,7 @@ async fn late_receipts_recorded_before_the_row_lands_apply_on_landing() {
     assert!(
         entries.iter().any(|entry| matches!(
             entry,
-            pa_types::session::FileEntry::Custom { payload, .. }
+            aa_types::session::FileEntry::Custom { payload, .. }
                 if payload.custom_type
                     == crate::session_engine::late_sent_messages::JAVASCRIPT_SENT_AGENT_MESSAGE_CUSTOM_TYPE
         )),
@@ -969,14 +969,14 @@ async fn late_receipts_recorded_before_the_row_lands_apply_on_landing() {
 /// display-only warning row on its first turn.
 #[tokio::test]
 async fn a_fresh_session_reports_skill_problems_on_its_first_turn() {
-    let model = pa_agent::types::Model {
+    let model = aa_agent::types::Model {
         id: "m".into(),
         name: "m".into(),
         api: "test".into(),
         provider: "test".into(),
         base_url: "http://localhost".into(),
         reasoning: false,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 1_000,
         max_tokens: 100,
         max_tokens_explicit: false,

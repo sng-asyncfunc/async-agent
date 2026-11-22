@@ -1,7 +1,7 @@
 //! Headless e2e for the `/factory` command (the factory's opt-in gate):
 //! the status arm reports the disabled default, `on`/`off` persist the
 //! gate through the settings seam (a stub seam: the write lands in
-//! memory; the persisted settings-file shape is covered by the pa-cli
+//! memory; the persisted settings-file shape is covered by the aa-cli
 //! seam round-trip test), and a bad argument gets the usage error. The
 //! harness daemon advertises no `factory_activity` lane, so the dock
 //! mounts no factory group anywhere while it stays unadvertised (the
@@ -43,7 +43,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 use serde_json::{json, Value};
 
 use support::{
@@ -193,7 +193,7 @@ struct RecordingSettings {
     factory_enabled: std::sync::Mutex<bool>,
 }
 
-impl pa_tui::client_settings::ClientSettings for RecordingSettings {
+impl aa_tui::client_settings::ClientSettings for RecordingSettings {
     fn compaction_threshold_percent(&self) -> f64 {
         95.0
     }

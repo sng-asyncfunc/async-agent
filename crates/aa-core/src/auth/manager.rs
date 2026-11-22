@@ -106,7 +106,7 @@ impl std::fmt::Display for OAuthRefreshFailure {
     }
 }
 
-/// OAuth integration seam, implemented by the pa-ai oauth registry; a
+/// OAuth integration seam, implemented by the aa-ai oauth registry; a
 /// trait so auth storage stays testable without network flows.
 pub trait OAuthIntegration: Send + Sync {
     /// The resolved API key for stored OAuth credentials (bearer/token form).
@@ -185,11 +185,11 @@ impl EnvCredentialSource for NoEnvCredentials {
 
 impl EnvCredentialSource for ProcessEnvCredentials {
     fn key_names(&self, provider: &str) -> Option<Vec<String>> {
-        pa_ai::env_api_keys::find_env_keys(provider)
+        aa_ai::env_api_keys::find_env_keys(provider)
     }
 
     fn api_key(&self, provider: &str) -> Option<String> {
-        pa_ai::env_api_keys::get_env_api_key(provider)
+        aa_ai::env_api_keys::get_env_api_key(provider)
     }
 
     fn prime_team_id(&self) -> Option<String> {

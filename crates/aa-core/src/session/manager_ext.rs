@@ -1,6 +1,6 @@
 //! `SessionManager` part 2: queries, branches, labels, status entries.
 
-use pa_types::session::{
+use aa_types::session::{
     AgentMessage, CustomMessageEntry, FileEntry, GitContext, GitStateEntry, LabelEntry,
     SessionStateStatus,
 };
@@ -89,7 +89,7 @@ impl SessionManager {
     pub fn append_custom_message_entry(
         &mut self,
         custom_type: &str,
-        content: pa_types::ai::UserContent,
+        content: aa_types::ai::UserContent,
         display: bool,
         details: Option<serde_json::Value>,
     ) -> std::io::Result<String> {
@@ -224,7 +224,7 @@ impl SessionManager {
         summary: &str,
         details: Option<serde_json::Value>,
         from_hook: Option<bool>,
-        usage: Option<pa_types::ai::Usage>,
+        usage: Option<aa_types::ai::Usage>,
     ) -> std::io::Result<String> {
         let previous_leaf = self.get_leaf_id().map(str::to_string);
         if let Some(branch_from_id) = branch_from_id {
@@ -239,7 +239,7 @@ impl SessionManager {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         let appended = self.append_entry(FileEntry::BranchSummary {
-            payload: pa_types::session::BranchSummaryEntry {
+            payload: aa_types::session::BranchSummaryEntry {
                 from_id: branch_from_id.map_or_else(|| "root".to_string(), str::to_string),
                 summary: summary.to_string(),
                 details,
@@ -290,10 +290,10 @@ pub(crate) fn entry_type(entry: &FileEntry) -> &'static str {
 #[cfg(test)]
 mod tests {
     use crate::session::manager::SessionManager;
-    use pa_types::session::AgentMessage;
+    use aa_types::session::AgentMessage;
 
     fn assistant() -> AgentMessage {
-        AgentMessage::Assistant(pa_types::ai::AssistantMessage {
+        AgentMessage::Assistant(aa_types::ai::AssistantMessage {
             content: vec![],
             api: "openai-completions".to_string(),
             provider: "openai".to_string(),
@@ -301,8 +301,8 @@ mod tests {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -311,8 +311,8 @@ mod tests {
     }
 
     fn user(text: &str) -> AgentMessage {
-        AgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text(text.to_string()),
+        AgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
         })

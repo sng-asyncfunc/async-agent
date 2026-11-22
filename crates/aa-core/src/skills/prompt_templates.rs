@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use super::frontmatter::parse_frontmatter;
 use super::{create_synthetic_source_info, skill_markdown_name, SourceInfo, SourceScope};
-pub use pa_types::slash_commands::parse_slash_command;
+pub use aa_types::slash_commands::parse_slash_command;
 
 /// A prompt template loaded from a markdown file.
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -218,7 +218,7 @@ pub struct LoadPromptTemplatesOptions {
 
 fn normalize_path(input: &str) -> PathBuf {
     let trimmed = input.trim();
-    let home = || pa_types::platform::home_dir().unwrap_or_default();
+    let home = || aa_types::platform::home_dir().unwrap_or_default();
     if trimmed == "~" {
         return home();
     }
@@ -327,7 +327,7 @@ pub fn expand_prompt_template(text: &str, templates: &[PromptTemplate]) -> Strin
 }
 
 // `parseSlashCommand` (name, args for `/name args...`) is shared vocabulary:
-// `pa_types::slash_commands::parse_slash_command`, re-exported above.
+// `aa_types::slash_commands::parse_slash_command`, re-exported above.
 
 #[cfg(test)]
 mod tests {
@@ -397,7 +397,7 @@ mod tests {
         let agent_dir = tmp.path().join("agent");
         let project = tmp.path().join("project");
         std::fs::create_dir_all(agent_dir.join("prompts")).unwrap();
-        std::fs::create_dir_all(project.join(".prime").join("agent").join("prompts")).unwrap();
+        std::fs::create_dir_all(project.join(".async-agent").join("prompts")).unwrap();
         std::fs::write(
             agent_dir.join("prompts").join("global.md"),
             "Global prompt body",
@@ -405,8 +405,7 @@ mod tests {
         .unwrap();
         std::fs::write(
             project
-                .join(".prime")
-                .join("agent")
+                .join(".async-agent")
                 .join("prompts")
                 .join("local.md"),
             "---\ndescription: A local one\n---\nBody here",

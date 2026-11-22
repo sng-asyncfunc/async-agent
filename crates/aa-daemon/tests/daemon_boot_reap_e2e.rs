@@ -28,7 +28,7 @@ impl Drop for Daemon {
 /// A supervisor with a LONG supervisor-lost window: the orphaned worker must survive every
 /// other exit path so only the boot reap can kill it (the 15s default lets it self-exit).
 fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let mut command = Command::new(binary);
     let command = command
         .arg("supervisor")
@@ -39,10 +39,10 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "600000",
         );
-    let child = command.spawn().expect("spawn pa-daemon supervisor");
+    let child = command.spawn().expect("spawn aa-daemon supervisor");
     Daemon {
         child,
         socket: socket.to_path_buf(),
@@ -126,7 +126,7 @@ impl Client {
         self.send(&json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }));
     }
@@ -220,7 +220,7 @@ fn create_session(
 
 /// The worker descriptor path for one session on one socket.
 fn descriptor_path(agent_dir: &Path, socket: &Path, session_id: &str) -> PathBuf {
-    let key = pa_daemon::descriptor::descriptor_dir(agent_dir, socket);
+    let key = aa_daemon::descriptor::descriptor_dir(agent_dir, socket);
     key.join(format!("{session_id}.json"))
 }
 
@@ -244,7 +244,7 @@ fn worker_socket_of(pid: u32) -> Option<PathBuf> {
     environ
         .split(|byte| *byte == 0)
         .find(|entry| {
-            entry.starts_with(format!("{}=", pa_daemon::worker::WORKER_SOCKET_ENV).as_bytes())
+            entry.starts_with(format!("{}=", aa_daemon::worker::WORKER_SOCKET_ENV).as_bytes())
         })
         .and_then(|entry| {
             std::str::from_utf8(entry)
@@ -295,11 +295,11 @@ fn boot_reap_clears_the_leftover_and_the_session_reopens() {
     let mut inherited_env_child = std::process::Command::new("sleep")
         .arg("300")
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
             socket.to_string_lossy().to_string(),
         )
         .env(
-            pa_daemon::worker::WORKER_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SOCKET_ENV,
             "/tmp/inherited-env-not-a-worker.sock",
         )
         .spawn()
@@ -360,7 +360,7 @@ fn boot_reap_clears_the_leftover_and_the_session_reopens() {
     let _ = inherited_env_child.wait();
 
     // The reap logged its verdict, and the leftover's own socket file left with it.
-    let log_path = pa_daemon::paths::daemon_log_path(&socket, &agent_dir);
+    let log_path = aa_daemon::paths::daemon_log_path(&socket, &agent_dir);
     let log = std::fs::read_to_string(&log_path).unwrap_or_default();
     assert!(
         log.contains("boot reap: leftover worker"),

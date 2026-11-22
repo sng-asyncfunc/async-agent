@@ -1,4 +1,4 @@
-//! Prime Agent Traces login: the `agent_traces` scope check and the RSA browser challenge
+//! Async Agent Traces login: the `agent_traces` scope check and the RSA browser challenge
 //! yielding a trace-write key, plus the prime-cli reuse tried first. The interactive surface
 //! lives in the composition root.
 
@@ -15,21 +15,21 @@ use super::prime_inference::{
     DEFAULT_REQUEST_TIMEOUT_MS,
 };
 
-pub const PRIME_AGENT_TRACES_PROVIDER_ID: &str = "prime-agent-traces";
-pub const PRIME_AGENT_TRACES_PROVIDER_NAME: &str = "Prime Agent Traces";
+pub const ASYNC_AGENT_TRACES_PROVIDER_ID: &str = "async-agent-traces";
+pub const ASYNC_AGENT_TRACES_PROVIDER_NAME: &str = "Async Agent Traces";
 pub const DEFAULT_POLL_INTERVAL_MS: u64 = 5_000;
 
 /// The override (or the env key) normalized, else the platform default.
-pub fn resolve_prime_agent_traces_base_url(base_url: Option<&str>) -> String {
+pub fn resolve_async_agent_traces_base_url(base_url: Option<&str>) -> String {
     let override_url = base_url
         .map(str::to_string)
-        .or_else(|| std::env::var("PRIME_AGENT_TRACES_BASE_URL").ok());
+        .or_else(|| std::env::var("ASYNC_AGENT_TRACES_BASE_URL").ok());
     normalize_base_url(override_url.as_deref())
 }
 
-fn resolve_prime_agent_traces_challenge_config() -> (String, String) {
+fn resolve_async_agent_traces_challenge_config() -> (String, String) {
     (
-        resolve_prime_agent_traces_base_url(None),
+        resolve_async_agent_traces_base_url(None),
         DEFAULT_PRIME_FRONTEND_URL.to_string(),
     )
 }
@@ -39,7 +39,7 @@ fn resolve_prime_agent_traces_challenge_config() -> (String, String) {
 /// # Errors
 ///
 /// Returns [`PrimeAccessError::Failed`] when the `whoami` request fails or its body is invalid.
-pub async fn check_prime_agent_traces_access(
+pub async fn check_async_agent_traces_access(
     http: &dyn PrimeHttp,
     base_url: &str,
     api_key: &str,
@@ -62,12 +62,12 @@ pub struct PrimeAuthInfo {
     pub instructions: String,
 }
 
-pub struct PrimeAgentTracesCallbacks<'a> {
+pub struct AsyncAgentTracesCallbacks<'a> {
     pub on_auth: &'a (dyn Fn(&PrimeAuthInfo) + Send + Sync),
     pub on_progress: Option<&'a (dyn Fn(&str) + Send + Sync)>,
 }
 
-impl PrimeAgentTracesCallbacks<'_> {
+impl AsyncAgentTracesCallbacks<'_> {
     fn progress(&self, message: &str) {
         if let Some(on_progress) = self.on_progress {
             on_progress(message);
@@ -75,17 +75,17 @@ impl PrimeAgentTracesCallbacks<'_> {
     }
 }
 
-pub struct PrimeAgentTracesLoginOptions<'a> {
+pub struct AsyncAgentTracesLoginOptions<'a> {
     pub prime_cli_config_path: Option<&'a Path>,
     pub use_prime_cli_config: bool,
     pub poll_interval_ms: Option<u64>,
     pub request_timeout_ms: Option<u64>,
 }
 
-impl<'a> PrimeAgentTracesLoginOptions<'a> {
+impl<'a> AsyncAgentTracesLoginOptions<'a> {
     #[must_use]
     pub fn new(prime_cli_config_path: Option<&'a Path>) -> Self {
-        PrimeAgentTracesLoginOptions {
+        AsyncAgentTracesLoginOptions {
             prime_cli_config_path,
             use_prime_cli_config: prime_cli_config_path.is_some(),
             poll_interval_ms: None,
@@ -95,7 +95,7 @@ impl<'a> PrimeAgentTracesLoginOptions<'a> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PrimeAgentTracesLoginSource {
+pub enum AsyncAgentTracesLoginSource {
     PrimeCli,
     Browser,
 }
@@ -261,12 +261,12 @@ pub(super) async fn run_prime_browser_login(
 /// # Errors
 ///
 /// Returns a human-readable error when any access check fails.
-pub async fn login_prime_agent_traces(
+pub async fn login_async_agent_traces(
     http: &dyn PrimeHttp,
-    options: &PrimeAgentTracesLoginOptions<'_>,
-    callbacks: &PrimeAgentTracesCallbacks<'_>,
-) -> Result<(String, PrimeAgentTracesLoginSource), String> {
-    let (trace_base_url, frontend_url) = resolve_prime_agent_traces_challenge_config();
+    options: &AsyncAgentTracesLoginOptions<'_>,
+    callbacks: &AsyncAgentTracesCallbacks<'_>,
+) -> Result<(String, AsyncAgentTracesLoginSource), String> {
+    let (trace_base_url, frontend_url) = resolve_async_agent_traces_challenge_config();
     let request_timeout_ms = options
         .request_timeout_ms
         .unwrap_or(DEFAULT_REQUEST_TIMEOUT_MS);
@@ -281,7 +281,7 @@ pub async fn login_prime_agent_traces(
     };
     if let Some(api_key) = candidate.and_then(|config| config.api_key) {
         callbacks.progress("Checking existing Prime CLI credentials...");
-        match check_prime_agent_traces_access(
+        match check_async_agent_traces_access(
             http,
             DEFAULT_PRIME_API_BASE_URL,
             &api_key,
@@ -289,9 +289,9 @@ pub async fn login_prime_agent_traces(
         )
         .await
         {
-            Ok(()) => return Ok((api_key, PrimeAgentTracesLoginSource::PrimeCli)),
+            Ok(()) => return Ok((api_key, AsyncAgentTracesLoginSource::PrimeCli)),
             Err(PrimeAccessError::Denied(failure)) => callbacks.progress(&format!(
-                "Existing Prime CLI key cannot upload Prime Agent traces ({}). Starting browser login...",
+                "Existing Prime CLI key cannot upload Async Agent traces ({}). Starting browser login...",
                 failure.format()
             )),
             Err(PrimeAccessError::Failed(message)) => return Err(message),
@@ -310,12 +310,12 @@ pub async fn login_prime_agent_traces(
         poll_interval_ms,
     )
     .await?;
-    callbacks.progress("Checking Prime Agent trace access...");
-    match check_prime_agent_traces_access(http, &trace_base_url, &api_key, request_timeout_ms).await
+    callbacks.progress("Checking Async Agent trace access...");
+    match check_async_agent_traces_access(http, &trace_base_url, &api_key, request_timeout_ms).await
     {
-        Ok(()) => Ok((api_key, PrimeAgentTracesLoginSource::Browser)),
+        Ok(()) => Ok((api_key, AsyncAgentTracesLoginSource::Browser)),
         Err(PrimeAccessError::Denied(failure)) => Err(format!(
-            "Prime API key does not have Prime Agent trace access ({})",
+            "Prime API key does not have Async Agent trace access ({})",
             failure.format()
         )),
         Err(PrimeAccessError::Failed(message)) => Err(message),
@@ -483,8 +483,8 @@ mod tests {
 
     fn fast_options(
         prime_cli_config_path: Option<&std::path::Path>,
-    ) -> PrimeAgentTracesLoginOptions<'_> {
-        let mut options = PrimeAgentTracesLoginOptions::new(prime_cli_config_path);
+    ) -> AsyncAgentTracesLoginOptions<'_> {
+        let mut options = AsyncAgentTracesLoginOptions::new(prime_cli_config_path);
         // The poll interval stays real but short, so tests yield without
         // the product's 5s window.
         options.poll_interval_ms = Some(10);
@@ -494,7 +494,7 @@ mod tests {
     #[tokio::test]
     async fn the_agent_traces_scope_check_names_the_ts_messages() {
         let http = ScriptedHttp::new(vec![whoami_ok(true)]);
-        assert!(check_prime_agent_traces_access(
+        assert!(check_async_agent_traces_access(
             &http,
             DEFAULT_PRIME_API_BASE_URL,
             "key",
@@ -503,7 +503,7 @@ mod tests {
         .await
         .is_ok());
         let denied = ScriptedHttp::new(vec![whoami_ok(false)]);
-        match check_prime_agent_traces_access(
+        match check_async_agent_traces_access(
             &denied,
             DEFAULT_PRIME_API_BASE_URL,
             "key",
@@ -524,7 +524,7 @@ mod tests {
             200,
             r#"{"data":{"scope":{}}}"#,
         )]);
-        match check_prime_agent_traces_access(
+        match check_async_agent_traces_access(
             &missing,
             DEFAULT_PRIME_API_BASE_URL,
             "key",
@@ -547,7 +547,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn the_login_reuses_an_eligible_prime_cli_key() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         let dir = tempfile::tempdir().expect("temp dir");
         let config_path = dir.path().join("config.json");
         std::fs::write(
@@ -557,18 +557,18 @@ mod tests {
         .expect("config");
         let http = ScriptedHttp::new(vec![whoami_ok(true)]);
         let logged = Mutex::new(Vec::<String>::new());
-        let callbacks = PrimeAgentTracesCallbacks {
+        let callbacks = AsyncAgentTracesCallbacks {
             on_auth: &|_| panic!("the cli path never shows a URL"),
             on_progress: Some(&|message: &str| {
                 logged.lock().unwrap().push(message.to_string());
             }),
         };
         let options = fast_options(Some(&config_path));
-        let (key, source) = login_prime_agent_traces(&http, &options, &callbacks)
+        let (key, source) = login_async_agent_traces(&http, &options, &callbacks)
             .await
             .expect("login");
         assert_eq!(key, "cli-key");
-        assert_eq!(source, PrimeAgentTracesLoginSource::PrimeCli);
+        assert_eq!(source, AsyncAgentTracesLoginSource::PrimeCli);
         assert_eq!(
             logged.lock().unwrap()[..],
             ["Checking existing Prime CLI credentials...".to_string()]
@@ -580,11 +580,11 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn the_browser_login_completes_the_challenge_round_trip() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         let http = ScriptedHttp::new(vec![whoami_ok(true)]);
         let auth = Mutex::new(Vec::<String>::new());
         let logged = Mutex::new(Vec::<String>::new());
-        let callbacks = PrimeAgentTracesCallbacks {
+        let callbacks = AsyncAgentTracesCallbacks {
             on_auth: &|info: &PrimeAuthInfo| {
                 auth.lock()
                     .unwrap()
@@ -595,11 +595,11 @@ mod tests {
             }),
         };
         let options = fast_options(None);
-        let (key, source) = login_prime_agent_traces(&http, &options, &callbacks)
+        let (key, source) = login_async_agent_traces(&http, &options, &callbacks)
             .await
             .expect("login");
         assert_eq!(key, "fixture-browser-key");
-        assert_eq!(source, PrimeAgentTracesLoginSource::Browser);
+        assert_eq!(source, AsyncAgentTracesLoginSource::Browser);
         let shown = auth.lock().unwrap().join("\n");
         assert!(
             shown.contains(
@@ -612,7 +612,7 @@ mod tests {
             logged.lock().unwrap()[..],
             [
                 "No Prime CLI API key found. Starting browser login...".to_string(),
-                "Checking Prime Agent trace access...".to_string(),
+                "Checking Async Agent trace access...".to_string(),
             ]
         );
         assert_eq!(
@@ -633,20 +633,20 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn the_browser_key_without_traces_access_reports_the_ts_error() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         let http = ScriptedHttp::new(vec![whoami_ok(false)]);
         let logged = Mutex::new(Vec::<String>::new());
-        let callbacks = PrimeAgentTracesCallbacks {
+        let callbacks = AsyncAgentTracesCallbacks {
             on_auth: &|_| {},
             on_progress: Some(&|message: &str| {
                 logged.lock().unwrap().push(message.to_string());
             }),
         };
         let options = fast_options(None);
-        match login_prime_agent_traces(&http, &options, &callbacks).await {
+        match login_async_agent_traces(&http, &options, &callbacks).await {
             Err(error) => assert_eq!(
                 error,
-                "Prime API key does not have Prime Agent trace access (Prime token does not have agent trace write permission)"
+                "Prime API key does not have Async Agent trace access (Prime token does not have agent trace write permission)"
             ),
             Ok((key, source)) => panic!("expected a denial, got {key} ({source:?})"),
         }
@@ -657,7 +657,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn an_ineligible_cli_key_falls_through_to_the_browser() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         let dir = tempfile::tempdir().expect("temp dir");
         let config_path = dir.path().join("config.json");
         std::fs::write(
@@ -668,24 +668,24 @@ mod tests {
         // The cli key lacks trace access; the browser key passes.
         let http = ScriptedHttp::new(vec![whoami_ok(false), whoami_ok(true)]);
         let logged = Mutex::new(Vec::<String>::new());
-        let callbacks = PrimeAgentTracesCallbacks {
+        let callbacks = AsyncAgentTracesCallbacks {
             on_auth: &|_| {},
             on_progress: Some(&|message: &str| {
                 logged.lock().unwrap().push(message.to_string());
             }),
         };
         let options = fast_options(Some(&config_path));
-        let (key, source) = login_prime_agent_traces(&http, &options, &callbacks)
+        let (key, source) = login_async_agent_traces(&http, &options, &callbacks)
             .await
             .expect("login");
         assert_eq!(key, "fixture-browser-key");
-        assert_eq!(source, PrimeAgentTracesLoginSource::Browser);
+        assert_eq!(source, AsyncAgentTracesLoginSource::Browser);
         assert_eq!(
             logged.lock().unwrap()[0],
             "Checking existing Prime CLI credentials..."
         );
         assert!(logged.lock().unwrap()[1]
-            .starts_with("Existing Prime CLI key cannot upload Prime Agent traces ("));
+            .starts_with("Existing Prime CLI key cannot upload Async Agent traces ("));
     }
 
     #[tokio::test]
@@ -693,7 +693,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn an_expired_challenge_reports_the_ts_error() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         // The dynamic generate stays off so the queue owns every answer.
         let http = ScriptedHttp::without_dynamic(vec![
             (
@@ -707,17 +707,17 @@ mod tests {
                 "",
             ),
         ]);
-        let callbacks = PrimeAgentTracesCallbacks {
+        let callbacks = AsyncAgentTracesCallbacks {
             on_auth: &|_| {},
             on_progress: None,
         };
-        let options = PrimeAgentTracesLoginOptions {
+        let options = AsyncAgentTracesLoginOptions {
             prime_cli_config_path: None,
             use_prime_cli_config: false,
             poll_interval_ms: Some(0),
             request_timeout_ms: Some(DEFAULT_REQUEST_TIMEOUT_MS),
         };
-        match login_prime_agent_traces(&http, &options, &callbacks).await {
+        match login_async_agent_traces(&http, &options, &callbacks).await {
             Err(error) => assert_eq!(error, "Prime login challenge expired"),
             Ok((key, _)) => panic!("expected an expiry, got {key}"),
         }
@@ -726,11 +726,11 @@ mod tests {
     #[test]
     fn the_traces_base_url_resolves_the_override_or_the_default() {
         assert_eq!(
-            resolve_prime_agent_traces_base_url(None),
+            resolve_async_agent_traces_base_url(None),
             DEFAULT_PRIME_API_BASE_URL
         );
         assert_eq!(
-            resolve_prime_agent_traces_base_url(Some("https://api.example/api/v1/")),
+            resolve_async_agent_traces_base_url(Some("https://api.example/api/v1/")),
             "https://api.example"
         );
     }

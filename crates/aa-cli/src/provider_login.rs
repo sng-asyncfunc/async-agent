@@ -5,9 +5,9 @@
 
 use std::path::{Path, PathBuf};
 
-use pa_core::auth::{AuthCredential, AuthSource, AuthStatus};
-use pa_core::models::ModelRegistry;
-use pa_tui::provider_auth::{
+use aa_core::auth::{AuthCredential, AuthSource, AuthStatus};
+use aa_core::models::ModelRegistry;
+use aa_tui::provider_auth::{
     AuthFlow, AuthStatusIndicator, AuthStatusStyle, AuthType, ProviderAuthCommands,
     ProviderAuthFuture, ProviderAuthOutcome, ProviderRow, ProviderRowsFuture,
     ProviderWarningFuture,
@@ -45,7 +45,7 @@ const BUILT_IN_PROVIDER_DISPLAY_NAMES: &[(&str, &str)] = &[
     ("opencode-go", "OpenCode Go"),
     ("openai", "OpenAI"),
     ("openrouter", "OpenRouter"),
-    ("prime-agent-traces", "Prime Agent Traces"),
+    ("async-agent-traces", "Async Agent Traces"),
     ("prime-inference", "Prime Inference"),
     ("vercel-ai-gateway", "Vercel AI Gateway"),
     ("xai", "xAI (Grok)"),
@@ -180,7 +180,7 @@ fn ts_row_order(a: &ProviderRow, b: &ProviderRow) -> std::cmp::Ordering {
 
 /// Subscription requests identify as Claude Code, which may violate Anthropic's terms; an API key
 /// avoids the risk (#2645).
-const ANTHROPIC_SUBSCRIPTION_AUTH_WARNING: &str = "Anthropic subscription auth is active. Usage draws from your plan limits, but Prime Agent identifies as Claude Code and this may violate Anthropic's terms — your account can be restricted or banned. An Anthropic API key avoids the risk. Manage usage at https://claude.ai/settings/usage.";
+const ANTHROPIC_SUBSCRIPTION_AUTH_WARNING: &str = "Anthropic subscription auth is active. Usage draws from your plan limits, but Async Agent identifies as Claude Code and this may violate Anthropic's terms — your account can be restricted or banned. An Anthropic API key avoids the risk. Manage usage at https://claude.ai/settings/usage.";
 
 /// The provider auth surface against one daemon's shared directories.
 #[derive(Clone)]
@@ -197,8 +197,8 @@ impl ProviderAuth {
         }
     }
 
-    fn auth_storage(&self) -> pa_core::auth::AuthStorage {
-        pa_core::auth::AuthStorage::create(&self.agent_dir)
+    fn auth_storage(&self) -> aa_core::auth::AuthStorage {
+        aa_core::auth::AuthStorage::create(&self.agent_dir)
     }
 
     /// The stored credential + auth status of one provider id.
@@ -269,7 +269,7 @@ impl ProviderAuthCommands for ProviderAuth {
     fn login_on_panel(
         &self,
         provider: &ProviderRow,
-        panel: pa_tui::auth_panel::AuthPanelHandle,
+        panel: aa_tui::auth_panel::AuthPanelHandle,
     ) -> ProviderAuthFuture {
         let provider_row = provider.clone();
         let cwd = self.cwd.clone();
@@ -346,7 +346,7 @@ impl ProviderAuth {
                 provider.agent_dir.join("models.json"),
             );
             let built_in_provider_ids: std::collections::HashSet<String> =
-                pa_ai::models_generated::get_providers()
+                aa_ai::models_generated::get_providers()
                     .into_iter()
                     .map(str::to_string)
                     .collect();
@@ -417,7 +417,7 @@ impl ProviderAuth {
                 }
                 AuthCredential::Oauth { .. } => AuthType::Oauth,
             };
-            let api_key_label = pa_core::mcp::API_KEY_CREDENTIALS
+            let api_key_label = aa_core::mcp::API_KEY_CREDENTIALS
                 .iter()
                 .find(|(id, _)| *id == provider_id)
                 .map(|(_, label)| *label);
@@ -467,7 +467,7 @@ fn login_blocking(
             provider_row.name
         ));
     };
-    let mut auth = pa_core::auth::AuthStorage::create(agent_dir);
+    let mut auth = aa_core::auth::AuthStorage::create(agent_dir);
     auth.set(
         &provider_row.id,
         AuthCredential::ApiKey {
@@ -491,7 +491,7 @@ fn login_blocking_on_panel(
     provider_row: &ProviderRow,
     cwd: PathBuf,
     agent_dir: PathBuf,
-    panel: pa_tui::auth_panel::AuthPanelHandle,
+    panel: aa_tui::auth_panel::AuthPanelHandle,
 ) -> ProviderAuthOutcome {
     if let Some(server) = provider_row.id.strip_prefix("mcp:") {
         let auth = crate::mcp_login::TerminalMcpAuth::new(cwd, agent_dir);
@@ -501,7 +501,7 @@ fn login_blocking_on_panel(
             .map_or_else(
                 |error: std::io::Error| format!("login failed: {error}"),
                 |runtime| {
-                    runtime.block_on(pa_tui::client_auth::run_mcp_auth_command(
+                    runtime.block_on(aa_tui::client_auth::run_mcp_auth_command(
                         &auth,
                         &format!("login {server}"),
                         panel,
@@ -531,8 +531,8 @@ fn login_blocking_on_panel(
                         crate::prime_inference_login::PrimeLoginInputs {
                             agent_dir: &agent_dir,
                             provider_name: &provider_row.name,
-                            config: &pa_core::auth::resolve_prime_inference_auth_config(),
-                            http: &pa_core::auth::ReqwestPrimeHttp,
+                            config: &aa_core::auth::resolve_prime_inference_auth_config(),
+                            http: &aa_core::auth::ReqwestPrimeHttp,
                             prime_cli_config_path:
                                 crate::prime_inference_login::prime_cli_config_path(&agent_dir)
                                     .as_deref(),
@@ -545,7 +545,7 @@ fn login_blocking_on_panel(
             );
     }
     // The Codex Subscription login.
-    if provider_row.id == pa_core::auth::OPENAI_CODEX_PROVIDER_ID {
+    if provider_row.id == aa_core::auth::OPENAI_CODEX_PROVIDER_ID {
         return tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -561,7 +561,7 @@ fn login_blocking_on_panel(
                         crate::codex_subscription_login::run_codex_subscription_login(
                             &agent_dir,
                             &provider_row.name,
-                            &pa_ai::oauth::ReqwestCodexHttp::new(),
+                            &aa_ai::oauth::ReqwestCodexHttp::new(),
                             &crate::codex_subscription_login::PanelCodexLoginUi::new(panel),
                         ),
                     )
@@ -569,7 +569,7 @@ fn login_blocking_on_panel(
             );
     }
     // The Anthropic (Claude Pro/Max) login.
-    if provider_row.id == pa_core::auth::ANTHROPIC_PROVIDER_ID {
+    if provider_row.id == aa_core::auth::ANTHROPIC_PROVIDER_ID {
         return tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -584,7 +584,7 @@ fn login_blocking_on_panel(
                     runtime.block_on(crate::subscription_login::run_anthropic_login(
                         &agent_dir,
                         &provider_row.name,
-                        &pa_ai::oauth::ReqwestProviderHttp::new(),
+                        &aa_ai::oauth::ReqwestProviderHttp::new(),
                         &crate::subscription_login::PanelSubscriptionLoginUi::new(
                             panel,
                             &provider_row.id,
@@ -594,7 +594,7 @@ fn login_blocking_on_panel(
             );
     }
     // The GitHub Copilot login.
-    if provider_row.id == pa_core::auth::GITHUB_COPILOT_PROVIDER_ID {
+    if provider_row.id == aa_core::auth::GITHUB_COPILOT_PROVIDER_ID {
         return tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -609,7 +609,7 @@ fn login_blocking_on_panel(
                     runtime.block_on(crate::subscription_login::run_github_copilot_login(
                         &agent_dir,
                         &provider_row.name,
-                        &pa_ai::oauth::ReqwestProviderHttp::new(),
+                        &aa_ai::oauth::ReqwestProviderHttp::new(),
                         &crate::subscription_login::PanelSubscriptionLoginUi::new(
                             panel,
                             &provider_row.id,
@@ -619,7 +619,7 @@ fn login_blocking_on_panel(
             );
     }
     // The xAI (Grok) login.
-    if provider_row.id == pa_core::auth::XAI_PROVIDER_ID {
+    if provider_row.id == aa_core::auth::XAI_PROVIDER_ID {
         return tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -634,7 +634,7 @@ fn login_blocking_on_panel(
                     runtime.block_on(crate::subscription_login::run_xai_login(
                         &agent_dir,
                         &provider_row.name,
-                        &pa_ai::oauth::ReqwestProviderHttp::new(),
+                        &aa_ai::oauth::ReqwestProviderHttp::new(),
                         &crate::subscription_login::PanelSubscriptionLoginUi::new(
                             panel,
                             &provider_row.id,
@@ -648,7 +648,7 @@ fn login_blocking_on_panel(
 }
 
 fn logout_blocking(provider_row: &ProviderRow, agent_dir: &Path) -> ProviderAuthOutcome {
-    let mut auth = pa_core::auth::AuthStorage::create(agent_dir);
+    let mut auth = aa_core::auth::AuthStorage::create(agent_dir);
     if auth.get_all().get(&provider_row.id).is_none() {
         return ProviderAuthOutcome::Status(format!("{} is not configured.", provider_row.name));
     }

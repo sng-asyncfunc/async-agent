@@ -1,7 +1,7 @@
 //! Daemon command planes (TS `DAEMON_COMMAND_PLANE`): which socket a command belongs on -
 //! session-plane commands address one live session and may travel over a direct worker peer link;
 //! control-plane commands belong to the supervisor. The worker enforces this table on peer links,
-//! and pa-tui's routed clients pick the socket from it.
+//! and aa-tui's routed clients pick the socket from it.
 
 /// The plane one command type belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

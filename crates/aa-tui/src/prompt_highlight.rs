@@ -6,7 +6,7 @@
 
 use crate::theme::{Theme, ThemeColor};
 use crate::{Line, Span};
-use pa_types::slash_commands::{parse_slash_command, SlashCommandRegistry};
+use aa_types::slash_commands::{parse_slash_command, SlashCommandRegistry};
 use ratatui::style::{Modifier, Style};
 use std::sync::OnceLock;
 
@@ -477,7 +477,7 @@ mod tests {
     use crate::theme::ColorMode;
 
     fn theme() -> Theme {
-        Theme::builtin("prime", ColorMode::TrueColor)
+        Theme::builtin("async", ColorMode::TrueColor)
     }
 
     fn dim() -> Style {

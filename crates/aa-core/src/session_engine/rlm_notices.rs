@@ -3,8 +3,8 @@
 //! the wire vocabulary, the content text, and the details block.
 
 use super::agent_messaging::sanitize_message_header_value;
-use pa_types::ai::UserContent;
-use pa_types::session::CustomMessage;
+use aa_types::ai::UserContent;
+use aa_types::session::CustomMessage;
 use serde_json::json;
 
 /// A child run that failed (TS `rlm_child_failure`).

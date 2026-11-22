@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use pa_types::daemon::{
+use aa_types::daemon::{
     is_session_plane_daemon_command, DaemonPeerCommand, DaemonWorkerCommand, DaemonWorkerPeerGrant,
 };
 use serde_json::Value;
@@ -324,7 +324,7 @@ impl Worker {
     ) -> DaemonResponse {
         const COMMAND: &str = "worker_register_peer_transport";
         let grant = match parse_grant_registration(payload) {
-            Ok(pa_types::daemon::DaemonWorkerCommand::WorkerRegisterPeerTransport {
+            Ok(aa_types::daemon::DaemonWorkerCommand::WorkerRegisterPeerTransport {
                 grant,
                 ..
             }) => grant,

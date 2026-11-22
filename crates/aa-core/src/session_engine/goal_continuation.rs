@@ -3,7 +3,7 @@
 //! goal continuation turn. The surface reads the gates and acts on the
 //! decision; the consult owns the gate order and the mint.
 
-use pa_types::session::CustomMessage;
+use aa_types::session::CustomMessage;
 
 use super::goal_driver::{turn_produced_no_output, GoalDriver};
 use crate::session::manager::SessionManager;
@@ -46,7 +46,7 @@ pub enum GoalContinuationDecision {
 pub async fn consult_goal_continuation(
     driver: &tokio::sync::Mutex<GoalDriver>,
     persistence: &tokio::sync::Mutex<SessionManager>,
-    last_turn: Option<&pa_agent::types::AssistantMessage>,
+    last_turn: Option<&aa_agent::types::AssistantMessage>,
     trigger: ContinuationTrigger,
     work_unsettled: bool,
 ) -> GoalContinuationDecision {
@@ -67,7 +67,7 @@ pub async fn consult_goal_continuation(
         return GoalContinuationDecision::Owed;
     }
     let drop_failed_pair = last_turn.is_some_and(|turn| {
-        turn.stop_reason == pa_agent::types::StopReason::Error || turn_produced_no_output(turn)
+        turn.stop_reason == aa_agent::types::StopReason::Error || turn_produced_no_output(turn)
     });
     let mut session = persistence.lock().await;
     let minted = if driver.owes_continuation() {
@@ -87,7 +87,7 @@ pub async fn consult_goal_continuation(
             // Best-effort: its own persist failure must not reject the boundary either.
             if let Err(fail_error) = driver.finish_for_terminal_message(
                 &mut session,
-                pa_types::ai::StopReason::Error,
+                aa_types::ai::StopReason::Error,
                 Some(&message),
             ) {
                 tracing::warn!("goal error finish also failed: {fail_error:#}");
@@ -102,8 +102,8 @@ mod tests {
     use super::*;
 
     /// A turn that settled without output (no provider failure).
-    fn empty_turn(timestamp: i64) -> pa_agent::types::AssistantMessage {
-        pa_agent::types::AssistantMessage {
+    fn empty_turn(timestamp: i64) -> aa_agent::types::AssistantMessage {
+        aa_agent::types::AssistantMessage {
             content: Vec::new(),
             api: String::new(),
             provider: "test".to_string(),
@@ -111,8 +111,8 @@ mod tests {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_agent::types::Usage::zero(),
-            stop_reason: pa_agent::types::StopReason::Stop,
+            usage: aa_agent::types::Usage::zero(),
+            stop_reason: aa_agent::types::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp,

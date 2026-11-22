@@ -26,7 +26,7 @@ fn write_revival_fixture(
     std::fs::create_dir_all(&sessions_dir).expect("sessions dir");
     let worker_id = format!("w{}", &uuid::Uuid::new_v4().simple().to_string()[..12]);
     let mut session =
-        pa_daemon::session_store::SessionFile::create(&dir.to_string_lossy(), None, 0);
+        aa_daemon::session_store::SessionFile::create(&dir.to_string_lossy(), None, 0);
     session.append_message(&json!({
         "role": "user", "content": "lane work", "timestamp": 1u64
     }));
@@ -46,7 +46,7 @@ fn write_revival_fixture(
     )
     .expect("write script");
 
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(agent_dir, socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(agent_dir, socket);
     std::fs::create_dir_all(&descriptor_dir).expect("descriptor dir");
     let journal_path = descriptor_dir.join(format!("{worker_id}.recovery.jsonl"));
     std::fs::write(
@@ -63,7 +63,7 @@ fn write_revival_fixture(
             + "\n",
     )
     .expect("write journal");
-    let now = pa_daemon::util::now_iso();
+    let now = aa_daemon::util::now_iso();
     std::fs::write(
         descriptor_dir.join(format!("{worker_id}.json")),
         json!({
@@ -104,8 +104,8 @@ fn write_revival_fixture(
 fn boot_and_observe(agent_dir: &Path, socket: &Path) -> (Daemon, PathBuf, String) {
     let daemon = spawn_supervisor(socket, agent_dir);
     wait_socket_ready(socket);
-    let log_path = pa_daemon::paths::daemon_log_path(socket, agent_dir);
-    let boot_before = pa_daemon::util::now_iso();
+    let log_path = aa_daemon::paths::daemon_log_path(socket, agent_dir);
+    let boot_before = aa_daemon::util::now_iso();
     // The adoption pass runs concurrently with the accept loop; give it a
     // bounded window to reach every descriptor before the assertions read
     // the log. A boot that revives never writes the line and falls
@@ -126,7 +126,7 @@ fn plain_boot_parks_stale_busy_evidence() {
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("daemon.sock");
     let agent_dir = dir.path().join("agent");
-    let busy_at = pa_daemon::util::iso_from_unix_ms(pa_daemon::util::now_ms() - 5 * 60 * 60 * 1000);
+    let busy_at = aa_daemon::util::iso_from_unix_ms(aa_daemon::util::now_ms() - 5 * 60 * 60 * 1000);
     let fixture =
         write_revival_fixture(dir.path(), &agent_dir, &socket, "active", "ready", &busy_at);
 
@@ -175,7 +175,7 @@ fn plain_boot_never_revives_a_stopped_session() {
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("daemon.sock");
     let agent_dir = dir.path().join("agent");
-    let busy_at = pa_daemon::util::now_iso();
+    let busy_at = aa_daemon::util::now_iso();
     let fixture = write_revival_fixture(
         dir.path(),
         &agent_dir,
@@ -221,7 +221,7 @@ fn plain_boot_never_revives_a_given_up_worker() {
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("daemon.sock");
     let agent_dir = dir.path().join("agent");
-    let busy_at = pa_daemon::util::now_iso();
+    let busy_at = aa_daemon::util::now_iso();
     let fixture = write_revival_fixture(
         dir.path(),
         &agent_dir,
@@ -262,14 +262,14 @@ fn plain_boot_still_revives_fresh_busy_evidence() {
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("daemon.sock");
     let agent_dir = dir.path().join("agent");
-    let busy_at = pa_daemon::util::now_iso();
+    let busy_at = aa_daemon::util::now_iso();
     let fixture =
         write_revival_fixture(dir.path(), &agent_dir, &socket, "active", "ready", &busy_at);
 
     let mut daemon = spawn_supervisor(&socket, &agent_dir);
     wait_socket_ready(&socket);
-    let log_path = pa_daemon::paths::daemon_log_path(&socket, &agent_dir);
-    let boot_before = pa_daemon::util::now_iso();
+    let log_path = aa_daemon::paths::daemon_log_path(&socket, &agent_dir);
+    let boot_before = aa_daemon::util::now_iso();
 
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {

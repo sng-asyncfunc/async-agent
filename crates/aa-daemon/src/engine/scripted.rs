@@ -230,7 +230,7 @@ impl SessionEngine for ScriptedEngine {
     /// section scripted).
     fn goal_state_value(&self) -> Value {
         self.goal.as_ref().map_or_else(
-            || serde_json::to_value(pa_core::goals::empty_goal_state()).unwrap_or(Value::Null),
+            || serde_json::to_value(aa_core::goals::empty_goal_state()).unwrap_or(Value::Null),
             |goal| goal.state.clone(),
         )
     }
@@ -466,7 +466,7 @@ impl SessionEngine for ScriptedEngine {
         signal: &AbortSignal,
         sink: &SideQuestionSink,
     ) -> SideQuestionOutcome {
-        use pa_core::session_engine::provider_retry::{
+        use aa_core::session_engine::provider_retry::{
             complete_with_provider_retry, DEFAULT_PROVIDER_RETRY_POLICY,
         };
         use std::sync::atomic::{AtomicUsize, Ordering};
@@ -518,14 +518,14 @@ impl SessionEngine for ScriptedEngine {
         match result {
             Ok(message) => {
                 let text = match &message.content[0] {
-                    pa_agent::types::AssistantContent::Text(text) => text.text.clone(),
+                    aa_agent::types::AssistantContent::Text(text) => text.text.clone(),
                     _ => String::new(),
                 };
                 match message.stop_reason {
-                    pa_agent::types::StopReason::Stop => {
+                    aa_agent::types::StopReason::Stop => {
                         SideQuestionOutcome::Complete { answer: text }
                     }
-                    pa_agent::types::StopReason::Aborted => {
+                    aa_agent::types::StopReason::Aborted => {
                         SideQuestionOutcome::Aborted { answer: text }
                     }
                     _ => failed(
@@ -688,8 +688,8 @@ impl SessionEngine for ScriptedEngine {
 
     fn rebuild_session_context(
         &self,
-        _branch_entries: Vec<pa_types::session::FileEntry>,
-        _goal_reload: pa_core::session_engine::goal_driver::GoalBranchReload,
+        _branch_entries: Vec<aa_types::session::FileEntry>,
+        _goal_reload: aa_core::session_engine::goal_driver::GoalBranchReload,
     ) -> Result<()> {
         // The scripted harness engine carries no durable model context.
         Ok(())
@@ -702,8 +702,8 @@ fn scripted_side_question_turn(
     entry: &Value,
     sink: &SideQuestionSink,
     signal: &AbortSignal,
-) -> pa_agent::types::AssistantMessage {
-    use pa_agent::types::{
+) -> aa_agent::types::AssistantMessage {
+    use aa_agent::types::{
         AssistantContent, AssistantMessage, AssistantMessageDiagnostic, StopReason, TextContent,
     };
     let base = || AssistantMessage {
@@ -717,7 +717,7 @@ fn scripted_side_question_turn(
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_agent::types::Usage::zero(),
+        usage: aa_agent::types::Usage::zero(),
         stop_reason: StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,

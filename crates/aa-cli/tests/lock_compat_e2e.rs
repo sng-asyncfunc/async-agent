@@ -9,8 +9,8 @@
     clippy::cast_precision_loss
 )]
 
-//! Lock-convention compatibility, binary level: the TS `prime-agent` and the
-//! Rust `prime-agent` must agree on the lock artifact at `<file>.lock`. The
+//! Lock-convention compatibility, binary level: the TS `async-agent` and the
+//! Rust `async-agent` must agree on the lock artifact at `<file>.lock`. The
 //! TS product locks with `proper-lockfile`: an empty DIRECTORY whose mtime is
 //! refreshed while held; its release path `rmdir`s the lock path, so a
 //! regular FILE there is fatal (ENOTDIR), and a stale directory is reclaimed
@@ -23,15 +23,15 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use pa_core::platform::LockDir;
+use aa_core::platform::LockDir;
 
-/// The TS binary (`PA_TS_BINARY` or `prime-agent` on PATH; skipped when absent).
+/// The TS binary (`PA_TS_BINARY` or `async-agent` on PATH; skipped when absent).
 fn ts_binary() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PA_TS_BINARY") {
         return Some(PathBuf::from(path));
     }
     let found = Command::new("which")
-        .arg("prime-agent")
+        .arg("async-agent")
         .output()
         .ok()
         .filter(|out| out.status.success())?;
@@ -41,7 +41,7 @@ fn ts_binary() -> Option<PathBuf> {
 
 fn sandbox(prefix: &str) -> PathBuf {
     let base = std::env::temp_dir().join(format!(
-        "pa-cli-lock-compat-{prefix}-{}",
+        "aa-cli-lock-compat-{prefix}-{}",
         std::process::id()
     ));
     for dir in ["home", "cwd", "agent", "tmp"] {
@@ -55,7 +55,7 @@ fn run(binary: &Path, args: &[&str], sandbox: &Path) -> (Option<i32>, String, St
     let child = Command::new(binary)
         .args(args)
         // Fixture agent dir only: never the ambient installation.
-        .env("PRIME_AGENT_CODING_AGENT_DIR", sandbox.join("agent"))
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", sandbox.join("agent"))
         .env("HOME", sandbox.join("home"))
         .env("TMPDIR", sandbox.join("tmp"))
         .env("PI_OFFLINE", "1")
@@ -143,7 +143,7 @@ fn ts_binary_fails_on_stale_lock_file_artifact() {
     // FILE at `<file>.lock`. The TS release path rmdir()s the lock path and
     // dies with ENOTDIR; the write is refused.
     let Some(ts) = ts_binary() else {
-        eprintln!("SKIPPED: TS prime-agent binary not found (set PA_TS_BINARY)");
+        eprintln!("SKIPPED: TS async-agent binary not found (set PA_TS_BINARY)");
         return;
     };
     let sandbox = sandbox("ts-stale-file");
@@ -179,7 +179,7 @@ fn ts_binary_reclaims_stale_lock_directory_artifact() {
     // A crashed TS (or Rust) holder leaves an empty lock directory. The TS
     // product judges it stale, reclaims it, and proceeds.
     let Some(ts) = ts_binary() else {
-        eprintln!("SKIPPED: TS prime-agent binary not found (set PA_TS_BINARY)");
+        eprintln!("SKIPPED: TS async-agent binary not found (set PA_TS_BINARY)");
         return;
     };
     let sandbox = sandbox("ts-stale-dir");
@@ -210,7 +210,7 @@ fn ts_binary_sees_a_rust_held_lock_as_contention() {
     // empty directory at the lock path, fresh mtime, and the TS side reports
     // plain contention (ELOCKED) and cleans up after itself.
     let Some(ts) = ts_binary() else {
-        eprintln!("SKIPPED: TS prime-agent binary not found (set PA_TS_BINARY)");
+        eprintln!("SKIPPED: TS async-agent binary not found (set PA_TS_BINARY)");
         return;
     };
     let sandbox = sandbox("interop");
@@ -260,7 +260,7 @@ fn ts_binary_sees_a_rust_held_lock_as_contention() {
 
 #[test]
 fn rust_binary_reclaims_stale_lock_directory_artifact() {
-    let rust = PathBuf::from(env!("CARGO_BIN_EXE_prime-agent"));
+    let rust = PathBuf::from(env!("CARGO_BIN_EXE_async-agent"));
     let sandbox = sandbox("rs-stale-dir");
     seed_stale_lock_dir(&sandbox);
     let (exit, stdout, stderr) = run(
@@ -287,7 +287,7 @@ fn rust_binary_reclaims_stale_lock_directory_artifact() {
 fn rust_binary_heals_stale_lock_file_artifact() {
     // Pre-compat Rust builds left flock FILEs at the lock path. The Rust
     // binary removes the foreign artifact and proceeds; the TS binary cannot.
-    let rust = PathBuf::from(env!("CARGO_BIN_EXE_prime-agent"));
+    let rust = PathBuf::from(env!("CARGO_BIN_EXE_async-agent"));
     let sandbox = sandbox("rs-stale-file");
     seed_stale_lock_file(&sandbox);
     let (exit, stdout, stderr) = run(

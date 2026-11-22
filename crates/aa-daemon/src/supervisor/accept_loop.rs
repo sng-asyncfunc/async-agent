@@ -6,7 +6,7 @@
 use std::io::ErrorKind;
 use std::time::Duration;
 
-use pa_types::platform::transport::TransportListener;
+use aa_types::platform::transport::TransportListener;
 
 use super::{anyhow, Arc, Ordering, Result, Supervisor};
 
@@ -100,7 +100,7 @@ pub(super) async fn serve(
         let supervisor = Arc::clone(supervisor);
         tokio::spawn(async move {
             if let Err(error) = supervisor.handle_client(stream).await {
-                eprintln!("pa-daemon client connection error: {error:#}");
+                eprintln!("aa-daemon client connection error: {error:#}");
             }
         });
     }
@@ -115,7 +115,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
-    use pa_types::platform::transport::{
+    use aa_types::platform::transport::{
         AcceptFuture, AsyncReadHalf, AsyncWriteHalf, TransportStream,
     };
     use tempfile::TempDir;

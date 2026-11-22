@@ -1,9 +1,9 @@
-//! The faux-script verification seam (`PRIME_AGENT_FAUX_SCRIPT`): the
+//! The faux-script verification seam (`ASYNC_AGENT_FAUX_SCRIPT`): the
 //! script env parse, one per-child response queue per spawned child, the
 //! scripted engine build, and the response-step parser. Never set by the
 //! product.
 
-use pa_core::session_engine::provider_adapter::{
+use aa_core::session_engine::provider_adapter::{
     json_round_trip, switchable_stream_fn, ProviderTarget,
 };
 
@@ -12,14 +12,14 @@ use crate::print_runtime::{
     RunOptions,
 };
 
-/// The parsed `PRIME_AGENT_FAUX_SCRIPT` (the whole-process verification
+/// The parsed `ASYNC_AGENT_FAUX_SCRIPT` (the whole-process verification
 /// seam; never set by the product): `None` on a live run, an error when
 /// the script does not parse.
 pub(crate) fn faux_script_env() -> Result<Option<serde_json::Value>, String> {
-    match std::env::var("PRIME_AGENT_FAUX_SCRIPT") {
+    match std::env::var("ASYNC_AGENT_FAUX_SCRIPT") {
         Ok(script) => serde_json::from_str(&script)
             .map(Some)
-            .map_err(|error| format!("invalid PRIME_AGENT_FAUX_SCRIPT: {error}")),
+            .map_err(|error| format!("invalid ASYNC_AGENT_FAUX_SCRIPT: {error}")),
         Err(_) => Ok(None),
     }
 }
@@ -28,7 +28,7 @@ pub(crate) fn faux_script_env() -> Result<Option<serde_json::Value>, String> {
 /// child id, so siblings never share a response lane) and its steps.
 pub(crate) struct FauxChildQueue {
     pub child_id: String,
-    pub steps: Vec<pa_ai::faux::FauxResponseStep>,
+    pub steps: Vec<aa_ai::faux::FauxResponseStep>,
     pub repeat_last: bool,
 }
 
@@ -39,7 +39,7 @@ pub(crate) struct FauxChildQueue {
 pub(crate) async fn build_faux_engine_with(
     options: &RunOptions,
     script: &serde_json::Value,
-    session_manager: Option<pa_core::session::manager::SessionManager>,
+    session_manager: Option<aa_core::session::manager::SessionManager>,
     // The execution mode label carries through the real path only.
     _execution_mode: &str,
     embedding: &HeadlessEmbedding,
@@ -52,7 +52,7 @@ pub(crate) async fn build_faux_engine_with(
         script
             .get("responses")
             .and_then(serde_json::Value::as_array)
-            .ok_or_else(|| "PRIME_AGENT_FAUX_SCRIPT requires a responses array".to_string())?,
+            .ok_or_else(|| "ASYNC_AGENT_FAUX_SCRIPT requires a responses array".to_string())?,
     )?;
     // A `reasoning` model makes the harness script thinking-capable turns so
     // thinking-level resolution can be verified without the network.
@@ -81,14 +81,14 @@ pub(crate) async fn build_faux_engine_with(
         }
     };
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             api: Some(api),
             provider: Some("faux".to_string()),
-            models: Some(vec![pa_ai::faux::FauxModelDefinition {
+            models: Some(vec![aa_ai::faux::FauxModelDefinition {
                 id: "faux-1".to_string(),
                 name: Some("Faux Model".to_string()),
                 reasoning: Some(reasoning),
-                input: Some(vec![pa_types::ai::ModelInput::Text]),
+                input: Some(vec![aa_types::ai::ModelInput::Text]),
                 cost: None,
                 context_window: Some(context_window),
                 max_tokens: Some(4_096),
@@ -110,7 +110,7 @@ pub(crate) async fn build_faux_engine_with(
     let model = registration.get_model();
     let thinking_level = match embedding {
         HeadlessEmbedding::Child(overrides) => {
-            Some(pa_core::session_engine::provider_adapter::map_thinking_level(overrides.thinking))
+            Some(aa_core::session_engine::provider_adapter::map_thinking_level(overrides.thinking))
         }
         HeadlessEmbedding::Root { .. } | HeadlessEmbedding::Rpc { .. } => {
             Some(super::resolve_thinking_level(config, &model))
@@ -137,8 +137,8 @@ pub(crate) async fn build_faux_engine_with(
         on_late_sent_agent_message,
         kernel_ready_gate,
     } = super::headless_embedding_fields(embedding);
-    let engine = pa_core::session_engine::engine::create_session(
-        pa_core::session_engine::engine::SessionEngineConfig {
+    let engine = aa_core::session_engine::engine::create_session(
+        aa_core::session_engine::engine::SessionEngineConfig {
             on_late_sent_agent_message,
             cron_store: None,
             // Faux verification harness: no product telemetry.
@@ -199,30 +199,30 @@ pub(crate) async fn build_faux_engine_with(
 /// other objects go through the shared faux-script parser.
 pub(crate) fn faux_response_steps(
     entries: &[serde_json::Value],
-) -> Result<Vec<pa_ai::faux::FauxResponseStep>, String> {
+) -> Result<Vec<aa_ai::faux::FauxResponseStep>, String> {
     entries
         .iter()
         .map(|entry| match entry {
-            serde_json::Value::String(text) => Ok(pa_ai::faux::FauxResponseStep::Message(
-                pa_ai::faux::faux_assistant_text_message(
+            serde_json::Value::String(text) => Ok(aa_ai::faux::FauxResponseStep::Message(
+                aa_ai::faux::faux_assistant_text_message(
                     text,
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ),
             )),
             serde_json::Value::Object(map)
                 if map.get("systemPrompt").and_then(serde_json::Value::as_bool) == Some(true) =>
             {
-                Ok(pa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
+                Ok(aa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
                     |context, _options, _call, _model| {
-                        Ok(pa_ai::faux::faux_assistant_text_message(
+                        Ok(aa_ai::faux::faux_assistant_text_message(
                             context.system_prompt.as_deref().unwrap_or_default(),
-                            pa_ai::faux::FauxAssistantMessageOptions::default(),
+                            aa_ai::faux::FauxAssistantMessageOptions::default(),
                         ))
                     },
                 )))
             }
             serde_json::Value::Object(_) => {
-                pa_ai::faux::script::parse_faux_script(&serde_json::json!({
+                aa_ai::faux::script::parse_faux_script(&serde_json::json!({
                     "responses": [entry]
                 }))
                 .map(|parsed| {
@@ -234,10 +234,10 @@ pub(crate) fn faux_response_steps(
                     first
                 })
             }
-            _ => Ok(pa_ai::faux::FauxResponseStep::Message(
-                pa_ai::faux::faux_assistant_text_message(
+            _ => Ok(aa_ai::faux::FauxResponseStep::Message(
+                aa_ai::faux::faux_assistant_text_message(
                     "",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ),
             )),
         })

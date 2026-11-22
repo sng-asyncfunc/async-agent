@@ -1,6 +1,6 @@
 //! Interactive mode wiring: resolve the daemon socket, ensure a supervisor is
 //! listening, pick the session from the CLI session flags, and hand off to the
-//! pa-tui interactive loop; the session keeps running in the worker after exit.
+//! aa-tui interactive loop; the session keeps running in the worker after exit.
 
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -12,8 +12,8 @@ use anyhow::{anyhow, Context, Result};
 
 use crate::config;
 use crate::mode::RunOptions;
-use pa_core::session::discovery::{resolve_session_path, ResolvedSession};
-use pa_tui::interactive::{
+use aa_core::session::discovery::{resolve_session_path, ResolvedSession};
+use aa_tui::interactive::{
     InteractiveOptions, InteractiveOutcome, ModelSelection, SelectionOrigin, SessionSelection,
     UiMode,
 };
@@ -43,7 +43,7 @@ pub fn run_interactive_mode(options: &RunOptions) -> Result<i32> {
         options,
         socket_path,
         std::sync::Arc::new(std::sync::Mutex::new(
-            pa_tui::prompt_stash::PromptStashStore::default(),
+            aa_tui::prompt_stash::PromptStashStore::default(),
         )),
     )?;
     let configuration_load_ms = configuration_load_started.elapsed().as_millis() as u64;
@@ -69,25 +69,25 @@ pub fn run_interactive_mode(options: &RunOptions) -> Result<i32> {
         let mut startup_telemetry = (!options.config.telemetry_disabled).then(|| {
             let agent_dir = options.config.agent_dir.clone();
             let settings =
-                pa_core::settings::SettingsManager::create(&options.config.cwd, &agent_dir);
-            pa_core::session_engine::telemetry::build_client(&settings, &agent_dir)
+                aa_core::settings::SettingsManager::create(&options.config.cwd, &agent_dir);
+            aa_core::session_engine::telemetry::build_client(&settings, &agent_dir)
         });
         // The onboarding `entry`/`ready` stages defer to here: an inert client
         // before the runtime exists would drop the events.
         if !pending_onboarding_stages.is_empty() {
             let agent_dir = options.config.agent_dir.clone();
             let settings =
-                pa_core::settings::SettingsManager::create(&options.config.cwd, &agent_dir);
+                aa_core::settings::SettingsManager::create(&options.config.cwd, &agent_dir);
             if !crate::mode::telemetry_disabled(&settings) {
                 let client =
-                    pa_core::session_engine::telemetry::build_client(&settings, &agent_dir);
+                    aa_core::session_engine::telemetry::build_client(&settings, &agent_dir);
                 for stage in &pending_onboarding_stages {
                     stage.track(&client);
                 }
             }
         }
         if let Some(client) = startup_telemetry.as_ref() {
-            pa_telemetry::AgentStartupStage {
+            aa_telemetry::AgentStartupStage {
                 stage: "configuration_load",
                 outcome: "completed",
                 duration_ms: Some(configuration_load_ms),
@@ -99,7 +99,7 @@ pub fn run_interactive_mode(options: &RunOptions) -> Result<i32> {
         let attach_started = std::time::Instant::now();
         ensure_daemon_running(&tui_options.socket_path, &tui_options.cwd).await?;
         if let Some(client) = startup_telemetry.as_ref() {
-            pa_telemetry::AgentStartupStage {
+            aa_telemetry::AgentStartupStage {
                 stage: "session_attach",
                 outcome: "completed",
                 duration_ms: Some(attach_started.elapsed().as_millis() as u64),
@@ -115,13 +115,13 @@ pub fn run_interactive_mode(options: &RunOptions) -> Result<i32> {
         // quick-exit join below bounds delivery on a fast quit.
         let startup_flush = startup_telemetry.take().map(|client| {
             let daemon_ready_ms = startup_started.elapsed().as_millis() as u64;
-            let mut properties = pa_telemetry::base_properties("interactive");
+            let mut properties = aa_telemetry::base_properties("interactive");
             properties.set("duration_ms", serde_json::Value::from(daemon_ready_ms));
-            let mut phase_timings = pa_telemetry::Properties::new();
+            let mut phase_timings = aa_telemetry::Properties::new();
             phase_timings.set("daemon_ready", serde_json::Value::from(daemon_ready_ms));
             properties.set_map("phase_timings", &phase_timings);
             client.track("startup", properties);
-            pa_telemetry::AgentStartupStage {
+            aa_telemetry::AgentStartupStage {
                 stage: "ui_ready",
                 outcome: "completed",
                 duration_ms: Some(daemon_ready_ms),
@@ -131,7 +131,7 @@ pub fn run_interactive_mode(options: &RunOptions) -> Result<i32> {
             .track(&client);
             flush_startup_telemetry(client)
         });
-        // `prime-agent agents` and bare `--resume` open the agents view
+        // `async-agent agents` and bare `--resume` open the agents view
         // (TS `agentsViewRequested`); the view then opens sessions, and a
         // session exits back into the view until the user exits it. TS gates
         // the explicit `agents` request on completed onboarding (a fresh
@@ -157,7 +157,7 @@ pub fn run_interactive_mode(options: &RunOptions) -> Result<i32> {
                 run_agents_view_flow(tui_options, anchor, notice, None).await
             } else {
                 let outcome =
-                    pa_tui::interactive::run_interactive(tui_options.clone(), UiMode::Terminal)
+                    aa_tui::interactive::run_interactive(tui_options.clone(), UiMode::Terminal)
                         .await?;
                 // TS `main.ts`: a direct session run closes into the agents view
                 // when the exit came through agents-back or `/resume`
@@ -183,7 +183,7 @@ pub fn run_interactive_mode(options: &RunOptions) -> Result<i32> {
         // bounded — never cut mid-POST.
         if let Some(flush) = startup_flush {
             let _ = tokio::time::timeout(
-                Duration::from_millis(pa_tui::interactive::TELEMETRY_EXIT_TIMEOUT_MS),
+                Duration::from_millis(aa_tui::interactive::TELEMETRY_EXIT_TIMEOUT_MS),
                 flush,
             )
             .await;
@@ -209,7 +209,7 @@ pub fn run_interactive_mode(options: &RunOptions) -> Result<i32> {
 /// with a hanging sink: the flush hand-off must complete while delivery
 /// is still blocked.
 pub(super) fn flush_startup_telemetry(
-    client: pa_telemetry::TelemetryClient,
+    client: aa_telemetry::TelemetryClient,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let _ = client.shutdown().await;
@@ -229,7 +229,7 @@ fn print_resume_hint(hint: Option<&str>) {
     if let Some(hint) = hint {
         println!("\x1b[2m{hint}\x1b[22m");
     }
-    pa_tui::exit_guard::note_exit_progress();
+    aa_tui::exit_guard::note_exit_progress();
 }
 
 /// The agents-view loop: open the view, run the session it opens, and return
@@ -247,17 +247,17 @@ async fn run_agents_view_flow(
     let mut anchor = anchor;
     // Every view run reuses the roster connection (a chat run hands it
     // back), so a switch back from a chat skips the handshake.
-    let mut roster_link: Option<pa_tui::agents_view::AgentsViewLink> = None;
+    let mut roster_link: Option<aa_tui::agents_view::AgentsViewLink> = None;
     let mut frames: Vec<(
-        pa_tui::agents_view::AgentsViewScope,
+        aa_tui::agents_view::AgentsViewScope,
         Option<SessionSelection>,
     )> = Vec::new();
     let mut query: Option<String> = None;
     // A dismissal survives the next view run.
-    let mut incident_notice_state: Option<pa_tui::incident_notices::IncidentNoticeState> = None;
+    let mut incident_notice_state: Option<aa_tui::incident_notices::IncidentNoticeState> = None;
     let mut expanded_ancestors: Vec<String> = Vec::new();
     let mut selected_row_identity: Option<String> = None;
-    let mut selected_key: Option<pa_tui::agents_view::AgentsViewSelectionKey> = None;
+    let mut selected_key: Option<aa_tui::agents_view::AgentsViewSelectionKey> = None;
     let mut status_message: Option<String> = notice;
     let mut handoff = entry;
     loop {
@@ -299,10 +299,10 @@ async fn run_agents_view_flow(
                 next.session = selection;
                 next.session_rlm_depth = outcome.selection_rlm_depth;
                 let outcome =
-                    pa_tui::interactive::run_interactive(next.clone(), UiMode::Terminal).await?;
+                    aa_tui::interactive::run_interactive(next.clone(), UiMode::Terminal).await?;
                 handoff = Some((next, outcome));
             } else if let Some((requester, page)) = origin.take() {
-                let outcome = pa_tui::interactive::run_interactive_origin_open(
+                let outcome = aa_tui::interactive::run_interactive_origin_open(
                     requester.clone(),
                     UiMode::Terminal,
                     page,
@@ -311,7 +311,7 @@ async fn run_agents_view_flow(
                 handoff = Some((requester, outcome));
             }
         }
-        let view_options = pa_tui::agents_view::AgentsViewOptions {
+        let view_options = aa_tui::agents_view::AgentsViewOptions {
             socket_path: base.socket_path.clone(),
             cwd: base.cwd.clone(),
             session_dir: base.session_dir.clone(),
@@ -333,9 +333,9 @@ async fn run_agents_view_flow(
             // The base a saved reply's resume derives from.
             create_config: base.create_config(),
         };
-        let view_run = pa_tui::agents_view::run_agents_view(
+        let view_run = aa_tui::agents_view::run_agents_view(
             view_options,
-            pa_tui::agents_view::AgentsViewUiMode::Terminal,
+            aa_tui::agents_view::AgentsViewUiMode::Terminal,
             roster_link.take(),
         )
         .await?;
@@ -360,7 +360,7 @@ async fn run_agents_view_flow(
         }
         let Some(selection) = view.selection else {
             let _ = tokio::time::timeout(
-                Duration::from_millis(pa_tui::interactive::TELEMETRY_EXIT_TIMEOUT_MS),
+                Duration::from_millis(aa_tui::interactive::TELEMETRY_EXIT_TIMEOUT_MS),
                 actions_report,
             )
             .await;
@@ -385,7 +385,7 @@ async fn run_agents_view_flow(
         if let Some(cwd) = view.opened_cwd {
             session_options.cwd = cwd;
         }
-        let outcome = pa_tui::interactive::run_interactive_agents_view_open(
+        let outcome = aa_tui::interactive::run_interactive_agents_view_open(
             session_options.clone(),
             UiMode::Terminal,
             view.panel,
@@ -399,7 +399,7 @@ async fn run_agents_view_flow(
     }
 }
 
-/// `--daemon-socket` value, the `PRIME_AGENT_DAEMON_SOCKET` environment,
+/// `--daemon-socket` value, the `ASYNC_AGENT_DAEMON_SOCKET` environment,
 /// or the per-user default socket path (precedence in that order).
 #[must_use]
 pub fn resolve_socket_path(daemon_socket: Option<&str>) -> PathBuf {
@@ -409,22 +409,22 @@ pub fn resolve_socket_path(daemon_socket: Option<&str>) -> PathBuf {
 fn build_tui_options(
     options: &RunOptions,
     socket_path: PathBuf,
-    prompt_stash: std::sync::Arc<std::sync::Mutex<pa_tui::prompt_stash::PromptStashStore>>,
-) -> Result<(InteractiveOptions, Vec<pa_telemetry::OnboardingStage>)> {
+    prompt_stash: std::sync::Arc<std::sync::Mutex<aa_tui::prompt_stash::PromptStashStore>>,
+) -> Result<(InteractiveOptions, Vec<aa_telemetry::OnboardingStage>)> {
     let config = &options.config;
     let session_dir = options
         .session
         .session_dir
         .clone()
         .or_else(|| Some(config.agent_dir.join("sessions")));
-    if let Err(error) = pa_tui::keybindings::migrate_keybindings_file(&config.agent_dir) {
+    if let Err(error) = aa_tui::keybindings::migrate_keybindings_file(&config.agent_dir) {
         // A failed migration never blocks startup: the manager below
         // falls back to the previous file contents (or the defaults).
         eprintln!("Warning: could not migrate keybindings: {error:#}");
     }
-    let keybindings = pa_tui::keybindings::KeybindingsManager::create(&config.agent_dir);
+    let keybindings = aa_tui::keybindings::KeybindingsManager::create(&config.agent_dir);
     // Test seam: a scripted faux daemon session; never set by the product.
-    let script_path = std::env::var_os("PRIME_AGENT_FAUX_SCRIPT").map(PathBuf::from);
+    let script_path = std::env::var_os("ASYNC_AGENT_FAUX_SCRIPT").map(PathBuf::from);
     // Flag order (fork -> resume -> create): the daemon opens the fork —
     // never the source — through the create `sessionPath`.
     let mut session = match &options.session.fork {
@@ -438,7 +438,7 @@ fn build_tui_options(
     if !options.session.cwd_from_flag && options.session.fork.is_none() {
         if let SessionSelection::Resume(path) = &mut session {
             *path = std::path::absolute(&*path)?;
-            if let Some(header) = pa_core::session::manager::read_session_header(path)
+            if let Some(header) = aa_core::session::manager::read_session_header(path)
                 .filter(|header| !header.cwd.is_empty())
             {
                 if !Path::new(&header.cwd).is_dir() {
@@ -453,7 +453,7 @@ fn build_tui_options(
     }
     let options = &resolved_options;
     let config = &options.config;
-    let settings = pa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
     let code_block_indent = settings.get_code_block_indent();
     let show_images = settings.get_show_images();
     let fullscreen_mouse = settings.get_fullscreen_mouse();
@@ -461,18 +461,18 @@ fn build_tui_options(
     let branch_summary_skip_prompt = settings.get_branch_summary_skip_prompt();
     // A startup snapshot of the available models drives the `/model` picker
     // (entitlement refreshes run daemon-side); models.json custom models too.
-    let auth = pa_core::auth::AuthStorage::create(&config.agent_dir);
+    let auth = aa_core::auth::AuthStorage::create(&config.agent_dir);
     let registry =
-        pa_core::models::ModelRegistry::create(auth, config.agent_dir.join("models.json"));
-    let catalog: Vec<pa_types::ai::Model> = registry.get_available().into_iter().cloned().collect();
+        aa_core::models::ModelRegistry::create(auth, config.agent_dir.join("models.json"));
+    let catalog: Vec<aa_types::ai::Model> = registry.get_available().into_iter().cloned().collect();
     let configured_providers: std::collections::HashSet<String> =
         catalog.iter().map(|model| model.provider.clone()).collect();
-    let settings = pa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
     let recent = settings.get_recent_models();
     let default_thinking_level = settings
         .get_default_thinking_level()
         .map(|level| level.model_level().wire_name().to_string());
-    let provider_auth = pa_tui::provider_auth::ProviderAuthCommandsHandle(std::sync::Arc::new(
+    let provider_auth = aa_tui::provider_auth::ProviderAuthCommandsHandle(std::sync::Arc::new(
         crate::provider_login::ProviderAuth::new(config.cwd.clone(), config.agent_dir.clone()),
     ));
     let (onboarding, pending_onboarding_stages) =
@@ -519,18 +519,18 @@ fn build_tui_options(
         // `/mcp login` / `/mcp logout`: the client-side auth flows run in
         // this process (the TS interactive client's placement) and persist
         // through the shared auth store the daemon's sessions read.
-        client_auth: Some(pa_tui::client_auth::ClientAuthCommandsHandle(
+        client_auth: Some(aa_tui::client_auth::ClientAuthCommandsHandle(
             std::sync::Arc::new(crate::mcp_login::TerminalMcpAuth::new(
                 config.cwd.clone(),
                 config.agent_dir.clone(),
             )),
         )),
-        traces: Some(pa_tui::traces::TracesCommandsHandle(std::sync::Arc::new(
+        traces: Some(aa_tui::traces::TracesCommandsHandle(std::sync::Arc::new(
             crate::client_traces::ClientTraces::new(config.cwd.clone(), config.agent_dir.clone()),
         ))),
-        // `/update`: the same body `prime-agent update` runs, output
+        // `/update`: the same body `async-agent update` runs, output
         // captured — the TUI stays mounted.
-        update_commands: Some(pa_tui::update_command::UpdateCommandsHandle(
+        update_commands: Some(aa_tui::update_command::UpdateCommandsHandle(
             std::sync::Arc::new(crate::client_update::ClientUpdate),
         )),
         provider_auth: Some(provider_auth),
@@ -566,7 +566,7 @@ fn session_selection(
 }
 
 /// The interactive launch's fork arm: copy the source into a fresh session file
-/// client-side ([`pa_core::session::manager::SessionManager::fork_from`]) and
+/// client-side ([`aa_core::session::manager::SessionManager::fork_from`]) and
 /// hand the daemon the fork — never the source.
 ///
 /// # Errors
@@ -589,7 +589,7 @@ fn fork_startup_selection(
         | ResolvedSession::Local(path)
         | ResolvedSession::Global { path, .. } => path,
     };
-    let forked = pa_core::session::manager::SessionManager::fork_from(&source, cwd, dir)
+    let forked = aa_core::session::manager::SessionManager::fork_from(&source, cwd, dir)
         .map_err(anyhow::Error::msg)?;
     let fork_file = forked
         .get_session_file()
@@ -642,8 +642,8 @@ fn continue_recent_view(
         .clone()
         .unwrap_or_else(|| options.config.agent_dir.join("sessions"));
     let cwd = options.config.cwd.clone();
-    let path = pa_core::session::discovery::find_most_recent_session_for_cwd(&session_dir, &cwd)?;
-    let header = pa_core::session::manager::read_session_header(&path)?;
+    let path = aa_core::session::discovery::find_most_recent_session_for_cwd(&session_dir, &cwd)?;
+    let header = aa_core::session::manager::read_session_header(&path)?;
     Some(ContinueRecentView {
         session_id: header.id.clone(),
         notice: format!(

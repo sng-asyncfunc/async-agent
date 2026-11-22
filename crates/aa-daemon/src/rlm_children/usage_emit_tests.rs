@@ -1,5 +1,5 @@
 use super::*;
-use pa_core::session_engine::rlm_usage::RlmChildUsageReport;
+use aa_core::session_engine::rlm_usage::RlmChildUsageReport;
 use std::sync::Arc;
 
 /// A capturing sink: reports land in a shared vector for assertions;
@@ -12,7 +12,7 @@ struct CapturingSink {
     attempts: std::sync::atomic::AtomicUsize,
 }
 
-impl pa_core::session_engine::rlm_usage::RlmChildUsageSink for CapturingSink {
+impl aa_core::session_engine::rlm_usage::RlmChildUsageSink for CapturingSink {
     fn record(
         &self,
         report: RlmChildUsageReport,
@@ -124,7 +124,7 @@ async fn emit_reads_once_and_advances_the_cursor() {
     let [(origin, usage)] = reports[0].batches[..] else {
         panic!("one batch: {:?}", reports[0].batches);
     };
-    assert_eq!(origin, pa_types::session::ChildUsageOrigin::SpawnTask);
+    assert_eq!(origin, aa_types::session::ChildUsageOrigin::SpawnTask);
     assert_eq!(usage.input, 50_208);
     assert_eq!(usage.output, 2_929);
     assert!((usage.cost.total.as_f64() - 0.008_995_7).abs() < 1e-9);
@@ -382,7 +382,7 @@ async fn canceled_interval_keeps_identity_and_drains_new_rows_before_forget() {
         started: tokio::sync::Notify,
         forgotten: std::sync::atomic::AtomicBool,
     }
-    impl pa_core::session_engine::rlm_usage::RlmChildUsageSink for CancelFirstSink {
+    impl aa_core::session_engine::rlm_usage::RlmChildUsageSink for CancelFirstSink {
         fn record(
             &self,
             report: RlmChildUsageReport,
@@ -540,7 +540,7 @@ async fn retirement_registry(
 ) {
     use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     let socket = dir.join("retirement.sock");
-    let listener = pa_types::platform::transport::bind_transport(&socket)
+    let listener = aa_types::platform::transport::bind_transport(&socket)
         .await
         .unwrap();
     let kills = Arc::new(std::sync::atomic::AtomicUsize::new(0));
@@ -1101,7 +1101,7 @@ async fn close_preserves_final_usage_across_a_transient_child_file_read_failure(
     {
         let reports = sink.reports.lock().unwrap();
         // Decode the independently pinned wire numbers once, as the transcript reader does.
-        let expected: pa_types::ai::Usage = serde_json::from_str(
+        let expected: aa_types::ai::Usage = serde_json::from_str(
             r#"{"input":50208,"output":2929,"cacheRead":0,"cacheWrite":0,"totalTokens":53137,"cost":{"input":0.0075312,"output":0.0014645,"cacheRead":0,"cacheWrite":0,"total":0.0089957}}"#,
         ).unwrap();
         assert_eq!(
@@ -1111,7 +1111,7 @@ async fn close_preserves_final_usage_across_a_transient_child_file_read_failure(
                 .collect::<Vec<_>>(),
             vec![(
                 "sub-transient-read".into(),
-                vec![(pa_types::session::ChildUsageOrigin::SpawnTask, expected)]
+                vec![(aa_types::session::ChildUsageOrigin::SpawnTask, expected)]
             )]
         );
     }
@@ -1255,8 +1255,8 @@ async fn settled_watcher_replays_only_one_failed_final_interval(failure: FinalWa
     assert_eq!(
         final_report.batches,
         vec![(
-            pa_types::session::ChildUsageOrigin::SpawnTask,
-            pa_types::ai::Usage {
+            aa_types::session::ChildUsageOrigin::SpawnTask,
+            aa_types::ai::Usage {
                 input: 7,
                 output: 3,
                 total_tokens: 10,

@@ -5,16 +5,16 @@ use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use pa_core::session_engine::provider_adapter::{json_round_trip, ProviderTarget};
-use pa_types::ai::{Model, ModelThinkingLevel};
+use aa_core::session_engine::provider_adapter::{json_round_trip, ProviderTarget};
+use aa_types::ai::{Model, ModelThinkingLevel};
 
 use super::commands::RpcState;
 use super::protocol::ResponseData;
 
 /// The available-models registry over the mode's agent dir (the same resolution `set_model` uses).
-fn registry(state: &RpcState) -> pa_core::models::ModelRegistry {
-    let auth = pa_core::auth::AuthStorage::create(&state.agent_dir);
-    pa_core::models::ModelRegistry::create(auth, state.agent_dir.join("models.json"))
+fn registry(state: &RpcState) -> aa_core::models::ModelRegistry {
+    let auth = aa_core::auth::AuthStorage::create(&state.agent_dir);
+    aa_core::models::ModelRegistry::create(auth, state.agent_dir.join("models.json"))
 }
 
 /// `set_model`: resolve through the available catalog, swap the live
@@ -50,7 +50,7 @@ pub(crate) async fn set_model(
 /// durable row, settings default (the shared `set_model`/`cycle_model` tail).
 async fn apply_model_selection(
     state: &Arc<RpcState>,
-    registry: &mut pa_core::models::ModelRegistry,
+    registry: &mut aa_core::models::ModelRegistry,
     model: &Model,
 ) -> Result<(), String> {
     let resolved = registry.get_api_key_and_headers(model, model.headers.as_ref());
@@ -78,17 +78,17 @@ async fn apply_model_selection(
             .write()
             .map_err(|error| error.to_string())? = Some(provider_target);
         let agent = handle.engine.session.agent();
-        let agent_model: pa_agent::types::Model =
+        let agent_model: aa_agent::types::Model =
             json_round_trip(model).ok_or_else(|| "model conversion failed".to_string())?;
         agent.set_model(agent_model).await;
         // TS `_getThinkingLevelForModelSwitch`: keep the level when the
         // new model supports it, else clamp.
         let current = agent.state().await.thinking_level;
-        let requested = pa_core::session_engine::provider_adapter::model_thinking_level(current);
-        let clamped = pa_ai::models::clamp_thinking_level(model, requested);
+        let requested = aa_core::session_engine::provider_adapter::model_thinking_level(current);
+        let clamped = aa_ai::models::clamp_thinking_level(model, requested);
         agent
             .set_thinking_level(
-                pa_core::session_engine::provider_adapter::map_thinking_level(clamped),
+                aa_core::session_engine::provider_adapter::map_thinking_level(clamped),
             )
             .await;
         handle.model.clone_from(model);
@@ -101,7 +101,7 @@ async fn apply_model_selection(
         let _ = manager.append_model_change(&model.provider, &model.id);
     }
     let mut settings =
-        pa_core::settings::SettingsManager::create(&state.settings_cwd().await, &state.agent_dir);
+        aa_core::settings::SettingsManager::create(&state.settings_cwd().await, &state.agent_dir);
     settings
         .set_default_model_and_provider(&model.provider, &model.id)
         .map_err(|error| error.to_string())?;
@@ -166,7 +166,7 @@ pub(crate) async fn set_thinking_level(
         .get("level")
         .and_then(Value::as_str)
         .ok_or_else(|| "Invalid thinking level: expected a string".to_string())?;
-    let Some(parsed) = pa_ai::models::thinking_level_from_str(level) else {
+    let Some(parsed) = aa_ai::models::thinking_level_from_str(level) else {
         return Err(format!(
             "Invalid thinking level \"{level}\". Valid values: {}",
             THINKING_LEVELS.join(", ")
@@ -188,12 +188,12 @@ async fn apply_thinking_level(
         let handle = state.session.handle_mut().await;
         let agent = handle.engine.session.agent();
         let model = handle.model.clone();
-        let clamped = pa_ai::models::clamp_thinking_level(&model, level);
+        let clamped = aa_ai::models::clamp_thinking_level(&model, level);
         let previous =
             serde_json::to_value(agent.state().await.thinking_level).unwrap_or(json!("off"));
         agent
             .set_thinking_level(
-                pa_core::session_engine::provider_adapter::map_thinking_level(clamped),
+                aa_core::session_engine::provider_adapter::map_thinking_level(clamped),
             )
             .await;
         let wire_level =
@@ -207,17 +207,17 @@ async fn apply_thinking_level(
             if let Err(error) =
                 manager.append_thinking_level_change(wire_level.as_str().unwrap_or("off"))
             {
-                eprintln!("pa-daemon: thinking level row not persisted: {error}");
+                eprintln!("aa-daemon: thinking level row not persisted: {error}");
             }
             // TS persists the default when the model can think or the level
             // is a real reasoning request; the cwd comes off the held
             // manager (re-acquiring either guard here deadlocks).
             if model.reasoning || clamped != ModelThinkingLevel::Off {
                 let mut settings =
-                    pa_core::settings::SettingsManager::create(manager.get_cwd(), &state.agent_dir);
+                    aa_core::settings::SettingsManager::create(manager.get_cwd(), &state.agent_dir);
                 settings
                     .set_default_thinking_level(
-                        pa_core::settings::ThinkingLevelSetting::from_model_level(clamped),
+                        aa_core::settings::ThinkingLevelSetting::from_model_level(clamped),
                     )
                     .map_err(|error| error.to_string())?;
             }
@@ -245,13 +245,13 @@ pub(crate) async fn cycle_thinking_level(state: &Arc<RpcState>) -> Result<Respon
     if !model.reasoning {
         return Ok(ResponseData::Present(Value::Null));
     }
-    let levels = pa_ai::models::get_supported_thinking_levels(&model);
+    let levels = aa_ai::models::get_supported_thinking_levels(&model);
     if levels.is_empty() {
         return Ok(ResponseData::Present(Value::Null));
     }
     // The agent's live level, mapped onto the model's level domain;
     // the cycle steps within it.
-    let current = pa_core::session_engine::provider_adapter::model_thinking_level(
+    let current = aa_core::session_engine::provider_adapter::model_thinking_level(
         agent.state().await.thinking_level,
     );
     drop(handle);
@@ -274,8 +274,8 @@ pub(crate) async fn set_queue_mode(
         .and_then(Value::as_str)
         .ok_or_else(|| format!("{name} requires a mode"))?;
     let mode = match mode {
-        "all" => pa_agent::agent::QueueMode::All,
-        "one-at-a-time" => pa_agent::agent::QueueMode::OneAtATime,
+        "all" => aa_agent::agent::QueueMode::All,
+        "one-at-a-time" => aa_agent::agent::QueueMode::OneAtATime,
         other => {
             return Err(format!(
                 "Invalid queue mode \"{other}\". Valid values: all, one-at-a-time"
@@ -293,10 +293,10 @@ pub(crate) async fn set_queue_mode(
     // The settings default follows the live mode: a later
     // session/connection loads the selected mode instead of reverting.
     let mut settings =
-        pa_core::settings::SettingsManager::create(&state.settings_cwd().await, &state.agent_dir);
+        aa_core::settings::SettingsManager::create(&state.settings_cwd().await, &state.agent_dir);
     let setting = match mode {
-        pa_agent::agent::QueueMode::All => pa_core::settings::QueueModeSetting::All,
-        pa_agent::agent::QueueMode::OneAtATime => pa_core::settings::QueueModeSetting::OneAtATime,
+        aa_agent::agent::QueueMode::All => aa_core::settings::QueueModeSetting::All,
+        aa_agent::agent::QueueMode::OneAtATime => aa_core::settings::QueueModeSetting::OneAtATime,
     };
     if name == "set_steering_mode" {
         settings

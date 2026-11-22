@@ -28,7 +28,7 @@ use serde_json::Value;
 use crate::kernel::shared::{FACTIVITY_WATCH_TIMEOUT_MS_CAP, FACTORY_ACTIVITY_ACTIONS};
 use crate::models::registry::ModelRegistry;
 use crate::models::resolver::find_exact_model_reference_match;
-use pa_types::ai::Model as AiModel;
+use aa_types::ai::Model as AiModel;
 
 /// The session facts the factory bridge resolves against, captured in
 /// `create_session` (the #3184 `SystemRouterHostConfig` capture shape).
@@ -48,7 +48,7 @@ pub struct FactoryHostConfig {
     /// spawn path owns the full resolution). The descriptor is lossy by
     /// design, so the preflight crosses it back to the ai side field by
     /// field for the auth check (the #3184 field mapping).
-    pub session_model: Option<pa_agent::types::Model>,
+    pub session_model: Option<aa_agent::types::Model>,
     /// The daemon `allowedModels` pin, enforced on every resolved model the
     /// preflight accepts (the per-spawn enforcement stays on the
     /// `rlm.spawn` host path).
@@ -315,7 +315,7 @@ impl FactoryHost {
 /// overrides), so full resolution stays with the catalog and the spawn
 /// path (the #3184 `provider_adapter::agent_model_to_ai_model` field
 /// mapping).
-fn agent_model_to_ai_model(model: &pa_agent::types::Model) -> AiModel {
+fn agent_model_to_ai_model(model: &aa_agent::types::Model) -> AiModel {
     AiModel {
         id: model.id.clone(),
         name: model.name.clone(),
@@ -325,7 +325,7 @@ fn agent_model_to_ai_model(model: &pa_agent::types::Model) -> AiModel {
         reasoning: model.reasoning,
         thinking_level_map: None,
         input: Vec::new(),
-        cost: pa_types::ai::ModelCost {
+        cost: aa_types::ai::ModelCost {
             input: model.cost.input.into(),
             output: model.cost.output.into(),
             cache_read: model.cost.cache_read.into(),

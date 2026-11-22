@@ -427,7 +427,7 @@ pub struct Model {
     #[serde(rename = "maxTokens", default)]
     pub max_tokens: u64,
     /// Set when `maxTokens` came from explicit configuration: rides the
-    /// wire-shape round-trips with the pa-ai model so the flag survives
+    /// wire-shape round-trips with the aa-ai model so the flag survives
     /// the crate boundary and the persisted session state.
     #[serde(
         rename = "maxTokensExplicit",

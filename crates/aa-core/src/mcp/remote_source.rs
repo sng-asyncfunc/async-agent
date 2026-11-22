@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use super::catalog_schema::{parse_plugins_catalog, PluginsCatalog};
-use pa_models::cache::PUBLIC_SCOPE;
-use pa_models::fetch::MCP_SERVICE_CATALOG_URL;
+use aa_models::cache::PUBLIC_SCOPE;
+use aa_models::fetch::MCP_SERVICE_CATALOG_URL;
 
 /// The validated last-good disk cache the fetch lane writes; the plugins
 /// side only reads it.
@@ -73,7 +73,7 @@ fn cache_plugins_snapshot(agent_dir: &Path) -> Option<PluginsCatalog> {
 /// The packaged bundled snapshot (`PI_PACKAGE_DIR` override included): the build-time asset the
 /// packer ships beside the executable, read through the fetch lane's asset reader.
 pub fn bundled_plugins_snapshot() -> Option<PluginsCatalog> {
-    let assets = pa_models::bundled::BundledAssets::at_package_root();
+    let assets = aa_models::bundled::BundledAssets::at_package_root();
     let raw = assets.read_mcp_services()?;
     parse_plugins_catalog(raw.as_bytes()).ok()
 }

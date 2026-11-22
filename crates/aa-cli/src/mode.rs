@@ -63,7 +63,7 @@ pub struct InitialGoal {
 }
 
 /// The typed per-session runtime configuration: the API boundary the
-/// pa-core/pa-ai crates consume at merge time.
+/// aa-core/aa-ai crates consume at merge time.
 #[derive(Debug, Clone, Default)]
 #[allow(clippy::struct_excessive_bools)] // the mirrored `AgentSessionRuntimeConfig` API shape is deliberate
 pub struct RuntimeConfig {
@@ -75,7 +75,7 @@ pub struct RuntimeConfig {
     pub api_key: Option<String>,
     pub system_prompt: Option<String>,
     pub append_system_prompt: Vec<String>,
-    pub thinking: Option<pa_types::ai::ModelThinkingLevel>,
+    pub thinking: Option<aa_types::ai::ModelThinkingLevel>,
     pub models: Option<Vec<String>>,
     pub skills: Vec<PathBuf>,
     pub no_skills: bool,
@@ -121,7 +121,7 @@ pub struct RunOptions {
     pub initial_message: Option<String>,
     /// The `@file` image attachments for the initial prompt; only the
     /// non-interactive prompt path sends them (the interactive arm is unwired).
-    pub initial_images: Vec<pa_agent::types::ImageContent>,
+    pub initial_images: Vec<aa_agent::types::ImageContent>,
     pub verbose: bool,
     pub offline: bool,
     pub agents_view_requested: bool,
@@ -141,9 +141,9 @@ impl MissingSubsystem {
     #[must_use]
     pub fn subsystem_name(&self) -> &'static str {
         match self {
-            MissingSubsystem::SessionEngine => "the session engine (pa-core)",
-            MissingSubsystem::ModelRegistry => "the model registry (pa-ai)",
-            MissingSubsystem::PackageManager => "the capability package manager (pa-core)",
+            MissingSubsystem::SessionEngine => "the session engine (aa-core)",
+            MissingSubsystem::ModelRegistry => "the model registry (aa-ai)",
+            MissingSubsystem::PackageManager => "the capability package manager (aa-core)",
         }
     }
 
@@ -190,10 +190,10 @@ impl Runtime for UnavailableRuntime {
     }
 }
 
-/// Env overrides first (`PI_OFFLINE` / `DO_NOT_TRACK` / `PRIME_AGENT_TELEMETRY`),
+/// Env overrides first (`PI_OFFLINE` / `DO_NOT_TRACK` / `ASYNC_AGENT_TELEMETRY`),
 /// then the settings AND; `true` when disabled for this invocation.
-pub fn telemetry_disabled(settings: &pa_core::settings::SettingsManager) -> bool {
-    !pa_core::session_engine::telemetry::telemetry_switch(settings).enabled()
+pub fn telemetry_disabled(settings: &aa_core::settings::SettingsManager) -> bool {
+    !aa_core::session_engine::telemetry::telemetry_switch(settings).enabled()
 }
 
 /// The daemon session create's `telemetry_disabled` (TS `telemetryDisabled`):
@@ -202,10 +202,10 @@ pub fn telemetry_disabled(settings: &pa_core::settings::SettingsManager) -> bool
 /// running session instead of waiting for a new one.
 pub(crate) fn create_telemetry_disabled(config: &RuntimeConfig) -> Option<bool> {
     matches!(
-        pa_core::session_engine::telemetry::telemetry_switch(
-            &pa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir)
+        aa_core::session_engine::telemetry::telemetry_switch(
+            &aa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir)
         ),
-        pa_core::session_engine::telemetry::TelemetrySwitch::Env { enabled: false, .. }
+        aa_core::session_engine::telemetry::TelemetrySwitch::Env { enabled: false, .. }
     )
     .then_some(true)
 }
@@ -292,7 +292,7 @@ pub(crate) mod tests {
         let _guard = LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let vars = ["PRIME_AGENT_TELEMETRY", "DO_NOT_TRACK", "PI_OFFLINE"];
+        let vars = ["ASYNC_AGENT_TELEMETRY", "DO_NOT_TRACK", "PI_OFFLINE"];
         let saved: Vec<(String, Option<String>)> = vars
             .iter()
             .map(|key| ((*key).to_string(), std::env::var(key).ok()))
@@ -315,13 +315,13 @@ pub(crate) mod tests {
     }
 
     /// The opt-out chain (the operator's explicit ask): `DO_NOT_TRACK`/`PI_OFFLINE` disable
-    /// even against `PRIME_AGENT_TELEMETRY=1`.
+    /// even against `ASYNC_AGENT_TELEMETRY=1`.
     #[test]
     fn telemetry_opt_out_resolves_disabled() {
         with_clean_telemetry_env(|| {
             let dir = tempfile::tempdir().unwrap();
             let agent_dir = dir.path().join("agent");
-            let mut settings = pa_core::settings::SettingsManager::create(dir.path(), agent_dir);
+            let mut settings = aa_core::settings::SettingsManager::create(dir.path(), agent_dir);
             settings.set_telemetry_enabled(false).unwrap();
             assert!(
                 telemetry_disabled(&settings),
@@ -335,9 +335,9 @@ pub(crate) mod tests {
         with_clean_telemetry_env(|| {
             let dir = tempfile::tempdir().unwrap();
             let agent_dir = dir.path().join("agent");
-            let settings = pa_core::settings::SettingsManager::create(dir.path(), agent_dir);
-            // `PRIME_AGENT_TELEMETRY=1` re-enables over the settings default.
-            std::env::set_var("PRIME_AGENT_TELEMETRY", "1");
+            let settings = aa_core::settings::SettingsManager::create(dir.path(), agent_dir);
+            // `ASYNC_AGENT_TELEMETRY=1` re-enables over the settings default.
+            std::env::set_var("ASYNC_AGENT_TELEMETRY", "1");
             assert!(!telemetry_disabled(&settings));
             // But DO_NOT_TRACK outranks it: still disabled.
             std::env::set_var("DO_NOT_TRACK", "1");
@@ -354,7 +354,7 @@ pub(crate) mod tests {
         with_clean_telemetry_env(|| {
             let dir = tempfile::tempdir().unwrap();
             let agent_dir = dir.path().join("agent");
-            let settings = pa_core::settings::SettingsManager::create(dir.path(), agent_dir);
+            let settings = aa_core::settings::SettingsManager::create(dir.path(), agent_dir);
             assert!(!telemetry_disabled(&settings));
         });
     }

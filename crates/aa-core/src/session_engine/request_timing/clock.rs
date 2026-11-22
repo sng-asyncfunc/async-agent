@@ -6,7 +6,7 @@ use super::{
     elapsed_ms, json, round_ms, Instant, Map, Mutex, PromptBuildTiming, RequestTimingLog,
     StreamRequestOptions, Value,
 };
-use pa_agent::types::Usage;
+use aa_agent::types::Usage;
 
 /// Provider request identity fields shared by every phase entry.
 #[derive(Debug, Clone)]
@@ -114,7 +114,7 @@ struct RequestTimingInner {
 
 impl RequestTiming {
     pub(super) fn new(
-        model: &pa_agent::types::Model,
+        model: &aa_agent::types::Model,
         options: &StreamRequestOptions,
         request_seq: u64,
         prompt_build: Option<PromptBuildTiming>,

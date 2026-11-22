@@ -16,24 +16,24 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use pa_core::kernel::bootstrap::{KernelJavaScriptSkill, UnavailableJavaScriptSkills};
-use pa_core::kernel::provisioner::{
+use aa_core::kernel::bootstrap::{KernelJavaScriptSkill, UnavailableJavaScriptSkills};
+use aa_core::kernel::provisioner::{
     JavaScriptKernelProvisioner, JavaScriptKernelProvisionerOptions,
 };
-use pa_core::kernel::shared::HostRequestHandlers;
-use pa_core::session_engine::engine::{create_session, SessionEngineConfig};
-use pa_core::session_engine::provider_adapter::{json_round_trip, real_stream_fn};
-use pa_core::session_engine::skills_unavailable_notice::{
+use aa_core::kernel::shared::HostRequestHandlers;
+use aa_core::session_engine::engine::{create_session, SessionEngineConfig};
+use aa_core::session_engine::provider_adapter::{json_round_trip, real_stream_fn};
+use aa_core::session_engine::skills_unavailable_notice::{
     notice_message, JAVASCRIPT_SKILLS_UNAVAILABLE_CUSTOM_TYPE,
 };
-use pa_core::session_engine::{PromptOptions, PromptOutcome};
-use pa_types::session::FileEntry;
+use aa_core::session_engine::{PromptOptions, PromptOutcome};
+use aa_types::session::FileEntry;
 
 /// The faux provider registry is process-global and the session test
 /// drives it: the std lock serializes the contenders (the only ones).
 static FAUX_LOCK: Mutex<()> = Mutex::new(());
 
-/// The kernel Bun binary with `prime-agent-runtime` available; skipped with a note when absent.
+/// The kernel Bun binary with `async-agent-runtime` available; skipped with a note when absent.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) = std::env::var_os("PA_CORE_KERNEL_BUN") {
         let explicit = PathBuf::from(explicit);
@@ -44,20 +44,20 @@ fn kernel_bun() -> Option<PathBuf> {
         );
         return Some(explicit);
     }
-    let runtime_ready = pa_core::kernel::bootstrap::kernel_worker_entry(
-        &pa_core::kernel::bootstrap::kernel_bun_dir(),
+    let runtime_ready = aa_core::kernel::bootstrap::kernel_worker_entry(
+        &aa_core::kernel::bootstrap::kernel_bun_dir(),
     )
     .is_file()
         || std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(2)
-            .is_some_and(|root| root.join("prime-agent-runtime/src/repl.ts").is_file());
+            .is_some_and(|root| root.join("async-agent-runtime/src/repl.ts").is_file());
     if !runtime_ready {
-        eprintln!("prime-agent-runtime/src/repl.ts not found; skipping live notice test");
+        eprintln!("async-agent-runtime/src/repl.ts not found; skipping live notice test");
         return None;
     }
     for candidate in [
-        std::env::var_os("PRIME_AGENT_KERNEL_BUN").map(PathBuf::from),
+        std::env::var_os("ASYNC_AGENT_KERNEL_BUN").map(PathBuf::from),
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".bun/bin/bun")),
         Some(PathBuf::from("/usr/local/bin/bun")),
         Some(PathBuf::from("/usr/bin/bun")),
@@ -86,7 +86,7 @@ async fn broken_skill_import_reports_and_healthy_skills_stay_silent() {
     let healthy_pkg = healthy_dir.join("package.json");
     std::fs::write(
         &healthy_pkg,
-        r#"{"name":"healthy-skill","primeAgent":{"entry":"src/index.ts","global":"healthySkill"}}"#,
+        r#"{"name":"healthy-skill","asyncAgent":{"entry":"src/index.ts","global":"healthySkill"}}"#,
     )
     .expect("pkg");
     std::fs::write(
@@ -100,7 +100,7 @@ async fn broken_skill_import_reports_and_healthy_skills_stay_silent() {
         let reported = Arc::clone(&reported);
         Arc::new(move |errors: &UnavailableJavaScriptSkills| {
             reported.lock().unwrap().push(errors.clone());
-        }) as pa_core::kernel::provisioner::UnavailableSkillsCallback
+        }) as aa_core::kernel::provisioner::UnavailableSkillsCallback
     };
     let provisioner = JavaScriptKernelProvisioner::new(
         "/tmp",
@@ -159,31 +159,31 @@ async fn notice_rides_the_next_turn_as_model_context() {
 
     let provider_saw_notice = Arc::new(Mutex::new(false));
     let seen_provider = Arc::clone(&provider_saw_notice);
-    let responses = vec![pa_ai::faux::FauxResponseStep::Factory(Arc::new(
-        move |context: &pa_types::ai::Context,
-              _options: Option<&pa_ai::types::StreamOptions>,
+    let responses = vec![aa_ai::faux::FauxResponseStep::Factory(Arc::new(
+        move |context: &aa_types::ai::Context,
+              _options: Option<&aa_ai::types::StreamOptions>,
               _call: u64,
-              _model: &pa_types::ai::Model| {
+              _model: &aa_types::ai::Model| {
             let saw = context.messages.iter().any(|message| {
-                matches!(message, pa_types::ai::Message::User(user) if user
+                matches!(message, aa_types::ai::Message::User(user) if user
                     .content
                     .text()
                     .contains("failed to load into the Bun kernel"))
             });
             *seen_provider.lock().unwrap() = saw;
-            Ok(pa_ai::faux::faux_assistant_text_message(
+            Ok(aa_ai::faux::faux_assistant_text_message(
                 "queued turn complete",
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ))
         },
     ))];
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
-            models: Some(vec![pa_ai::faux::FauxModelDefinition {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
+            models: Some(vec![aa_ai::faux::FauxModelDefinition {
                 id: "faux-1".to_string(),
                 name: Some("Faux".to_string()),
                 reasoning: Some(false),
-                input: Some(vec![pa_types::ai::ModelInput::Text]),
+                input: Some(vec![aa_types::ai::ModelInput::Text]),
                 cost: None,
                 context_window: Some(100_000),
                 max_tokens: Some(4_096),
@@ -242,7 +242,7 @@ async fn notice_rides_the_next_turn_as_model_context() {
         notice.details,
         Some(serde_json::json!({ "skills": ["websearch", "edit"] }))
     );
-    let pa_types::ai::UserContent::Text(content) = &notice.content else {
+    let aa_types::ai::UserContent::Text(content) = &notice.content else {
         panic!("text content");
     };
     assert!(

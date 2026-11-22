@@ -12,7 +12,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::session::manager::SessionManager;
-use pa_types::session::FileEntry;
+use aa_types::session::FileEntry;
 
 use self::theme::resolve_export_theme;
 
@@ -25,7 +25,7 @@ pub use self::tool_render::{
 };
 
 /// The app name in generated export file names.
-pub const EXPORT_APP_NAME: &str = "prime-agent";
+pub const EXPORT_APP_NAME: &str = "async-agent";
 
 const TEMPLATE_HTML: &str = include_str!("../../assets/export-html/template.html");
 const TEMPLATE_CSS: &str = include_str!("../../assets/export-html/template.css");
@@ -148,7 +148,7 @@ pub fn export_from_file(
 
 /// The export's tools section: each tool's model-facing contract (name/description/JSON-schema
 /// parameters).
-pub fn tools_section(tools: &[Arc<dyn pa_agent::types::AgentTool>]) -> Vec<Value> {
+pub fn tools_section(tools: &[Arc<dyn aa_agent::types::AgentTool>]) -> Vec<Value> {
     tools
         .iter()
         .map(|tool| {
@@ -270,7 +270,7 @@ mod tests {
         std::env::set_current_dir(cwd.path()).expect("chdir");
         let returned = export_from_file(&session, None, &agent_dir).expect("export");
         std::env::set_current_dir(previous).expect("restore cwd");
-        assert_eq!(returned, "prime-agent-session-fixture-session.html");
+        assert_eq!(returned, "async-agent-session-fixture-session.html");
         assert!(cwd.path().join(&returned).exists());
     }
 
@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn tools_section_wire_shape() {
-        use pa_agent::types::{AgentTool, AgentToolResult};
+        use aa_agent::types::{AgentTool, AgentToolResult};
         struct EchoTool {
             schema: serde_json::Value,
         }
@@ -308,9 +308,9 @@ mod tests {
                 self: Arc<Self>,
                 _id: String,
                 _params: serde_json::Value,
-                _signal: pa_agent::abort::AbortSignal,
-                _on_update: pa_agent::types::AgentToolUpdateCallback,
-            ) -> pa_agent::BoxFut<'static, anyhow::Result<AgentToolResult>> {
+                _signal: aa_agent::abort::AbortSignal,
+                _on_update: aa_agent::types::AgentToolUpdateCallback,
+            ) -> aa_agent::BoxFut<'static, anyhow::Result<AgentToolResult>> {
                 unreachable!("no test executes the export registry")
             }
         }

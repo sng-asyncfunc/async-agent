@@ -123,7 +123,7 @@ impl SessionUi {
         if !response.success {
             let error = response.error.unwrap_or_default();
             match response.error_info {
-                Some(pa_types::daemon::DaemonErrorInfo::SessionImportFileNotFound {
+                Some(aa_types::daemon::DaemonErrorInfo::SessionImportFileNotFound {
                     file_path,
                 }) => {
                     self.error_row(
@@ -131,7 +131,7 @@ impl SessionUi {
                         view,
                     );
                 }
-                Some(pa_types::daemon::DaemonErrorInfo::MissingSessionCwd { issue }) => {
+                Some(aa_types::daemon::DaemonErrorInfo::MissingSessionCwd { issue }) => {
                     // The confirm carries the issue's text; `Yes` retries with the fallback
                     // cwd as the override.
                     let session_cwd = issue
@@ -244,7 +244,7 @@ impl SessionUi {
             values.quiet_startup = settings.quiet_startup();
             values.tree_filter_mode = settings.tree_filter_mode();
             values.warnings_anthropic_extra_usage = settings.warnings_anthropic_extra_usage();
-            values.theme = settings.theme().unwrap_or_else(|| "prime".to_string());
+            values.theme = settings.theme().unwrap_or_else(|| "async".to_string());
             // The tier row preselects the saved default instead of the struct default.
             values.default_service_tier = settings.default_service_tier();
         } else {
@@ -259,12 +259,12 @@ impl SessionUi {
             values.mermaid = "streaming".to_string();
             values.tree_filter_mode = "user-only".to_string();
             values.warnings_anthropic_extra_usage = true;
-            values.theme = "prime".to_string();
+            values.theme = "async".to_string();
             // No settings seam: the tier row reads "default", never a blank value.
             values.default_service_tier = "default".to_string();
         }
         // This surface ships the builtin themes.
-        values.available_themes = pa_types::themes::BUILTIN_THEME_NAMES
+        values.available_themes = aa_types::themes::BUILTIN_THEME_NAMES
             .iter()
             .map(ToString::to_string)
             .collect();
@@ -495,7 +495,7 @@ impl SessionUi {
                 .await;
             }
             "transport" => {
-                let Ok(transport) = serde_json::from_value::<pa_types::ai::Transport>(
+                let Ok(transport) = serde_json::from_value::<aa_types::ai::Transport>(
                     serde_json::Value::String(value.to_string()),
                 ) else {
                     return;
@@ -520,7 +520,7 @@ impl SessionUi {
                         return;
                     }
                 }
-                let tier = match serde_json::from_value::<pa_types::ai::ServiceTier>(Value::String(
+                let tier = match serde_json::from_value::<aa_types::ai::ServiceTier>(Value::String(
                     value.to_string(),
                 )) {
                     Ok(tier) => tier,
@@ -646,7 +646,7 @@ impl SessionUi {
         const UNAVAILABLE: &str = "Fast mode requires GPT-5.4, GPT-5.5, or GPT-5.6 with ChatGPT or OpenAI API key authentication";
         let eligible = self
             .current_model_entry(view)
-            .is_some_and(pa_types::ai::supports_fast_mode);
+            .is_some_and(aa_types::ai::supports_fast_mode);
         if !eligible {
             self.note(UNAVAILABLE, view);
             return;
@@ -655,7 +655,7 @@ impl SessionUi {
         // switch confirms the daemon's tier.
         let enabled = self.service_tier.as_deref() == Some("priority");
         let target = if enabled { "default" } else { "priority" };
-        let tier = match serde_json::from_value::<pa_types::ai::ServiceTier>(
+        let tier = match serde_json::from_value::<aa_types::ai::ServiceTier>(
             serde_json::Value::String(target.to_string()),
         ) {
             Ok(tier) => tier,

@@ -1,19 +1,19 @@
-//! Bridge pa-core tool definitions into the pa-agent loop's `AgentTool`
+//! Bridge aa-core tool definitions into the aa-agent loop's `AgentTool`
 //! (TS `createAgentSession` passes `ToolDefinition`s to the loop
 //! unchanged; this adapter is the Rust equivalent).
 
 use std::sync::Arc;
 
-use pa_agent::abort::AbortSignal;
-use pa_agent::types::{
+use aa_agent::abort::AbortSignal;
+use aa_agent::types::{
     AgentTool, AgentToolResult, AgentToolUpdateCallback,
     ToolExecutionMode as LoopToolExecutionMode, ToolResultContent,
 };
-use pa_types::ai::{is_javascript_tool_name, JAVASCRIPT_TOOL_NAME};
+use aa_types::ai::{is_javascript_tool_name, JAVASCRIPT_TOOL_NAME};
 
 use crate::tools::tool_definition::{ExecutionMode, ToolDefinition, ToolExecutionResult};
 
-/// A loop-visible tool backed by a pa-core definition.
+/// A loop-visible tool backed by a aa-core definition.
 pub struct ToolDefinitionBridge {
     definition: ToolDefinition,
 }
@@ -39,7 +39,7 @@ fn convert_content_blocks(
                 ToolResultContent::text(text)
             }
             crate::tools::tool_definition::ToolContentBlock::Image { data, mime_type } => {
-                ToolResultContent::Image(pa_agent::types::ImageContent { data, mime_type })
+                ToolResultContent::Image(aa_agent::types::ImageContent { data, mime_type })
             }
         })
         .collect()
@@ -79,7 +79,7 @@ impl AgentTool for ToolDefinitionBridge {
         params: serde_json::Value,
         signal: AbortSignal,
         on_update: AgentToolUpdateCallback,
-    ) -> pa_agent::BoxFut<'static, anyhow::Result<AgentToolResult>> {
+    ) -> aa_agent::BoxFut<'static, anyhow::Result<AgentToolResult>> {
         let definition = self.definition.clone();
         Box::pin(async move {
             let abort = crate::tools::tool_definition::AbortSignal::new();
@@ -121,7 +121,7 @@ impl AgentTool for ToolDefinitionBridge {
     }
 
     fn execution_mode(&self) -> Option<LoopToolExecutionMode> {
-        // The pa-core contract has no parallel variant; sequential tools
+        // The aa-core contract has no parallel variant; sequential tools
         // carry the only override.
         (self.definition.execution_mode == Some(ExecutionMode::Sequential))
             .then_some(LoopToolExecutionMode::Sequential)

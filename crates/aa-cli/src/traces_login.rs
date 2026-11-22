@@ -1,4 +1,4 @@
-//! The Prime Agent Traces login (TS `runPrimeAgentTracesLogin`): the
+//! The Async Agent Traces login (TS `runAsyncAgentTracesLogin`): the
 //! prime-cli credential reuse, the RSA browser challenge raced against
 //! the paste prompt, the access check, and the credential write — all
 //! through the inline auth panel.
@@ -7,16 +7,16 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::{pin, Pin};
 
-use pa_core::agent_traces::resolve_traces_base_url;
-use pa_core::auth::{
-    check_prime_agent_traces_access, login_prime_agent_traces, AuthCredential, AuthStorage,
-    PrimeAccessError, PrimeAgentTracesCallbacks, PrimeAgentTracesLoginOptions, PrimeAuthInfo,
-    ReqwestPrimeHttp, DEFAULT_REQUEST_TIMEOUT_MS, PRIME_AGENT_TRACES_PROVIDER_ID,
-    PRIME_AGENT_TRACES_PROVIDER_NAME,
+use aa_core::agent_traces::resolve_traces_base_url;
+use aa_core::auth::{
+    check_async_agent_traces_access, login_async_agent_traces, AuthCredential, AuthStorage,
+    PrimeAccessError, AsyncAgentTracesCallbacks, AsyncAgentTracesLoginOptions, PrimeAuthInfo,
+    ReqwestPrimeHttp, DEFAULT_REQUEST_TIMEOUT_MS, ASYNC_AGENT_TRACES_PROVIDER_ID,
+    ASYNC_AGENT_TRACES_PROVIDER_NAME,
 };
 
-use pa_tui::auth_panel::{PastePromptTone, PasteStyle};
-use pa_tui::traces::TraceLoginOutcome;
+use aa_tui::auth_panel::{PastePromptTone, PasteStyle};
+use aa_tui::traces::TraceLoginOutcome;
 
 /// The armed prompt after the browser URL shows.
 const BROWSER_PROMPT: &str =
@@ -48,7 +48,7 @@ pub(crate) trait TracesLoginUi: Send + Sync {
 /// the resolved default.
 pub(crate) struct TracesLoginInputs<'a> {
     pub agent_dir: &'a Path,
-    pub http: &'a dyn pa_core::auth::PrimeHttp,
+    pub http: &'a dyn aa_core::auth::PrimeHttp,
     pub prime_cli_config_path: Option<&'a Path>,
     /// The challenge poll interval (the product's 5s default; tests use milliseconds to keep the
     /// browser-completes path short).
@@ -58,11 +58,11 @@ pub(crate) struct TracesLoginInputs<'a> {
 /// The whole flow against the inline auth panel; no surface touches the terminal.
 pub(crate) async fn run_traces_login(
     agent_dir: &Path,
-    panel: pa_tui::auth_panel::AuthPanelHandle,
+    panel: aa_tui::auth_panel::AuthPanelHandle,
 ) -> TraceLoginOutcome {
     let http = ReqwestPrimeHttp;
     let prime_cli_config_path: Option<PathBuf> = (agent_dir == crate::config::get_agent_dir())
-        .then(pa_core::auth::default_prime_cli_config_path);
+        .then(aa_core::auth::default_prime_cli_config_path);
     let inputs = TracesLoginInputs {
         agent_dir,
         http: &http,
@@ -76,7 +76,7 @@ async fn run_traces_login_inner(
     inputs: &TracesLoginInputs<'_>,
     ui: &dyn TracesLoginUi,
 ) -> TraceLoginOutcome {
-    let mut options = PrimeAgentTracesLoginOptions::new(inputs.prime_cli_config_path);
+    let mut options = AsyncAgentTracesLoginOptions::new(inputs.prime_cli_config_path);
     options.poll_interval_ms = inputs.poll_interval_ms;
     // The paste prompt arms when the browser URL shows, and again under the
     // fallback text when the browser flow fails.
@@ -93,11 +93,11 @@ async fn run_traces_login_inner(
         }
     };
     let on_progress = |message: &str| ui.progress(message);
-    let callbacks = PrimeAgentTracesCallbacks {
+    let callbacks = AsyncAgentTracesCallbacks {
         on_auth: &on_auth,
         on_progress: Some(&on_progress),
     };
-    let mut login = pin!(login_prime_agent_traces(inputs.http, &options, &callbacks));
+    let mut login = pin!(login_async_agent_traces(inputs.http, &options, &callbacks));
     // The local sender keeps the arm channel open for the fallback arm (the login future's own
     // sender dies with it).
     let _keep_arm_open = arm_tx;
@@ -111,7 +111,7 @@ async fn run_traces_login_inner(
         // The race: whichever settles first wins; the loser is dropped (the
         // browser abort on a manual key, the paste read on a browser key).
         enum Step {
-            Login(Result<(String, pa_core::auth::PrimeAgentTracesLoginSource), String>),
+            Login(Result<(String, aa_core::auth::AsyncAgentTracesLoginSource), String>),
             Armed,
             Manual(Option<String>),
         }
@@ -175,8 +175,8 @@ async fn manual_login(
     ui: &dyn TracesLoginUi,
     api_key: &str,
 ) -> TraceLoginOutcome {
-    ui.progress("Checking Prime Agent trace access...");
-    match check_prime_agent_traces_access(
+    ui.progress("Checking Async Agent trace access...");
+    match check_async_agent_traces_access(
         inputs.http,
         &resolve_traces_base_url(None),
         api_key,
@@ -186,12 +186,12 @@ async fn manual_login(
     {
         Ok(()) => complete_login(inputs, api_key),
         Err(PrimeAccessError::Denied(failure)) => TraceLoginOutcome::Error(format!(
-            "Failed to login to {}: Prime API key does not have Prime Agent trace access ({})",
-            PRIME_AGENT_TRACES_PROVIDER_NAME,
+            "Failed to login to {}: Prime API key does not have Async Agent trace access ({})",
+            ASYNC_AGENT_TRACES_PROVIDER_NAME,
             failure.format()
         )),
         Err(PrimeAccessError::Failed(message)) => TraceLoginOutcome::Error(format!(
-            "Failed to login to {PRIME_AGENT_TRACES_PROVIDER_NAME}: {message}"
+            "Failed to login to {ASYNC_AGENT_TRACES_PROVIDER_NAME}: {message}"
         )),
     }
 }
@@ -200,7 +200,7 @@ async fn manual_login(
 fn complete_login(inputs: &TracesLoginInputs<'_>, api_key: &str) -> TraceLoginOutcome {
     let mut auth = AuthStorage::create(inputs.agent_dir);
     auth.set(
-        PRIME_AGENT_TRACES_PROVIDER_ID,
+        ASYNC_AGENT_TRACES_PROVIDER_ID,
         AuthCredential::ApiKey {
             key: api_key.to_string(),
             prime_team: None,
@@ -208,12 +208,12 @@ fn complete_login(inputs: &TracesLoginInputs<'_>, api_key: &str) -> TraceLoginOu
     );
     if let Some(error) = auth.drain_errors().pop() {
         return TraceLoginOutcome::Error(format!(
-            "Failed to login to {PRIME_AGENT_TRACES_PROVIDER_NAME}: {error}"
+            "Failed to login to {ASYNC_AGENT_TRACES_PROVIDER_NAME}: {error}"
         ));
     }
     TraceLoginOutcome::Status(format!(
         "Saved API key for {}. Credentials saved to {}",
-        PRIME_AGENT_TRACES_PROVIDER_NAME,
+        ASYNC_AGENT_TRACES_PROVIDER_NAME,
         inputs.agent_dir.join("auth.json").display()
     ))
 }
@@ -221,11 +221,11 @@ fn complete_login(inputs: &TracesLoginInputs<'_>, api_key: &str) -> TraceLoginOu
 /// The inline-panel surface: the progress lines, the auth URL, and the paste prompt drive the auth
 /// panel through the request channel.
 struct PanelTracesLoginUi {
-    panel: pa_tui::auth_panel::AuthPanelHandle,
+    panel: aa_tui::auth_panel::AuthPanelHandle,
 }
 
 impl PanelTracesLoginUi {
-    fn new(panel: pa_tui::auth_panel::AuthPanelHandle) -> Self {
+    fn new(panel: aa_tui::auth_panel::AuthPanelHandle) -> Self {
         PanelTracesLoginUi { panel }
     }
 }
@@ -241,7 +241,7 @@ impl TracesLoginUi for PanelTracesLoginUi {
 
     fn on_auth(&self, url: &str, instructions: &str) {
         self.panel.auth_url(url, Some(instructions));
-        pa_core::platform::browser::open_in_browser(url);
+        aa_core::platform::browser::open_in_browser(url);
     }
 
     fn prompt_line(
@@ -266,7 +266,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
 
-    type PrimeHttpResponse = pa_core::auth::PrimeHttpResponse;
+    type PrimeHttpResponse = aa_core::auth::PrimeHttpResponse;
 
     /// A scripted transport: exact URL -> response, in call order; the
     /// served requests land in the log. With `dynamic_generate` (the
@@ -312,7 +312,7 @@ mod tests {
         }
     }
 
-    impl pa_core::auth::PrimeHttp for ScriptedHttp {
+    impl aa_core::auth::PrimeHttp for ScriptedHttp {
         fn get(
             &self,
             url: &str,
@@ -486,7 +486,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn the_cli_candidate_logs_in_without_a_prompt() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         let (dir, agent) = temp_agent();
         let config = dir.path().join("prime-config.json");
         std::fs::write(
@@ -506,7 +506,7 @@ mod tests {
         assert_eq!(
             outcome,
             TraceLoginOutcome::Status(format!(
-                "Saved API key for Prime Agent Traces. Credentials saved to {}",
+                "Saved API key for Async Agent Traces. Credentials saved to {}",
                 agent.join("auth.json").display()
             ))
         );
@@ -520,7 +520,7 @@ mod tests {
         let mut storage = AuthStorage::create(&agent);
         assert_eq!(
             storage
-                .get_api_key_with_source_token("prime-agent-traces", false)
+                .get_api_key_with_source_token("async-agent-traces", false)
                 .api_key,
             Some("cli-key".to_string())
         );
@@ -531,7 +531,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn the_manual_key_wins_the_race_and_checks_access() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         let (_dir, agent) = temp_agent();
         // The browser flow starts (the generate answer arms the prompt), the pending status poll
         // yields, and the pasted key wins.
@@ -548,7 +548,7 @@ mod tests {
         assert_eq!(
             outcome,
             TraceLoginOutcome::Status(format!(
-                "Saved API key for Prime Agent Traces. Credentials saved to {}",
+                "Saved API key for Async Agent Traces. Credentials saved to {}",
                 agent.join("auth.json").display()
             ))
         );
@@ -558,14 +558,14 @@ mod tests {
             progress,
             vec![
                 "No Prime CLI API key found. Starting browser login...".to_string(),
-                "Checking Prime Agent trace access...".to_string(),
+                "Checking Async Agent trace access...".to_string(),
             ]
         );
         assert_eq!(prompts, vec![BROWSER_PROMPT.to_string()]);
         let mut storage = AuthStorage::create(&agent);
         assert_eq!(
             storage
-                .get_api_key_with_source_token("prime-agent-traces", false)
+                .get_api_key_with_source_token("async-agent-traces", false)
                 .api_key,
             Some("manual-key".to_string())
         );
@@ -576,7 +576,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn the_browser_login_completes_when_the_prompt_never_answers() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         let (_dir, agent) = temp_agent();
         let http = ScriptedHttp::new(vec![whoami_ok()]);
         let ui = ScriptedUi::new(vec![Some("never".to_string())]);
@@ -595,7 +595,7 @@ mod tests {
             progress,
             vec![
                 "No Prime CLI API key found. Starting browser login...".to_string(),
-                "Checking Prime Agent trace access...".to_string(),
+                "Checking Async Agent trace access...".to_string(),
             ]
         );
         assert!(auth[0].contains("dashboard/tokens/challenge?code=ch-1&scope=agent_traces"));
@@ -603,7 +603,7 @@ mod tests {
         let mut storage = AuthStorage::create(&agent);
         assert_eq!(
             storage
-                .get_api_key_with_source_token("prime-agent-traces", false)
+                .get_api_key_with_source_token("async-agent-traces", false)
                 .api_key,
             Some("fixture-browser-key".to_string())
         );
@@ -614,7 +614,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn a_denied_manual_key_reports_the_ts_error() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         let (_dir, agent) = temp_agent();
         // The browser cannot start (the generate answer is down), the fallback prompt arms, and the
         // pasted key is denied.
@@ -641,7 +641,7 @@ mod tests {
         assert_eq!(
             outcome,
             TraceLoginOutcome::Error(
-                "Failed to login to Prime Agent Traces: Prime API key does not have Prime Agent trace access (HTTP 403: forbidden)"
+                "Failed to login to Async Agent Traces: Prime API key does not have Async Agent trace access (HTTP 403: forbidden)"
                     .to_string()
             )
         );
@@ -652,7 +652,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn a_cancelled_prompt_stays_silent() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         let (_dir, agent) = temp_agent();
         // The browser flow arms the prompt; the closed input cancels the login (the pending status
         // poll yields first).
@@ -667,7 +667,7 @@ mod tests {
         let outcome = run_traces_login_inner(&inputs, ui.as_ref()).await;
         assert_eq!(outcome, TraceLoginOutcome::Cancelled);
         let storage = AuthStorage::create(&agent);
-        assert!(storage.get_all().get("prime-agent-traces").is_none());
+        assert!(storage.get_all().get("async-agent-traces").is_none());
     }
 
     #[tokio::test]
@@ -675,7 +675,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn a_failed_browser_falls_back_to_the_paste_prompt() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
         let (_dir, agent) = temp_agent();
         // The challenge generate endpoint is down (the browser flow fails before any URL shows).
         let http = ScriptedHttp::without_dynamic(vec![
@@ -702,7 +702,7 @@ mod tests {
         let mut storage = AuthStorage::create(&agent);
         assert_eq!(
             storage
-                .get_api_key_with_source_token("prime-agent-traces", false)
+                .get_api_key_with_source_token("async-agent-traces", false)
                 .api_key,
             Some("fallback-key".to_string())
         );

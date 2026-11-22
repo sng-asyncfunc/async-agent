@@ -2,19 +2,19 @@
 //! through `create_session`'s wiring: the session store reports each one to
 //! the running goal and the telemetry run.
 use super::*;
-use pa_agent::scripted::ScriptedProvider;
+use aa_agent::scripted::ScriptedProvider;
 
 use crate::session_engine::model_usage::ModelUsage;
 
-fn scripted_model() -> pa_agent::types::Model {
-    pa_agent::types::Model {
+fn scripted_model() -> aa_agent::types::Model {
+    aa_agent::types::Model {
         id: "m".into(),
         name: "m".into(),
         api: "test".into(),
         provider: "test".into(),
         base_url: "http://localhost".into(),
         reasoning: false,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 1_000,
         max_tokens: 100,
         max_tokens_explicit: false,
@@ -73,13 +73,13 @@ async fn scripted_engine(
     (engine, tmp)
 }
 
-fn usage(input: u64, output: u64, cost: f64) -> pa_types::ai::Usage {
-    pa_types::ai::Usage {
+fn usage(input: u64, output: u64, cost: f64) -> aa_types::ai::Usage {
+    aa_types::ai::Usage {
         input,
         output,
         total_tokens: input + output,
-        cost: pa_types::ai::UsageCost {
-            total: pa_types::JsNumber(cost),
+        cost: aa_types::ai::UsageCost {
+            total: aa_types::JsNumber(cost),
             ..Default::default()
         },
         ..Default::default()
@@ -125,23 +125,23 @@ async fn a_billed_row_charges_the_running_goal() {
 async fn a_billed_row_counts_into_the_run_cost() {
     let model = scripted_model();
     let provider = Arc::new(ScriptedProvider::new(model.clone()));
-    let mut steps = pa_agent::scripted::text_turn_steps(&model, "done");
-    if let Some(pa_agent::scripted::ScriptStep::Event(event)) = steps.last_mut() {
-        if let pa_agent::stream::AssistantMessageEvent::Done { message, .. } = &mut **event {
+    let mut steps = aa_agent::scripted::text_turn_steps(&model, "done");
+    if let Some(aa_agent::scripted::ScriptStep::Event(event)) = steps.last_mut() {
+        if let aa_agent::stream::AssistantMessageEvent::Done { message, .. } = &mut **event {
             message.usage.input = 100;
             message.usage.output = 10;
             message.usage.total_tokens = 110;
             message.usage.cost.total = 0.5;
         }
     }
-    provider.push_turn(pa_agent::scripted::ScriptedTurn::Events(steps));
-    let mock = Arc::new(pa_telemetry::MockSink::new());
-    let mut config = pa_telemetry::TelemetryClientConfig::new("install-1");
+    provider.push_turn(aa_agent::scripted::ScriptedTurn::Events(steps));
+    let mock = Arc::new(aa_telemetry::MockSink::new());
+    let mut config = aa_telemetry::TelemetryClientConfig::new("install-1");
     config.batch_size = 1;
     config.flush_interval = std::time::Duration::from_mins(10);
-    config.sinks = vec![mock.clone() as Arc<dyn pa_telemetry::TelemetrySink>];
+    config.sinks = vec![mock.clone() as Arc<dyn aa_telemetry::TelemetrySink>];
     let telemetry = super::super::telemetry::TelemetryWiring {
-        client: pa_telemetry::TelemetryClient::spawn(config).unwrap(),
+        client: aa_telemetry::TelemetryClient::spawn(config).unwrap(),
         execution_mode: Some("print".to_string()),
         now: None,
         telemetry_enabled: None,

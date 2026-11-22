@@ -61,7 +61,7 @@ pub struct ReqwestMcpProbe {
 impl Default for ReqwestMcpProbe {
     fn default() -> Self {
         Self {
-            client: pa_ai::utils::tls::http_client_builder()
+            client: aa_ai::utils::tls::http_client_builder()
                 // No redirects: a redirecting endpoint must not receive the token.
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
@@ -189,7 +189,7 @@ async fn probe_endpoint(
         &serde_json::json!({
             "protocolVersion": "2025-06-18",
             "capabilities": {},
-            "clientInfo": { "name": "prime-agent", "version": "mcp-verify" }
+            "clientInfo": { "name": "async-agent", "version": "mcp-verify" }
         }),
     );
     let (status, session_id, value) =

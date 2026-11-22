@@ -113,12 +113,12 @@ impl Supervisor {
     pub(crate) async fn handle_acquire_session_input_pause(
         self: &Arc<Self>,
         connection: &Arc<ClientConnectionState>,
-        command: &pa_types::daemon::DaemonCommand,
+        command: &aa_types::daemon::DaemonCommand,
         effective_client_id: &str,
         command_id: &str,
         type_name: &str,
     ) -> (Vec<Value>, bool) {
-        let pa_types::daemon::DaemonCommand::AcquireSessionInputPause {
+        let aa_types::daemon::DaemonCommand::AcquireSessionInputPause {
             active_session_id,
             lease_key,
             ..
@@ -243,11 +243,11 @@ impl Supervisor {
     pub(crate) async fn handle_release_session_input_pause(
         self: &Arc<Self>,
         connection: &Arc<ClientConnectionState>,
-        command: &pa_types::daemon::DaemonCommand,
+        command: &aa_types::daemon::DaemonCommand,
         command_id: &str,
         type_name: &str,
     ) -> (Vec<Value>, bool) {
-        let pa_types::daemon::DaemonCommand::ReleaseSessionInputPause {
+        let aa_types::daemon::DaemonCommand::ReleaseSessionInputPause {
             active_session_id,
             pause_id,
             ..

@@ -184,8 +184,8 @@ fn observe_limits_clamp() {
 
 #[test]
 fn observe_previews_truncate() {
-    let user = pa_types::session::AgentMessage::User(pa_types::ai::UserMessage {
-        content: pa_types::ai::UserContent::Text("short".to_string()),
+    let user = aa_types::session::AgentMessage::User(aa_types::ai::UserMessage {
+        content: aa_types::ai::UserContent::Text("short".to_string()),
         timestamp: 42,
         rest: serde_json::Map::default(),
     });
@@ -195,8 +195,8 @@ fn observe_previews_truncate() {
     assert_eq!(preview.timestamp, Some(42));
     assert_eq!(preview.text, "short");
     assert!(!preview.truncated);
-    let long = pa_types::session::AgentMessage::User(pa_types::ai::UserMessage {
-        content: pa_types::ai::UserContent::Text("x".repeat(100)),
+    let long = aa_types::session::AgentMessage::User(aa_types::ai::UserMessage {
+        content: aa_types::ai::UserContent::Text("x".repeat(100)),
         timestamp: 0,
         rest: serde_json::Map::default(),
     });

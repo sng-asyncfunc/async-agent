@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use anyhow::{ensure, Context, Result};
-use pa_types::daemon::{
+use aa_types::daemon::{
     UpdateId, UpdateRoster, UpdateRosterBinary, UpdateRosterInFlight, UpdateRosterQueue,
     UpdateRosterSession, UpdateRosterSessionKind, UpdateSupervisorIdentity,
     UPDATE_ROSTER_FORMAT_VERSION,
@@ -27,7 +27,7 @@ struct LegacyManifest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LegacyQueue {
-    next_turn: Vec<pa_types::session::CustomMessage>,
+    next_turn: Vec<aa_types::session::CustomMessage>,
     actions: Value,
 }
 

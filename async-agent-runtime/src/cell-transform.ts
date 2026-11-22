@@ -196,7 +196,7 @@ function lowerImportDeclaration(
 }
 
 function privateImportNamespace(source: string, index: number, generatedNames: Set<string>): string {
-	let name = `__primeImport${index}`;
+	let name = `__asyncImport${index}`;
 	while (source.includes(name) || generatedNames.has(name)) name += "_";
 	generatedNames.add(name);
 	return name;
@@ -206,7 +206,7 @@ function persistenceSource(bindings: readonly BindingPersistence[]): string {
 	return bindings
 		.map(({ name, recipe }) => {
 			const serializedRecipe = recipe ? `, ${JSON.stringify(recipe)}` : "";
-			return `\n__primePersist(${JSON.stringify(name)}, ${name}${serializedRecipe});`;
+			return `\n__asyncPersist(${JSON.stringify(name)}, ${name}${serializedRecipe});`;
 		})
 		.join("");
 }
@@ -283,7 +283,7 @@ function returnPersistenceEdit(
 	bindings: readonly BindingPersistence[],
 	index: number,
 ): SourceEdit {
-	let namespace = `__primeReturn${index}`;
+	let namespace = `__asyncReturn${index}`;
 	while (source.includes(namespace)) namespace += "_";
 	const didReturn = `${namespace}DidReturn`;
 	const returnValue = `${namespace}Value`;

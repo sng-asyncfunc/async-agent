@@ -8,12 +8,12 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
-use pa_agent::agent::Subscription;
-use pa_core::kernel::provisioner::KernelReadyGate;
-use pa_core::session_engine::engine::SessionEngine;
-use pa_core::session_engine::provider_adapter::ProviderTarget;
-use pa_core::session_engine::session_events::agent_event_json;
-use pa_types::ai::Model;
+use aa_agent::agent::Subscription;
+use aa_core::kernel::provisioner::KernelReadyGate;
+use aa_core::session_engine::engine::SessionEngine;
+use aa_core::session_engine::provider_adapter::ProviderTarget;
+use aa_core::session_engine::session_events::agent_event_json;
+use aa_types::ai::Model;
 
 use super::LineWriter;
 
@@ -54,7 +54,7 @@ pub enum RpcEngineRequest {
     },
 }
 
-/// The composition root's engine assembly; pa-cli owns the assembly
+/// The composition root's engine assembly; aa-cli owns the assembly
 /// (cwd, model resolution, auth), not this mode.
 pub type RpcEngineFactory = Arc<
     dyn Fn(

@@ -3,7 +3,7 @@
 //! reports failed loads through the marker line and the provisioner's `on_unavailable_skills`
 //! seam hands them here — the model is told BEFORE it spends turns reading the skill's SKILL.md.
 
-use pa_types::session::CustomMessage;
+use aa_types::session::CustomMessage;
 
 use crate::kernel::bootstrap::UnavailableJavaScriptSkills;
 
@@ -39,7 +39,7 @@ pub fn notice_content(errors: &UnavailableJavaScriptSkills) -> String {
 pub fn notice_message(errors: &UnavailableJavaScriptSkills) -> CustomMessage {
     CustomMessage {
         custom_type: JAVASCRIPT_SKILLS_UNAVAILABLE_CUSTOM_TYPE.to_string(),
-        content: pa_types::ai::UserContent::Text(notice_content(errors)),
+        content: aa_types::ai::UserContent::Text(notice_content(errors)),
         display: true,
         details: Some(serde_json::json!({
             "skills": errors.iter().map(|(name, _)| name.clone()).collect::<Vec<_>>(),
@@ -72,7 +72,7 @@ mod tests {
             message.details,
             Some(serde_json::json!({ "skills": ["websearch", "edit"] }))
         );
-        let pa_types::ai::UserContent::Text(content) = &message.content else {
+        let aa_types::ai::UserContent::Text(content) = &message.content else {
             panic!("text content");
         };
         assert_eq!(

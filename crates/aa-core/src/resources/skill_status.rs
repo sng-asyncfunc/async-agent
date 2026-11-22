@@ -1,5 +1,5 @@
 //! Per-skill status: why each discovered skill is or is not part of the
-//! session, read off the resolution and load results (`prime-agent skills`
+//! session, read off the resolution and load results (`async-agent skills`
 //! lists them; a session start reports the problems).
 
 use std::path::{Path, PathBuf};

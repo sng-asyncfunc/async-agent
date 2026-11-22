@@ -1,6 +1,6 @@
 # ACP capture corpus (slice 1)
 
-Captures of the installed TS binary (`prime-agent --mode acp --no-session
+Captures of the installed TS binary (`async-agent --mode acp --no-session
 --provider prime-inference --model z-ai/glm-5.3-flash`) speaking ACP over
 stdio, one file per scenario. Every file is line-delimited JSON:
 
@@ -63,5 +63,5 @@ the process exit code and stderr.
   valid admission and close. Failed admissions keep the connection
   serving.
 
-`crates/pa-cli/tests/acp_mode_e2e.rs` locks the deterministic scenarios
+`crates/aa-cli/tests/acp_mode_e2e.rs` locks the deterministic scenarios
 offline over the daemon-attached transport (the scripted faux worker).

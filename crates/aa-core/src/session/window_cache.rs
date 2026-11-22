@@ -71,7 +71,7 @@ pub(super) struct Snapshot {
     pub leaf: String,
     pub thinking: String,
     pub thinking_present: bool,
-    pub tier: Option<pa_types::ai::ServiceTier>,
+    pub tier: Option<aa_types::ai::ServiceTier>,
     pub tier_present: bool,
     pub model: Option<(String, String)>,
     pub boundary_model: Option<(String, String)>,
@@ -229,15 +229,15 @@ pub fn append_cached(path: &Path, bytes: &[u8], ownership: AppendOwnership) -> i
         return Ok(());
     };
     for line in text.lines() {
-        let Ok(entry) = serde_json::from_str::<pa_types::session::FileEntry>(line) else {
+        let Ok(entry) = serde_json::from_str::<aa_types::session::FileEntry>(line) else {
             snapshots.remove(path);
             return Ok(());
         };
         if entry.parent_id() != Some(snapshot.leaf.as_str())
             || matches!(
                 entry,
-                pa_types::session::FileEntry::Compaction { .. }
-                    | pa_types::session::FileEntry::ChildUsageAttributed { .. }
+                aa_types::session::FileEntry::Compaction { .. }
+                    | aa_types::session::FileEntry::ChildUsageAttributed { .. }
             )
         {
             snapshots.remove(path);

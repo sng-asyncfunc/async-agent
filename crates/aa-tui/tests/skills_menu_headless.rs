@@ -10,7 +10,7 @@ use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, UiMode,
 };
 use serde_json::{json, Value};
@@ -139,7 +139,7 @@ impl Default for StubSettings {
     }
 }
 
-impl pa_tui::client_settings::ClientSettings for StubSettings {
+impl aa_tui::client_settings::ClientSettings for StubSettings {
     fn compaction_threshold_percent(&self) -> f64 {
         95.0
     }
@@ -408,7 +408,7 @@ fn skills_surface_without_a_settings_seam() {
 
 #[test]
 fn disabled_skill_commands_stay_out_of_the_menu() {
-    use pa_tui::client_settings::ClientSettings;
+    use aa_tui::client_settings::ClientSettings;
     std::env::remove_var("TMUX");
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("tui.sock");

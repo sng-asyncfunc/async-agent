@@ -43,7 +43,7 @@ impl Drop for Daemon {
 }
 
 fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
@@ -56,11 +56,11 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
         // supervisor-lost exit (TS `exitIfSupervisorOrphanedForTooLong`) runs on this short
         // window, not the 5-minute default.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     Daemon {
         child,
         socket: socket.to_path_buf(),
@@ -106,7 +106,7 @@ impl Client {
         self.send(&json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }));
     }
@@ -163,10 +163,10 @@ impl WorkerClient {
     }
 
     fn send_frame(&mut self, header: &Value, payload: &Value) {
-        let frame = pa_daemon::framing::encode_private_frame(
+        let frame = aa_daemon::framing::encode_private_frame(
             header,
             &serde_json::to_vec(payload).expect("payload"),
-            pa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+            aa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
         )
         .expect("encode frame");
         self.stream.write_all(&frame).expect("write frame");
@@ -247,7 +247,7 @@ struct WorkerIdentity {
 }
 
 fn load_worker_identity(agent_dir: &Path, socket: &Path, worker_id: &str) -> WorkerIdentity {
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(agent_dir, socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(agent_dir, socket);
     let content = std::fs::read_to_string(descriptor_dir.join(format!("{worker_id}.json")))
         .expect("descriptor file");
     let value: Value = serde_json::from_str(&content).expect("descriptor json");
@@ -347,9 +347,9 @@ fn direct_attach_ticket_streams_across_supervisor_kill9() {
         ticket["socketPath"].as_str().expect("socket path"),
         identity.socket_path.to_string_lossy().to_string()
     );
-    let expires = pa_daemon::util::iso_to_unix_ms(ticket["expiresAt"].as_str().expect("expiry"))
+    let expires = aa_daemon::util::iso_to_unix_ms(ticket["expiresAt"].as_str().expect("expiry"))
         .expect("expiry is ISO");
-    let now = pa_daemon::util::now_ms();
+    let now = aa_daemon::util::now_ms();
     assert!(
         expires > now && expires <= now + 10_000,
         "ticket TTL is the TS 10s window"
@@ -574,9 +574,9 @@ fn unused_ticket_expires() {
     let _ = &daemon; // kept alive until the end; reaped by the Drop guard
 
     let ticket = get_ticket(&mut client, &session_id);
-    let expires = pa_daemon::util::iso_to_unix_ms(ticket["expiresAt"].as_str().expect("expiry"))
+    let expires = aa_daemon::util::iso_to_unix_ms(ticket["expiresAt"].as_str().expect("expiry"))
         .expect("expiry");
-    let wait = expires.saturating_sub(pa_daemon::util::now_ms()) + 500;
+    let wait = expires.saturating_sub(aa_daemon::util::now_ms()) + 500;
     std::thread::sleep(Duration::from_millis(wait));
 
     let (mut worker, _hello) = WorkerClient::connect(&identity.socket_path);

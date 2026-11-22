@@ -27,29 +27,29 @@ impl SessionEngine for OffEngine {
     fn run_side_question(
         &self,
         request: crate::engine::SideQuestionRequest,
-        signal: &pa_agent::abort::AbortSignal,
-        sink: &pa_core::session_engine::side_question::SideQuestionSink,
+        signal: &aa_agent::abort::AbortSignal,
+        sink: &aa_core::session_engine::side_question::SideQuestionSink,
     ) -> crate::engine::SideQuestionOutcome {
         ScriptedEngine::default().run_side_question(request, signal, sink)
     }
     fn run_compaction(
         &self,
         request: CompactionRequest,
-        signal: &pa_agent::abort::AbortSignal,
+        signal: &aa_agent::abort::AbortSignal,
     ) -> CompactionOutcome {
         ScriptedEngine::default().run_compaction(request, signal)
     }
     fn run_branch_summary(
         &self,
         request: BranchSummaryRequest,
-        signal: &pa_agent::abort::AbortSignal,
+        signal: &aa_agent::abort::AbortSignal,
     ) -> BranchSummaryOutcome {
         ScriptedEngine::default().run_branch_summary(request, signal)
     }
     fn rebuild_session_context(
         &self,
-        _: Vec<pa_types::session::FileEntry>,
-        _: pa_core::session_engine::goal_driver::GoalBranchReload,
+        _: Vec<aa_types::session::FileEntry>,
+        _: aa_core::session_engine::goal_driver::GoalBranchReload,
     ) -> anyhow::Result<()> {
         Ok(())
     }

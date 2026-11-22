@@ -13,8 +13,8 @@ fn menu() -> SettingsMenu {
         steering_mode: "all".to_string(),
         available_thinking_levels: vec!["low".to_string(), "high".to_string()],
         thinking_level: Some("low".to_string()),
-        available_themes: vec!["prime".to_string(), "dark".to_string()],
-        theme: "prime".to_string(),
+        available_themes: vec!["async".to_string(), "dark".to_string()],
+        theme: "async".to_string(),
         idle_eviction_minutes: "90".to_string(),
         ..Default::default()
     };
@@ -22,7 +22,7 @@ fn menu() -> SettingsMenu {
 }
 
 fn render_text(menu: &SettingsMenu) -> Vec<String> {
-    let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::Color256);
+    let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::Color256);
     menu.render(&theme, 100, &KeybindingsManager::new())
         .iter()
         .map(|line| line.iter().map(|span| span.content.as_str()).collect())
@@ -171,7 +171,7 @@ fn theme_submenu_previews_and_esc_restores() {
     assert_eq!(
         menu.handle_key("esc", &kb()),
         SettingsMenuAction::RestoreTheme {
-            name: "prime".to_string()
+            name: "async".to_string()
         }
     );
     let text = render_text(&menu);
@@ -471,7 +471,7 @@ fn switching_tabs_keeps_each_tabs_search_and_selection() {
 
 #[test]
 fn the_strip_lists_the_tabs_and_marks_the_active_one() {
-    let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::Color256);
+    let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::Color256);
     let lines = menu().render(&theme, 100, &KeybindingsManager::new());
     // The strip rides under the search field with a blank row on
     // either side (the operator's 2026-09-28 spacing pass).

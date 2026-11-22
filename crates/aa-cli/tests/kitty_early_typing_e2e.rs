@@ -27,7 +27,7 @@ use nix::fcntl::{fcntl, FcntlArg::F_SETFL, OFlag};
 use nix::pty::{openpty, Winsize};
 use serde_json::{json, Value};
 
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, InteractiveOptions, ModelSelection, SessionSelection, UiMode,
 };
 
@@ -437,7 +437,7 @@ fn child_options(socket: PathBuf) -> InteractiveOptions {
         initial_message: None,
         show_images: true,
         fullscreen_mouse: true,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -449,7 +449,7 @@ fn child_options(socket: PathBuf) -> InteractiveOptions {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -488,7 +488,7 @@ impl MockSupervisor {
             &mut writer,
             &json!({
                 "type": "daemon_hello",
-                "protocol": { "name": "prime-agent.daemon", "version": 7 },
+                "protocol": { "name": "async-agent.daemon", "version": 7 },
                 "serverCapabilities": [],
                 "clientId": "mock",
             }),
@@ -570,7 +570,7 @@ fn attach_data(id: &str) -> Value {
         "command": "attach",
         "success": true,
         "data": {
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "activeSessionId": "s1",
             "snapshot": {
                 "activeSessionId": "s1",

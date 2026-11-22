@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use pa_types::daemon::agent_roster::AgentRosterStatus;
+use aa_types::daemon::agent_roster::AgentRosterStatus;
 use serde_json::Value;
 
 use crate::agents_view_forest::session_title;
@@ -105,8 +105,8 @@ fn daemon_aliases(summary: &Value) -> Vec<String> {
     let mut aliases = Vec::new();
     if get_str(summary, "runtimeKind") == Some("subagent") && summary.get("rlmChildId").is_some() {
         // The roster entry's agentId is the parent-qualified child id (TS computes it client-side;
-        // pa-types owns the one formula).
-        let agent_id = pa_types::daemon::agent_roster::roster_agent_id_for_summary(summary);
+        // aa-types owns the one formula).
+        let agent_id = aa_types::daemon::agent_roster::roster_agent_id_for_summary(summary);
         aliases.push(format!("agent:{agent_id}"));
     }
     if let Some(file) = get_str(summary, "sessionFile") {
@@ -545,7 +545,7 @@ pub(crate) fn iso_to_unix_ms(iso: &str) -> Option<i64> {
             millis = (fraction * 1000.0) as i64;
         }
     }
-    // Days from civil (Howard Hinnant's algorithm, as in pa-daemon's util).
+    // Days from civil (Howard Hinnant's algorithm, as in aa-daemon's util).
     let years = if month <= 2 { year - 1 } else { year };
     let era = years.div_euclid(400);
     let year_of_era = years.rem_euclid(400);

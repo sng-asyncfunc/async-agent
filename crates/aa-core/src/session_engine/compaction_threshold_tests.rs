@@ -74,8 +74,8 @@ fn invalid_runtime_percentages_fall_back_without_losing_headroom() {
 async fn saved_percentage_applies_to_existing_sessions_without_changing_manual_budgets() {
     let dir = tempfile::tempdir().unwrap();
     let agent_dir = dir.path().join("agent");
-    let agent = std::sync::Arc::new(pa_agent::agent::Agent::new(
-        pa_agent::agent::AgentOptions::default(),
+    let agent = std::sync::Arc::new(aa_agent::agent::Agent::new(
+        aa_agent::agent::AgentOptions::default(),
     ));
     let mut session = super::super::AgentSession::new(
         agent,

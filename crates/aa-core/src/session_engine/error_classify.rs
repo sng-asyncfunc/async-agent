@@ -71,9 +71,9 @@ pub const ERROR_DIAGNOSTICS: &[(&str, &str)] = &[
     ),
 ];
 
-/// The fixed provider transport disclosures pa-ai emits when the turn's
+/// The fixed provider transport disclosures aa-ai emits when the turn's
 /// auto-retries exhaust (`ProviderConnectionError::message` and the
-/// AWS h2 failure texts, `crates/pa-ai/src/utils_inner/stream_failure.rs`):
+/// AWS h2 failure texts, `crates/aa-ai/src/utils_inner/stream_failure.rs`):
 /// a recognized disclosure prefix is typed evidence, unlike a bare
 /// keyword. Prefix-matched because some families append a cause
 /// (`Request timed out: <cause>`) or the SDK's wrapper
@@ -310,7 +310,7 @@ pub fn classify_error_message(message: &str) -> ErrorClassification {
         };
     }
     // 3. A fixed provider transport disclosure (prefix match): the
-    // exhausted-connection family pa-ai itself discloses, so the most
+    // exhausted-connection family aa-ai itself discloses, so the most
     // common real connection failures classify instead of reading as
     // `unknown`.
     if let Some((_, subtype)) = TRANSPORT_DISCLOSURES
@@ -447,7 +447,7 @@ mod tests {
         // (`cancelled`, never a message id that sanitize would rewrite).
         let aborted = classify("Request was aborted");
         assert_eq!(aborted.subtype, "cancelled");
-        assert!(pa_telemetry::ERROR_SUBTYPES.contains(&aborted.subtype));
+        assert!(aa_telemetry::ERROR_SUBTYPES.contains(&aborted.subtype));
         let near_miss = classify("Provider rate limit exceeded for model glm-4.6");
         assert!(near_miss.safe_message.is_none());
         assert_eq!(near_miss.classification_source, "unknown");
@@ -456,7 +456,7 @@ mod tests {
 
     #[test]
     fn stream_drop_messages_classify_as_the_stream_drop_category() {
-        // The provider's drop disclosure (pa-ai `stream_drop_failure`):
+        // The provider's drop disclosure (aa-ai `stream_drop_failure`):
         // every block detail names the same class.
         let classification = classify(
             "Provider dropped the response stream (stream_drop): the stream ended inside a thinking block before the stop signal"
@@ -472,7 +472,7 @@ mod tests {
             classification.diagnostic,
             "The provider ended the response stream without a stop signal."
         );
-        assert!(pa_telemetry::ERROR_SUBTYPES.contains(&classification.subtype));
+        assert!(aa_telemetry::ERROR_SUBTYPES.contains(&classification.subtype));
         // The empty-stream variant classifies identically.
         let empty = classify(
             "Provider dropped the response stream (stream_drop): the stream ended before any response content or stop signal"
@@ -508,7 +508,7 @@ mod tests {
 
     #[test]
     fn transport_disclosures_classify_the_exhausted_connection_family() {
-        // The fixed pa-ai disclosures (`ProviderConnectionError::message`):
+        // The fixed aa-ai disclosures (`ProviderConnectionError::message`):
         // the most common real connection failures, all typed transport.
         let cases = [
             ("Connection error.", "network_error"),

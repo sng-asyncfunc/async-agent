@@ -202,10 +202,10 @@ impl TurnRunner {
             return None;
         }
         let settings =
-            pa_core::settings::SettingsManager::create(&cwd, &self.passivation.agent_dir);
+            aa_core::settings::SettingsManager::create(&cwd, &self.passivation.agent_dir);
         let minutes = match settings.get_idle_eviction() {
-            pa_core::settings::IdleEviction::Off => return None,
-            pa_core::settings::IdleEviction::Minutes(minutes) => minutes,
+            aa_core::settings::IdleEviction::Off => return None,
+            aa_core::settings::IdleEviction::Minutes(minutes) => minutes,
         };
         let now = crate::util::now_ms();
         let idle_ms = now.saturating_sub(last_activity);
@@ -242,10 +242,10 @@ impl TurnRunner {
             return;
         }
         let settings =
-            pa_core::settings::SettingsManager::create(&cwd, &self.passivation.agent_dir);
+            aa_core::settings::SettingsManager::create(&cwd, &self.passivation.agent_dir);
         let minutes = match settings.get_idle_eviction() {
-            pa_core::settings::IdleEviction::Off => return,
-            pa_core::settings::IdleEviction::Minutes(minutes) => minutes,
+            aa_core::settings::IdleEviction::Off => return,
+            aa_core::settings::IdleEviction::Minutes(minutes) => minutes,
         };
         // The idle threshold still holds on the fresh clock.
         if crate::util::now_ms().saturating_sub(last_activity) < minutes.saturating_mul(60_000) {
@@ -457,9 +457,9 @@ impl TurnRunner {
                     EngineEvent::AssistantUpdate { message: AssistantSnapshot::Loop(message), .. }
                         if matches!(
                             &**message,
-                            pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::Assistant(
+                            aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::Assistant(
                                 assistant,
-                            )) if assistant.stop_reason == pa_agent::types::StopReason::Aborted
+                            )) if assistant.stop_reason == aa_agent::types::StopReason::Aborted
                         )
                 ) || matches!(
                     &event,
@@ -583,7 +583,7 @@ impl TurnRunner {
                                 result.insert("firstKeptEntryId".to_string(), json!(id));
                             }
                         }
-                        pa_core::session_engine::compaction_trace::trace(
+                        aa_core::session_engine::compaction_trace::trace(
                             "emit.compaction_repin",
                             &serde_json::json!({
                                 "durableEntries": durable_entries,
@@ -602,7 +602,7 @@ impl TurnRunner {
                                 }),
                             )
                         }) {
-                            eprintln!("pa-daemon: model-change persistence failed: {error:#}");
+                            eprintln!("aa-daemon: model-change persistence failed: {error:#}");
                             return false;
                         }
                     }
@@ -645,7 +645,7 @@ impl TurnRunner {
                         if let Some(store) = core.store.as_mut().filter(|_| !entry.is_null()) {
                             let persist_started = std::time::Instant::now();
                             let _ = store.persist_entry("compaction", entry.clone());
-                            pa_core::session_engine::compaction_trace::trace(
+                            aa_core::session_engine::compaction_trace::trace(
                                 "emit.compaction_persist",
                                 &serde_json::json!({
                                     "micros": persist_started.elapsed().as_micros(),
@@ -659,7 +659,7 @@ impl TurnRunner {
                             let _ = store.persist_entry(
                                 "custom",
                                 json!({
-                                    "customType": pa_core::goals::GOAL_STATE_CUSTOM_TYPE,
+                                    "customType": aa_core::goals::GOAL_STATE_CUSTOM_TYPE,
                                     "data": goal,
                                 }),
                             );
@@ -701,7 +701,7 @@ impl TurnRunner {
                         if result.is_ok() {
                             core.turn_completed = true;
                         }
-                        pa_core::session_engine::compaction_trace::trace(
+                        aa_core::session_engine::compaction_trace::trace(
                             "turn.done_emitted",
                             &serde_json::json!({
                                 "ok": matches!(result, Ok(())),
@@ -925,8 +925,8 @@ impl TurnRunner {
                             "errorMessage": error_message,
                         });
                         match reason {
-                            pa_core::session_engine::auto_retry::RetryStartReason::Quick => {}
-                            pa_core::session_engine::auto_retry::RetryStartReason::Backup {
+                            aa_core::session_engine::auto_retry::RetryStartReason::Quick => {}
+                            aa_core::session_engine::auto_retry::RetryStartReason::Backup {
                                 backup_model,
                             } => {
                                 event["reason"] = json!("backup");
@@ -962,7 +962,7 @@ impl TurnRunner {
                             .or_else(|| last_retry_error.take())
                             .unwrap_or_else(|| "Unknown error".to_string());
                         last_retry_error = None;
-                        let outcome = pa_core::session_engine::messages::
+                        let outcome = aa_core::session_engine::messages::
                             create_provider_retry_outcome_message(success, attempt, &error);
                         let outcome = crate::session_commands::custom_message_value(&outcome);
                         if outcome.is_object() {
@@ -1216,12 +1216,12 @@ impl TurnRunner {
                 // pool, never on this async task: a `blocking_lock` from the
                 // runtime thread deadlocks.
                 let refined = tokio::task::spawn_blocking(move || {
-                    pa_core::session_engine::compaction_trace::trace(
+                    aa_core::session_engine::compaction_trace::trace(
                         "autorefine.review_started",
                         &serde_json::Value::Null,
                     );
                     let outcome = engine.consume_compact_auto_refine();
-                    pa_core::session_engine::compaction_trace::trace(
+                    aa_core::session_engine::compaction_trace::trace(
                         "autorefine.review_done",
                         &serde_json::json!({ "ran": outcome.is_ok() }),
                     );
@@ -1237,22 +1237,22 @@ impl TurnRunner {
                         // applied) persist like the `/refine` command's rows, fenced on
                         // the serviced session.
                         let outcome_row =
-                            pa_core::session_engine::refine::create_refinement_outcome_message(
+                            aa_core::session_engine::refine::create_refinement_outcome_message(
                                 &result,
                             );
                         if let Ok(value) = serde_json::to_value(
-                            pa_types::session::AgentMessage::Custom(outcome_row),
+                            aa_types::session::AgentMessage::Custom(outcome_row),
                         ) {
                             emit_refinement_row(&core, &events, &review_session_id, &value);
                         }
                         if result.applied_edits.iter().any(|edit| edit.applied) {
                             let notice =
-                                pa_core::session_engine::refine::create_refinement_notice_message(
+                                aa_core::session_engine::refine::create_refinement_notice_message(
                                     &result,
-                                    pa_core::session_engine::refine::RefinementSource::Auto,
+                                    aa_core::session_engine::refine::RefinementSource::Auto,
                                 );
                             if let Ok(value) = serde_json::to_value(
-                                pa_types::session::AgentMessage::Custom(notice),
+                                aa_types::session::AgentMessage::Custom(notice),
                             ) {
                                 emit_refinement_row(&core, &events, &review_session_id, &value);
                             }
@@ -1266,7 +1266,7 @@ impl TurnRunner {
                     }
                     Ok(None) => {}
                     Err(error) => {
-                        eprintln!("pa-daemon: auto-refinement after compaction failed: {error:#}");
+                        eprintln!("aa-daemon: auto-refinement after compaction failed: {error:#}");
                         emit_refinement_event_for_session(
                             &core,
                             &events,
@@ -1336,11 +1336,11 @@ impl TurnRunner {
 /// The compaction cut budget the engine ran with: the durable boundary
 /// re-cut in the turn callback must pin the same cut.
 fn keep_recent_tokens(cwd: &str, agent_dir: &std::path::Path) -> u64 {
-    pa_core::settings::SettingsManager::create(cwd, agent_dir)
+    aa_core::settings::SettingsManager::create(cwd, agent_dir)
         .settings()
         .compaction
         .clone()
         .unwrap_or_default()
         .keep_recent_tokens
-        .unwrap_or(pa_core::session_engine::compaction::DEFAULT_KEEP_RECENT_TOKENS)
+        .unwrap_or(aa_core::session_engine::compaction::DEFAULT_KEEP_RECENT_TOKENS)
 }

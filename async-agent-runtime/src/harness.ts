@@ -95,9 +95,9 @@ function slug(raw: string, fallback: string): string {
 
 export function agentDir(): string {
 	const raw =
-		(process.env.PRIME_AGENT_CODING_AGENT_DIR ?? "").trim() ||
+		(process.env.ASYNC_AGENT_CODING_AGENT_DIR ?? "").trim() ||
 		(process.env.PI_CODING_AGENT_DIR ?? "").trim() ||
-		path.join(homedir(), ".prime", "agent");
+		path.join(homedir(), ".async-agent");
 	return path.resolve(raw.replace(/^~(?=\/|$)/, homedir()));
 }
 

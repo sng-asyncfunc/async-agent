@@ -1,10 +1,10 @@
-//! Daemon wire protocol: thin adapter over `pa_types::daemon` — this
+//! Daemon wire protocol: thin adapter over `aa_types::daemon` — this
 //! module re-exports the shared wire contract and adds the daemon-side
 //! mechanics: command-envelope parsing with the TS error strings,
 //! capability sets, event meta / replay helpers, and response
 //! constructors.
 
-pub use pa_types::daemon::{
+pub use aa_types::daemon::{
     DaemonClosingReason, DaemonCommand, DaemonCommandEnvelope as WireCommandEnvelope,
     DaemonCommandFrameType, DaemonErrorInfo, DaemonEventCursor, DaemonEventId, DaemonEventMeta,
     DaemonEventSequence, DaemonOutbound, DaemonProtocolInfo, DaemonReplayInfo, DaemonReplayStatus,
@@ -386,7 +386,7 @@ pub fn parse_supervisor_command_line(
 /// `None` when the platform has no procfs identity.
 #[must_use]
 pub fn process_start_id(pid: u32) -> Option<String> {
-    pa_types::platform::process::process_start_id(pid)
+    aa_types::platform::process::process_start_id(pid)
 }
 
 /// Build the daemon event meta (TS `createDaemonEventMeta`).
@@ -1097,7 +1097,7 @@ mod tests {
             let parsed = parse_daemon_command_line(&line).unwrap();
             assert_eq!(command_type_name(&parsed.command), kind);
             assert_eq!(command_active_session_id(&parsed.command), Some("session"));
-            assert!(pa_types::daemon::is_session_plane_daemon_command(kind));
+            assert!(aa_types::daemon::is_session_plane_daemon_command(kind));
         }
         assert!(default_server_capabilities().contains(&"kernel_bash_activity".to_string()));
     }
@@ -1159,7 +1159,7 @@ mod tests {
 
     #[test]
     fn envelope_round_trips() {
-        let line = r#"{"type":"command","id":"c1","protocol":{"name":"prime-agent.daemon","version":7},"command":{"type":"list","all":true}}"#;
+        let line = r#"{"type":"command","id":"c1","protocol":{"name":"async-agent.daemon","version":7},"command":{"type":"list","all":true}}"#;
         let envelope = parse_daemon_command_line(line).expect("envelope parses");
         assert_eq!(envelope.id, "c1");
         assert!(matches!(envelope.command, DaemonCommand::List { .. }));
@@ -1173,23 +1173,23 @@ mod tests {
                 "Daemon commands require protocol 7 or newer",
             ),
             (
-                r#"{"type":"command","protocol":{"name":"prime-agent.daemon","version":7},"command":{"type":"list"}}"#,
+                r#"{"type":"command","protocol":{"name":"async-agent.daemon","version":7},"command":{"type":"list"}}"#,
                 "Invalid daemon command: command envelope is missing id",
             ),
             (
-                r#"{"type":"command","id":"x","protocol":{"name":"prime-agent.daemon","version":7},"clientId":42,"command":{"type":"list"}}"#,
+                r#"{"type":"command","id":"x","protocol":{"name":"async-agent.daemon","version":7},"clientId":42,"command":{"type":"list"}}"#,
                 "Invalid daemon command: clientId must be a string",
             ),
             (
-                r#"{"type":"command","id":"x","protocol":{"name":"prime-agent.daemon","version":7}}"#,
+                r#"{"type":"command","id":"x","protocol":{"name":"async-agent.daemon","version":7}}"#,
                 "Invalid daemon command: command envelope is missing command",
             ),
             (
-                r#"{"type":"command","id":"x","protocol":{"name":"prime-agent.daemon","version":7},"command":{"type":"not-real"}}"#,
+                r#"{"type":"command","id":"x","protocol":{"name":"async-agent.daemon","version":7},"command":{"type":"not-real"}}"#,
                 "Unknown daemon command: not-real",
             ),
             (
-                r#"{"type":"command","id":"x","protocol":{"name":"prime-agent.daemon","version":7},"command":{"type":"prompt"}}"#,
+                r#"{"type":"command","id":"x","protocol":{"name":"async-agent.daemon","version":7},"command":{"type":"prompt"}}"#,
                 "Invalid daemon command: malformed prompt command",
             ),
         ];
@@ -1200,7 +1200,7 @@ mod tests {
             );
         }
         let command = json!({"type":"prompt", "activeSessionId":"s", "message":"hello", "content":{"blocks":[{"text":"nested"}]}});
-        let line = json!({"type":"command", "id":"x", "clientId":"client", "protocol":{"name":"prime-agent.daemon","version":7}, "command":command}).to_string();
+        let line = json!({"type":"command", "id":"x", "clientId":"client", "protocol":{"name":"async-agent.daemon","version":7}, "command":command}).to_string();
         let parsed = parse_supervisor_command_line(&line).unwrap();
         assert_eq!(parsed.id, "x");
         assert_eq!(parsed.client_id.as_deref(), Some("client"));
@@ -1209,14 +1209,14 @@ mod tests {
 
     #[test]
     fn unknown_command_is_preserved() {
-        let line = r#"{"type":"command","id":"c2","protocol":{"name":"prime-agent.daemon","version":7},"command":{"type":"bogus_command","activeSessionId":"x"}}"#;
+        let line = r#"{"type":"command","id":"c2","protocol":{"name":"async-agent.daemon","version":7},"command":{"type":"bogus_command","activeSessionId":"x"}}"#;
         let err = parse_daemon_command_line(line).unwrap_err();
         assert_eq!(err.to_string(), "Unknown daemon command: bogus_command");
     }
 
     #[test]
     fn old_protocol_is_rejected() {
-        let line = r#"{"type":"command","id":"c3","protocol":{"name":"prime-agent.daemon","version":6},"command":{"type":"list"}}"#;
+        let line = r#"{"type":"command","id":"c3","protocol":{"name":"async-agent.daemon","version":6},"command":{"type":"list"}}"#;
         let err = parse_daemon_command_line(line).unwrap_err();
         assert!(err.to_string().contains("protocol 7 or newer"));
     }

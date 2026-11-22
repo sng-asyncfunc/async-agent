@@ -2,7 +2,7 @@
 //! configured npm command (`settings.npmCommand`, default `npm`), install
 //! root/path layout per scope, and the project-root bootstrap files:
 //! user-scope installs go through `npm install -g` and `npm root -g`,
-//! project-scope into `<cwd>/.prime/agent/npm/node_modules` via `--prefix`.
+//! project-scope into `<cwd>/.async-agent/npm/node_modules` via `--prefix`.
 
 use std::path::{Path, PathBuf};
 
@@ -199,7 +199,7 @@ mod tests {
         );
         assert_eq!(
             npm_install_path(&source, SourceScope::Project, cwd, global_root),
-            PathBuf::from("/work/.prime/agent/npm/node_modules/pkg")
+            PathBuf::from("/work/.async-agent/npm/node_modules/pkg")
         );
         assert_eq!(
             npm_install_root(SourceScope::User, cwd, global_root),

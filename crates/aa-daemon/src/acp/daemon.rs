@@ -24,7 +24,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use pa_types::daemon::{
+use aa_types::daemon::{
     DaemonCommand, DaemonCommandEnvelope, DaemonCommandFrameType, DaemonProtocolInfo,
     DaemonResponse, DaemonSessionLifecycle, DAEMON_PROTOCOL_NAME, DAEMON_PROTOCOL_VERSION,
 };
@@ -33,7 +33,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 use super::jsonrpc::{self, Incoming};
-use super::meta::{self, PrimeAgentEventPhase, PrimeAgentOutcome, PrimeAgentSessionMeta};
+use super::meta::{self, AsyncAgentEventPhase, AsyncAgentOutcome, AsyncAgentSessionMeta};
 use super::producer::{self, UpdateProducer};
 use super::types;
 use super::wire_config::{
@@ -71,7 +71,7 @@ impl DaemonLink {
     async fn connect(socket_path: &Path) -> anyhow::Result<Self> {
         let stream = tokio::time::timeout(
             std::time::Duration::from_secs(3),
-            pa_types::platform::transport::connect_transport(socket_path),
+            aa_types::platform::transport::connect_transport(socket_path),
         )
         .await
         .map_err(|_| anyhow::anyhow!("timed out connecting to the daemon socket"))??;
@@ -252,7 +252,7 @@ pub struct DaemonAcpOptions {
 #[derive(Clone, Default)]
 pub(crate) struct DaemonBinding {
     pub(crate) active_session_id: String,
-    /// The durable prime-agent session id, which is also the ACP session id.
+    /// The durable async-agent session id, which is also the ACP session id.
     pub(crate) session_id: String,
     /// The session's working directory: MCP stdio servers start in it and
     /// the cwd-mismatch meta reports it.
@@ -282,7 +282,7 @@ pub(crate) struct HostedSession {
     /// cleared when a prompt turn is admitted so a turn never reads a
     /// previous turn's stop reason (read after the settlement for the
     /// stop-reason response).
-    assistant_stop_reason: Option<pa_types::ai::StopReason>,
+    assistant_stop_reason: Option<aa_types::ai::StopReason>,
     /// The event mapping state lives and dies with the session, like TS.
     mapping: WireMappingState,
     observed_children: std::collections::HashSet<String>,
@@ -379,7 +379,7 @@ pub async fn run_daemon_attached_acp_mode(options: DaemonAcpOptions) -> anyhow::
                             for update in wire_events::wire_updates(&event, &mut current.mapping) {
                                 let _ = current
                                     .producer
-                                    .publish(&update, turn_id, PrimeAgentEventPhase::Event, None)
+                                    .publish(&update, turn_id, AsyncAgentEventPhase::Event, None)
                                     .await;
                             }
                             if matches!(
@@ -426,13 +426,13 @@ pub async fn run_daemon_attached_acp_mode(options: DaemonAcpOptions) -> anyhow::
                                 .producer
                                 .publish(
                                     &types::AcpSessionUpdate::SessionInfoUpdate {
-                                        meta: meta::prime_agent_meta(&PrimeAgentSessionMeta {
+                                        meta: meta::async_agent_meta(&AsyncAgentSessionMeta {
                                             heartbeats_changed: Some(true),
                                             ..Default::default()
                                         }),
                                     },
                                     0,
-                                    PrimeAgentEventPhase::Event,
+                                    AsyncAgentEventPhase::Event,
                                     None,
                                 )
                                 .await;
@@ -1123,7 +1123,7 @@ pub(crate) async fn reserve_session_slot(
     {
         let _ = tx.send(super::internal_error(
             id,
-            "prime-agent ACP mode hosts one session per connection; start another prime-agent process for a second session",
+            "async-agent ACP mode hosts one session per connection; start another async-agent process for a second session",
         ));
         return false;
     }
@@ -1212,7 +1212,7 @@ pub(crate) async fn admit_session(
         if !resolved.is_empty() {
             state.lock().await.mcp_server_names = resolved
                 .iter()
-                .map(pa_core::mcp::AcpMcpServerConfig::name)
+                .map(aa_core::mcp::AcpMcpServerConfig::name)
                 .map(str::to_string)
                 .collect();
         }
@@ -1249,8 +1249,8 @@ pub(crate) async fn admit_session(
     if let Some(requested) = params.cwd.as_deref().filter(|cwd| !cwd.is_empty()) {
         let actual = binding.cwd.display().to_string();
         if !super::same_cwd(Path::new(requested), &binding.cwd) {
-            result["_meta"] = meta::prime_agent_meta(&PrimeAgentSessionMeta {
-                cwd: Some(meta::PrimeAgentCwdMeta {
+            result["_meta"] = meta::async_agent_meta(&AsyncAgentSessionMeta {
+                cwd: Some(meta::AsyncAgentCwdMeta {
                     requested: requested.to_string(),
                     actual,
                 }),
@@ -1265,7 +1265,7 @@ pub(crate) async fn admit_session(
     ) {
         let _ = hosted
             .producer
-            .publish(&update, 0, PrimeAgentEventPhase::Event, None)
+            .publish(&update, 0, AsyncAgentEventPhase::Event, None)
             .await;
     }
     // Install the hosted session before the admission response leaves
@@ -1325,7 +1325,7 @@ pub(crate) async fn admit_session(
                 for update in wire_events::wire_updates(&event, &mut current.mapping) {
                     let _ = current
                         .producer
-                        .publish(&update, 0, PrimeAgentEventPhase::Event, None)
+                        .publish(&update, 0, AsyncAgentEventPhase::Event, None)
                         .await;
                 }
             }
@@ -1432,7 +1432,7 @@ pub(crate) fn resolve_session_mcp_servers(
     id: &Value,
     servers: &[Value],
     cwd: &Path,
-) -> Result<Vec<pa_core::mcp::AcpMcpServerConfig>, Value> {
+) -> Result<Vec<aa_core::mcp::AcpMcpServerConfig>, Value> {
     let resolved = super::mcp::resolve_acp_mcp_servers(servers, cwd).map_err(|reason| {
         jsonrpc::error_response(
             id,
@@ -1450,7 +1450,7 @@ async fn replace_connection_servers(
     link: &Arc<DaemonLink>,
     daemon_session_id: &str,
     owner_id: &str,
-    resolved: &[pa_core::mcp::AcpMcpServerConfig],
+    resolved: &[aa_core::mcp::AcpMcpServerConfig],
 ) -> anyhow::Result<()> {
     link.request_ok(DaemonCommand::ReplaceAcpMcpServers {
         id: None,
@@ -1580,7 +1580,7 @@ async fn prompt_turn(
         id: None,
         active_session_id: hosted_daemon_session_id.clone(),
         message: admitted.text,
-        input: pa_types::daemon::PromptInput {
+        input: aa_types::daemon::PromptInput {
             content: None,
             // The image blocks ride the wire form `parse_prompt_images`
             // reads (`{type, data, mimeType}`); TS forwards `images`
@@ -1596,7 +1596,7 @@ async fn prompt_turn(
             // prompt (acp-mode.ts): a prompt carrying a streaming
             // behavior is the worker's resume site for the post-abort
             // queued-input suspension, so a prompt after a Stop runs.
-            streaming_behavior: Some(pa_types::daemon::StreamingBehavior::FollowUp),
+            streaming_behavior: Some(aa_types::daemon::StreamingBehavior::FollowUp),
             queue_if_busy: Some(true),
             expand_prompt_templates: None,
             source: None,
@@ -1642,7 +1642,7 @@ async fn prompt_turn(
         // The failure text rides the internal_error reply, where a test
         // asserting only the stop reason loses it: echo it to stderr so
         // every harness's child-stderr dump shows WHY the turn failed.
-        eprintln!("pa-daemon: acp turn failed: {failure}");
+        eprintln!("aa-daemon: acp turn failed: {failure}");
         publish_error_boundary(&producer, turn_id).await;
         producer.finish_prompt(turn_id).await;
         // The worker's failure text classifies into the #200 host
@@ -1651,7 +1651,7 @@ async fn prompt_turn(
         return super::turn_failure_error(
             &id,
             &failure,
-            &format!("prime-agent turn failed: {failure}"),
+            &format!("async-agent turn failed: {failure}"),
         );
     }
     // The autonomous accounting for the completion envelope: the daemon's
@@ -1692,7 +1692,7 @@ async fn prompt_turn(
     // The boundary, completion, and terminal quiescence frames match the
     // TS captures.
     let boundary = types::AcpSessionUpdate::SessionInfoUpdate {
-        meta: meta::prime_agent_meta(&PrimeAgentSessionMeta {
+        meta: meta::async_agent_meta(&AsyncAgentSessionMeta {
             terminal_quiescence_expected: Some(true),
             ..Default::default()
         }),
@@ -1701,15 +1701,15 @@ async fn prompt_turn(
         .publish(
             &boundary,
             turn_id,
-            PrimeAgentEventPhase::ResponseBoundary,
-            Some(PrimeAgentOutcome::Result),
+            AsyncAgentEventPhase::ResponseBoundary,
+            Some(AsyncAgentOutcome::Result),
         )
         .await;
     // The completion envelope: the turn's own observation, with the
     // live outstanding-subagent count the settle loop then waits down to
     // zero.
     let quiescence = types::AcpSessionUpdate::SessionInfoUpdate {
-        meta: meta::prime_agent_meta(&PrimeAgentSessionMeta {
+        meta: meta::async_agent_meta(&AsyncAgentSessionMeta {
             autonomous: autonomous_meta,
             quiescence: Some(quiescence_meta(
                 autonomous_status.as_ref(),
@@ -1720,7 +1720,7 @@ async fn prompt_turn(
         }),
     };
     let completion_published = producer
-        .publish(&quiescence, turn_id, PrimeAgentEventPhase::Event, None)
+        .publish(&quiescence, turn_id, AsyncAgentEventPhase::Event, None)
         .await;
     // The settlement loop (TS `finalizePendingTerminal`): the barrier is
     // the event, no timer, and the roster re-read is the response-cut
@@ -1768,7 +1768,7 @@ async fn prompt_turn(
         // with this turn; later events resume turn 0.
         producer.finish_prompt(turn_id).await;
         let terminal = types::AcpSessionUpdate::SessionInfoUpdate {
-            meta: meta::prime_agent_meta(&PrimeAgentSessionMeta {
+            meta: meta::async_agent_meta(&AsyncAgentSessionMeta {
                 autonomous: status.enabled.then(|| meta::autonomous_meta(&status)),
                 quiescence: Some(terminal_quiescence),
                 ..Default::default()
@@ -1778,8 +1778,8 @@ async fn prompt_turn(
             .publish(
                 &terminal,
                 turn_id,
-                PrimeAgentEventPhase::TerminalQuiescence,
-                Some(PrimeAgentOutcome::Result),
+                AsyncAgentEventPhase::TerminalQuiescence,
+                Some(AsyncAgentOutcome::Result),
             )
             .await;
         if !published || !completion_published || !terminal_published {
@@ -1823,7 +1823,7 @@ async fn prompt_turn(
 /// `terminalQuiescenceExpected: false`).
 async fn publish_error_boundary(producer: &Arc<UpdateProducer>, turn_id: u64) {
     let boundary = types::AcpSessionUpdate::SessionInfoUpdate {
-        meta: meta::prime_agent_meta(&PrimeAgentSessionMeta {
+        meta: meta::async_agent_meta(&AsyncAgentSessionMeta {
             terminal_quiescence_expected: Some(false),
             ..Default::default()
         }),
@@ -1832,8 +1832,8 @@ async fn publish_error_boundary(producer: &Arc<UpdateProducer>, turn_id: u64) {
         .publish(
             &boundary,
             turn_id,
-            PrimeAgentEventPhase::ResponseBoundary,
-            Some(PrimeAgentOutcome::Error),
+            AsyncAgentEventPhase::ResponseBoundary,
+            Some(AsyncAgentOutcome::Error),
         )
         .await;
 }
@@ -1856,7 +1856,7 @@ async fn fetch_autonomous_status(
     link: &Arc<DaemonLink>,
     active_session_id: &str,
     wait_for_rlm_quiescence: bool,
-) -> anyhow::Result<(pa_core::autonomous::AgentAutonomousStatus, u64)> {
+) -> anyhow::Result<(aa_core::autonomous::AgentAutonomousStatus, u64)> {
     let response = link
         .request_until_close(DaemonCommand::WaitForHeadlessCompletion {
             id: None,
@@ -1930,11 +1930,11 @@ fn outstanding_subagents(children: &[Value]) -> u64 {
 /// remaining continuation slots, and the bash lane's outstanding jobs,
 /// observed together at one completion point.
 fn quiescence_meta(
-    status: Option<&pa_core::autonomous::AgentAutonomousStatus>,
+    status: Option<&aa_core::autonomous::AgentAutonomousStatus>,
     children: &[Value],
     outstanding_background_jobs: u64,
-) -> meta::PrimeAgentQuiescenceMeta {
-    meta::PrimeAgentQuiescenceMeta {
+) -> meta::AsyncAgentQuiescenceMeta {
+    meta::AsyncAgentQuiescenceMeta {
         outstanding_subagents: outstanding_subagents(children),
         remaining_autonomous_continuations: status.filter(|status| status.enabled).map_or(
             0,

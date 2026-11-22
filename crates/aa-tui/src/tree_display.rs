@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use crate::theme::{Theme, ThemeColor};
 use crate::Line;
-use pa_types::session::{AgentMessage, FileEntry};
+use aa_types::session::{AgentMessage, FileEntry};
 use serde_json::Value;
 
 use crate::tree_nodes::TreeNodeData;
@@ -29,7 +29,7 @@ pub fn collect_tool_calls(entries: &[TreeNodeData]) -> HashMap<String, ToolCallI
         } = &node.entry
         {
             for block in &assistant.content {
-                if let pa_types::ai::AssistantContentBlock::ToolCall(call) = block {
+                if let aa_types::ai::AssistantContentBlock::ToolCall(call) = block {
                     calls.insert(
                         call.id.clone(),
                         ToolCallInfo {
@@ -50,13 +50,13 @@ fn normalize(s: &str) -> String {
 }
 
 /// Text content of a message, capped (TS `extractContent`, 200 chars).
-fn extract_content(content: &pa_types::ai::UserContent) -> String {
+fn extract_content(content: &aa_types::ai::UserContent) -> String {
     let text = match content {
-        pa_types::ai::UserContent::Text(text) => text.clone(),
-        pa_types::ai::UserContent::Blocks(blocks) => blocks
+        aa_types::ai::UserContent::Text(text) => text.clone(),
+        aa_types::ai::UserContent::Blocks(blocks) => blocks
             .iter()
             .filter_map(|block| match block {
-                pa_types::ai::UserContentBlock::Text(text) => Some(text.text.clone()),
+                aa_types::ai::UserContentBlock::Text(text) => Some(text.text.clone()),
                 _ => None,
             })
             .collect(),
@@ -66,12 +66,12 @@ fn extract_content(content: &pa_types::ai::UserContent) -> String {
 
 /// Assistant text content (TS `hasTextContent`/`extractContent` pair).
 #[must_use]
-pub fn assistant_text(message: &pa_types::ai::AssistantMessage) -> String {
+pub fn assistant_text(message: &aa_types::ai::AssistantMessage) -> String {
     message
         .content
         .iter()
         .filter_map(|block| match block {
-            pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+            aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
             _ => None,
         })
         .collect::<String>()
@@ -79,7 +79,7 @@ pub fn assistant_text(message: &pa_types::ai::AssistantMessage) -> String {
 
 /// Whether an assistant message carries text (the default filter keeps it).
 #[must_use]
-pub fn assistant_has_text(message: &pa_types::ai::AssistantMessage) -> bool {
+pub fn assistant_has_text(message: &aa_types::ai::AssistantMessage) -> bool {
     !assistant_text(message).trim().is_empty()
 }
 
@@ -92,11 +92,11 @@ pub fn user_entry_text(entry: &FileEntry) -> Option<String> {
             ..
         } => {
             let text = match &user.content {
-                pa_types::ai::UserContent::Text(text) => text.clone(),
-                pa_types::ai::UserContent::Blocks(blocks) => blocks
+                aa_types::ai::UserContent::Text(text) => text.clone(),
+                aa_types::ai::UserContent::Blocks(blocks) => blocks
                     .iter()
                     .filter_map(|block| match block {
-                        pa_types::ai::UserContentBlock::Text(text) => Some(text.text.clone()),
+                        aa_types::ai::UserContentBlock::Text(text) => Some(text.text.clone()),
                         _ => None,
                     })
                     .collect::<String>(),
@@ -141,7 +141,7 @@ fn format_tool_call(theme: &Theme, name: &str, arguments: &Value) -> Line {
     let text = match name {
         "edit" => format!("[edit: {}]", shorten_path(&arg("path"))),
         "bash" => format!("[bash: {}]", shorten(&arg("command"))),
-        js_name if pa_types::ai::is_javascript_tool_name(js_name) => {
+        js_name if aa_types::ai::is_javascript_tool_name(js_name) => {
             format!("[{js_name}: {}]", shorten(&arg("code")))
         }
         _ => {
@@ -179,7 +179,7 @@ pub fn entry_display_text<S: std::hash::BuildHasher + Default>(
                         color(ThemeColor::Success, "assistant: ".to_string()),
                         plain(text),
                     ]
-                } else if assistant.stop_reason == pa_types::ai::StopReason::Aborted {
+                } else if assistant.stop_reason == aa_types::ai::StopReason::Aborted {
                     vec![
                         color(ThemeColor::Success, "assistant: ".to_string()),
                         color(ThemeColor::Muted, "(aborted)".to_string()),
@@ -317,13 +317,13 @@ pub fn entry_display_text<S: std::hash::BuildHasher + Default>(
     spans
 }
 
-fn tier_name(tier: pa_types::ai::ServiceTier) -> &'static str {
+fn tier_name(tier: aa_types::ai::ServiceTier) -> &'static str {
     match tier {
-        pa_types::ai::ServiceTier::Auto => "auto",
-        pa_types::ai::ServiceTier::Default => "default",
-        pa_types::ai::ServiceTier::Flex => "flex",
-        pa_types::ai::ServiceTier::Scale => "scale",
-        pa_types::ai::ServiceTier::Priority => "priority",
+        aa_types::ai::ServiceTier::Auto => "auto",
+        aa_types::ai::ServiceTier::Default => "default",
+        aa_types::ai::ServiceTier::Flex => "flex",
+        aa_types::ai::ServiceTier::Scale => "scale",
+        aa_types::ai::ServiceTier::Priority => "priority",
     }
 }
 

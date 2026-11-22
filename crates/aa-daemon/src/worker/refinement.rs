@@ -32,7 +32,7 @@ pub(super) fn completion_sink(
                 Ok(committed) => {
                     for row in committed.rows {
                         if let Ok(value) =
-                            serde_json::to_value(pa_types::session::AgentMessage::Custom(row))
+                            serde_json::to_value(aa_types::session::AgentMessage::Custom(row))
                         {
                             emit_refinement_row_for_generation(
                                 &core,

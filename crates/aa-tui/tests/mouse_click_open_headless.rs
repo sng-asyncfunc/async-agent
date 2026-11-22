@@ -20,7 +20,7 @@ fn run_lock() -> MutexGuard<'static, ()> {
     }
 }
 
-use pa_tui::interactive::{run_interactive, HeadlessPlan, HeadlessStep, UiMode};
+use aa_tui::interactive::{run_interactive, HeadlessPlan, HeadlessStep, UiMode};
 use serde_json::{json, Value};
 
 use support::{
@@ -89,7 +89,7 @@ fn run_plan(steps: Vec<HeadlessStep>) -> (Vec<String>, Vec<String>, Vec<String>)
     let _guard = run_lock();
     // A hyperlink-capable terminal: the link's label carries its OSC 8 target, exactly the row the
     // click dispatch resolves.
-    pa_tui::hyperlinks::set_hyperlinks_override(Some(true));
+    aa_tui::hyperlinks::set_hyperlinks_override(Some(true));
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("tui.sock");
     let supervisor = MockSupervisor::bind(&socket);
@@ -107,7 +107,7 @@ fn run_plan(steps: Vec<HeadlessStep>) -> (Vec<String>, Vec<String>, Vec<String>)
     let outcome = runtime
         .block_on(run_interactive(options(socket), UiMode::Headless(plan)))
         .expect("interactive run");
-    pa_tui::hyperlinks::set_hyperlinks_override(None);
+    aa_tui::hyperlinks::set_hyperlinks_override(None);
     let _ = handle.join();
     (outcome.frames, outcome.opened_urls, outcome.copies)
 }

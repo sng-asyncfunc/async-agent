@@ -98,7 +98,7 @@ async fn monitor(worker: Arc<Worker>) {
 /// destructors, so an undisposed kernel would be orphaned here.
 async fn exit_orphaned(worker: &Worker, absent_since: tokio::time::Instant) {
     eprintln!(
-        "pa-daemon worker: supervisor {} unreachable for {}s; exiting orphaned worker",
+        "aa-daemon worker: supervisor {} unreachable for {}s; exiting orphaned worker",
         worker.config.supervisor_socket_path.display(),
         absent_since.elapsed().as_secs()
     );

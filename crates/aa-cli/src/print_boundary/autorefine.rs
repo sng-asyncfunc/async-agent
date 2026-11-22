@@ -27,7 +27,7 @@ impl TurnBoundary {
     pub(crate) fn report_background_refinement(
         &mut self,
         pending: tokio::task::JoinHandle<
-            anyhow::Result<pa_core::session_engine::refine::CommittedRefinement>,
+            anyhow::Result<aa_core::session_engine::refine::CommittedRefinement>,
         >,
         fails_run: bool,
     ) {
@@ -50,7 +50,7 @@ impl TurnBoundary {
     fn report_optional_refinement(
         &mut self,
         pending: tokio::task::JoinHandle<
-            anyhow::Result<Option<pa_core::session_engine::refine::CommittedRefinement>>,
+            anyhow::Result<Option<aa_core::session_engine::refine::CommittedRefinement>>,
         >,
         emit: bool,
         fails_run: bool,
@@ -83,7 +83,7 @@ impl TurnBoundary {
                 Err(error) if json_mode => {
                     sink(&json!({ "type": "refine_failed", "error": format!("{error:#}") }));
                 }
-                Err(error) => eprintln!("pa-cli: refinement failed: {error:#}"),
+                Err(error) => eprintln!("aa-cli: refinement failed: {error:#}"),
             }
         }));
     }
@@ -107,11 +107,11 @@ impl TurnBoundary {
             .filter(|entry| {
                 matches!(
                     entry,
-                    pa_types::session::FileEntry::Message {
+                    aa_types::session::FileEntry::Message {
                         message: SessionAgentMessage::Assistant(assistant),
                         ..
-                    } if assistant.stop_reason != pa_types::ai::StopReason::Error
-                        && assistant.stop_reason != pa_types::ai::StopReason::Aborted
+                    } if assistant.stop_reason != aa_types::ai::StopReason::Error
+                        && assistant.stop_reason != aa_types::ai::StopReason::Aborted
                 )
             })
             .count();

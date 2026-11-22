@@ -59,7 +59,7 @@ class WorkflowPresenceTests(unittest.TestCase):
 class NotificationTests(unittest.TestCase):
     def setUp(self):
         environment = patch.dict(
-            "os.environ", {"PRIME_SLACK_USER_ID": TEST_PRIME_USER_ID}
+            "os.environ", {"ASYNC_AGENT_SLACK_USER_ID": TEST_PRIME_USER_ID}
         )
         environment.start()
         self.addCleanup(environment.stop)
@@ -346,7 +346,7 @@ class NotificationTests(unittest.TestCase):
         self.assertIn("untrusted evidence", payload["text"])
         self.assertEqual(
             payload["attachments"][0]["title_link"],
-            "https://github.com/PrimeIntellect-ai/prime-agent/discussions/1",
+            "https://github.com/sng-asyncfunc/async-agent/discussions/1",
         )
         self.assertNotIn("thread_ts", payload)
         self.assertFalse(payload["unfurl_links"])
@@ -370,18 +370,18 @@ class NotificationTests(unittest.TestCase):
         for value in ["", "prime", "<!channel>", "UPRIME123> <@UOTHER", "U123\n"]:
             with (
                 self.subTest(value=value),
-                patch.dict("os.environ", {"PRIME_SLACK_USER_ID": value}),
+                patch.dict("os.environ", {"ASYNC_AGENT_SLACK_USER_ID": value}),
             ):
-                with self.assertRaisesRegex(RuntimeError, "PRIME_SLACK_USER_ID"):
+                with self.assertRaisesRegex(RuntimeError, "ASYNC_AGENT_SLACK_USER_ID"):
                     notify.slack_payload(report(1))
 
     def test_missing_bot_configuration_does_not_reserve_discussions(self):
         with (
-            patch.dict("os.environ", {"PRIME_SLACK_USER_ID": ""}),
+            patch.dict("os.environ", {"ASYNC_AGENT_SLACK_USER_ID": ""}),
             patch.object(notify, "webhook_path", return_value="/services/test"),
             patch.object(notify, "restore_state") as restore,
         ):
-            with self.assertRaisesRegex(RuntimeError, "PRIME_SLACK_USER_ID"):
+            with self.assertRaisesRegex(RuntimeError, "ASYNC_AGENT_SLACK_USER_ID"):
                 notify.plan(Path("unused"), dry_run=False)
         restore.assert_not_called()
 
@@ -479,7 +479,7 @@ class NotificationTests(unittest.TestCase):
             {"event": "pull_request"},
             {"event": "pull_request_target"},
             {"path": ".github/workflows/other.yml"},
-            {"head_repository": {"full_name": "contributor/prime-agent"}},
+            {"head_repository": {"full_name": "contributor/async-agent"}},
             {"head_branch": "feature/test"},
         ]:
             with (

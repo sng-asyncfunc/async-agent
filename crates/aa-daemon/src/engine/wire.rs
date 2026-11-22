@@ -9,7 +9,7 @@ pub struct PromptRequest {
     pub message: String,
     /// Images attached to the prompt (base64 payload plus mime type),
     /// admitted as multimodal content after the text block.
-    pub images: Vec<pa_agent::types::ImageContent>,
+    pub images: Vec<aa_agent::types::ImageContent>,
     pub source: String,
     pub agent_message_id: Option<String>,
     /// An injected custom row (wire `role: "custom"`) that replaces the
@@ -26,7 +26,7 @@ pub struct PromptRequest {
 #[derive(Debug, Clone)]
 pub struct PromptBatchRow {
     pub text: String,
-    pub images: Vec<pa_agent::types::ImageContent>,
+    pub images: Vec<aa_agent::types::ImageContent>,
 }
 
 /// The saved session context read off a session's already-loaded entries:
@@ -35,7 +35,7 @@ pub struct PromptBatchRow {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SavedSessionContext {
     pub(crate) model: Option<(String, String)>,
-    pub(crate) thinking: Option<pa_types::ai::ModelThinkingLevel>,
+    pub(crate) thinking: Option<aa_types::ai::ModelThinkingLevel>,
 }
 
 /// Explicit model selection from a session's create config (the wire
@@ -48,7 +48,7 @@ pub struct EngineModelSelection {
     pub api_key: Option<String>,
     /// The requested thinking level (`--thinking` on the wire). The engine
     /// resolves the effective level against the model's supported levels.
-    pub thinking: Option<pa_types::ai::ModelThinkingLevel>,
+    pub thinking: Option<aa_types::ai::ModelThinkingLevel>,
 }
 
 /// Events an engine emits for one prompt, in order. The worker translates these
@@ -58,7 +58,7 @@ pub struct EngineModelSelection {
 pub enum EngineEvent {
     /// A session model transition: the worker owns the durable `model_change`
     /// row; this internal event adds no client-facing protocol frame.
-    ModelChange(pa_types::session::ModelChangeEntry),
+    ModelChange(aa_types::session::ModelChangeEntry),
     /// The user message that was accepted (recorded into the session store).
     UserMessage(Value),
     /// An assistant message update (streaming): the loop's shared
@@ -151,7 +151,7 @@ pub enum EngineEvent {
         max_attempts: u32,
         delay_ms: u64,
         error_message: String,
-        reason: pa_core::session_engine::auto_retry::RetryStartReason,
+        reason: aa_core::session_engine::auto_retry::RetryStartReason,
     },
     /// `auto_retry_end`: the retry loop settled. `restored_model` is the
     /// `"provider/model-id"` primary restored after a failover switch.
@@ -175,7 +175,7 @@ pub enum EngineEvent {
 #[derive(Debug, Clone, PartialEq)]
 pub enum AssistantSnapshot {
     Wire(Value),
-    Loop(Arc<pa_agent::types::AgentMessage>),
+    Loop(Arc<aa_agent::types::AgentMessage>),
 }
 
 impl AssistantSnapshot {
@@ -187,22 +187,22 @@ impl AssistantSnapshot {
     }
 }
 
-/// Serialize a pa-agent message through the session wire shape (adds `role`).
-pub(crate) fn session_wire_value(agent_message: &pa_agent::types::AgentMessage) -> Option<Value> {
-    use pa_agent::types::Message as LoopMessage;
+/// Serialize a aa-agent message through the session wire shape (adds `role`).
+pub(crate) fn session_wire_value(agent_message: &aa_agent::types::AgentMessage) -> Option<Value> {
+    use aa_agent::types::Message as LoopMessage;
     let session_message = match agent_message {
-        pa_agent::types::AgentMessage::Standard(LoopMessage::User(user)) => {
-            pa_types::session::AgentMessage::User(json_round_trip(user)?)
+        aa_agent::types::AgentMessage::Standard(LoopMessage::User(user)) => {
+            aa_types::session::AgentMessage::User(json_round_trip(user)?)
         }
-        pa_agent::types::AgentMessage::Standard(LoopMessage::Assistant(assistant)) => {
-            pa_types::session::AgentMessage::Assistant(json_round_trip(assistant)?)
+        aa_agent::types::AgentMessage::Standard(LoopMessage::Assistant(assistant)) => {
+            aa_types::session::AgentMessage::Assistant(json_round_trip(assistant)?)
         }
-        pa_agent::types::AgentMessage::Standard(LoopMessage::ToolResult(tool_result)) => {
-            pa_types::session::AgentMessage::ToolResult(json_round_trip(tool_result)?)
+        aa_agent::types::AgentMessage::Standard(LoopMessage::ToolResult(tool_result)) => {
+            aa_types::session::AgentMessage::ToolResult(json_round_trip(tool_result)?)
         }
         // A custom row: the payload is the session-shape custom message and
         // the wire form is the tagged session message (payload plus role).
-        pa_agent::types::AgentMessage::Custom(custom) => {
+        aa_agent::types::AgentMessage::Custom(custom) => {
             let mut value = custom.payload.clone();
             let object = value.as_object_mut()?;
             object
@@ -244,10 +244,10 @@ pub enum GoalTurnEndWork {
 /// held suspension owns the next turn boundary, so the goal mint defers.
 pub type SessionInputProbe = std::sync::Arc<dyn Fn() -> bool + Send + Sync>;
 
-// The kernel-notice plumbing lives in pa-core
+// The kernel-notice plumbing lives in aa-core
 // (`session_engine::bash_notices`); the re-export keeps the
 // `crate::engine::*` paths the worker's queue lanes compile against.
-pub use pa_core::session_engine::bash_notices::{
+pub use aa_core::session_engine::bash_notices::{
     BashConsumedNotice, BashConsumedSink, KernelNotice, KernelNoticeSink,
 };
 
@@ -353,7 +353,7 @@ pub enum CompactionOutcome {
 /// summarizer guidance from the client.
 #[derive(Debug, Clone)]
 pub struct BranchSummaryRequest {
-    pub entries: Vec<pa_types::session::FileEntry>,
+    pub entries: Vec<aa_types::session::FileEntry>,
     pub custom_instructions: Option<String>,
     /// Replace the default prompt instead of appending the custom focus.
     pub replace_instructions: bool,

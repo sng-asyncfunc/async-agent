@@ -46,7 +46,7 @@ struct CaptureJob {
     dir: PathBuf,
     keep: usize,
     payload: Value,
-    model: pa_agent::types::Model,
+    model: aa_agent::types::Model,
     session_id: Option<String>,
     request_seq: u64,
     now_ms: u128,
@@ -86,7 +86,7 @@ impl CaptureWriter {
         &self,
         capture: &RequestPayloadCapture,
         payload: &Value,
-        model: &pa_agent::types::Model,
+        model: &aa_agent::types::Model,
         session_id: Option<&str>,
         request_seq: u64,
     ) {
@@ -229,7 +229,7 @@ impl RequestPayloadCapture {
     pub(crate) fn record(
         &self,
         payload: &Value,
-        model: &pa_agent::types::Model,
+        model: &aa_agent::types::Model,
         session_id: Option<&str>,
         request_seq: u64,
     ) {

@@ -36,7 +36,7 @@ mod support;
 use std::os::unix::net::UnixListener;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 use serde_json::json;
 
 use support::{
@@ -134,7 +134,7 @@ fn escape() -> KeyEvent {
 fn run_plan(
     steps: Vec<HeadlessStep>,
     shell_running: bool,
-) -> pa_tui::interactive::InteractiveOutcome {
+) -> aa_tui::interactive::InteractiveOutcome {
     run_headless(
         HeadlessPlan {
             steps,

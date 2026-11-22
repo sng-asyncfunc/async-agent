@@ -7,8 +7,8 @@ use std::collections::BTreeSet;
 
 use serde::Deserialize;
 
-use pa_types::ai::{Model, ModelCompat, ModelCost, ModelInput, ThinkingLevelMap};
-use pa_types::JsNumber;
+use aa_types::ai::{Model, ModelCompat, ModelCost, ModelInput, ThinkingLevelMap};
+use aa_types::JsNumber;
 
 use crate::compat::is_model_compat;
 

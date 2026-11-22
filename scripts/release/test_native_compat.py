@@ -29,7 +29,7 @@ class NativeCompatibilityTests(unittest.TestCase):
         (self.root / "skills").mkdir()
         for name in ("LICENSE", "README.md"):
             (self.root / name).write_text("test fixture\n")
-        runtime = self.root / "prime-agent-runtime"
+        runtime = self.root / "async-agent-runtime"
         (runtime / "src").mkdir(parents=True)
         (runtime / "src/repl.ts").write_text("// runtime fixture\n")
         (runtime / "package.json").write_text('{"name":"fixture"}\n')
@@ -61,9 +61,9 @@ class NativeCompatibilityTests(unittest.TestCase):
         staging, archive, _ = self.assemble()
         validate_compatibility_archive(archive)
         self.assertEqual(json.loads((staging / "package.json").read_text())["version"], "1.0.0")
-        self.assertEqual((staging / "prime-agent").read_bytes(), self.binary.read_bytes())
+        self.assertEqual((staging / "async-agent").read_bytes(), self.binary.read_bytes())
         repo = Path(__file__).resolve().parents[2]
-        self.assertEqual((staging / "install.sh").read_bytes(), (repo / "install-rust.sh").read_bytes())
+        self.assertEqual((staging / "install.sh").read_bytes(), (repo / "install.sh").read_bytes())
 
     def test_continuous_stamp_survives_compatibility_packaging(self):
         stamp = "1.0.0-continuous." + "a" * 40
@@ -88,7 +88,7 @@ class NativeCompatibilityTests(unittest.TestCase):
     def test_windows_retains_common_metadata_without_posix_legacy_assets(self):
         staging, archive, _ = self.assemble(target="x86_64-pc-windows-msvc")
         validate_compatibility_archive(archive)
-        self.assertTrue((staging / "prime-agent.exe").is_file())
+        self.assertTrue((staging / "async-agent.exe").is_file())
         self.assertFalse((staging / "photon_rs_bg.wasm").exists())
 
     def test_promotion_validates_native_archives_beside_source_distribution(self):
@@ -105,8 +105,8 @@ class NativeCompatibilityTests(unittest.TestCase):
         source = self.root / "incoming/artifacts-source"
         native.mkdir(parents=True)
         source.mkdir()
-        shutil.copyfile(archive, native / "prime-agent-1.0.0-darwin-arm64.tar.gz")
-        source_archive = source / "prime-agent-1.0.0-src.tar.gz"
+        shutil.copyfile(archive, native / "async-agent-1.0.0-darwin-arm64.tar.gz")
+        source_archive = source / "async-agent-1.0.0-src.tar.gz"
         with tarfile.open(source_archive, "w:gz") as tar:
             tar.add(self.root / "README.md", arcname="README.md")
         with self.assertRaisesRegex(ValueError, "missing regular compatibility asset"):

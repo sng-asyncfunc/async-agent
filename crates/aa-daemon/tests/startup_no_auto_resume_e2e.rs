@@ -106,7 +106,7 @@ fn serve(mut stream: TcpStream, answer: &str) -> std::io::Result<()> {
 
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
-    let child = Command::new(env!("CARGO_BIN_EXE_pa-daemon"))
+    let child = Command::new(env!("CARGO_BIN_EXE_aa-daemon"))
         .arg("supervisor")
         .arg("--socket")
         .arg(socket)
@@ -114,19 +114,19 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
         .arg(agent_dir)
         // A resumed worker has no create-config model: it falls back to the
         // process pair (like the TS daemon's default session config).
-        .env("PRIME_AGENT_MODEL_PROVIDER", "prime-inference")
-        .env("PRIME_AGENT_MODEL", "mock-1")
+        .env("ASYNC_AGENT_MODEL_PROVIDER", "prime-inference")
+        .env("ASYNC_AGENT_MODEL", "mock-1")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         // A supervisor killed at teardown must not leak its session workers
         // into later test binaries: the worker's supervisor-lost exit runs
         // on this short window instead of the 5-minute default.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -170,7 +170,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize command");
@@ -330,7 +330,7 @@ fn due_job(
         "activeSessionId": session_id,
         "sessionId": session_id,
         "sessionFile": session_file.to_string_lossy(),
-        "cwd": pa_core::session::manager::read_session_header(session_file)
+        "cwd": aa_core::session::manager::read_session_header(session_file)
             .expect("session header").cwd,
         "prompt": prompt,
         "schedule": { "kind": "interval", "expression": "every 2m", "intervalMs": 120_000 },
@@ -431,7 +431,7 @@ fn a_due_scheduled_job_never_boots_its_session_at_daemon_start() {
         "the not-running session's file changed at boot"
     );
 
-    let log_path = pa_daemon::paths::daemon_log_path(&socket, &agent_dir);
+    let log_path = aa_daemon::paths::daemon_log_path(&socket, &agent_dir);
     let log = std::fs::read_to_string(&log_path).unwrap_or_default();
     for needle in [
         "job-stale-heartbeat",

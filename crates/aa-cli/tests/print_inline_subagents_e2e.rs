@@ -32,13 +32,13 @@ fn lane() -> PrintLane {
 }
 
 impl PrintLane {
-    /// The kernel Bun binary (`PA_E2E_KERNEL_BUN` / `PRIME_AGENT_KERNEL_BUN`,
+    /// The kernel Bun binary (`PA_E2E_KERNEL_BUN` / `ASYNC_AGENT_KERNEL_BUN`,
     /// PATH, or `~/.bun/bin/bun`). A missing kernel FAILS the lane loudly
     /// (these e2es are the subagent surface's proof — a skip would read green
     /// while proving nothing).
     fn kernel_bun() -> PathBuf {
         if let Some(explicit) = std::env::var_os("PA_E2E_KERNEL_BUN")
-            .or_else(|| std::env::var_os("PRIME_AGENT_KERNEL_BUN"))
+            .or_else(|| std::env::var_os("ASYNC_AGENT_KERNEL_BUN"))
         {
             let explicit = PathBuf::from(explicit);
             assert!(
@@ -77,18 +77,18 @@ impl PrintLane {
         kernel_bun: &Path,
         env_extra: &[(&str, &str)],
     ) -> (String, String, i32) {
-        let bin = env!("CARGO_BIN_EXE_prime-agent");
+        let bin = env!("CARGO_BIN_EXE_async-agent");
         let mut command = std::process::Command::new(bin);
         command
             .args(args)
             .env("HOME", self.home.path())
-            .env("PRIME_AGENT_CODING_AGENT_DIR", &self.agent_dir)
-            .env("PRIME_AGENT_FAUX_SCRIPT", script.to_string())
-            .env("PRIME_AGENT_KERNEL_BUN", kernel_bun)
+            .env("ASYNC_AGENT_CODING_AGENT_DIR", &self.agent_dir)
+            .env("ASYNC_AGENT_FAUX_SCRIPT", script.to_string())
+            .env("ASYNC_AGENT_KERNEL_BUN", kernel_bun)
             .env_remove("RLM_DEPTH")
             .env_remove("RLM_MAX_DEPTH")
-            .env_remove("PRIME_AGENT_SESSION_DIR")
-            .env_remove("PRIME_AGENT_CODING_AGENT_SESSION_DIR")
+            .env_remove("ASYNC_AGENT_SESSION_DIR")
+            .env_remove("ASYNC_AGENT_CODING_AGENT_SESSION_DIR")
             .current_dir(self.home.path());
         for (key, value) in env_extra {
             command.env(key, value);
@@ -100,7 +100,7 @@ impl PrintLane {
         command
             .stdout(std::fs::File::create(&stdout_path).unwrap())
             .stderr(std::fs::File::create(&stderr_path).unwrap());
-        pa_core::platform::set_new_process_group(&mut command);
+        aa_core::platform::set_new_process_group(&mut command);
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -116,7 +116,7 @@ impl PrintLane {
             {
                 Some(status.expect("print run exits"))
             } else {
-                let _ = pa_core::platform::kill_process_group_or_pid(pid);
+                let _ = aa_core::platform::kill_process_group_or_pid(pid);
                 let _ = child.wait().await;
                 None
             }
@@ -1154,7 +1154,7 @@ fs.writeFileSync("cancel-child-finished", "unexpected");
         .parse::<u32>()
         .unwrap();
     assert!(
-        !pa_core::platform::pid_exists(child_pid),
+        !aa_core::platform::pid_exists(child_pid),
         "cancelled child's Bun process {child_pid} outlived the print run"
     );
 }

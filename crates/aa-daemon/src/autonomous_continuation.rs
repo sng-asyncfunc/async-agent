@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use pa_core::session_engine::provider_adapter::json_round_trip;
+use aa_core::session_engine::provider_adapter::json_round_trip;
 
 use crate::agent_engine::AgentSessionEngine;
 
@@ -18,9 +18,9 @@ pub(crate) const AUTONOMOUS_QUEUE_KEY: &str = "autonomous:continuation";
 #[derive(Clone)]
 pub(crate) struct AutonomousBoundaryMirror {
     pub(crate) turn_boundary:
-        std::sync::Arc<pa_core::session_engine::turn_boundary::TurnBoundaryRequests>,
-    pub(crate) agent: std::sync::Arc<pa_agent::agent::Agent>,
-    pub(crate) session: std::sync::Weak<pa_core::session_engine::engine::SessionEngine>,
+        std::sync::Arc<aa_core::session_engine::turn_boundary::TurnBoundaryRequests>,
+    pub(crate) agent: std::sync::Arc<aa_agent::agent::Agent>,
+    pub(crate) session: std::sync::Weak<aa_core::session_engine::engine::SessionEngine>,
 }
 
 impl AgentSessionEngine {
@@ -37,7 +37,7 @@ impl AgentSessionEngine {
     /// engine without a registered arc installs nothing.
     pub(crate) fn install_autonomous_continuation_hook_on(
         &self,
-        agent: &Arc<pa_agent::agent::Agent>,
+        agent: &Arc<aa_agent::agent::Agent>,
     ) {
         let weak = self
             .self_weak
@@ -60,7 +60,7 @@ impl AgentSessionEngine {
                 }
                 Ok(engine.autonomous_continuation_rows(&context.message).await)
             })
-                as pa_agent::BoxFut<'static, anyhow::Result<Vec<pa_agent::types::AgentMessage>>>
+                as aa_agent::BoxFut<'static, anyhow::Result<Vec<aa_agent::types::AgentMessage>>>
         })));
     }
 
@@ -79,8 +79,8 @@ impl AgentSessionEngine {
     /// the next turn of the same run; a hold or a stop mints nothing.
     pub(crate) async fn autonomous_continuation_rows(
         self: &Arc<Self>,
-        message: &pa_agent::types::AssistantMessage,
-    ) -> Vec<pa_agent::types::AgentMessage> {
+        message: &aa_agent::types::AssistantMessage,
+    ) -> Vec<aa_agent::types::AgentMessage> {
         // A closed session (killed/stopped) mints no continuation.
         if self.session_is_closed() {
             return Vec::new();
@@ -121,9 +121,9 @@ impl AgentSessionEngine {
             return Vec::new();
         }
         match self.autonomous_follow_up_text(message).await {
-            Some(text) => vec![pa_core::autonomous::autonomous_continuation_loop_row(
+            Some(text) => vec![aa_core::autonomous::autonomous_continuation_loop_row(
                 &text,
-                pa_core::autonomous::now_millis(),
+                aa_core::autonomous::now_millis(),
             )],
             None => Vec::new(),
         }
@@ -133,9 +133,9 @@ impl AgentSessionEngine {
     /// continuation text; a stop or an inactive mode returns `None`.
     async fn autonomous_follow_up_text(
         self: &Arc<Self>,
-        message: &pa_agent::types::AssistantMessage,
+        message: &aa_agent::types::AssistantMessage,
     ) -> Option<String> {
-        let message = json_round_trip::<_, pa_types::ai::AssistantMessage>(message)?;
+        let message = json_round_trip::<_, aa_types::ai::AssistantMessage>(message)?;
         let driver = std::sync::Arc::clone(
             &*self
                 .autonomous_driver
@@ -147,9 +147,9 @@ impl AgentSessionEngine {
             driver.after_turn(&mut state, &message).await
         };
         match follow_up {
-            pa_core::autonomous::AutonomousFollowUp::Continue { text } => Some(text),
-            pa_core::autonomous::AutonomousFollowUp::Inactive
-            | pa_core::autonomous::AutonomousFollowUp::Stop { .. } => None,
+            aa_core::autonomous::AutonomousFollowUp::Continue { text } => Some(text),
+            aa_core::autonomous::AutonomousFollowUp::Inactive
+            | aa_core::autonomous::AutonomousFollowUp::Stop { .. } => None,
         }
     }
 
@@ -186,20 +186,20 @@ impl AgentSessionEngine {
         // The same check as the core session's `auto_compaction_due`, over
         // the mirrored agent state and settings (never through the mutex).
         let state = mirror.agent.state().await;
-        let messages: Vec<pa_types::session::AgentMessage> = state
+        let messages: Vec<aa_types::session::AgentMessage> = state
             .messages
             .iter()
-            .filter_map(json_round_trip::<_, pa_types::session::AgentMessage>)
+            .filter_map(json_round_trip::<_, aa_types::session::AgentMessage>)
             .collect();
         let Some(session) = mirror.session.upgrade() else {
             return false;
         };
-        pa_core::session_engine::compaction::threshold_compaction_due(
+        aa_core::session_engine::compaction::threshold_compaction_due(
             &messages,
             model.context_window,
-            pa_core::session_engine::compaction::request_output_budget(
+            aa_core::session_engine::compaction::request_output_budget(
                 &model,
-                pa_core::session_engine::provider_adapter::model_thinking_level(
+                aa_core::session_engine::provider_adapter::model_thinking_level(
                     state.thinking_level,
                 ),
             ),
@@ -265,7 +265,7 @@ impl AgentSessionEngine {
     }
 
     /// The latest settled assistant message of the built session, if any.
-    async fn latest_settled_assistant(&self) -> Option<pa_agent::types::AssistantMessage> {
+    async fn latest_settled_assistant(&self) -> Option<aa_agent::types::AssistantMessage> {
         let guard = self.session.lock().await;
         let engine = guard.as_deref()?;
         let state = engine.session.agent().state().await;
@@ -274,7 +274,7 @@ impl AgentSessionEngine {
             .iter()
             .rev()
             .find_map(|message| match message {
-                pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::Assistant(
+                aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::Assistant(
                     assistant,
                 )) => Some(assistant.clone()),
                 _ => None,

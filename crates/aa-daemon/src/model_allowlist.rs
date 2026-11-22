@@ -5,8 +5,8 @@
 use anyhow::Result;
 use std::path::Path;
 
-use pa_core::models::ModelAllowlistRefusal;
-use pa_telemetry::TelemetryClient;
+use aa_core::models::ModelAllowlistRefusal;
+use aa_telemetry::TelemetryClient;
 
 /// The daemon allowlist's loaded state (settings `allowedModels`, global
 /// scope). A security guardrail fails CLOSED: a settings document that
@@ -26,11 +26,11 @@ pub enum DaemonAllowlist {
 /// Load the daemon allowlist state (settings `allowedModels`, global
 /// scope).
 pub(crate) fn load(cwd: &Path, agent_dir: &Path) -> DaemonAllowlist {
-    let settings = pa_core::settings::SettingsManager::create(cwd, agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(cwd, agent_dir);
     if let Some(error) = settings
         .errors()
         .iter()
-        .find(|error| error.scope == pa_core::settings::SettingsScope::Global)
+        .find(|error| error.scope == aa_core::settings::SettingsScope::Global)
     {
         return DaemonAllowlist::Unreadable(error.message.clone());
     }
@@ -68,7 +68,7 @@ pub(crate) fn assert_allowed(allowlist: &DaemonAllowlist, selector: &str) -> Res
     match allowlist {
         DaemonAllowlist::Unrestricted => Ok(()),
         DaemonAllowlist::Allowed(patterns) => {
-            if pa_core::models::model_allowed(selector, patterns) {
+            if aa_core::models::model_allowed(selector, patterns) {
                 Ok(())
             } else {
                 Err(ModelAllowlistRefusal {
@@ -124,10 +124,10 @@ impl ModelRefusalTelemetry {
         if !self.enabled {
             return;
         }
-        let settings = pa_core::settings::SettingsManager::create(cwd, &self.agent_dir);
+        let settings = aa_core::settings::SettingsManager::create(cwd, &self.agent_dir);
         // The same gating as the supervisor's `daemon event`: the env
         // override wins, else the merged settings' telemetry switch.
-        if !pa_core::session_engine::telemetry::telemetry_switch(&settings).enabled() {
+        if !aa_core::session_engine::telemetry::telemetry_switch(&settings).enabled() {
             return;
         }
         // Once per distinct (surface, selector).
@@ -140,12 +140,12 @@ impl ModelRefusalTelemetry {
         let mut slot = self.client.lock().expect("refusal telemetry lock");
         if slot.as_ref().is_none_or(|(bound_cwd, _)| bound_cwd != cwd) {
             let client =
-                pa_core::session_engine::telemetry::build_client(&settings, &self.agent_dir);
+                aa_core::session_engine::telemetry::build_client(&settings, &self.agent_dir);
             *slot = Some((cwd.to_path_buf(), client));
         }
         let client = &slot.as_ref().expect("client bound").1;
         let (provider, model_id) = selector.split_once('/').unwrap_or((selector, ""));
-        pa_core::session_engine::telemetry::track_model_refused(
+        aa_core::session_engine::telemetry::track_model_refused(
             client, surface, provider, model_id,
         );
     }
@@ -176,7 +176,7 @@ mod tests {
         // A project scope cannot weaken the global pin: the project dir is
         // the temp dir itself.
         write_settings(
-            &dir.path().join(".prime").join("agent"),
+            &dir.path().join(".async-agent"),
             r#"{"allowedModels": []}"#,
         );
         assert_eq!(

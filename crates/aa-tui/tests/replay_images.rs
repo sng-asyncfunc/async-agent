@@ -1,12 +1,12 @@
 //! Replay-path image rendering: a session file with image blocks renders
 //! the same rows the live path shows (an image-only user prompt shows the
-//! `[image]` placeholder); drives the same fold the `pa-tui-replay`
+//! `[image]` placeholder); drives the same fold the `aa-tui-replay`
 //! `--frame` path uses.
 #![warn(clippy::allow_attributes_without_reason)]
 
-use pa_tui::session::{parse_jsonl, JsonlSessionStream, SessionStream};
-use pa_tui::theme::{ColorMode, Theme};
-use pa_tui::view::AgentView;
+use aa_tui::session::{parse_jsonl, JsonlSessionStream, SessionStream};
+use aa_tui::theme::{ColorMode, Theme};
+use aa_tui::view::AgentView;
 
 fn tiny_png_base64() -> String {
     use base64::Engine;
@@ -20,12 +20,12 @@ fn tiny_png_base64() -> String {
 fn frame_text(session: &str, width: u16, height: u16, show_images: bool) -> Vec<String> {
     let entries = parse_jsonl(session).expect("session parses");
     let mut stream = JsonlSessionStream::from_entries(entries);
-    let mut view = AgentView::new(Theme::builtin("prime", ColorMode::TrueColor));
+    let mut view = AgentView::new(Theme::builtin("async", ColorMode::TrueColor));
     view.show_images = show_images;
-    while let pa_tui::session::SessionEvent::Item(item) = stream.poll().expect("poll") {
+    while let aa_tui::session::SessionEvent::Item(item) = stream.poll().expect("poll") {
         view.push(item);
     }
-    pa_tui::app::render_frame_text(&mut view, width, height)
+    aa_tui::app::render_frame_text(&mut view, width, height)
 }
 
 fn session_with_image(png: &str, with_text_prompt: bool) -> String {

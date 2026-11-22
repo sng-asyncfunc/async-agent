@@ -4,13 +4,13 @@
 //! never arrives (the spin fix). `/compact` emits the echo row and
 //! `compaction_start` before the summarizer, the settled `compaction_end` after.
 
-use pa_core::session_engine::session_commands::{
+use aa_core::session_engine::session_commands::{
     session_command_echo_row, session_command_failure_row, SessionCommandExecution,
 };
-use pa_core::session_engine::slash_commands::{
+use aa_core::session_engine::slash_commands::{
     parse_session_command, SessionSlashCommand, SlashCommandRegistry,
 };
-use pa_types::session::AgentMessage;
+use aa_types::session::AgentMessage;
 
 use crate::agent_engine::AgentSessionEngine;
 use crate::engine::EngineEvent;
@@ -20,7 +20,7 @@ use crate::engine::EngineEvent;
 pub(crate) fn run_session_command(
     engine: &AgentSessionEngine,
     command: &SessionSlashCommand,
-    images: &[pa_agent::types::ImageContent],
+    images: &[aa_agent::types::ImageContent],
     emit: &mut dyn FnMut(EngineEvent) -> bool,
 ) -> Option<SessionCommandExecution> {
     let is_compact = command.name == "compact";
@@ -170,7 +170,7 @@ pub(crate) fn parse_prompt_session_command(text: &str) -> Option<SessionSlashCom
 /// One durable row in its wire message form (`role: "custom"`): the shape
 /// `message_start`/`message_end` pairs carry and TS sessions keep in `agent.state.messages`.
 pub(crate) fn custom_message_value(
-    message: &pa_types::session::CustomMessage,
+    message: &aa_types::session::CustomMessage,
 ) -> serde_json::Value {
     serde_json::to_value(AgentMessage::Custom(message.clone())).unwrap_or(serde_json::Value::Null)
 }

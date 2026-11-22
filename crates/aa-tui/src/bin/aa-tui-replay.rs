@@ -1,4 +1,4 @@
-//! `pa-tui-replay`: render a captured agent session in the pa-tui agent view. Modes: live
+//! `aa-tui-replay`: render a captured agent session in the aa-tui agent view. Modes: live
 //! (default) — full-screen TUI in a real terminal; `--frame WxH` — one frame as plain
 //! text to stdout (the tmux verifier); `--panic-exit` — panic mid-loop after the first
 //! paint (the exit-restore verifier: a real unwind must leave the terminal whole).
@@ -20,21 +20,21 @@
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use pa_tui::app::{render_frame_text, run_app, AppOptions};
-use pa_tui::session::{JsonlSessionStream, SessionStream, TranscriptItem};
-use pa_tui::theme::{ColorMode, Theme};
-use pa_tui::view::AgentView;
+use aa_tui::app::{render_frame_text, run_app, AppOptions};
+use aa_tui::session::{JsonlSessionStream, SessionStream, TranscriptItem};
+use aa_tui::theme::{ColorMode, Theme};
+use aa_tui::view::AgentView;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "pa-tui-replay",
-    about = "Replay a prime-agent session in the TUI"
+    name = "aa-tui-replay",
+    about = "Replay a async-agent session in the TUI"
 )]
 struct Args {
     /// Path to the session JSONL file (defaults to the newest session).
     session: Option<String>,
-    /// Theme: prime | dark | light.
-    #[arg(long, default_value = "prime")]
+    /// Theme: async | dark | light.
+    #[arg(long, default_value = "async")]
     theme: String,
     /// Headless single-frame dump at this size, e.g. 80x24.
     #[arg(long)]
@@ -52,9 +52,9 @@ struct Args {
 }
 
 fn newest_session() -> Result<std::path::PathBuf> {
-    let dir = pa_types::platform::home_dir()
+    let dir = aa_types::platform::home_dir()
         .context("home directory not found (HOME, or USERPROFILE on Windows)")?
-        .join(".prime/agent/sessions");
+        .join(".async-agent/sessions");
     let mut best: Option<(std::time::SystemTime, std::path::PathBuf)> = None;
     for entry in std::fs::read_dir(&dir)? {
         let entry = entry?;
@@ -68,16 +68,16 @@ fn newest_session() -> Result<std::path::PathBuf> {
         }
     }
     best.map(|(_, p)| p)
-        .context("no session files found in ~/.prime/agent/sessions")
+        .context("no session files found in ~/.async-agent/sessions")
 }
 
 fn main() -> Result<()> {
     // Restore Windows VT on success and early error returns.
     if let Err(error) = replay() {
-        pa_types::platform::console_restore();
+        aa_types::platform::console_restore();
         return Err(error);
     }
-    pa_types::platform::console_restore();
+    aa_types::platform::console_restore();
     Ok(())
 }
 
@@ -98,7 +98,7 @@ fn replay() -> Result<()> {
         let theme = Theme::builtin(&args.theme, ColorMode::TrueColor);
         let mut view = AgentView::new(theme);
         let mut stream: Box<dyn SessionStream> = Box::new(stream);
-        while let pa_tui::session::SessionEvent::Item(item) = stream.poll()? {
+        while let aa_tui::session::SessionEvent::Item(item) = stream.poll()? {
             if let TranscriptItem::ModelChange { provider, model_id } = &item {
                 view.chrome.model_id = Some(model_id.clone());
                 view.chrome.model_provider = Some(provider.clone());

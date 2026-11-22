@@ -1,16 +1,16 @@
 //! The telemetry on/off switch and its explanation: one resolution shared by
 //! the live client switch, the CLI opt-out check, `/telemetry`, and
-//! `prime-agent telemetry`.
+//! `async-agent telemetry`.
 
 use std::path::Path;
 
-use pa_telemetry::parse_bool_override;
+use aa_telemetry::parse_bool_override;
 
 use crate::settings::SettingsManager;
 
 /// What decides whether telemetry is on, in precedence order (TS
 /// `isTelemetryEnabled`): `PI_OFFLINE` / `DO_NOT_TRACK` force off,
-/// `PRIME_AGENT_TELEMETRY` forces either way, then settings
+/// `ASYNC_AGENT_TELEMETRY` forces either way, then settings
 /// `telemetry.enabled`, then the default (on).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TelemetrySwitch {
@@ -39,10 +39,10 @@ impl TelemetrySwitch {
             Self::Settings(true) => "turned on in settings".to_string(),
             Self::Settings(false) => "turned off in settings".to_string(),
             Self::Env {
-                var: "PRIME_AGENT_TELEMETRY",
+                var: "ASYNC_AGENT_TELEMETRY",
                 enabled,
             } => format!(
-                "forced {} by PRIME_AGENT_TELEMETRY={}",
+                "forced {} by ASYNC_AGENT_TELEMETRY={}",
                 if enabled { "on" } else { "off" },
                 if enabled { "1" } else { "0" }
             ),
@@ -62,7 +62,7 @@ pub fn telemetry_switch(settings: &SettingsManager) -> TelemetrySwitch {
 
 /// The environment variables that decide the switch (see [`TelemetrySwitch`]).
 pub const TELEMETRY_SWITCH_VARS: [&str; 3] =
-    ["PI_OFFLINE", "DO_NOT_TRACK", "PRIME_AGENT_TELEMETRY"];
+    ["PI_OFFLINE", "DO_NOT_TRACK", "ASYNC_AGENT_TELEMETRY"];
 
 fn switch_from(env: impl Fn(&str) -> Option<String>, setting: Option<bool>) -> TelemetrySwitch {
     let [offline, do_not_track, forced] = TELEMETRY_SWITCH_VARS;
@@ -83,12 +83,11 @@ fn switch_from(env: impl Fn(&str) -> Option<String>, setting: Option<bool>) -> T
     setting.map_or(TelemetrySwitch::Default, TelemetrySwitch::Settings)
 }
 
-/// Where events go: the platform endpoint in release builds, nowhere in
-/// debug builds (every `cargo test` and dev run), so tests and local
-/// development never reach production analytics.
+/// Where events go: only when an explicit `ASYNC_AGENT_TELEMETRY_ENDPOINT`
+/// is configured; otherwise `None` so Async Agent never phones home by default.
 #[must_use]
-pub fn telemetry_endpoint() -> Option<&'static str> {
-    (!cfg!(debug_assertions)).then_some(pa_telemetry::ANALYTICS_ENDPOINT)
+pub fn telemetry_endpoint() -> Option<String> {
+    aa_telemetry::configured_endpoint()
 }
 
 /// The `status` report: state and why, the endpoint, the installation id.
@@ -96,8 +95,9 @@ pub fn telemetry_endpoint() -> Option<&'static str> {
 pub fn telemetry_status_text(settings: &SettingsManager, agent_dir: &Path) -> String {
     let switch = telemetry_switch(settings);
     let state = if switch.enabled() { "on" } else { "off" };
-    let endpoint = telemetry_endpoint().unwrap_or("nowhere (development build)");
-    let installation_id = pa_telemetry::existing_install_id(agent_dir)
+    let endpoint = telemetry_endpoint()
+        .unwrap_or_else(|| "disabled (set ASYNC_AGENT_TELEMETRY_ENDPOINT to enable)".to_string());
+    let installation_id = aa_telemetry::existing_install_id(agent_dir)
         .unwrap_or_else(|| "not created yet".to_string());
     format!(
         "Telemetry is {state} ({}).\nEndpoint: {endpoint}\nInstallation id: {installation_id}",
@@ -174,15 +174,15 @@ mod tests {
             TelemetrySwitch::Settings(false)
         );
         assert_eq!(
-            switch_from(env(&[("PRIME_AGENT_TELEMETRY", "1")]), Some(false)),
+            switch_from(env(&[("ASYNC_AGENT_TELEMETRY", "1")]), Some(false)),
             TelemetrySwitch::Env {
-                var: "PRIME_AGENT_TELEMETRY",
+                var: "ASYNC_AGENT_TELEMETRY",
                 enabled: true
             }
         );
         assert_eq!(
             switch_from(
-                env(&[("PRIME_AGENT_TELEMETRY", "1"), ("DO_NOT_TRACK", "1")]),
+                env(&[("ASYNC_AGENT_TELEMETRY", "1"), ("DO_NOT_TRACK", "1")]),
                 None
             ),
             TelemetrySwitch::Env {
@@ -195,8 +195,8 @@ mod tests {
             "forced off by PI_OFFLINE"
         );
         assert_eq!(
-            switch_from(env(&[("PRIME_AGENT_TELEMETRY", "0")]), None).reason(),
-            "forced off by PRIME_AGENT_TELEMETRY=0"
+            switch_from(env(&[("ASYNC_AGENT_TELEMETRY", "0")]), None).reason(),
+            "forced off by ASYNC_AGENT_TELEMETRY=0"
         );
         // Falsy DO_NOT_TRACK is no override.
         assert_eq!(
@@ -253,9 +253,9 @@ mod tests {
             !agent_dir.join("telemetry.json").exists(),
             "status never creates an id"
         );
-        let id = pa_telemetry::install_id(&agent_dir).unwrap();
+        let id = aa_telemetry::install_id(&agent_dir).unwrap();
         let after = telemetry_status_text(&settings, &agent_dir);
         assert!(after.contains(&format!("Installation id: {id}")));
-        assert!(after.contains("Endpoint: nowhere (development build)"));
+        assert!(after.contains("Endpoint: disabled (set ASYNC_AGENT_TELEMETRY_ENDPOINT to enable)"));
     }
 }

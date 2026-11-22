@@ -20,8 +20,8 @@ impl AgentSessionEngine {
     ) -> TurnResult {
         #[derive(Clone)]
         struct FailoverPrimary {
-            model: pa_types::ai::Model,
-            thinking_level: pa_agent::types::ThinkingLevel,
+            model: aa_types::ai::Model,
+            thinking_level: aa_agent::types::ThinkingLevel,
             session_restored: bool,
         }
         let model = match self.resolve_model() {
@@ -41,8 +41,8 @@ impl AgentSessionEngine {
             .armed_image_route()
             .map_or_else(|| model.clone(), |route| route.target.model);
         if self.config.faux_script.is_none() && self.current_selection().api_key.is_none() {
-            let auth = pa_core::auth::AuthStorage::create(&self.config.agent_dir);
-            let registry = pa_core::models::ModelRegistry::create(
+            let auth = aa_core::auth::AuthStorage::create(&self.config.agent_dir);
+            let registry = aa_core::models::ModelRegistry::create(
                 auth,
                 self.config.agent_dir.join("models.json"),
             );
@@ -52,7 +52,7 @@ impl AgentSessionEngine {
                     .get_all()
                     .credential(&preflight_model.provider)
                     .is_some_and(|credential| {
-                        matches!(credential, pa_core::auth::AuthCredential::Oauth { .. })
+                        matches!(credential, aa_core::auth::AuthCredential::Oauth { .. })
                     });
                 let message = if uses_oauth {
                     format!(
@@ -60,7 +60,7 @@ impl AgentSessionEngine {
                         preflight_model.provider
                     )
                 } else {
-                    let docs = pa_core::packages::docs_path();
+                    let docs = aa_core::packages::docs_path();
                     format!(
                         "No API key found for {}.\n\nUse /login to log into a provider via OAuth or API key. See:\n  {}\n  {}",
                         preflight_model.provider,
@@ -102,7 +102,7 @@ impl AgentSessionEngine {
             Some(route) => self.failover_candidates(&route.target.model),
             None => self.failover_candidates(&model),
         };
-        // The pa-core retry driver owns the attempt loop; this engine
+        // The aa-core retry driver owns the attempt loop; this engine
         // owns one turn. The single `emit` reference is handed through
         // a RefCell slot to whichever closure is currently running.
         let emit_cell = std::cell::RefCell::new(emit);
@@ -140,7 +140,7 @@ impl AgentSessionEngine {
         // stays on the backup until the active run settles.
         let primary_state = std::sync::Arc::new(std::sync::Mutex::new(None::<FailoverPrimary>));
         let pending_model_changes = std::sync::Arc::new(std::sync::Mutex::new(Vec::<
-            pa_types::session::ModelChangeEntry,
+            aa_types::session::ModelChangeEntry,
         >::new()));
         // The quota-park seam (TS #2375): the retry chain consults the
         // engine at its give-up; a quota failure whose reset exceeds
@@ -154,12 +154,12 @@ impl AgentSessionEngine {
             .clone();
         // The auth-retry seam: refresh the rejected credential before the retry.
         let recovery_engine = engine_weak.clone();
-        let auth_recovery: Option<pa_core::session_engine::auto_retry::AuthRecoveryCallback> =
+        let auth_recovery: Option<aa_core::session_engine::auto_retry::AuthRecoveryCallback> =
             Some(&mut move |message| {
                 let engine = recovery_engine.as_ref().and_then(std::sync::Weak::upgrade);
                 let provider = message.provider.clone();
                 Box::pin(async move {
-                    use pa_core::session_engine::auto_retry::AuthRecovery;
+                    use aa_core::session_engine::auto_retry::AuthRecovery;
                     let Some(engine) = engine else {
                         return AuthRecovery::Retry;
                     };
@@ -173,7 +173,7 @@ impl AgentSessionEngine {
                     }
                 })
             });
-        let park: Option<pa_core::session_engine::provider_park::ParkDecisionCallback> =
+        let park: Option<aa_core::session_engine::provider_park::ParkDecisionCallback> =
             Some(&mut move |message, abort| {
                 let engine_weak = engine_weak.clone();
                 let abort = abort.to_string();
@@ -196,8 +196,8 @@ impl AgentSessionEngine {
         // retryable failure for the retry driver. Custom-row turns (harness
         // notices, agent messages) owe no answer: silence acknowledges them.
         let owes_answer = matches!(prompt, TurnPrompt::User { .. });
-        let settle = move |assistant: pa_agent::types::AssistantMessage| {
-            use pa_core::session_engine::provider_retry::{
+        let settle = move |assistant: aa_agent::types::AssistantMessage| {
+            use aa_core::session_engine::provider_retry::{
                 incomplete_reply_failure, incomplete_reply_reason,
             };
             match incomplete_reply_reason(&assistant, owes_answer, overflow_window) {
@@ -222,10 +222,10 @@ impl AgentSessionEngine {
                     let core = core.clone();
                     let persistence = persistence.clone();
                     Box::pin(async move {
-                        let pa_agent::types::AgentEvent::MessageEnd {
+                        let aa_agent::types::AgentEvent::MessageEnd {
                             message:
-                                pa_agent::types::AgentMessage::Standard(
-                                    pa_agent::types::Message::Assistant(assistant),
+                                aa_agent::types::AgentMessage::Standard(
+                                    aa_agent::types::Message::Assistant(assistant),
                                 ),
                         } = event
                         else {
@@ -267,7 +267,7 @@ impl AgentSessionEngine {
                         pending_model_changes
                             .lock()
                             .unwrap_or_else(std::sync::PoisonError::into_inner)
-                            .push(pa_types::session::ModelChangeEntry {
+                            .push(aa_types::session::ModelChangeEntry {
                                 provider: primary.model.provider.clone(),
                                 model_id: primary.model.id.clone(),
                             });
@@ -345,7 +345,7 @@ impl AgentSessionEngine {
                 }
                 if !session_restored
                     && !(emit_cell.borrow_mut())(EngineEvent::ModelChange(
-                        pa_types::session::ModelChangeEntry {
+                        aa_types::session::ModelChangeEntry {
                             provider: primary_model.provider.clone(),
                             model_id: primary_model.id.clone(),
                         },
@@ -367,7 +367,7 @@ impl AgentSessionEngine {
             }
         };
         let result = self.runtime.block_on(
-            pa_core::session_engine::provider_failover::run_turn_with_provider_failover(
+            aa_core::session_engine::provider_failover::run_turn_with_provider_failover(
                 &policy,
                 &failover_policy,
                 &candidates,
@@ -481,10 +481,10 @@ impl AgentSessionEngine {
                         // next turn mints over it otherwise.
                         if let Some(recorder) = &semantic_edges {
                             match &event {
-                                pa_core::session_engine::auto_retry::AutoRetryEvent::Start {
+                                aa_core::session_engine::auto_retry::AutoRetryEvent::Start {
                                     ..
                                 } => recorder.prepare_turn_retry(),
-                                pa_core::session_engine::auto_retry::AutoRetryEvent::End {
+                                aa_core::session_engine::auto_retry::AutoRetryEvent::End {
                                     ..
                                 } => {
                                     recorder.clear_turn_retry();
@@ -518,7 +518,7 @@ impl AgentSessionEngine {
                         }
                     }
                 },
-                |next: &pa_types::ai::Model| {
+                |next: &aa_types::ai::Model| {
                     let emit_cell = &emit_cell;
                     let agent = agent.clone();
                     let persistence = persistence.clone();
@@ -547,7 +547,7 @@ impl AgentSessionEngine {
                         // `clampThinkingLevel`); the primary restores with
                         // the primary.
                         let clamped =
-                            pa_ai::models::clamp_thinking_level(&next, self.effective_thinking());
+                            aa_ai::models::clamp_thinking_level(&next, self.effective_thinking());
                         // The stream's provider target follows the switch (the same slot
                         // `set_model` swaps).
                         {
@@ -592,7 +592,7 @@ impl AgentSessionEngine {
                             session.append_model_change(&next.provider, &next.id)?;
                         }
                         if !(emit_cell.borrow_mut())(EngineEvent::ModelChange(
-                            pa_types::session::ModelChangeEntry {
+                            aa_types::session::ModelChangeEntry {
                                 provider: next.provider.clone(),
                                 model_id: next.id.clone(),
                             },

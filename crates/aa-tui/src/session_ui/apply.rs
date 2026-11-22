@@ -289,7 +289,7 @@ impl SessionUi {
                     self.update_subagent_summary(view);
                     match reason.as_str() {
                         "shutdown" => self.error_row(
-                            "The Prime Agent daemon shut down while this window was attached. The session transcript remains saved; restart Prime Agent and reopen it from Agents View.",
+                            "The Async Agent daemon shut down while this window was attached. The session transcript remains saved; restart Async Agent and reopen it from Agents View.",
                             view,
                         ),
                         "replaced" => self.error_row(
@@ -335,7 +335,7 @@ impl SessionUi {
                         .join(", ");
                     view.push_entry(crate::chat::ChatEntry::Status {
                         text: format!(
-                            "Prime Agent is updating — restarting the daemon (about {}s). {} will resume automatically.",
+                            "Async Agent is updating — restarting the daemon (about {}s). {} will resume automatically.",
                             update.est_seconds.max(1),
                             if names.is_empty() { "Your session".to_string() } else { names }
                         ),
@@ -1047,7 +1047,7 @@ impl SessionUi {
     /// `tui javascript bash rendered`: the settled `javascript` card that renders
     /// as bash reports its bash share, primitives only.
     fn track_javascript_bash_rendered(&self, card: &crate::tool_card::ToolCallCard) {
-        if !pa_types::ai::is_javascript_tool_name(&card.name) {
+        if !aa_types::ai::is_javascript_tool_name(&card.name) {
             return;
         }
         let Some(stats) = crate::tool_card::javascript::bash_dominated_stats(card) else {

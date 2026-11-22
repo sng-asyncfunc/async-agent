@@ -23,8 +23,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use pa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
-use pa_tui::interactive::SessionSelection;
+use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
+use aa_tui::interactive::SessionSelection;
 
 struct Supervisor {
     child: Child,
@@ -58,7 +58,7 @@ fn graceful_shutdown(socket: &Path) {
     let command = serde_json::json!({
         "type": "command",
         "id": "test-shutdown",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "shutdown" },
     });
     let Ok(mut line) = serde_json::to_string(&command) else {
@@ -81,31 +81,31 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     let socket = dir.join("daemon.sock");
     let agent_dir = dir.join("agent");
     std::fs::create_dir_all(&agent_dir).expect("agent dir");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -218,7 +218,7 @@ async fn search_matches_names_ids_and_cwd_never_transcripts() {
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         version: "0.0.0".to_string(),
         anchor_session_id: None,
         scope: None,
@@ -227,7 +227,7 @@ async fn search_matches_names_ids_and_cwd_never_transcripts() {
         selected_row_identity: None,
         selected_key: None,
         status_message: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         show_hardware_cursor: false,
         incident_notice_state: None,
         create_config: serde_json::json!({}),
@@ -268,7 +268,7 @@ async fn search_matches_names_ids_and_cwd_never_transcripts() {
         height: 36,
     };
     let outcome =
-        pa_tui::agents_view::run_agents_view(options, AgentsViewUiMode::Headless(plan), None)
+        aa_tui::agents_view::run_agents_view(options, AgentsViewUiMode::Headless(plan), None)
             .await
             .expect("agents view run")
             .outcome;
@@ -365,7 +365,7 @@ async fn ranked_hits_sort_by_relevance_then_recency() {
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         version: "0.0.0".to_string(),
         anchor_session_id: None,
         scope: None,
@@ -374,7 +374,7 @@ async fn ranked_hits_sort_by_relevance_then_recency() {
         selected_row_identity: None,
         selected_key: None,
         status_message: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         show_hardware_cursor: false,
         incident_notice_state: None,
         create_config: serde_json::json!({}),
@@ -393,7 +393,7 @@ async fn ranked_hits_sort_by_relevance_then_recency() {
         height: 36,
     };
     let outcome =
-        pa_tui::agents_view::run_agents_view(options, AgentsViewUiMode::Headless(plan), None)
+        aa_tui::agents_view::run_agents_view(options, AgentsViewUiMode::Headless(plan), None)
             .await
             .expect("agents view run")
             .outcome;

@@ -1,6 +1,6 @@
 //! The `/traces` command surface: the status block, the enable/disable
 //! writes, the preview/upload/login arms, and the outcome rows. The
-//! upload engine lives in pa-core; this module owns the shapes and the
+//! upload engine lives in aa-core; this module owns the shapes and the
 //! seam.
 
 use std::pin::Pin;
@@ -21,13 +21,13 @@ fn normalize_base_url(value: &str) -> String {
     stripped
 }
 
-/// The `PRIME_AGENT_TRACES_BASE_URL` override normalized, else the
-/// platform default.
+/// The `ASYNC_AGENT_TRACES_BASE_URL` override normalized, else an empty
+/// string (trace uploads require an explicitly configured endpoint).
 #[must_use]
 pub fn traces_base_url() -> String {
-    match std::env::var("PRIME_AGENT_TRACES_BASE_URL") {
+    match std::env::var("ASYNC_AGENT_TRACES_BASE_URL") {
         Ok(value) => normalize_base_url(&value),
-        Err(_) => "https://api.primeintellect.ai".to_string(),
+        Err(_) => String::new(),
     }
 }
 
@@ -81,7 +81,14 @@ pub fn status_block(
             dim("Credential: "),
             plain(credential.unwrap_or("Not configured")),
         ],
-        vec![dim("Endpoint: "), plain(endpoint)],
+        vec![
+            dim("Endpoint: "),
+            plain(if endpoint.is_empty() {
+                "Not configured"
+            } else {
+                endpoint
+            }),
+        ],
         vec![
             dim("Session file: "),
             plain(session_file.unwrap_or("In-memory")),
@@ -290,7 +297,7 @@ pub fn format_upload_outcome(outcome: &TraceUploadOutcome, log_path: &str) -> St
             message,
         } => {
             if *status_code == Some(404) {
-                return "Trace upload endpoint was not found. The platform API may not be deployed yet, or PRIME_AGENT_TRACES_BASE_URL points at the wrong API.".to_string();
+                return "Trace upload endpoint was not found. The platform API may not be deployed yet, or ASYNC_AGENT_TRACES_BASE_URL points at the wrong API.".to_string();
             }
             let status = status_code
                 .map(|status| format!("HTTP {status}: "))
@@ -385,7 +392,7 @@ pub trait TracesCommands: Send + Sync {
     /// Set the flag and flush.
     fn set_enabled(&self, enabled: bool) -> TracesFuture<anyhow::Result<()>>;
     /// The resolved trace credential's label: env keys, the stored
-    /// `prime-agent-traces` key, the stored prime-inference credential.
+    /// `async-agent-traces` key, the stored prime-inference credential.
     fn credential(&self) -> TracesFuture<Option<String>>;
     fn preview(&self, session_file: Option<&str>) -> TracesFuture<TracePreviewOutcome>;
     /// One-shot upload; `requireEnabled: false`.
@@ -423,7 +430,7 @@ mod tests {
             true,
             Some("Prime Inference credential"),
             Some("/s/a.jsonl"),
-            "https://api.primeintellect.ai",
+            "https://traces.example.com",
         );
         let text: Vec<String> = block
             .iter()
@@ -440,7 +447,7 @@ mod tests {
                 String::new(),
                 "Automatic uploads: Enabled".to_string(),
                 "Credential: Prime Inference credential".to_string(),
-                "Endpoint: https://api.primeintellect.ai".to_string(),
+                "Endpoint: https://traces.example.com".to_string(),
                 "Session file: /s/a.jsonl".to_string(),
                 String::new(),
                 "Commands: /traces on, /traces off, /traces preview, /traces upload-current, /traces upload-all, /traces login"
@@ -454,7 +461,7 @@ mod tests {
 
     #[test]
     fn unset_states_render_the_ts_fallbacks() {
-        let block = status_block(false, None, None, "https://api.primeintellect.ai");
+        let block = status_block(false, None, None, "");
         let text: Vec<String> = block
             .iter()
             .map(|line| {
@@ -466,20 +473,21 @@ mod tests {
         let joined = text.join("\n");
         assert!(joined.contains("Automatic uploads: Disabled"));
         assert!(joined.contains("Credential: Not configured"));
+        assert!(joined.contains("Endpoint: Not configured"));
         assert!(joined.contains("Session file: In-memory"));
     }
 
     #[test]
     fn the_base_url_normalizes_like_ts() {
-        std::env::set_var("PRIME_AGENT_TRACES_BASE_URL", "https://api.example.com///");
+        std::env::set_var("ASYNC_AGENT_TRACES_BASE_URL", "https://api.example.com///");
         assert_eq!(traces_base_url(), "https://api.example.com");
         std::env::set_var(
-            "PRIME_AGENT_TRACES_BASE_URL",
+            "ASYNC_AGENT_TRACES_BASE_URL",
             "https://api.example.com/api/v1/",
         );
         assert_eq!(traces_base_url(), "https://api.example.com");
-        std::env::remove_var("PRIME_AGENT_TRACES_BASE_URL");
-        assert_eq!(traces_base_url(), "https://api.primeintellect.ai");
+        std::env::remove_var("ASYNC_AGENT_TRACES_BASE_URL");
+        assert_eq!(traces_base_url(), "");
     }
 
     #[test]
@@ -564,7 +572,7 @@ mod tests {
                 },
                 log
             ),
-            "Trace upload endpoint was not found. The platform API may not be deployed yet, or PRIME_AGENT_TRACES_BASE_URL points at the wrong API."
+            "Trace upload endpoint was not found. The platform API may not be deployed yet, or ASYNC_AGENT_TRACES_BASE_URL points at the wrong API."
         );
         let report = TraceUploadReport::new(&TraceUploadOutcome::NoSessionFile, log);
         assert_eq!(
@@ -587,7 +595,7 @@ mod tests {
             size: 1_234_567,
             max_bytes: 20 * 1024 * 1024,
             uploadable: true,
-            endpoint: "https://api.primeintellect.ai/api/v1/agent-traces/sessions/s".to_string(),
+            endpoint: "https://traces.example.com/api/v1/agent-traces/sessions/s".to_string(),
             session_id: "s".to_string(),
             trace_id: "root".to_string(),
             parent_session_id: Some("root".to_string()),
@@ -612,7 +620,7 @@ mod tests {
         assert!(joined.contains("Size: 1,234,567 bytes"));
         assert!(joined.contains("Uploadable: Yes"));
         assert!(joined
-            .contains("Endpoint: https://api.primeintellect.ai/api/v1/agent-traces/sessions/s"));
+            .contains("Endpoint: https://traces.example.com/api/v1/agent-traces/sessions/s"));
         assert!(joined.contains("Session ID: s"));
         assert!(joined.contains("Trace ID: root"));
         assert!(joined.contains("Parent session: root"));

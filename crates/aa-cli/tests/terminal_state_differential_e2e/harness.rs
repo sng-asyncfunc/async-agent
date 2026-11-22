@@ -25,8 +25,8 @@ use nix::fcntl::{fcntl, FcntlArg::F_SETFL, OFlag};
 use nix::pty::{openpty, Winsize};
 use serde_json::{json, Value};
 
-use pa_tui::agents_view::AgentsViewOptions;
-use pa_tui::interactive::{InteractiveOptions, ModelSelection, SessionSelection};
+use aa_tui::agents_view::AgentsViewOptions;
+use aa_tui::interactive::{InteractiveOptions, ModelSelection, SessionSelection};
 
 use crate::ledger::ModeLedger;
 use crate::{
@@ -412,7 +412,7 @@ impl MockSupervisor {
             &mut writer,
             &json!({
                 "type": "daemon_hello",
-                "protocol": { "name": "prime-agent.daemon", "version": 7 },
+                "protocol": { "name": "async-agent.daemon", "version": 7 },
                 "serverCapabilities": [],
                 "clientId": "mock",
             }),
@@ -908,7 +908,7 @@ pub(crate) fn attach_data(id: &str, compacting: bool) -> Value {
         "command": "attach",
         "success": true,
         "data": {
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "activeSessionId": "s1",
             "snapshot": {
                 "activeSessionId": "s1",
@@ -1069,7 +1069,7 @@ pub(crate) fn child_options(socket: PathBuf) -> InteractiveOptions {
         initial_message: None,
         show_images: true,
         fullscreen_mouse: true,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -1081,7 +1081,7 @@ pub(crate) fn child_options(socket: PathBuf) -> InteractiveOptions {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -1095,7 +1095,7 @@ pub(crate) fn view_options(socket: PathBuf, anchor: Option<String>) -> AgentsVie
         socket_path: socket,
         cwd: PathBuf::from("/tmp"),
         session_dir: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         version: "0.0.0".to_string(),
         anchor_session_id: anchor,
         scope: None,
@@ -1104,7 +1104,7 @@ pub(crate) fn view_options(socket: PathBuf, anchor: Option<String>) -> AgentsVie
         selected_row_identity: None,
         selected_key: None,
         status_message: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         show_hardware_cursor: false,
         incident_notice_state: None,
         create_config: serde_json::json!({}),

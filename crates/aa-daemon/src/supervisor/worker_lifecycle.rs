@@ -140,7 +140,7 @@ impl Supervisor {
         // documented on the `ResidentWorker::launch_env` field.
         let client_launch_env = launch_env
             .clone()
-            .map(pa_types::daemon::launch_env::collect_launch_env)
+            .map(aa_types::daemon::launch_env::collect_launch_env)
             .filter(|env| !env.is_empty());
         // The shutdown gate: a create dispatched while the supervisor is
         // stopping must never launch a worker the stop pass would miss (a
@@ -170,7 +170,7 @@ impl Supervisor {
             session_path
                 .as_deref()
                 .filter(|path| Path::new(path).is_file())
-                .and_then(|path| pa_core::session::manager::read_session_header(Path::new(path)))
+                .and_then(|path| aa_core::session::manager::read_session_header(Path::new(path)))
                 .map(|header| header.cwd)
                 .filter(|cwd| !cwd.is_empty())
         } else {
@@ -202,7 +202,7 @@ impl Supervisor {
         // create command so respawned workers resolve the same model and thinking level.
         let requested_thinking = match config_object.and_then(|config| config.get("thinking")) {
             None => None,
-            Some(Value::String(level)) => match pa_ai::models::thinking_level_from_str(level) {
+            Some(Value::String(level)) => match aa_ai::models::thinking_level_from_str(level) {
                 Some(level) => Some(level),
                 None => {
                     return Err(anyhow!(
@@ -438,7 +438,7 @@ impl Supervisor {
                     // line, so only its headline rides the log line.
                     let headline = message.lines().next().unwrap_or_default();
                     match &error_info {
-                        pa_types::daemon::DaemonErrorInfo::SessionAlreadyActive {
+                        aa_types::daemon::DaemonErrorInfo::SessionAlreadyActive {
                             session_path,
                             active_session_id,
                         } => self.log_line(&format!(
@@ -688,12 +688,12 @@ impl Supervisor {
         // `idleEvictionMinutes` surface the worker read.
         let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
         let settings =
-            pa_core::settings::SettingsManager::create(cwd.as_path(), &self.options.agent_dir);
+            aa_core::settings::SettingsManager::create(cwd.as_path(), &self.options.agent_dir);
         let threshold = match settings.get_idle_eviction() {
-            pa_core::settings::IdleEviction::Off => {
+            aa_core::settings::IdleEviction::Off => {
                 return response_success(Some(command_id), type_name, None);
             }
-            pa_core::settings::IdleEviction::Minutes(minutes) => minutes,
+            aa_core::settings::IdleEviction::Minutes(minutes) => minutes,
         };
         // The idle claim the worker reported must match the live setting (a stale ask
         // against a raised threshold is refused).
@@ -927,7 +927,7 @@ impl Supervisor {
             ) {
                 return;
             }
-            pa_core::kernel::orphan_journal::reap_worker_orphan_processes(
+            aa_core::kernel::orphan_journal::reap_worker_orphan_processes(
                 Path::new(&orphan_path),
                 worker_pid,
             );

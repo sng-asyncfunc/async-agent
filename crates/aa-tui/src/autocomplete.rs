@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use crate::fuzzy::fuzzy_filter;
 use crate::width::str_width;
 use crate::{Line, Span};
-use pa_types::slash_commands::SlashCommandRegistry;
+use aa_types::slash_commands::SlashCommandRegistry;
 
 mod file_index;
 mod fuzzy_file_search;
@@ -244,7 +244,7 @@ fn expand_home_path(path: &str) -> String {
 
 /// The home directory (`HOME`, else the Windows profile chain).
 fn home_dir() -> std::path::PathBuf {
-    pa_types::platform::home_dir().unwrap_or_default()
+    aa_types::platform::home_dir().unwrap_or_default()
 }
 
 /// The `@`-attachment token at the cursor: the token feeds the fuzzy

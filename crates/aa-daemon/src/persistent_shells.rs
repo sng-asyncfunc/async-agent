@@ -1,4 +1,4 @@
-//! The kernel's persistent `bash()` shells (prime-agent-runtime `rlm/bash.py`,
+//! The kernel's persistent `bash()` shells (async-agent-runtime `rlm/bash.py`,
 //! `bash(..., persistent=True)`): every session's shells live in one home,
 //! `<agent dir>/persistent-shells/`, as a `<id>.json` record assigned to the
 //! session that started it, plus the shell's `<id>.out` and `<id>.rc`. The
@@ -12,7 +12,7 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
-use pa_core::platform::process::{process_group_exists, signal_process_group, Signal};
+use aa_core::platform::process::{process_group_exists, signal_process_group, Signal};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -254,7 +254,7 @@ mod test_support {
     ) -> Child {
         let mut command = Command::new("sleep");
         command.arg("60");
-        pa_core::platform::process::set_new_session(&mut command);
+        aa_core::platform::process::set_new_session(&mut command);
         let child = command.spawn().expect("spawn sleeper");
         let start_id = start_id.map_or_else(
             || crate::lease::get_process_start_id(child.id()).expect("start id"),
@@ -306,7 +306,7 @@ mod tests {
     fn registered_group(agent_dir: &std::path::Path) -> (Child, Child, String) {
         let mut leader_command = Command::new("sleep");
         leader_command.arg("60");
-        pa_core::platform::process::set_new_process_group(&mut leader_command);
+        aa_core::platform::process::set_new_process_group(&mut leader_command);
         let leader = leader_command.spawn().unwrap();
         let start_id = crate::lease::get_process_start_id(leader.id()).unwrap();
         let id = register(agent_dir, leader.id(), &start_id, "s1");

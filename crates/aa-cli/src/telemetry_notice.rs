@@ -3,7 +3,7 @@
 //! stderr before a mode's output starts (TS
 //! `deferTelemetryNoticeForOnboarding: executionMode === "interactive"`).
 //! The interactive mode renders the same disclosure inside the TUI as a
-//! session info row (pa-tui's attach) — the alt screen hides a pre-TUI
+//! session info row (aa-tui's attach) — the alt screen hides a pre-TUI
 //! stderr print, so a stderr notice would never be seen there.
 
 use crate::mode::RuntimeConfig;
@@ -15,12 +15,12 @@ pub(crate) fn print_if_due(config: &RuntimeConfig) {
     if config.telemetry_disabled {
         return;
     }
-    let mut settings = pa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
+    let mut settings = aa_core::settings::SettingsManager::create(&config.cwd, &config.agent_dir);
     if settings.get_telemetry_notice_shown() {
         return;
     }
     eprintln!(
-        "Prime Agent sends pseudonymous usage and performance metrics without prompts, responses, tool content, file paths, or repository data. Disable this with /telemetry off, telemetry.enabled=false, PRIME_AGENT_TELEMETRY=0, DO_NOT_TRACK=1, or offline mode."
+        "Async Agent telemetry is disabled by default unless an endpoint is configured via ASYNC_AGENT_TELEMETRY_ENDPOINT, and never collects prompts, responses, tool content, file paths, or repository data. Disable recording with /telemetry off, telemetry.enabled=false, ASYNC_AGENT_TELEMETRY=0, DO_NOT_TRACK=1, or offline mode."
     );
     if let Err(error) = settings.set_telemetry_notice_shown(true) {
         eprintln!("Warning: could not persist the telemetry notice: {error}");
@@ -42,7 +42,7 @@ mod tests {
     }
 
     fn notice_shown(dir: &std::path::Path) -> bool {
-        pa_core::settings::SettingsManager::create(dir, dir.join("agent"))
+        aa_core::settings::SettingsManager::create(dir, dir.join("agent"))
             .get_telemetry_notice_shown()
     }
 

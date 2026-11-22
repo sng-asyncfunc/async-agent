@@ -78,7 +78,7 @@ async fn prompt_with_images_queues_the_images_with_the_message() {
     assert_eq!(images.len(), 1, "one queued item");
     assert_eq!(
         images[0],
-        vec![pa_agent::types::ImageContent {
+        vec![aa_agent::types::ImageContent {
             data: "QUJD".to_string(),
             mime_type: "image/png".to_string(),
         }],

@@ -1,13 +1,13 @@
 //! Bundled theme definitions (pure data, the product theme files verbatim), shared by the TUI's
-//! theme loader (pa-tui) and the session HTML exporter (pa-core); a theme's `export` section
+//! theme loader (aa-tui) and the session HTML exporter (aa-core); a theme's `export` section
 //! carries the export page's background overrides. Only the built-ins are data here; custom theme
 //! discovery and behavior belong to the consuming crates.
 
 /// The bundled theme names, in builtin resolution order.
-pub const BUILTIN_THEME_NAMES: [&str; 3] = ["prime", "dark", "light"];
+pub const BUILTIN_THEME_NAMES: [&str; 3] = ["async", "dark", "light"];
 
-/// The `prime` theme file (Prime Agent's default, dark-first).
-pub const PRIME_THEME_JSON: &str = include_str!("../themes/prime.json");
+/// The `async` theme file (Async Agent's default, dark-first).
+pub const ASYNC_THEME_JSON: &str = include_str!("../themes/async.json");
 pub const DARK_THEME_JSON: &str = include_str!("../themes/dark.json");
 pub const LIGHT_THEME_JSON: &str = include_str!("../themes/light.json");
 
@@ -15,7 +15,7 @@ pub const LIGHT_THEME_JSON: &str = include_str!("../themes/light.json");
 #[must_use]
 pub fn builtin_theme_json(name: &str) -> Option<&'static str> {
     match name {
-        "prime" => Some(PRIME_THEME_JSON),
+        "async" => Some(ASYNC_THEME_JSON),
         "dark" => Some(DARK_THEME_JSON),
         "light" => Some(LIGHT_THEME_JSON),
         _ => None,

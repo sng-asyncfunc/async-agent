@@ -1,6 +1,6 @@
 //! Kernel Bun runtime bootstrap: the public entry point [`ensure_kernel_bun`]
 //! resolves Bun (`>= 1.3.14`), provisions the `kernel-bun` runtime directory
-//! from `prime-agent-runtime/`, prepares JavaScript skill dependency caches,
+//! from `async-agent-runtime/`, prepares JavaScript skill dependency caches,
 //! and deduplicates concurrent bootstraps.
 
 pub(crate) mod bun;
@@ -85,7 +85,7 @@ pub type KernelBootstrapProgressHandler = Arc<dyn Fn(&str) + Send + Sync>;
 pub struct EnsureKernelBunOptions {
     pub javascript_skills: Vec<KernelJavaScriptSkill>,
     pub on_progress: Option<KernelBootstrapProgressHandler>,
-    /// Optional override for the `prime-agent-runtime` source directory.
+    /// Optional override for the `async-agent-runtime` source directory.
     pub runtime_source_dir: Option<PathBuf>,
 }
 
@@ -101,14 +101,14 @@ impl EnsureKernelBunOptions {
 fn format_bootstrap_failure(error: &anyhow::Error) -> anyhow::Error {
     let mut message = format!(
         "Failed to set up the Bun JavaScript kernel runtime. {error:#}\n\
-         First-time setup needs Bun >= {MINIMUM_BUN_VERSION}, the bundled local runtime, and internet to install its JavaScript packages; once set up, Prime Agent runs offline. \
-         Set PRIME_AGENT_KERNEL_BUN to a supported Bun executable or PRIME_AGENT_KERNEL_BUN_DIR to a writable runtime directory."
+         First-time setup needs Bun >= {MINIMUM_BUN_VERSION}, the bundled local runtime, and internet to install its JavaScript packages; once set up, Async Agent runs offline. \
+         Set ASYNC_AGENT_KERNEL_BUN to a supported Bun executable or ASYNC_AGENT_KERNEL_BUN_DIR to a writable runtime directory."
     );
     if packaged_runtime_dir().is_none() {
         let package = package_dir();
         let _ = write!(
             message,
-            "\nThe packaged prime-agent-runtime directory was not found (looked next to the executable at {} and PI_PACKAGE_DIR); reinstall prime-agent so the kernel runtime ships beside the binary.",
+            "\nThe packaged async-agent-runtime directory was not found (looked next to the executable at {} and PI_PACKAGE_DIR); reinstall async-agent so the kernel runtime ships beside the binary.",
             package.display()
         );
     }
@@ -122,7 +122,7 @@ type InFlightBootstrap = Option<(
 
 static IN_FLIGHT: Mutex<InFlightBootstrap> = Mutex::new(None);
 
-/// Resolve Bun (`>= 1.3.14`), provision `kernel-bun` from `prime-agent-runtime/`,
+/// Resolve Bun (`>= 1.3.14`), provision `kernel-bun` from `async-agent-runtime/`,
 /// and prepare all JavaScript skills.
 ///
 /// # Errors
@@ -160,8 +160,8 @@ pub async fn ensure_kernel_bun_for_project(
         project
             .as_ref()
             .map_or_else(String::new, |path| path.to_string_lossy().into_owned()),
-        std::env::var("PRIME_AGENT_KERNEL_BUN").unwrap_or_default(),
-        std::env::var("PRIME_AGENT_KERNEL_BUN_DIR").unwrap_or_default(),
+        std::env::var("ASYNC_AGENT_KERNEL_BUN").unwrap_or_default(),
+        std::env::var("ASYNC_AGENT_KERNEL_BUN_DIR").unwrap_or_default(),
         std::env::var("HOME").unwrap_or_default(),
         std::env::var("XDG_DATA_HOME").unwrap_or_default(),
         options
@@ -204,7 +204,7 @@ async fn ensure_kernel_bun_uncached(
     project: Option<&Path>,
 ) -> anyhow::Result<KernelBunRuntime> {
     let has_override =
-        std::env::var("PRIME_AGENT_KERNEL_BUN").is_ok_and(|value| !value.trim().is_empty());
+        std::env::var("ASYNC_AGENT_KERNEL_BUN").is_ok_and(|value| !value.trim().is_empty());
     if !has_override {
         require_runtime_source_dir(options.runtime_source_dir.as_deref())
             .map_err(|error| format_bootstrap_failure(&error))?;
@@ -255,7 +255,7 @@ async fn ensure_kernel_bun_in_dir(
                     &expected_deps,
                 ) {
                     return Err(anyhow!(
-                        "cannot set up the Bun JavaScript kernel runtime: {} is not writable by this user and does not hold a current runtime. Set PRIME_AGENT_KERNEL_BUN_DIR to a writable directory. ({error:#})",
+                        "cannot set up the Bun JavaScript kernel runtime: {} is not writable by this user and does not hold a current runtime. Set ASYNC_AGENT_KERNEL_BUN_DIR to a writable directory. ({error:#})",
                         kernel_dir.display()
                     ));
                 }
@@ -315,11 +315,11 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn lock_timeout_prevents_kernel_dir_rebuild() {
         let root = tempfile::tempdir().unwrap();
-        let source = root.path().join("prime-agent-runtime");
+        let source = root.path().join("async-agent-runtime");
         std::fs::create_dir_all(source.join("src")).unwrap();
         std::fs::write(
             source.join("package.json"),
-            r#"{"name":"prime-agent-runtime","type":"module","dependencies":{"acorn":"^8.18.0"}}"#,
+            r#"{"name":"async-agent-runtime","type":"module","dependencies":{"acorn":"^8.18.0"}}"#,
         )
         .unwrap();
         std::fs::write(source.join("src/repl.ts"), "console.log('ready');\n").unwrap();

@@ -1,6 +1,6 @@
 //! The core scripted end-to-end scenario: the supervisor hello handshake,
 //! session create, a turn streamed to an attached client, and session stop
-//! through the real `pa-daemon` supervisor.
+//! through the real `aa-daemon` supervisor.
 
 use std::path::Path;
 
@@ -16,11 +16,11 @@ fn supervisor_end_to_end_scripted_session_lifecycle() {
     let (mut client, hello) = Client::connect(&socket);
     assert_eq!(hello["type"], "daemon_hello");
     // Differential goldens captured from the TS supervisor
-    // (`prime-agent --mode daemon`, protocol 7, schema 29).
+    // (`async-agent --mode daemon`, protocol 7, schema 29).
     assert_eq!(
         hello["protocol"],
         serde_json::json!({
-            "name": "prime-agent.daemon", "version": 7
+            "name": "async-agent.daemon", "version": 7
         })
     );
     assert_eq!(

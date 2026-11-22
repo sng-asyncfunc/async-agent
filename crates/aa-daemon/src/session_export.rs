@@ -1,5 +1,5 @@
 //! Session export commands: the worker-side handlers for `export_html` and `export_jsonl`
-//! (TS `session.exportToHtml` / `exportToJsonl`). The HTML file is built by pa-core's
+//! (TS `session.exportToHtml` / `exportToJsonl`). The HTML file is built by aa-core's
 //! exporter (the embedded template plus the session data); the JSONL export is the current
 //! branch re-chained into a linear file.
 
@@ -89,7 +89,7 @@ impl ExportCommands {
         // exists from create), so the best-effort prompt read below then sees it too.
         let tools = self.engine.export_tools().await;
         let rendered_tools = self.engine.export_rendered_tools(&entries).await;
-        let data = pa_core::export_html::SessionExportData {
+        let data = aa_core::export_html::SessionExportData {
             header,
             entries,
             leaf_id,
@@ -97,7 +97,7 @@ impl ExportCommands {
             tools,
             rendered_tools,
         };
-        pa_core::export_html::export_session_to_html(
+        aa_core::export_html::export_session_to_html(
             &data,
             theme_name.as_deref(),
             &self.agent_dir,
@@ -114,7 +114,7 @@ impl ExportCommands {
         } else {
             PathBuf::from(&core.cwd)
         };
-        let settings = pa_core::settings::SettingsManager::create(&cwd, &self.agent_dir);
+        let settings = aa_core::settings::SettingsManager::create(&cwd, &self.agent_dir);
         Ok(settings.get_theme().map(str::to_string))
     }
 
@@ -155,7 +155,7 @@ impl ExportCommands {
             }
             None => cwd.join(format!(
                 "session-{}.jsonl",
-                pa_core::session::manager::format_iso_now().replace([':', '.'], "-")
+                aa_core::session::manager::format_iso_now().replace([':', '.'], "-")
             )),
         };
         if let Some(parent) = file_path.parent() {
@@ -164,9 +164,9 @@ impl ExportCommands {
         }
         let header = json!({
             "type": "session",
-            "version": pa_core::session::CURRENT_SESSION_VERSION,
+            "version": aa_core::session::CURRENT_SESSION_VERSION,
             "id": store.session_id(),
-            "timestamp": pa_core::session::manager::format_iso_now(),
+            "timestamp": aa_core::session::manager::format_iso_now(),
             "cwd": core.cwd,
         });
         let mut lines = vec![serde_json::to_string(&header)?];
@@ -196,10 +196,10 @@ impl ExportCommands {
 /// so the export falls back to the template's generic tool rendering.
 pub(crate) struct ExportToolRenderer<'a> {
     /// The session's live tool registry (TS `getToolDefinition` source).
-    pub tools: &'a [std::sync::Arc<dyn pa_agent::types::AgentTool>],
+    pub tools: &'a [std::sync::Arc<dyn aa_agent::types::AgentTool>],
 }
 
-impl pa_core::export_html::ToolHtmlRenderer for ExportToolRenderer<'_> {
+impl aa_core::export_html::ToolHtmlRenderer for ExportToolRenderer<'_> {
     fn render_call(&self, _tool_call_id: &str, tool_name: &str, _args: &Value) -> Option<String> {
         // Registry lookup first (TS `getToolDefinition`): an unregistered tool never
         // renders; a registered one has no render function.
@@ -214,7 +214,7 @@ impl pa_core::export_html::ToolHtmlRenderer for ExportToolRenderer<'_> {
         _result: &[Value],
         _details: &Value,
         _is_error: bool,
-    ) -> Option<pa_core::export_html::RenderedToolResult> {
+    ) -> Option<aa_core::export_html::RenderedToolResult> {
         self.tools.iter().find(|tool| tool.name() == tool_name)?;
         None
     }

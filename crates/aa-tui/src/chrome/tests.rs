@@ -1,7 +1,7 @@
 /// Separators stay inert, and a truncated row keeps no region for dropped groups.
 #[test]
 fn the_dock_segments_cover_each_groups_own_cells() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let dock = ActivityDock {
         subagents_running_direct: 2,
         heartbeats: 3,
@@ -79,7 +79,7 @@ fn the_dock_segments_cover_each_groups_own_cells() {
 /// The hint spans exactly the arrow and the label, never the depth metadata beside them.
 #[test]
 fn the_tray_reports_the_manage_hints_own_cells() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let state = ChromeState {
         show_manage: true,
         tray_depth: Some(2),
@@ -117,7 +117,7 @@ fn the_tray_reports_the_manage_hints_own_cells() {
 
 #[test]
 fn activity_dock_frames_one_row_with_running_paused_and_goal_counts() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let dock = ActivityDock {
         subagents_running_direct: 1,
         subagents_running_nested: 1,
@@ -262,7 +262,7 @@ fn activity_dock_frames_one_row_with_running_paused_and_goal_counts() {
 /// run (green), and the paused one sits in its own amber cluster, like a paused heartbeat.
 #[test]
 fn the_collapsed_dock_counts_paused_factory_runs_apart_from_running_ones() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let colored = |dock: &ActivityDock| {
         render_activity_dock(dock, &theme, 120)[1]
             .iter()
@@ -312,7 +312,7 @@ fn the_collapsed_dock_counts_paused_factory_runs_apart_from_running_ones() {
 /// ONE number: direct children and nested descendants summed, never a `direct, nested` pair.
 #[test]
 fn prompt_bar_subagent_segment_is_the_running_count_only() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     // Two directly-running children, nothing nested.
     let dock = ActivityDock {
         subagents_running_direct: 2,
@@ -382,7 +382,7 @@ fn line_texts(frame: &[Line]) -> Vec<String> {
 /// the unfocused dock is the single collapsed line.
 #[test]
 fn the_focused_dock_expands_into_one_row_per_group() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let dock = ActivityDock {
         subagents_running_direct: 2,
         subagents_running_nested: 1,
@@ -442,7 +442,7 @@ fn the_focused_dock_expands_into_one_row_per_group() {
 /// and the collapsed line never is.
 #[test]
 fn the_expanded_dock_bands_exactly_the_selected_row() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let dock = ActivityDock {
         heartbeats_active: items(2),
         shells: items(1),
@@ -481,7 +481,7 @@ fn the_expanded_dock_bands_exactly_the_selected_row() {
 /// running and persistent counts, and the marker counts the commands it hides.
 #[test]
 fn an_overflowing_expanded_row_counts_the_rest() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let dock = ActivityDock {
         shells: items(9),
         shells_persistent: 2,
@@ -500,7 +500,7 @@ fn an_overflowing_expanded_row_counts_the_rest() {
 /// while the collapsed segment keeps counting live runs only.
 #[test]
 fn the_expanded_factory_row_counts_stored_specs_without_runs() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let dock = ActivityDock {
         factory_specs: 2,
         factory_group: true,
@@ -524,7 +524,7 @@ fn the_expanded_factory_row_counts_stored_specs_without_runs() {
 /// A large activity list fits by terminal cells, including a multi-digit omitted count.
 #[test]
 fn a_large_expanded_row_fits_wide_items_and_counts_the_omitted_items() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let dock = ActivityDock {
         heartbeats_active: vec!["界界".to_string(); 4096],
         focused: true,
@@ -542,7 +542,7 @@ fn a_large_expanded_row_fits_wide_items_and_counts_the_omitted_items() {
 /// renders.
 #[test]
 fn an_oversized_first_item_keeps_the_overflow_marker() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let dock = ActivityDock {
         heartbeats_active: vec![
             format!("5m {}", "check the deploy queue ".repeat(4)),
@@ -712,7 +712,7 @@ fn dock_goal_group_unmounts_with_its_row() {
 /// advertises the lane).
 #[test]
 fn an_unadvertised_factory_lane_mounts_no_factory_group() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     // The default dock is the unadvertised lane (the opt-in default).
     let dock = ActivityDock::default();
     assert!(
@@ -752,7 +752,7 @@ fn an_unadvertised_factory_lane_mounts_no_factory_group() {
 /// and the row stays selectable.
 #[test]
 fn an_empty_group_renders_a_dimmed_row_and_stays_selectable() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let dock = ActivityDock {
         heartbeats_paused: 2,
         selected: ActivityGroup::Heartbeats,
@@ -784,7 +784,7 @@ fn an_empty_group_renders_a_dimmed_row_and_stays_selectable() {
 
 #[test]
 fn speed_footer_is_one_dim_row_truncated_to_width() {
-    let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    let theme = Theme::builtin("async", ColorMode::TrueColor);
     let row = render_speed_footer("188 tok/s · avg 200", &theme, 100);
     let text = row
         .iter()
@@ -811,7 +811,7 @@ fn items(count: usize) -> Vec<String> {
 }
 
 fn theme() -> Theme {
-    Theme::builtin("prime", ColorMode::TrueColor)
+    Theme::builtin("async", ColorMode::TrueColor)
 }
 
 #[test]
@@ -833,12 +833,12 @@ fn splash_renders_logo_version_model_and_cwd() {
     let lines = render_splash(&state, &theme(), 120);
     assert_eq!(lines[0], Vec::new());
     let text = |line: &Line| line.iter().map(|s| s.content.as_str()).collect::<String>();
-    assert!(lines.iter().any(|l| text(l).contains("prime agent v0.0.0")));
+    assert!(lines.iter().any(|l| text(l).contains("async agent v0.0.0")));
     assert!(lines.iter().any(|l| text(l).contains("model faux-1")));
     assert!(lines.iter().any(|l| text(l).contains("cwd /tmp/project")));
     assert!(lines
         .iter()
-        .any(|l| text(l).contains("\u{2597}\u{2584}\u{2584}")));
+        .any(|l| text(l).contains("\u{2597}\u{2584}\u{2584}\u{2584}\u{2584}\u{2596}")));
 }
 
 #[test]

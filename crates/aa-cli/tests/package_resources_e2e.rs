@@ -58,13 +58,13 @@ fn sandbox(settings: &serde_json::Value) -> Sandbox {
 }
 
 fn run(sandbox: &Sandbox, script: &serde_json::Value) -> (String, String, i32) {
-    let output = Command::new(env!("CARGO_BIN_EXE_prime-agent"))
+    let output = Command::new(env!("CARGO_BIN_EXE_async-agent"))
         .args(["--mode", "json", "-p", "hi"])
         .env("HOME", sandbox.home.path())
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &sandbox.agent_dir)
-        .env("PRIME_AGENT_FAUX_SCRIPT", script.to_string())
-        .env_remove("PRIME_AGENT_SESSION_DIR")
-        .env_remove("PRIME_AGENT_CODING_AGENT_SESSION_DIR")
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &sandbox.agent_dir)
+        .env("ASYNC_AGENT_FAUX_SCRIPT", script.to_string())
+        .env_remove("ASYNC_AGENT_SESSION_DIR")
+        .env_remove("ASYNC_AGENT_CODING_AGENT_SESSION_DIR")
         .env_remove("PI_OFFLINE")
         .current_dir(&sandbox.cwd)
         .output()

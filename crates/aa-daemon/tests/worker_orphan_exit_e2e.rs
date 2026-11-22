@@ -21,7 +21,7 @@ impl Drop for WorkerGuard {
     }
 }
 
-/// The real `pa-daemon worker` under a supervisor socket it must monitor,
+/// The real `aa-daemon worker` under a supervisor socket it must monitor,
 /// with the lost-exit window at zero (exit at the first availability check
 /// that cannot connect).
 fn spawn_worker(dir: &Path, supervisor_socket: &Path) -> WorkerGuard {
@@ -35,44 +35,44 @@ fn spawn_worker_with_window(
     script: Option<&Path>,
 ) -> WorkerGuard {
     std::fs::create_dir_all(dir.join("agent")).expect("agent dir");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pa-daemon"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_aa-daemon"));
     command
         .arg("worker")
-        .env(pa_daemon::worker::WORKER_ROLE_ENV, "1")
+        .env(aa_daemon::worker::WORKER_ROLE_ENV, "1")
         .env(
-            pa_daemon::worker::WORKER_TOKEN_ENV,
+            aa_daemon::worker::WORKER_TOKEN_ENV,
             "orphan-e2e-bootstrap-token",
         )
         .env(
-            pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+            aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
             "orphan-e2e-session",
         )
         .env(
-            pa_daemon::worker::WORKER_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SOCKET_ENV,
             dir.join("worker.sock"),
         )
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
             supervisor_socket,
         )
         .env(
-            pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+            aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
             dir.join("recovery.jsonl"),
         )
-        .env("PRIME_AGENT_CODING_AGENT_DIR", dir.join("agent"))
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", dir.join("agent"))
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             lost_exit_ms,
         );
     if let Some(script) = script {
-        command.env(pa_daemon::worker::WORKER_SCRIPT_ENV, script);
+        command.env(aa_daemon::worker::WORKER_SCRIPT_ENV, script);
     }
     let child = command
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .expect("spawn pa-daemon worker");
+        .expect("spawn aa-daemon worker");
     WorkerGuard { child }
 }
 
@@ -165,10 +165,10 @@ impl WorkerClient {
     }
 
     fn send_frame(&mut self, header: &serde_json::Value, payload: &serde_json::Value) {
-        let frame = pa_daemon::framing::encode_private_frame(
+        let frame = aa_daemon::framing::encode_private_frame(
             header,
             &serde_json::to_vec(payload).expect("payload"),
-            pa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+            aa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
         )
         .expect("encode frame");
         self.stream.write_all(&frame).expect("write frame");
@@ -273,7 +273,7 @@ fn the_orphan_exit_preserves_the_session_and_allows_dead_owner_lease_reclaim() {
         "process exit retains the dead-owner lease for safe reclamation"
     );
     let reopened =
-        pa_daemon::lease::acquire_runtime_session_lease(&session_file, &dir.path().join("agent"))
+        aa_daemon::lease::acquire_runtime_session_lease(&session_file, &dir.path().join("agent"))
             .expect("a new owner can reclaim the lease after the worker exited");
     reopened.release();
     assert!(!held_lease.exists(), "the new owner released its lease");

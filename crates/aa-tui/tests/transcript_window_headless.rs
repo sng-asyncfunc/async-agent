@@ -14,7 +14,7 @@ use std::collections::HashSet;
 use std::os::unix::net::UnixListener;
 use std::sync::{Arc, Mutex};
 
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, SessionSelection, UiMode,
 };
 use serde_json::{json, Value};
@@ -124,7 +124,7 @@ impl MockSupervisor {
 
 fn attach_data() -> Value {
     json!({
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "activeSessionId": "s1",
         "snapshot": {
             "activeSessionId": "s1",

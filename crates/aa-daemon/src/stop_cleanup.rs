@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
-use pa_core::cron::store::{AgentCronJobStore, CancelJobsFilter};
+use aa_core::cron::store::{AgentCronJobStore, CancelJobsFilter};
 
 use crate::lease::canonical_session_path;
 use crate::registry::ResidentWorker;
@@ -91,7 +91,7 @@ fn cancel_scheduled_jobs_for_members(
             continue;
         };
         if !dir
-            .join(pa_core::cron::store::SESSION_SCHEDULED_JOBS_FILENAME)
+            .join(aa_core::cron::store::SESSION_SCHEDULED_JOBS_FILENAME)
             .is_file()
         {
             continue;
@@ -464,7 +464,7 @@ impl Supervisor {
 mod tests {
     use super::*;
     use crate::session_store::{session_file_name, SessionFile};
-    use pa_core::cron::AgentCronJob;
+    use aa_core::cron::AgentCronJob;
     use std::io::Write;
 
     fn temp_dir() -> PathBuf {
@@ -581,11 +581,11 @@ mod tests {
         );
         assert_eq!(
             read_job(&root_file, &root_id).status,
-            pa_core::cron::JobStatus::Cancelled
+            aa_core::cron::JobStatus::Cancelled
         );
         assert_eq!(
             read_job(&child_file, &child_id).status,
-            pa_core::cron::JobStatus::Cancelled
+            aa_core::cron::JobStatus::Cancelled
         );
 
         let info = read_session_info(&root_file).unwrap();
@@ -613,7 +613,7 @@ mod tests {
         assert_eq!(cancelled, 0, "a covered tree keeps its schedules");
         assert_eq!(
             read_job(&root_file, &root_id).status,
-            pa_core::cron::JobStatus::Active
+            aa_core::cron::JobStatus::Active
         );
     }
 

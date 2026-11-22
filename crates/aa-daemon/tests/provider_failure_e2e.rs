@@ -204,7 +204,7 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Supervisor {
     std::fs::create_dir_all(agent_dir).expect("agent dir");
     let stderr_path = agent_dir.join("supervisor-stderr.log");
     let stderr = std::fs::File::create(&stderr_path).expect("capture supervisor stderr");
-    let child = Command::new(env!("CARGO_BIN_EXE_pa-daemon"))
+    let child = Command::new(env!("CARGO_BIN_EXE_aa-daemon"))
         .arg("supervisor")
         .arg("--socket")
         .arg(socket)
@@ -214,15 +214,15 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Supervisor {
         .stdout(Stdio::null())
         .stderr(Stdio::from(stderr))
         .env_remove("PRIME_API_KEY")
-        .env_remove("PRIME_AGENT_CODING_AGENT_DIR")
+        .env_remove("ASYNC_AGENT_CODING_AGENT_DIR")
         // A supervisor killed at teardown must not leak session workers: the supervisor-lost
         // exit runs here.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     Supervisor {
         child,
         socket: socket.to_path_buf(),
@@ -328,7 +328,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize");
@@ -905,10 +905,10 @@ impl DirectClient {
             "requestId": request_id,
             "commandType": command_type,
         });
-        let frame = pa_daemon::framing::encode_private_frame(
+        let frame = aa_daemon::framing::encode_private_frame(
             &header,
             &serde_json::to_vec(payload).expect("payload"),
-            pa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+            aa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
         )
         .expect("encode frame");
         self.stream.write_all(&frame).expect("write frame");

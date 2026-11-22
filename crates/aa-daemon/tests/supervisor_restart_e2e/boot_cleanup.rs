@@ -7,7 +7,7 @@ fn boot_cleanup_preserves_unverifiable_journals_and_waiting_callers_status() {
     let dir = tempfile::tempdir().expect("temp dir");
     let agent_dir = dir.path().join("agent");
     let socket = dir.path().join("daemon.sock");
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(&agent_dir, &socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(&agent_dir, &socket);
     std::fs::create_dir_all(&descriptor_dir).expect("descriptors");
     let mut preserved = Vec::new();
     for worker_id in ["unowned", "malformed", "unsupported", "unreadable", "owned"] {
@@ -101,7 +101,7 @@ fn boot_cleanup_preserves_unverifiable_journals_and_waiting_callers_status() {
 
     let live_session = dir.path().join("live-session.jsonl");
     std::fs::write(&live_session, "{}\n").expect("live session");
-    let live_lease = pa_daemon::lease::acquire_runtime_session_lease(&live_session, &agent_dir)
+    let live_lease = aa_daemon::lease::acquire_runtime_session_lease(&live_session, &agent_dir)
         .expect("live lease");
     let dead_lease = agent_dir.join("session-leases/dead.lock");
     std::fs::create_dir_all(&dead_lease).expect("dead lease");
@@ -127,7 +127,7 @@ fn boot_cleanup_preserves_unverifiable_journals_and_waiting_callers_status() {
 
     let _daemon = spawn_supervisor(&socket, &agent_dir);
     wait_socket_ready(&socket);
-    let log_path = pa_daemon::paths::daemon_log_path(&socket, &agent_dir);
+    let log_path = aa_daemon::paths::daemon_log_path(&socket, &agent_dir);
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {
         let log = std::fs::read_to_string(&log_path).unwrap_or_default();
@@ -163,7 +163,7 @@ fn boot_cleanup_preserves_unverifiable_journals_and_waiting_callers_status() {
         "the unused root cache was removed"
     );
     assert!(
-        pa_daemon::lease::acquire_runtime_session_lease(&live_session, &agent_dir).is_err(),
+        aa_daemon::lease::acquire_runtime_session_lease(&live_session, &agent_dir).is_err(),
         "the live fixture still owns its session"
     );
     live_lease.release();

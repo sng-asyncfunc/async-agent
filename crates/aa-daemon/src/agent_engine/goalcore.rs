@@ -16,7 +16,7 @@ impl AgentSessionEngine {
                     "rlm_max_depth_state",
                     Some(json!({ "maxDepth": max_depth })),
                 ) {
-                    eprintln!("pa-daemon: failed to persist rlm_max_depth_state: {error:#}");
+                    eprintln!("aa-daemon: failed to persist rlm_max_depth_state: {error:#}");
                 }
             }
             None => {
@@ -33,7 +33,7 @@ impl AgentSessionEngine {
     /// field.
     pub(super) fn write_global_rlm_max_depth(&self, max_depth: u64) -> Option<String> {
         let mut settings =
-            pa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
+            aa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
         match settings.set_rlm_max_depth(max_depth) {
             Ok(()) => None,
             Err(error) => Some(error.to_string()),
@@ -43,7 +43,7 @@ impl AgentSessionEngine {
     /// Flush a parked `rlm_max_depth_state` entry once the session built.
     pub(super) fn flush_pending_max_depth(
         &self,
-        manager: &mut pa_core::session::manager::SessionManager,
+        manager: &mut aa_core::session::manager::SessionManager,
     ) {
         let pending = self
             .pending_max_depth
@@ -55,7 +55,7 @@ impl AgentSessionEngine {
                 "rlm_max_depth_state",
                 Some(json!({ "maxDepth": max_depth })),
             ) {
-                eprintln!("pa-daemon: failed to flush pending rlm_max_depth_state: {error:#}");
+                eprintln!("aa-daemon: failed to flush pending rlm_max_depth_state: {error:#}");
             }
         }
     }
@@ -73,20 +73,20 @@ impl AgentSessionEngine {
         let binding = self.kernel_cron_binding()?;
         let schedule_text = format!(
             "at {}",
-            pa_core::session::manager::format_iso(wake_at_ms as i64)
+            aa_core::session::manager::format_iso(wake_at_ms as i64)
         );
         let job = wiring
             .store
-            .create(&pa_core::cron::store::CreateAgentCronJobInput {
+            .create(&aa_core::cron::store::CreateAgentCronJobInput {
                 active_session_id: binding.active_session_id.clone(),
                 session_id: binding.session_id.clone(),
                 session_file: binding.session_file.clone(),
                 cwd: binding.cwd.clone(),
                 source: Some("goal_backoff_wake".to_string()),
                 label: Some(
-                    pa_core::session_engine::goal_driver::GOAL_BACKOFF_WAKE_CRON_LABEL.to_string(),
+                    aa_core::session_engine::goal_driver::GOAL_BACKOFF_WAKE_CRON_LABEL.to_string(),
                 ),
-                prompt: pa_core::session_engine::goal_driver::GOAL_BACKOFF_WAKE_MARKER_TEXT
+                prompt: aa_core::session_engine::goal_driver::GOAL_BACKOFF_WAKE_MARKER_TEXT
                     .to_string(),
                 schedule_text,
                 now: Some(crate::util::now_ms()),
@@ -96,7 +96,7 @@ impl AgentSessionEngine {
         // Re-arm the scheduler so the armed job gets a live timer
         // (`drop_queued: false` keeps the queued-fire withdrawal a no-op).
         if let Some(hook) = &wiring.mutation_hook {
-            let mutation = pa_core::session_engine::host_requests::RlmHeartbeatMutation {
+            let mutation = aa_core::session_engine::host_requests::RlmHeartbeatMutation {
                 job: job.clone(),
                 drop_queued: false,
             };
@@ -129,9 +129,9 @@ impl AgentSessionEngine {
             return;
         };
         for job in wiring.store.list() {
-            if job.status != pa_core::cron::JobStatus::Active
+            if job.status != aa_core::cron::JobStatus::Active
                 || job.label.as_deref()
-                    != Some(pa_core::session_engine::goal_driver::GOAL_BACKOFF_WAKE_CRON_LABEL)
+                    != Some(aa_core::session_engine::goal_driver::GOAL_BACKOFF_WAKE_CRON_LABEL)
                 || job.session_id != binding.session_id
             {
                 continue;
@@ -146,7 +146,7 @@ impl AgentSessionEngine {
     /// to read (the next emitted event re-checks). The served state reads the
     /// creation-based age fresh from `created_at` (no anchor, no
     /// compounding).
-    pub(super) fn current_goal_state(&self) -> Option<pa_core::goals::GoalState> {
+    pub(super) fn current_goal_state(&self) -> Option<aa_core::goals::GoalState> {
         let handles = self.live_handles()?;
         let driver = handles.goal.driver.try_lock().ok()?;
         Some(driver.state_with_creation_elapsed())
@@ -218,13 +218,13 @@ impl AgentSessionEngine {
             let mut published = handles.published_goal.lock().expect("published goal lock");
             // The dedupe is age-invariant (the age ticks with the wall clock).
             if published.as_ref().is_some_and(|last| {
-                pa_core::goals::goal_update_dedupe_projection(last)
-                    == pa_core::goals::goal_update_dedupe_projection(&goal)
+                aa_core::goals::goal_update_dedupe_projection(last)
+                    == aa_core::goals::goal_update_dedupe_projection(&goal)
             }) {
                 return true;
             }
             let baseline_only =
-                published.is_none() && goal.status == pa_core::goals::GoalStatus::Idle;
+                published.is_none() && goal.status == aa_core::goals::GoalStatus::Idle;
             let replaced = published
                 .as_ref()
                 .is_some_and(|last| last.goal_id != goal.goal_id);
@@ -235,7 +235,7 @@ impl AgentSessionEngine {
             // A goal that left the active state retires its pending wake; a
             // REPLACEMENT goal retires it too — the old goal's wake would
             // fire its marker into the new goal.
-            if goal.status != pa_core::goals::GoalStatus::Active || replaced {
+            if goal.status != aa_core::goals::GoalStatus::Active || replaced {
                 self.cancel_goal_backoff_wake();
             }
         }

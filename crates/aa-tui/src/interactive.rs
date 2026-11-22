@@ -137,12 +137,12 @@ pub struct ModelSelection {
     pub model: Option<String>,
     pub api_key: Option<String>,
     /// The requested thinking level (`--thinking`); the worker clamps it to the supported levels.
-    pub thinking: Option<pa_types::ai::ModelThinkingLevel>,
+    pub thinking: Option<aa_types::ai::ModelThinkingLevel>,
 }
 
 /// Adoption telemetry for interactive-view interactions: the composition
 /// root counts them and reports the counters with `tui exit` (plus `agent
-/// command used` per command). pa-tui stays pa-types-only, so the
+/// command used` per command). aa-tui stays aa-types-only, so the
 /// composition root implements this against the telemetry client.
 /// The seam is object-safe (held as `Arc<dyn InteractionTelemetry>` in the
 /// options and session UI), so the async methods return boxed futures with an
@@ -311,7 +311,7 @@ pub struct InteractiveOptions {
     pub cwd: PathBuf,
     /// The model catalog for the `/model` picker (a startup snapshot resolved by the
     /// composition root; the daemon's `get_model_catalog` refresh replaces it once it lands).
-    pub model_catalog: Vec<pa_types::ai::Model>,
+    pub model_catalog: Vec<aa_types::ai::Model>,
     /// Providers with configured auth for the picker's sign-in marking.
     pub model_configured_providers: std::collections::HashSet<String>,
     /// The settings recent-model list (`provider/id` keys, newest first).

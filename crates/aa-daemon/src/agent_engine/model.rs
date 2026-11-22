@@ -11,11 +11,11 @@ use super::{
 impl AgentSessionEngine {
     /// The startup chain: the saved settings default, then the featured
     /// default, then the first available model.
-    fn startup_chain_model(&self, registry: &pa_core::models::ModelRegistry) -> Option<Model> {
+    fn startup_chain_model(&self, registry: &aa_core::models::ModelRegistry) -> Option<Model> {
         let available: Vec<Model> = registry.get_available().into_iter().cloned().collect();
         let all: Vec<Model> = registry.get_all().to_vec();
         let settings =
-            pa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
+            aa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
         let default = settings
             .get_default_provider()
             .zip(settings.get_default_model())
@@ -28,7 +28,7 @@ impl AgentSessionEngine {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
             .unwrap_or_default();
-        let resolved = pa_core::models::find_initial_model(&pa_core::models::InitialModelOptions {
+        let resolved = aa_core::models::find_initial_model(&aa_core::models::InitialModelOptions {
             cli_provider: None,
             cli_model: None,
             scoped_models: &scope.scoped_models,
@@ -74,7 +74,7 @@ impl AgentSessionEngine {
             return;
         }
         let wanted = scope.patterns.is_empty()
-            || pa_core::models::scope_patterns_select_reference(
+            || aa_core::models::scope_patterns_select_reference(
                 &scope.patterns,
                 provider,
                 model_id,
@@ -175,14 +175,14 @@ impl AgentSessionEngine {
         let Some((provider, model_id)) = saved.model else {
             return;
         };
-        let auth = pa_core::auth::AuthStorage::create(&self.config.agent_dir);
+        let auth = aa_core::auth::AuthStorage::create(&self.config.agent_dir);
         let mut registry =
-            pa_core::models::ModelRegistry::create(auth, self.config.agent_dir.join("models.json"));
-        let restored = pa_core::models::find_session_model_with_readiness_wait(
+            aa_core::models::ModelRegistry::create(auth, self.config.agent_dir.join("models.json"));
+        let restored = aa_core::models::find_session_model_with_readiness_wait(
             &mut registry,
             &provider,
             &model_id,
-            pa_core::models::SESSION_MODEL_RESTORE_READINESS_TIMEOUT_MS,
+            aa_core::models::SESSION_MODEL_RESTORE_READINESS_TIMEOUT_MS,
         )
         .await;
         let (model, fallback_message) = if let Some(restored) = restored {
@@ -224,7 +224,7 @@ impl AgentSessionEngine {
     /// decision for another file is ignored.
     fn restored_model_resolution(
         &self,
-        registry: &pa_core::models::ModelRegistry,
+        registry: &aa_core::models::ModelRegistry,
     ) -> Option<Model> {
         let decision = self
             .restored_model
@@ -240,7 +240,7 @@ impl AgentSessionEngine {
         if decision.session_file != current {
             return None;
         }
-        pa_core::models::resolve_cli_model(Some(&provider), &model_id, registry.get_all()).model
+        aa_core::models::resolve_cli_model(Some(&provider), &model_id, registry.get_all()).model
     }
 
     /// Emit the daemon model-allowlist refusal's adoption event (schema v1
@@ -258,7 +258,7 @@ impl AgentSessionEngine {
         let selector = format!("{}/{}", model.provider, model.id);
         let allowlist = crate::model_allowlist::load(&self.cwd(), &self.config.agent_dir);
         if let Err(refusal) = crate::model_allowlist::assert_allowed(&allowlist, &selector) {
-            if let Some(refusal) = refusal.downcast_ref::<pa_core::models::ModelAllowlistRefusal>()
+            if let Some(refusal) = refusal.downcast_ref::<aa_core::models::ModelAllowlistRefusal>()
             {
                 self.note_model_refused("session_start", &refusal.selector);
             }
@@ -270,9 +270,9 @@ impl AgentSessionEngine {
     /// The registry resolution before the allowlist gate: the flagged-model
     /// arm or the startup chain.
     fn resolve_registry_model_unchecked(&self) -> anyhow::Result<Model> {
-        let auth = pa_core::auth::AuthStorage::create(&self.config.agent_dir);
+        let auth = aa_core::auth::AuthStorage::create(&self.config.agent_dir);
         let registry =
-            pa_core::models::ModelRegistry::create(auth, self.config.agent_dir.join("models.json"));
+            aa_core::models::ModelRegistry::create(auth, self.config.agent_dir.join("models.json"));
         let selection = self.current_selection();
         let Some(model_name) = selection.model.as_deref() else {
             if let Some(model) = self.restored_model_resolution(&registry) {
@@ -290,7 +290,7 @@ impl AgentSessionEngine {
         // validation reports it.
         let all: Vec<Model> = registry.get_all().to_vec();
         let resolved =
-            pa_core::models::resolve_cli_model(selection.provider.as_deref(), model_name, &all);
+            aa_core::models::resolve_cli_model(selection.provider.as_deref(), model_name, &all);
         if let Some(error) = resolved.error {
             anyhow::bail!("{error}");
         }
@@ -299,7 +299,7 @@ impl AgentSessionEngine {
             .ok_or_else(|| anyhow::anyhow!("No matching model found."))
     }
 
-    /// Test seam: a scripted faux provider (same script contract as pa-cli's
+    /// Test seam: a scripted faux provider (same script contract as aa-cli's
     /// print runtime) drives the engine without the network. The provider
     /// registers once per engine: its queued responses then span the whole
     /// session (multi-turn scripts), instead of replaying from the top on
@@ -359,7 +359,7 @@ impl AgentSessionEngine {
     /// The effective session thinking level: the create-config flag, then the
     /// settings default, then "medium" — clamped to what the model supports; an
     /// unresolvable model degrades to "off". Resolved once and cached.
-    pub(crate) fn effective_thinking(&self) -> pa_types::ai::ModelThinkingLevel {
+    pub(crate) fn effective_thinking(&self) -> aa_types::ai::ModelThinkingLevel {
         if let Some(level) = *self
             .effective_thinking
             .read()
@@ -396,21 +396,21 @@ impl AgentSessionEngine {
                     .and_then(|level| {
                         let wire = serde_json::to_value(level).ok()?;
                         wire.as_str()
-                            .and_then(pa_ai::models::thinking_level_from_str)
+                            .and_then(aa_ai::models::thinking_level_from_str)
                     })
             })
             .or_else(|| {
                 let settings =
-                    pa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
+                    aa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
                 settings
                     .get_default_thinking_level()
-                    .map(pa_core::settings::ThinkingLevelSetting::model_level)
+                    .map(aa_core::settings::ThinkingLevelSetting::model_level)
             })
             // TS `DEFAULT_THINKING_LEVEL`.
-            .unwrap_or(pa_types::ai::ModelThinkingLevel::Medium);
+            .unwrap_or(aa_types::ai::ModelThinkingLevel::Medium);
         let resolved = match model {
-            Ok(model) => pa_ai::models::clamp_thinking_level(&model, requested),
-            Err(_) => pa_types::ai::ModelThinkingLevel::Off,
+            Ok(model) => aa_ai::models::clamp_thinking_level(&model, requested),
+            Err(_) => aa_types::ai::ModelThinkingLevel::Off,
         };
         *self
             .effective_thinking
@@ -454,7 +454,7 @@ impl AgentSessionEngine {
     pub(crate) fn resolve_request_auth(
         &self,
         model: &Model,
-    ) -> pa_core::models::ResolvedRequestAuth {
+    ) -> aa_core::models::ResolvedRequestAuth {
         // Poison recovery (the repo's pattern): a panic inside one
         // resolution must not break every later provider call — the
         // poisoned slot is already `None` (the panicked call took the
@@ -493,7 +493,7 @@ impl AgentSessionEngine {
     pub(crate) fn refresh_rejected_request_auth(
         &self,
         provider: &str,
-    ) -> Result<(), pa_core::auth::OAuthRefreshFailure> {
+    ) -> Result<(), aa_core::auth::OAuthRefreshFailure> {
         self.request_auth_registry
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -529,15 +529,15 @@ impl AgentSessionEngine {
 
     fn new_request_auth_registry(
         &self,
-        auth: Option<pa_core::auth::AuthStorage>,
-    ) -> pa_core::models::ModelRegistry {
+        auth: Option<aa_core::auth::AuthStorage>,
+    ) -> aa_core::models::ModelRegistry {
         let auth = auth.unwrap_or_else(|| {
-            pa_core::auth::AuthStorage::create_with_oauth(
+            aa_core::auth::AuthStorage::create_with_oauth(
                 &self.config.agent_dir,
                 std::sync::Arc::clone(&self.request_auth_oauth),
             )
         });
-        pa_core::models::ModelRegistry::create(auth, self.config.agent_dir.join("models.json"))
+        aa_core::models::ModelRegistry::create(auth, self.config.agent_dir.join("models.json"))
     }
 
     /// The primary target a failover episode restores: the captured
@@ -548,8 +548,8 @@ impl AgentSessionEngine {
     pub(crate) fn restored_primary_target(
         &self,
         primary: &Model,
-    ) -> pa_core::session_engine::provider_adapter::ProviderTarget {
-        pa_core::session_engine::provider_adapter::ProviderTarget {
+    ) -> aa_core::session_engine::provider_adapter::ProviderTarget {
+        aa_core::session_engine::provider_adapter::ProviderTarget {
             service_tier: *self.service_tier.read().expect("service tier lock"),
             api_key: None,
             model: primary.clone(),
@@ -580,13 +580,13 @@ pub(crate) fn saved_session_context(
 /// value: the create path folds the context once, so a pre-read context and a
 /// file-read context are identical by construction.
 pub(crate) fn saved_session_context_from_parts(
-    context: &pa_core::session::SessionContext,
+    context: &aa_core::session::SessionContext,
     has_thinking_level: bool,
 ) -> crate::engine::SavedSessionContext {
     crate::engine::SavedSessionContext {
         model: context.model.clone(),
         thinking: has_thinking_level
-            .then(|| pa_ai::models::thinking_level_from_str(&context.thinking_level))
+            .then(|| aa_ai::models::thinking_level_from_str(&context.thinking_level))
             .flatten(),
     }
 }
@@ -596,7 +596,7 @@ pub(crate) fn saved_session_context_from_parts(
 /// calls) so harnesses can script full turns. Verification harness only.
 fn faux_model_from_script(script: &str) -> anyhow::Result<Model> {
     let script: serde_json::Value = serde_json::from_str(script)?;
-    let parsed = pa_ai::faux::script::parse_faux_script(&script).map_err(anyhow::Error::msg)?;
-    let registration = pa_ai::faux::script::register_faux_provider_from_script(&parsed);
+    let parsed = aa_ai::faux::script::parse_faux_script(&script).map_err(anyhow::Error::msg)?;
+    let registration = aa_ai::faux::script::register_faux_provider_from_script(&parsed);
     Ok(registration.get_model())
 }

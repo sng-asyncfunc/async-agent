@@ -648,7 +648,7 @@ mod tests {
     }
 
     // Benchmark, not a CI test: the throttled accumulator vs the per-delta whole-buffer reparse.
-    // Run with: cargo test -p pa-ai --release accumulator_benchmark -- --ignored --nocapture
+    // Run with: cargo test -p aa-ai --release accumulator_benchmark -- --ignored --nocapture
     #[test]
     #[ignore = "benchmark; see the comment above for the run command"]
     fn accumulator_benchmark_10k_deltas() {

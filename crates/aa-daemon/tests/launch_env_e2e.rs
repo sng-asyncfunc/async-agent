@@ -45,11 +45,11 @@ impl Drop for Daemon {
     }
 }
 
-/// The kernel Bun binary (`PA_E2E_KERNEL_BUN` / `PRIME_AGENT_KERNEL_BUN`,
+/// The kernel Bun binary (`PA_E2E_KERNEL_BUN` / `ASYNC_AGENT_KERNEL_BUN`,
 /// PATH, or `~/.bun/bin/bun`). Skipped (with a note) on machines without Bun.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) =
-        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("PRIME_AGENT_KERNEL_BUN"))
+        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("ASYNC_AGENT_KERNEL_BUN"))
     {
         let explicit = PathBuf::from(explicit);
         assert!(
@@ -90,14 +90,14 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path, kernel_bun: Option<&Path>) 
     std::fs::create_dir_all(agent_dir).expect("agent dir");
     let log_file = std::fs::File::create(socket.with_extension("daemon.log")).expect("log file");
     let log_err = log_file.try_clone().expect("clone log file");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pa-daemon"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_aa-daemon"));
     command
         .arg("supervisor")
         .arg("--socket")
         .arg(socket)
         .arg("--agent-dir")
         .arg(agent_dir)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", agent_dir)
         .env_remove("PRIME_API_KEY")
         .env_remove("PA_MARKER")
         // THE HOSTILE BOOT CONTEXT (audit #9): a supervisor started from
@@ -111,17 +111,17 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path, kernel_bun: Option<&Path>) 
         .stdout(Stdio::null())
         .stderr(Stdio::from(log_err));
     if let Some(kernel_bun) = kernel_bun {
-        command.env("PRIME_AGENT_KERNEL_BUN", kernel_bun);
+        command.env("ASYNC_AGENT_KERNEL_BUN", kernel_bun);
     }
     // A supervisor killed at teardown must not leak its session workers
     // into later test binaries: the worker's supervisor-lost exit runs
     // on this short window instead of the 5-minute default.
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
     Daemon {
-        child: command.spawn().expect("spawn pa-daemon supervisor"),
+        child: command.spawn().expect("spawn aa-daemon supervisor"),
     }
 }
 
@@ -155,7 +155,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": {"name": "prime-agent.daemon", "version": 7},
+            "protocol": {"name": "async-agent.daemon", "version": 7},
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize");
@@ -256,7 +256,7 @@ fn write_plain_script(dir: &Path) -> PathBuf {
 /// until the deadline — never panic mid-write.
 #[cfg(target_os = "linux")]
 fn worker_pid(socket: &Path, agent_dir: &Path, active_session_id: &str) -> u32 {
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(agent_dir, socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(agent_dir, socket);
     let descriptor_path = descriptor_dir.join(format!("{active_session_id}.json"));
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
@@ -402,7 +402,7 @@ fn the_client_launch_env_reaches_only_its_own_worker() {
     // The durable descriptor never carries the client env (TS parity:
     // `withoutSupervisorCreateFields` strips launchEnv from the durable
     // create command).
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(&agent_dir, &socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(&agent_dir, &socket);
     let descriptor_bytes =
         std::fs::read_to_string(descriptor_dir.join(format!("{session_a}.json")))
             .expect("descriptor A");
@@ -503,9 +503,9 @@ fn the_kernel_runs_in_the_client_launch_env() {
 #[cfg(target_os = "linux")] // /proc/<pid>/environ
 #[tokio::test]
 async fn an_rlm_spawn_child_inherits_the_parent_worker_env() {
-    use pa_core::session_engine::rlm_host::{RlmSpawnRequest, RlmSubagentHost};
-    use pa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
-    use pa_daemon::supervisor_link::SupervisorLink;
+    use aa_core::session_engine::rlm_host::{RlmSpawnRequest, RlmSubagentHost};
+    use aa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
+    use aa_daemon::supervisor_link::SupervisorLink;
 
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("daemon.sock");
@@ -531,7 +531,7 @@ async fn an_rlm_spawn_child_inherits_the_parent_worker_env() {
         std::sync::Arc::new(SupervisorLink::new(socket.clone())),
         agent_dir.clone(),
         "parent-active-id".to_string(),
-        std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+        std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
             agent_dir.clone(),
             /*telemetry_disabled*/ true,
         )),
@@ -568,7 +568,7 @@ async fn an_rlm_spawn_child_inherits_the_parent_worker_env() {
     // A descriptor that is not yet parseable or pid-less, or a pid whose
     // /proc read fails, means "not yet": keep polling until the deadline,
     // never panic mid-transition.
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(&agent_dir, &socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(&agent_dir, &socket);
     let deadline = Instant::now() + Duration::from_secs(15);
     let environ = loop {
         if let Some(pid) = child_descriptor_pid(&descriptor_dir, &handle.rlm_child_id) {
@@ -670,7 +670,7 @@ fn the_update_roster_never_carries_the_client_env() {
         );
         // And the row IS populated: the respawn env is really there.
         assert!(
-            launch_env.contains_key(pa_daemon::worker::WORKER_TOKEN_ENV),
+            launch_env.contains_key(aa_daemon::worker::WORKER_TOKEN_ENV),
             "the roster row's launch env lost the internal identity: {worker}"
         );
     }

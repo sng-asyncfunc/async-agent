@@ -1,11 +1,11 @@
 //! Tool definition surface: the model-facing contract of a tool (name,
-//! schema, description) and execution; TUI renderers stay in `pa-tui`.
+//! schema, description) and execution; TUI renderers stay in `aa-tui`.
 
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use pa_types::ai::Tool;
+use aa_types::ai::Tool;
 
 /// How the runtime may schedule calls of this tool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]

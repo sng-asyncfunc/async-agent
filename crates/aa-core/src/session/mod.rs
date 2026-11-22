@@ -9,12 +9,12 @@ mod window_cache;
 
 use std::collections::HashMap;
 
-use pa_types::session::EntryBase;
-use pa_types::session::{
+use aa_types::session::EntryBase;
+use aa_types::session::{
     AgentMessage, CompactionEntry, CompactionSummaryMessage, CustomMessage, CustomMessageEntry,
     FileEntry,
 };
-use pa_types::JsonMap;
+use aa_types::JsonMap;
 
 /// Current on-disk session format version.
 pub const CURRENT_SESSION_VERSION: u32 = 3;
@@ -144,7 +144,7 @@ fn apply_child_usage_attributions(entries: &mut [FileEntry]) {
             }
         }
     }
-    let mut updates: Vec<(usize, pa_types::ai::Usage)> = Vec::new();
+    let mut updates: Vec<(usize, aa_types::ai::Usage)> = Vec::new();
     for entry in entries.iter() {
         if let FileEntry::ChildUsageAttributed { payload, .. } = entry {
             if let Some(&target_index) =
@@ -293,7 +293,7 @@ pub fn get_latest_compaction_entry(entries: &[FileEntry]) -> Option<&CompactionE
 pub struct SessionContext {
     pub messages: Vec<AgentMessage>,
     pub thinking_level: String,
-    pub service_tier: Option<pa_types::ai::ServiceTier>,
+    pub service_tier: Option<aa_types::ai::ServiceTier>,
     pub model: Option<(String, String)>,
 }
 
@@ -432,7 +432,7 @@ pub fn build_session_context(entries: &[FileEntry], leaf_id: Option<&str>) -> Se
                 }
                 FileEntry::BranchSummary { payload, .. } if !payload.summary.is_empty() => {
                     target.push(AgentMessage::BranchSummary(
-                        pa_types::session::BranchSummaryMessage {
+                        aa_types::session::BranchSummaryMessage {
                             summary: payload.summary.clone(),
                             from_id: payload.from_id.clone(),
                             timestamp: timestamp_to_millis(entry.timestamp()),
@@ -525,7 +525,7 @@ fn empty_context() -> SessionContext {
 mod context_tests {
     use super::build_session_context;
     use super::parse_session_entries;
-    use pa_types::session::AgentMessage;
+    use aa_types::session::AgentMessage;
 
     fn assistant_json(id: &str, parent: &str, model: &str, usage_in: u64) -> String {
         serde_json::json!({
@@ -774,7 +774,7 @@ mod context_tests {
         );
         let entries = parse_session_entries(&content);
         // The folded usage replaces the stored one on replay.
-        if let Some(pa_types::session::FileEntry::Message {
+        if let Some(aa_types::session::FileEntry::Message {
             message: AgentMessage::Assistant(assistant),
             ..
         }) = entries.iter().find(|entry| entry.id() == Some("a1"))

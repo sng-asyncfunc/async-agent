@@ -1,13 +1,13 @@
 //! AI surface types for providers.
 //!
-//! The wire/domain types live in [`pa_types::ai`] and are re-exported here for provider code; this
+//! The wire/domain types live in [`aa_types::ai`] and are re-exported here for provider code; this
 //! module adds the provider-internal option structs and hooks that never cross the wire.
 
 use tokio_util::sync::CancellationToken;
 
-pub use pa_types::JsNumber;
+pub use aa_types::JsNumber;
 
-pub use pa_types::ai::{
+pub use aa_types::ai::{
     AnthropicMessagesCompat, Api, AssistantContentBlock as AssistantContent, AssistantMessage,
     AssistantMessageDiagnostic, AssistantMessageEvent, CacheControlFormat, CacheRetention,
     CompatKind, Context, DataCollection, DiagnosticCode, DiagnosticErrorInfo, DoneStopReason,
@@ -123,7 +123,7 @@ impl SimpleStreamOptions {
 }
 
 /// Provider-side helpers over [`Model`] (the TS `Model` methods live with the type definition; here
-/// they are an extension trait because `Model` itself is owned by `pa-types`).
+/// they are an extension trait because `Model` itself is owned by `aa-types`).
 pub trait ModelExt {
     /// Parsed compat overrides for this model, when present.
     fn compat_kind(&self) -> Option<CompatKind>;

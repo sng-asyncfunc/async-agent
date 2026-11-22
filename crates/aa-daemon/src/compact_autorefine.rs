@@ -3,8 +3,8 @@
 //! settle in a background task (the inline-before-`Done` shape held the next prompt behind the
 //! whole review); ACP consumes it at the serialized checkpoint between turns.
 
-use pa_core::refinement::RefinementResult;
-use pa_core::session_engine::auto_refine_trigger::CompactAutoRefineSurface;
+use aa_core::refinement::RefinementResult;
+use aa_core::session_engine::auto_refine_trigger::CompactAutoRefineSurface;
 
 use crate::agent_engine::AgentSessionEngine;
 
@@ -12,7 +12,7 @@ impl AgentSessionEngine {
     pub(crate) fn report_background_refinement(
         &self,
         pending: tokio::task::JoinHandle<
-            anyhow::Result<pa_core::session_engine::refine::CommittedRefinement>,
+            anyhow::Result<aa_core::session_engine::refine::CommittedRefinement>,
         >,
     ) {
         let sink = self.refinement_completion_sink.lock().unwrap().clone();
@@ -24,8 +24,8 @@ impl AgentSessionEngine {
             self.runtime.spawn(async move {
                 match pending.await {
                     Ok(Ok(_)) => {}
-                    Ok(Err(error)) => eprintln!("pa-daemon: refinement failed: {error:#}"),
-                    Err(error) => eprintln!("pa-daemon: refinement task failed: {error}"),
+                    Ok(Err(error)) => eprintln!("aa-daemon: refinement failed: {error:#}"),
+                    Err(error) => eprintln!("aa-daemon: refinement task failed: {error}"),
                 }
             });
         }
@@ -65,7 +65,7 @@ impl AgentSessionEngine {
 
     /// The shared round body (the `compact` command path and the turn
     /// settle both run it): the pending pre-check, the TS busy gates, then
-    /// the pa-core consumption. `Ok(None)` is every silent outcome.
+    /// the aa-core consumption. `Ok(None)` is every silent outcome.
     pub(crate) fn consume_compact_auto_refine_round(
         &self,
     ) -> anyhow::Result<Option<RefinementResult>> {
@@ -275,7 +275,7 @@ mod tests {
             format!("second turn {}", "x".repeat(48_000)),
             &mut events,
         );
-        let controller = std::sync::Arc::new(pa_agent::abort::AbortController::new());
+        let controller = std::sync::Arc::new(aa_agent::abort::AbortController::new());
         let outcome = engine.run_compaction(
             CompactionRequest {
                 custom_instructions: None,
@@ -411,7 +411,7 @@ mod tests {
             format!("second turn {}", "x".repeat(48_000)),
             &mut events,
         );
-        let controller = std::sync::Arc::new(pa_agent::abort::AbortController::new());
+        let controller = std::sync::Arc::new(aa_agent::abort::AbortController::new());
         let outcome = engine.run_compaction(
             CompactionRequest {
                 custom_instructions: None,
@@ -492,8 +492,8 @@ mod tests {
         }
     }
 
-    fn refine_command() -> pa_core::session_engine::slash_commands::SessionSlashCommand {
-        use pa_core::session_engine::slash_commands::{
+    fn refine_command() -> aa_core::session_engine::slash_commands::SessionSlashCommand {
+        use aa_core::session_engine::slash_commands::{
             parse_session_command, SlashCommandRegistry,
         };
         parse_session_command(&SlashCommandRegistry::builtin(), "/refine")

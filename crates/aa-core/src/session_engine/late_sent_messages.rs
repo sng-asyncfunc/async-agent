@@ -3,9 +3,9 @@
 
 use std::sync::Arc;
 
-use pa_agent::agent::Agent;
-use pa_agent::types::{AgentMessage, Message};
-use pa_types::session::FileEntry;
+use aa_agent::agent::Agent;
+use aa_agent::types::{AgentMessage, Message};
+use aa_types::session::FileEntry;
 use serde_json::{json, Map, Value};
 use tokio::sync::Mutex;
 
@@ -77,7 +77,7 @@ pub(crate) fn append_to_tool_result(
         return false;
     };
     if result.tool_call_id != tool_call_id
-        || !pa_types::ai::is_javascript_tool_name(&result.tool_name)
+        || !aa_types::ai::is_javascript_tool_name(&result.tool_name)
     {
         return false;
     }
@@ -168,7 +168,7 @@ pub(crate) async fn restore(session: &Arc<Mutex<SessionManager>>, agent: &Arc<Ag
 /// single parked-receipt source, so no second map exists here.
 pub(crate) fn landing_transform(
     session: &Arc<Mutex<SessionManager>>,
-) -> pa_agent::agent::MessageEndTransformFn {
+) -> aa_agent::agent::MessageEndTransformFn {
     let session = Arc::clone(session);
     Arc::new(move |message| {
         let session = Arc::clone(&session);
@@ -179,7 +179,7 @@ pub(crate) fn landing_transform(
             if !matches!(
                 &message,
                 AgentMessage::Standard(Message::ToolResult(result))
-                    if pa_types::ai::is_javascript_tool_name(&result.tool_name)
+                    if aa_types::ai::is_javascript_tool_name(&result.tool_name)
             ) {
                 return message;
             }
@@ -195,9 +195,9 @@ pub(crate) fn landing_transform(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_agent::agent::{Agent, AgentInitialState, AgentOptions};
-    use pa_agent::types::{Message, ThinkingLevel, ToolResultMessage};
-    use pa_types::ai::JAVASCRIPT_TOOL_NAME;
+    use aa_agent::agent::{Agent, AgentInitialState, AgentOptions};
+    use aa_agent::types::{Message, ThinkingLevel, ToolResultMessage};
+    use aa_types::ai::JAVASCRIPT_TOOL_NAME;
 
     fn receipt(id: &str) -> KernelSentAgentMessage {
         KernelSentAgentMessage {
@@ -228,14 +228,14 @@ mod tests {
         Arc::new(Agent::new(AgentOptions {
             initial_state: AgentInitialState {
                 system_prompt: Some("s".to_string()),
-                model: Some(pa_agent::types::Model {
+                model: Some(aa_agent::types::Model {
                     id: "m".into(),
                     name: "m".into(),
                     api: "test".into(),
                     provider: "test".into(),
                     base_url: "http://localhost".into(),
                     reasoning: false,
-                    cost: pa_agent::types::UsageCost::default(),
+                    cost: aa_agent::types::UsageCost::default(),
                     context_window: 1_000,
                     max_tokens: 100,
                     max_tokens_explicit: false,
@@ -359,8 +359,8 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let mut session = SessionManager::persisted(dir.path(), &dir.path().join("sessions"));
             session
-                .append_message(pa_types::session::AgentMessage::Assistant(
-                    pa_types::ai::AssistantMessage {
+                .append_message(aa_types::session::AgentMessage::Assistant(
+                    aa_types::ai::AssistantMessage {
                         content: vec![],
                         api: "openai-completions".to_string(),
                         provider: "fixture".to_string(),
@@ -368,8 +368,8 @@ mod tests {
                         response_model: None,
                         response_id: None,
                         diagnostics: None,
-                        usage: pa_types::ai::Usage::default(),
-                        stop_reason: pa_types::ai::StopReason::Stop,
+                        usage: aa_types::ai::Usage::default(),
+                        stop_reason: aa_types::ai::StopReason::Stop,
                         stop_reason_raw: None,
                         error_message: None,
                         timestamp: 0,

@@ -76,9 +76,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function agentDir(): string {
 	const raw =
-		(process.env.PRIME_AGENT_CODING_AGENT_DIR ?? "").trim() ||
+		(process.env.ASYNC_AGENT_CODING_AGENT_DIR ?? "").trim() ||
 		(process.env.PI_CODING_AGENT_DIR ?? "").trim() ||
-		path.join(homedir(), ".prime", "agent");
+		path.join(homedir(), ".async-agent");
 	return path.resolve(raw.replace(/^~(?=\/|$)/, homedir()));
 }
 
@@ -449,7 +449,7 @@ class Generation {
 			throw new Error(`MCP server '${this.server}' has unsupported transport ${JSON.stringify(kind)}`);
 		}
 
-		const client = new Client({ name: "prime-agent-bun-repl", version: "0.10.5" });
+		const client = new Client({ name: "async-agent-bun-repl", version: "0.10.5" });
 		this.client = client;
 		try {
 			await withTimeout(

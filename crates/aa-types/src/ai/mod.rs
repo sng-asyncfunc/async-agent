@@ -198,8 +198,8 @@ pub struct ProviderResponse {
 pub struct TextContent {
     pub text: String,
     /// `OpenAI` Responses metadata: a legacy id string or a [`TextSignatureV1`] JSON payload (TS
-    /// wire key `textSignature`; the camelCase rename keeps it attached across the pa-ai <->
-    /// pa-agent round trips, which have no catch-all).
+    /// wire key `textSignature`; the camelCase rename keeps it attached across the aa-ai <->
+    /// aa-agent round trips, which have no catch-all).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_signature: Option<String>,
     #[serde(flatten)]
@@ -229,8 +229,8 @@ pub enum TextSignaturePhase {
 pub struct ThinkingContent {
     pub thinking: String,
     /// Provider reasoning item id, or the encoded reasoning-details payload for redacted blocks (TS
-    /// wire key `thinkingSignature`; the camelCase rename keeps it attached across the pa-ai <->
-    /// pa-agent round trips, where a `snake_case` key was silently dropped).
+    /// wire key `thinkingSignature`; the camelCase rename keeps it attached across the aa-ai <->
+    /// aa-agent round trips, where a `snake_case` key was silently dropped).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thinking_signature: Option<String>,
     /// True when the thinking content was redacted by safety filters.

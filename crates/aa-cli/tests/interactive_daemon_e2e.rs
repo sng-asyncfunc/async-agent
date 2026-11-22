@@ -10,7 +10,7 @@
 )]
 
 //! End-to-end verifier for the interactive TUI: spawn the real supervisor
-//! (`prime-agent --mode daemon`), drive the TUI headlessly against a scripted
+//! (`async-agent --mode daemon`), drive the TUI headlessly against a scripted
 //! daemon session, and assert on rendered frames plus daemon-side state. The
 //! `script` seam is the faux provider contract; the product never sets it.
 #![cfg(unix)]
@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 
 /// A one-pixel PNG (the clipboard seam fixture image).
 const MINIMAL_PNG: &[u8] = &[
@@ -173,7 +173,7 @@ fn child_pids_of(parent_pid: u32) -> Vec<u32> {
 /// Liveness without `/proc`: the platform probe, which also reads zombies as dead.
 #[cfg(not(target_os = "linux"))]
 fn process_alive(pid: u32) -> bool {
-    pa_types::platform::process::is_process_alive(pid).unwrap_or(false)
+    aa_types::platform::process::is_process_alive(pid).unwrap_or(false)
 }
 
 /// Shut the supervisor down by protocol and assert it, its workers, and its
@@ -198,7 +198,7 @@ fn assert_daemon_stops_clean(socket: &Path) {
     let command = serde_json::json!({
         "type": "command",
         "id": "stop-assert",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "shutdown" },
     });
     let mut line = serde_json::to_string(&command).expect("serialize");
@@ -257,7 +257,7 @@ fn graceful_shutdown(socket: &Path) -> Option<u32> {
     let command = serde_json::json!({
         "type": "command",
         "id": "test-shutdown",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "shutdown" },
     });
     let Ok(mut line) = serde_json::to_string(&command) else {
@@ -282,13 +282,13 @@ fn graceful_shutdown(socket: &Path) -> Option<u32> {
 const HEADLESS_RUN_BOUND: Duration = Duration::from_mins(5);
 
 async fn run_headless_bounded(
-    options: pa_tui::interactive::InteractiveOptions,
-    plan: pa_tui::interactive::HeadlessPlan,
-) -> anyhow::Result<pa_tui::interactive::InteractiveOutcome> {
+    options: aa_tui::interactive::InteractiveOptions,
+    plan: aa_tui::interactive::HeadlessPlan,
+) -> anyhow::Result<aa_tui::interactive::InteractiveOutcome> {
     let started = Instant::now();
     match tokio::time::timeout(
         HEADLESS_RUN_BOUND,
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan)),
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan)),
     )
     .await
     {
@@ -380,11 +380,11 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     let socket = dir.join("daemon.sock");
     let agent_dir = dir.join("agent");
     std::fs::create_dir_all(&agent_dir).expect("agent dir");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
         // The daemon's startup catalog refresh must never reach the network
         // from a test: PI_OFFLINE keeps it on the bundled/models.json snapshot.
         .env("PI_OFFLINE", "1")
@@ -394,21 +394,21 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     // The launcher strips inherited worker role env vars before spawning the
     // supervisor; a CLI running inside a daemon worker must not leak them.
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
     // Ambient provider credentials must not leak into the daemon's catalog:
     // every spawned supervisor here serves models.json fixtures only.
-    for provider in pa_ai::models_generated::get_providers() {
-        if let Some(vars) = pa_ai::env_api_keys::get_api_key_env_vars(provider) {
+    for provider in aa_ai::models_generated::get_providers() {
+        if let Some(vars) = aa_ai::env_api_keys::get_api_key_env_vars(provider) {
             for var in vars {
                 command.env_remove(var);
             }
@@ -418,7 +418,7 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     // A supervisor killed by a failing test must not leak its session workers:
     // the supervisor-lost exit runs on this short window, not the 5-minute default.
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
     // A full workspace run can starve a session worker's boot far past the
@@ -433,7 +433,7 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
             Ok(())
         });
     }
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_mins(1);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -453,7 +453,7 @@ async fn create_session_via_daemon(
     session_dir: &Path,
 ) -> String {
     std::fs::write(script_path, script.to_string()).expect("write script");
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(socket)
         .await
         .expect("connect supervisor");
     let data = client
@@ -507,23 +507,23 @@ async fn tui_attaches_prompts_streams_lists_and_switches() {
     )
     .await;
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(dir.path().join("script.json")),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
 
         tree_filter_mode: String::new(),
@@ -536,32 +536,32 @@ async fn tui_attaches_prompts_streams_lists_and_switches() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
         restore_dock_focus: false,
         client_settings: None,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("again".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("again".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // Session list, then switch to the second session by id.
-            pa_tui::interactive::HeadlessStep::Submit("/list".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::Submit("/list".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "live sessions:".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Esc,
                 crossterm::event::KeyModifiers::NONE,
             )),
-            pa_tui::interactive::HeadlessStep::Submit(format!("/switch {second}")),
-            pa_tui::interactive::HeadlessStep::Submit("third".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit(format!("/switch {second}")),
+            aa_tui::interactive::HeadlessStep::Submit("third".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -603,7 +603,7 @@ async fn tui_attaches_prompts_streams_lists_and_switches() {
         "the switched session produced its first scripted turn"
     );
 
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect supervisor");
     let last = client
@@ -648,24 +648,24 @@ struct FreshHomeOnboardingSink {
     agent_dir: PathBuf,
 }
 
-impl pa_tui::interactive::OnboardingSink for FreshHomeOnboardingSink {
+impl aa_tui::interactive::OnboardingSink for FreshHomeOnboardingSink {
     fn onboarding_shown(&self) -> bool {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
             .get_onboarding_shown()
     }
 
     fn agent_traces_choice_written(&self) -> bool {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
             .agent_traces_choice_written()
     }
 
     fn set_agent_traces_enabled(&self, enabled: bool) -> anyhow::Result<()> {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
             .set_agent_traces_enabled(enabled)
     }
 
     fn mark_onboarding_complete(&self) -> anyhow::Result<()> {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
             .set_onboarding_shown(true)
     }
 
@@ -683,14 +683,14 @@ struct FailingMarkOnboardingSink {
     agent_dir: PathBuf,
 }
 
-impl pa_tui::interactive::OnboardingSink for FailingMarkOnboardingSink {
+impl aa_tui::interactive::OnboardingSink for FailingMarkOnboardingSink {
     fn onboarding_shown(&self) -> bool {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
             .get_onboarding_shown()
     }
 
     fn agent_traces_choice_written(&self) -> bool {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
             .agent_traces_choice_written()
     }
 
@@ -730,7 +730,7 @@ async fn fresh_home_asks_the_trace_question_once_and_completes() {
 
     // The task mounts exactly as the product's model-ready gate builds it.
     let mut options = base_options(&supervisor, dir.path(), &session_dir);
-    options.onboarding = Some(pa_tui::interactive::OnboardingTask {
+    options.onboarding = Some(aa_tui::interactive::OnboardingTask {
         sink: std::sync::Arc::new(FreshHomeOnboardingSink {
             cwd: dir.path().to_path_buf(),
             agent_dir: agent_dir.clone(),
@@ -739,14 +739,14 @@ async fn fresh_home_asks_the_trace_question_once_and_completes() {
         current_model: None,
         provider_auth: None,
     });
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Enter,
                 crossterm::event::KeyModifiers::NONE,
             )),
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -764,7 +764,7 @@ async fn fresh_home_asks_the_trace_question_once_and_completes() {
         rendered.contains("hello fresh home"),
         "the answered dialog released the pane and the first turn ran:\n{rendered}"
     );
-    let settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     assert!(
         settings.get_onboarding_shown(),
         "the answered flow marked onboarding shown"
@@ -801,7 +801,7 @@ async fn provisioned_opt_out_home_completes_silently_without_the_question() {
     .expect("script.json");
 
     let mut options = base_options(&supervisor, dir.path(), &session_dir);
-    options.onboarding = Some(pa_tui::interactive::OnboardingTask {
+    options.onboarding = Some(aa_tui::interactive::OnboardingTask {
         sink: std::sync::Arc::new(FreshHomeOnboardingSink {
             cwd: dir.path().to_path_buf(),
             agent_dir: agent_dir.clone(),
@@ -811,10 +811,10 @@ async fn provisioned_opt_out_home_completes_silently_without_the_question() {
         provider_auth: None,
     });
     // No key step answers anything: the flow must complete before the submission runs.
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -833,7 +833,7 @@ async fn provisioned_opt_out_home_completes_silently_without_the_question() {
         "the question never owned a session frame:\n{rendered}"
     );
 
-    let settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     assert!(
         !settings.get_agent_traces_enabled(),
         "the standing opt-out survived the silent completion"
@@ -853,43 +853,43 @@ struct FullFlowProviderAuth {
 
 impl FullFlowProviderAuth {
     fn stored(&self, provider: &str) -> bool {
-        pa_core::auth::AuthStorage::create(&self.agent_dir)
+        aa_core::auth::AuthStorage::create(&self.agent_dir)
             .get_all()
             .credential(provider)
             .is_some()
     }
 }
 
-impl pa_tui::provider_auth::ProviderAuthCommands for FullFlowProviderAuth {
-    fn login_options(&self) -> pa_tui::provider_auth::ProviderRowsFuture {
+impl aa_tui::provider_auth::ProviderAuthCommands for FullFlowProviderAuth {
+    fn login_options(&self) -> aa_tui::provider_auth::ProviderRowsFuture {
         let rows = vec![
-            pa_tui::provider_auth::ProviderRow {
-                id: pa_tui::provider_auth::PRIME_INFERENCE_PROVIDER_ID.to_string(),
+            aa_tui::provider_auth::ProviderRow {
+                id: aa_tui::provider_auth::PRIME_INFERENCE_PROVIDER_ID.to_string(),
                 name: "Prime Inference".to_string(),
-                auth_type: pa_tui::provider_auth::AuthType::ApiKey,
-                status: Some(pa_tui::provider_auth::AuthStatusIndicator {
-                    style: pa_tui::provider_auth::AuthStatusStyle::Success,
+                auth_type: aa_tui::provider_auth::AuthType::ApiKey,
+                status: Some(aa_tui::provider_auth::AuthStatusIndicator {
+                    style: aa_tui::provider_auth::AuthStatusStyle::Success,
                     label: "configured".to_string(),
                 }),
-                flow: pa_tui::provider_auth::AuthFlow::TerminalFlow,
-                configured: self.stored(pa_tui::provider_auth::PRIME_INFERENCE_PROVIDER_ID),
+                flow: aa_tui::provider_auth::AuthFlow::TerminalFlow,
+                configured: self.stored(aa_tui::provider_auth::PRIME_INFERENCE_PROVIDER_ID),
                 available: true,
             },
-            pa_tui::provider_auth::ProviderRow {
+            aa_tui::provider_auth::ProviderRow {
                 id: "faux-key".to_string(),
                 name: "Faux Key".to_string(),
-                auth_type: pa_tui::provider_auth::AuthType::ApiKey,
+                auth_type: aa_tui::provider_auth::AuthType::ApiKey,
                 status: None,
-                flow: pa_tui::provider_auth::AuthFlow::ApiKeyPrompt,
+                flow: aa_tui::provider_auth::AuthFlow::ApiKeyPrompt,
                 configured: self.stored("faux-key"),
                 available: true,
             },
-            pa_tui::provider_auth::ProviderRow {
+            aa_tui::provider_auth::ProviderRow {
                 id: "mcp:faux".to_string(),
                 name: "Faux MCP".to_string(),
-                auth_type: pa_tui::provider_auth::AuthType::Oauth,
+                auth_type: aa_tui::provider_auth::AuthType::Oauth,
                 status: None,
-                flow: pa_tui::provider_auth::AuthFlow::TerminalFlow,
+                flow: aa_tui::provider_auth::AuthFlow::TerminalFlow,
                 configured: false,
                 available: true,
             },
@@ -897,34 +897,34 @@ impl pa_tui::provider_auth::ProviderAuthCommands for FullFlowProviderAuth {
         Box::pin(async move { rows })
     }
 
-    fn logout_options(&self) -> pa_tui::provider_auth::ProviderRowsFuture {
+    fn logout_options(&self) -> aa_tui::provider_auth::ProviderRowsFuture {
         Box::pin(async move { Vec::new() })
     }
 
     fn login(
         &self,
-        provider: &pa_tui::provider_auth::ProviderRow,
+        provider: &aa_tui::provider_auth::ProviderRow,
         api_key: Option<&str>,
-    ) -> pa_tui::provider_auth::ProviderAuthFuture {
+    ) -> aa_tui::provider_auth::ProviderAuthFuture {
         let agent_dir = self.agent_dir.clone();
         let provider_id = provider.id.clone();
         let provider_name = provider.name.clone();
         let key = api_key.map(str::to_string);
         Box::pin(async move {
-            let mut auth = pa_core::auth::AuthStorage::create(&agent_dir);
+            let mut auth = aa_core::auth::AuthStorage::create(&agent_dir);
             auth.set(
                 &provider_id,
-                pa_core::auth::AuthCredential::ApiKey {
+                aa_core::auth::AuthCredential::ApiKey {
                     key: key.unwrap_or_default(),
                     prime_team: None,
                 },
             );
             if auth.drain_errors().pop().is_some() {
-                return pa_tui::provider_auth::ProviderAuthOutcome::Error(format!(
+                return aa_tui::provider_auth::ProviderAuthOutcome::Error(format!(
                     "Failed to save API key for {provider_name}"
                 ));
             }
-            pa_tui::provider_auth::ProviderAuthOutcome::Status(format!(
+            aa_tui::provider_auth::ProviderAuthOutcome::Status(format!(
                 "Saved API key for {provider_name}"
             ))
         })
@@ -932,42 +932,42 @@ impl pa_tui::provider_auth::ProviderAuthCommands for FullFlowProviderAuth {
 
     fn login_on_panel(
         &self,
-        provider: &pa_tui::provider_auth::ProviderRow,
-        panel: pa_tui::auth_panel::AuthPanelHandle,
-    ) -> pa_tui::provider_auth::ProviderAuthFuture {
+        provider: &aa_tui::provider_auth::ProviderRow,
+        panel: aa_tui::auth_panel::AuthPanelHandle,
+    ) -> aa_tui::provider_auth::ProviderAuthFuture {
         let agent_dir = self.agent_dir.clone();
         let provider_id = provider.id.clone();
         let provider_name = provider.name.clone();
         Box::pin(async move {
             // Only the Prime row runs here; anything else cancels.
-            if provider_id != pa_tui::provider_auth::PRIME_INFERENCE_PROVIDER_ID {
-                return pa_tui::provider_auth::ProviderAuthOutcome::Cancelled;
+            if provider_id != aa_tui::provider_auth::PRIME_INFERENCE_PROVIDER_ID {
+                return aa_tui::provider_auth::ProviderAuthOutcome::Cancelled;
             }
             panel.progress("Checking Prime Inference access...");
             let Some(api_key) = panel
                 .paste_prompt(
                     "Paste a Prime API key below:",
-                    pa_tui::auth_panel::PastePromptTone::Muted,
-                    pa_tui::auth_panel::PasteStyle::Visible,
+                    aa_tui::auth_panel::PastePromptTone::Muted,
+                    aa_tui::auth_panel::PasteStyle::Visible,
                 )
                 .await
             else {
-                return pa_tui::provider_auth::ProviderAuthOutcome::Cancelled;
+                return aa_tui::provider_auth::ProviderAuthOutcome::Cancelled;
             };
-            let mut auth = pa_core::auth::AuthStorage::create(&agent_dir);
+            let mut auth = aa_core::auth::AuthStorage::create(&agent_dir);
             auth.set(
                 &provider_id,
-                pa_core::auth::AuthCredential::ApiKey {
+                aa_core::auth::AuthCredential::ApiKey {
                     key: api_key,
                     prime_team: None,
                 },
             );
             if auth.drain_errors().pop().is_some() {
-                return pa_tui::provider_auth::ProviderAuthOutcome::Error(format!(
+                return aa_tui::provider_auth::ProviderAuthOutcome::Error(format!(
                     "Failed to login to {provider_name}"
                 ));
             }
-            pa_tui::provider_auth::ProviderAuthOutcome::Status(format!(
+            aa_tui::provider_auth::ProviderAuthOutcome::Status(format!(
                 "Saved API key for {provider_name}. Credentials saved to {}.",
                 agent_dir.join("auth.json").display()
             ))
@@ -976,12 +976,12 @@ impl pa_tui::provider_auth::ProviderAuthCommands for FullFlowProviderAuth {
 
     fn logout(
         &self,
-        _provider: &pa_tui::provider_auth::ProviderRow,
-    ) -> pa_tui::provider_auth::ProviderAuthFuture {
-        Box::pin(async move { pa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
+        _provider: &aa_tui::provider_auth::ProviderRow,
+    ) -> aa_tui::provider_auth::ProviderAuthFuture {
+        Box::pin(async move { aa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
     }
 
-    fn anthropic_subscription_warning(&self) -> pa_tui::provider_auth::ProviderWarningFuture {
+    fn anthropic_subscription_warning(&self) -> aa_tui::provider_auth::ProviderWarningFuture {
         // The faux full-flow drives no Anthropic subscription auth.
         Box::pin(async move { None })
     }
@@ -1011,60 +1011,60 @@ async fn fresh_home_runs_the_full_sign_in_flow_to_completion() {
     // sign-in stores its credential (the model-ready gate at flow end).
     let probe_agent_dir = agent_dir.clone();
     let model_ready = std::sync::Arc::new(move || {
-        pa_core::auth::AuthStorage::create(&probe_agent_dir)
+        aa_core::auth::AuthStorage::create(&probe_agent_dir)
             .get_all()
-            .credential(pa_tui::provider_auth::PRIME_INFERENCE_PROVIDER_ID)
+            .credential(aa_tui::provider_auth::PRIME_INFERENCE_PROVIDER_ID)
             .is_some()
     });
-    options.onboarding = Some(pa_tui::interactive::OnboardingTask {
+    options.onboarding = Some(aa_tui::interactive::OnboardingTask {
         sink: std::sync::Arc::new(FreshHomeOnboardingSink {
             cwd: dir.path().to_path_buf(),
             agent_dir: agent_dir.clone(),
         }),
         model_ready,
         current_model: None,
-        provider_auth: Some(pa_tui::provider_auth::ProviderAuthCommandsHandle(
+        provider_auth: Some(aa_tui::provider_auth::ProviderAuthCommandsHandle(
             std::sync::Arc::new(FullFlowProviderAuth {
                 agent_dir: agent_dir.clone(),
             }),
         )),
     });
     let enter = || {
-        pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+        aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
             crossterm::event::KeyCode::Enter,
             crossterm::event::KeyModifiers::NONE,
         ))
     };
     let down = || {
-        pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+        aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
             crossterm::event::KeyCode::Down,
             crossterm::event::KeyModifiers::NONE,
         ))
     };
     // The plan waits on observable readiness, not fixed sleeps: each barrier
     // holds the queued batch until a rendered frame contains the condition.
-    let wait_render = |needle: &str| pa_tui::interactive::HeadlessStep::WaitRender {
+    let wait_render = |needle: &str| aa_tui::interactive::HeadlessStep::WaitRender {
         needle: needle.to_string(),
         timeout_ms: 5_000,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
             enter(),
             wait_render("Paste a Prime API key below:"),
-            pa_tui::interactive::HeadlessStep::Type("faux-prime-key".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("faux-prime-key".to_string()),
             enter(),
             wait_render("Prime Inference is your default. Connect other providers, or continue."),
             down(),
             enter(),
             wait_render("Enter API key"),
-            pa_tui::interactive::HeadlessStep::Type("faux-key".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("faux-key".to_string()),
             enter(),
             wait_render("\u{2713}"),
             enter(),
             wait_render("Share agent traces"),
             enter(),
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -1109,7 +1109,7 @@ async fn fresh_home_runs_the_full_sign_in_flow_to_completion() {
         "the provider login's status row applied:\n{rendered}"
     );
 
-    let settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     assert!(
         settings.get_onboarding_shown(),
         "the completed flow marked onboarding shown"
@@ -1118,10 +1118,10 @@ async fn fresh_home_runs_the_full_sign_in_flow_to_completion() {
         settings.get_agent_traces_enabled(),
         "the Share answer persisted"
     );
-    let auth = pa_core::auth::AuthStorage::create(&agent_dir);
+    let auth = aa_core::auth::AuthStorage::create(&agent_dir);
     assert!(
         auth.get_all()
-            .credential(pa_tui::provider_auth::PRIME_INFERENCE_PROVIDER_ID)
+            .credential(aa_tui::provider_auth::PRIME_INFERENCE_PROVIDER_ID)
             .is_some(),
         "the Prime sign-in stored its credential"
     );
@@ -1155,7 +1155,7 @@ async fn a_failed_completion_write_surfaces_a_warning_and_never_kills_the_run() 
     .expect("script.json");
 
     let mut options = base_options(&supervisor, dir.path(), &session_dir);
-    options.onboarding = Some(pa_tui::interactive::OnboardingTask {
+    options.onboarding = Some(aa_tui::interactive::OnboardingTask {
         sink: std::sync::Arc::new(FailingMarkOnboardingSink {
             cwd: dir.path().to_path_buf(),
             agent_dir: agent_dir.clone(),
@@ -1164,10 +1164,10 @@ async fn a_failed_completion_write_surfaces_a_warning_and_never_kills_the_run() 
         current_model: None,
         provider_auth: None,
     });
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -1189,7 +1189,7 @@ async fn a_failed_completion_write_surfaces_a_warning_and_never_kills_the_run() 
         rendered.contains("could not be saved"),
         "the failed persistence surfaced as a warning row:\n{rendered}"
     );
-    let settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     assert!(
         !settings.get_onboarding_shown(),
         "the failed write left the marker unset"
@@ -1219,7 +1219,7 @@ async fn a_completed_flow_never_reopens_the_question_for_a_later_session() {
 
     // The SAME options object backs both session runs, as the agents-view flow clones `base`.
     let mut options = base_options(&supervisor, dir.path(), &session_dir);
-    options.onboarding = Some(pa_tui::interactive::OnboardingTask {
+    options.onboarding = Some(aa_tui::interactive::OnboardingTask {
         sink: std::sync::Arc::new(FreshHomeOnboardingSink {
             cwd: dir.path().to_path_buf(),
             agent_dir: agent_dir.clone(),
@@ -1229,18 +1229,18 @@ async fn a_completed_flow_never_reopens_the_question_for_a_later_session() {
         provider_auth: None,
     });
     // Down + Enter answers `Not now` (the answer that used to re-show), then the turn runs.
-    let first_plan = pa_tui::interactive::HeadlessPlan {
+    let first_plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Down,
                 crossterm::event::KeyModifiers::NONE,
             )),
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Enter,
                 crossterm::event::KeyModifiers::NONE,
             )),
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -1257,7 +1257,7 @@ async fn a_completed_flow_never_reopens_the_question_for_a_later_session() {
         first_rendered.contains("hello each session"),
         "the answered dialog released the pane and the first turn ran:\n{first_rendered}"
     );
-    let settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     assert!(
         !settings.get_agent_traces_enabled(),
         "the Not-now answer persisted (the opt-out)"
@@ -1268,10 +1268,10 @@ async fn a_completed_flow_never_reopens_the_question_for_a_later_session() {
     );
 
     // The second session, same task: no key answers anything; the marker must gate itself.
-    let second_plan = pa_tui::interactive::HeadlessPlan {
+    let second_plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("again".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("again".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -1298,11 +1298,11 @@ async fn ensure_daemon_running_spawns_supervisor_and_tui_attaches() {
     let session_dir = agent_dir.join("sessions");
     std::fs::create_dir_all(&session_dir).expect("session dir");
     let socket = dir.path().join("spawned.sock");
-    std::env::set_var("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir);
+    std::env::set_var("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir);
     // The internally-spawned supervisor inherits this process's env: the short
     // supervisor-lost window keeps a killed supervisor from leaking workers.
     std::env::set_var(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
 
@@ -1313,23 +1313,23 @@ async fn ensure_daemon_running_spawns_supervisor_and_tui_attaches() {
     )
     .expect("write script");
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: Some("boot".to_string()),
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
 
         tree_filter_mode: String::new(),
@@ -1342,7 +1342,7 @@ async fn ensure_daemon_running_spawns_supervisor_and_tui_attaches() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -1353,12 +1353,12 @@ async fn ensure_daemon_running_spawns_supervisor_and_tui_attaches() {
     let _guard = DetachedDaemon {
         socket: socket.clone(),
     };
-    let exe = std::path::PathBuf::from(env!("CARGO_BIN_EXE_prime-agent"));
-    pa_cli::ensure_daemon_running_with(&exe, &socket, dir.path())
+    let exe = std::path::PathBuf::from(env!("CARGO_BIN_EXE_async-agent"));
+    aa_cli::ensure_daemon_running_with(&exe, &socket, dir.path())
         .await
         .expect("spawn the daemon");
-    let plan = pa_tui::interactive::HeadlessPlan {
-        steps: vec![pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 }],
+    let plan = aa_tui::interactive::HeadlessPlan {
+        steps: vec![aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 }],
         width: 80,
         height: 24,
     };
@@ -1395,23 +1395,23 @@ async fn tui_dispatches_slash_commands_menu_and_suggestions() {
         { "text": "scripted reply" },
     ] });
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(dir.path().join("script.json")),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
 
         tree_filter_mode: String::new(),
@@ -1424,18 +1424,18 @@ async fn tui_dispatches_slash_commands_menu_and_suggestions() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
         restore_dock_focus: false,
         client_settings: None,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/goal status".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("/modle".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/goal status".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/modle".to_string()),
             // Probe pass over the autocomplete menu (typed keystroke by
             // keystroke, completed with Enter). The attach-time
             // slash-command catalog refresh is still in flight here: its
@@ -1449,42 +1449,42 @@ async fn tui_dispatches_slash_commands_menu_and_suggestions() {
             // without re-parking never renders the needle, and the 15s
             // bound — past the 10s fetch deadline — is what waits out
             // that case.
-            pa_tui::interactive::HeadlessStep::Type("/".to_string()),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
-            pa_tui::interactive::HeadlessStep::Type("goa".to_string()),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::Type("/".to_string()),
+            aa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::Type("goa".to_string()),
+            aa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "skill:goal".to_string(),
                 timeout_ms: 15_000,
             },
             // With the dropdown open, Enter completes the selected
             // suggestion (`/goal `); the second Enter submits it.
-            pa_tui::interactive::HeadlessStep::Type("\n".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("\n".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Type("\n".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("\n".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // The menu assertions run against the landed catalog: the first
             // registry entry selected at `/`, `/goa` fuzzy-matching goal —
             // no in-flight swap can close these dropdowns between
             // materialize and render.
-            pa_tui::interactive::HeadlessStep::Type("/".to_string()),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::Type("/".to_string()),
+            aa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "\u{203a} settings".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::Type("goa".to_string()),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::Type("goa".to_string()),
+            aa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "\u{203a} goal".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::Type("\n".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("\n".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Type("\n".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("\n".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // `/model` LAST: the inline menu-panel opens and owns the keys
             // from here on (TS `showConfigurationMenu`).
-            pa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 120,
         height: 36,
@@ -1596,35 +1596,35 @@ async fn tui_model_picker_applies_and_effort_reports() {
     let supervisor = spawn_supervisor(dir.path());
     // The catalog snapshot the composition root injects, pinned hermetically:
     // ambient credentials (PRIME_API_KEY on the dev box) cannot leak in.
-    let auth = pa_core::auth::AuthStorage::in_memory_without_env(
-        &pa_core::auth::AuthStorageData::default(),
-        std::sync::Arc::new(pa_core::auth::NoOAuth),
+    let auth = aa_core::auth::AuthStorage::in_memory_without_env(
+        &aa_core::auth::AuthStorageData::default(),
+        std::sync::Arc::new(aa_core::auth::NoOAuth),
     );
-    let registry = pa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
-    let catalog: Vec<pa_types::ai::Model> = registry.get_available().into_iter().cloned().collect();
+    let registry = aa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
+    let catalog: Vec<aa_types::ai::Model> = registry.get_available().into_iter().cloned().collect();
     assert_eq!(catalog.len(), 1, "the models.json model resolves available");
     assert_eq!(
         catalog[0].id, "mock-1",
         "the one available model is the models.json mock"
     );
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(dir.path().join("script.json")),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: catalog,
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
 
         tree_filter_mode: String::new(),
@@ -1637,30 +1637,30 @@ async fn tui_model_picker_applies_and_effort_reports() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
         restore_dock_focus: false,
         client_settings: None,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("mock".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("\n".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/effort".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("mock".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("\n".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/effort".to_string()),
             // ctrl+l opens the picker over the user's own text: the pick must keep it.
-            pa_tui::interactive::HeadlessStep::Type("keep me".to_string()),
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Type("keep me".to_string()),
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Char('l'),
                 crossterm::event::KeyModifiers::CONTROL,
             )),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Search models".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Enter,
                 crossterm::event::KeyModifiers::NONE,
             )),
@@ -1744,33 +1744,33 @@ async fn tui_effort_applies_on_a_map_addressable_model_without_the_reasoning_fla
     )
     .expect("write models.json");
     let supervisor = spawn_supervisor(dir.path());
-    let auth = pa_core::auth::AuthStorage::in_memory_without_env(
-        &pa_core::auth::AuthStorageData::default(),
-        std::sync::Arc::new(pa_core::auth::NoOAuth),
+    let auth = aa_core::auth::AuthStorage::in_memory_without_env(
+        &aa_core::auth::AuthStorageData::default(),
+        std::sync::Arc::new(aa_core::auth::NoOAuth),
     );
-    let registry = pa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
-    let catalog: Vec<pa_types::ai::Model> = registry.get_available().into_iter().cloned().collect();
+    let registry = aa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
+    let catalog: Vec<aa_types::ai::Model> = registry.get_available().into_iter().cloned().collect();
     assert_eq!(catalog.len(), 1, "the models.json model resolves available");
     assert_eq!(catalog[0].id, "chat-plus");
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: None,
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: catalog,
         model_configured_providers: ["test-provider".to_string()].into_iter().collect(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         client_settings: None,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -1782,19 +1782,19 @@ async fn tui_effort_applies_on_a_map_addressable_model_without_the_reasoning_fla
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
         restore_dock_focus: false,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("chat".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("\n".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/effort xhigh".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("chat".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("\n".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/effort xhigh".to_string()),
         ],
         width: 120,
         height: 36,
@@ -1852,23 +1852,23 @@ async fn tui_compact_on_a_short_session_warns_nothing_to_compact() {
     // The real agent engine over the faux provider: the skip path never reaches it.
     let script = serde_json::json!({ "engine": "faux", "responses": [] });
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(dir.path().join("script.json")),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
 
         tree_filter_mode: String::new(),
@@ -1881,17 +1881,17 @@ async fn tui_compact_on_a_short_session_warns_nothing_to_compact() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
         restore_dock_focus: false,
         client_settings: None,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/compact".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/compact".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -1971,23 +1971,23 @@ async fn tui_compact_shows_the_loader_then_the_summary_and_rebuilds() {
         ],
     });
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(dir.path().join("script.json")),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
 
         tree_filter_mode: String::new(),
@@ -2000,7 +2000,7 @@ async fn tui_compact_shows_the_loader_then_the_summary_and_rebuilds() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -2008,27 +2008,27 @@ async fn tui_compact_shows_the_loader_then_the_summary_and_rebuilds() {
         client_settings: None,
     };
     let ctrl_o = || {
-        pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+        aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
             crossterm::event::KeyCode::Char('o'),
             crossterm::event::KeyModifiers::CONTROL,
         ))
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("first".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit(
+            aa_tui::interactive::HeadlessStep::Submit("first".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit(
                 "second, and please keep this second parity turn short and intact".to_string(),
             ),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("/compact focus on the goal".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/compact focus on the goal".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // Ctrl+O twice walks overview -> details -> all; the third press wraps to overview.
             ctrl_o(),
             ctrl_o(),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::SettleIdle,
             ctrl_o(),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::SettleIdle,
         ],
         width: 100,
         height: 30,
@@ -2141,21 +2141,21 @@ async fn tui_session_tree_navigates_forks_and_clones() {
         ],
     });
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(dir.path().join("script.json")),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         // The default tree filter keeps every message row visible, and the
         // branch-summary prompt is skipped (TS `branchSummary.skipPrompt`).
@@ -2171,7 +2171,7 @@ async fn tui_session_tree_navigates_forks_and_clones() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -2179,39 +2179,39 @@ async fn tui_session_tree_navigates_forks_and_clones() {
         client_settings: None,
     };
     let key = |code: KeyCode| {
-        pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+        aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
             code,
             KeyModifiers::NONE,
         ))
     };
     let enter = key(KeyCode::Enter);
     let up = key(KeyCode::Up);
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("first question".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("second question".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("first question".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("second question".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // `/tree` opens the selector; Enter on the leaf is the TS no-op.
-            pa_tui::interactive::HeadlessStep::Submit("/tree".to_string()),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::Submit("/tree".to_string()),
+            aa_tui::interactive::HeadlessStep::SettleIdle,
             enter.clone(),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::SettleIdle,
             // `/fork` opens the selector; Enter forks before the selected (latest) user message.
-            pa_tui::interactive::HeadlessStep::Submit("/fork".to_string()),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::Submit("/fork".to_string()),
+            aa_tui::interactive::HeadlessStep::SettleIdle,
             enter.clone(),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::SettleIdle,
             // The fork re-entered the user message; submit runs it on the forked session.
             enter.clone(),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // `/tree` again, then two rows up (the first answer) cuts the branch back.
-            pa_tui::interactive::HeadlessStep::Submit("/tree".to_string()),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::Submit("/tree".to_string()),
+            aa_tui::interactive::HeadlessStep::SettleIdle,
             up.clone(),
             up.clone(),
             enter.clone(),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::SettleIdle,
         ],
         width: 100,
         height: 34,
@@ -2315,23 +2315,23 @@ async fn tui_big_streamed_turns_render_at_the_producer_rate() {
         ],
     });
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(dir.path().join("script.json")),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
 
         tree_filter_mode: String::new(),
@@ -2344,19 +2344,19 @@ async fn tui_big_streamed_turns_render_at_the_producer_rate() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
         restore_dock_focus: false,
         client_settings: None,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("first".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 45_000 },
-            pa_tui::interactive::HeadlessStep::Submit("second".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 45_000 },
+            aa_tui::interactive::HeadlessStep::Submit("first".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 45_000 },
+            aa_tui::interactive::HeadlessStep::Submit("second".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 45_000 },
         ],
         width: 100,
         height: 30,
@@ -2420,7 +2420,7 @@ async fn tui_renders_and_fires_user_keybindings_from_settings() {
     let agent_dir = dir.path().join("agent");
     let session_dir = agent_dir.join("sessions");
     std::fs::create_dir_all(&session_dir).expect("session dir");
-    // One binding overridden exactly like a user's `~/.prime/agent/keybindings.json` would.
+    // One binding overridden exactly like a user's `~/.async-agent/keybindings.json` would.
     std::fs::write(
         agent_dir.join("keybindings.json"),
         r#"{ "app.tools.expand": "ctrl+alt+x" }"#,
@@ -2433,23 +2433,23 @@ async fn tui_renders_and_fires_user_keybindings_from_settings() {
     });
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(dir.path().join("script.json")),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::new(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -2462,7 +2462,7 @@ async fn tui_renders_and_fires_user_keybindings_from_settings() {
         update_commands: None,
         telemetry: None,
         // The exact load path the CLI uses: the fixture overrides the default set.
-        keybindings: pa_tui::keybindings::KeybindingsManager::create(&agent_dir),
+        keybindings: aa_tui::keybindings::KeybindingsManager::create(&agent_dir),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -2470,40 +2470,40 @@ async fn tui_renders_and_fires_user_keybindings_from_settings() {
         client_settings: None,
     };
     let key = |code: KeyCode, modifiers: KeyModifiers| {
-        pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(code, modifiers))
+        aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(code, modifiers))
     };
     let ctrl_alt_x = key(
         KeyCode::Char('x'),
         KeyModifiers::CONTROL | KeyModifiers::ALT,
     );
     let ctrl_o = key(KeyCode::Char('o'), KeyModifiers::CONTROL);
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("hello".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("hello".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             ctrl_alt_x,
             // The default key must no longer fire it (a second cycle reaches "all").
             ctrl_o,
             // The info panel mounts over the dock (operator directive 2026-09-26);
             // End jumps to the document's bottom, Esc closes it.
-            pa_tui::interactive::HeadlessStep::Submit("/hotkeys".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::Submit("/hotkeys".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Move cursor / browse history".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::End,
                 crossterm::event::KeyModifiers::NONE,
             )),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "mouse click on link".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Esc,
                 crossterm::event::KeyModifiers::NONE,
             )),
-            pa_tui::interactive::HeadlessStep::WaitGone {
+            aa_tui::interactive::HeadlessStep::WaitGone {
                 needle: "scroll \u{b7} Esc close".to_string(),
                 timeout_ms: 30_000,
             },
@@ -2517,7 +2517,7 @@ async fn tui_renders_and_fires_user_keybindings_from_settings() {
         .expect("interactive run");
     let rendered = outcome.frames.join("\n");
     // The host label: macOS renders alt as Option.
-    let override_key = pa_tui::keybindings::format_key_text("ctrl+alt+x");
+    let override_key = aa_tui::keybindings::format_key_text("ctrl+alt+x");
 
     // The hint renders the user's binding, not the default (operator directive 2026-09-28).
     assert!(
@@ -2588,23 +2588,23 @@ async fn tui_prompts_queued_behind_a_turn_render_the_queue_strip() {
     ]});
     std::fs::write(&script_path, script.to_string()).expect("write script");
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path.clone()),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -2616,25 +2616,25 @@ async fn tui_prompts_queued_behind_a_turn_render_the_queue_strip() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
         restore_dock_focus: false,
         client_settings: None,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("start the slow turn".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("start the slow turn".to_string()),
             // Half-way through the hold the turn is running: the parked prompts queue behind it.
-            pa_tui::interactive::HeadlessStep::WaitMs(750),
-            pa_tui::interactive::HeadlessStep::Submit("steering prompt".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("follow-up prompt".to_string()),
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::WaitMs(750),
+            aa_tui::interactive::HeadlessStep::Submit("steering prompt".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("follow-up prompt".to_string()),
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 KeyCode::Enter,
                 KeyModifiers::ALT,
             )),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 60_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 60_000 },
         ],
         width: 100,
         height: 30,
@@ -2687,7 +2687,7 @@ async fn tui_flagged_model_turn_reports_the_ts_preflight_error_without_credentia
     let supervisor = spawn_supervisor(dir.path());
     // No models.json and no credentials (ambient keys stripped), so the
     // auth-scoped catalog is empty but the bundled catalog carries the model.
-    let glm: pa_types::ai::Model = serde_json::from_value(serde_json::json!({
+    let glm: aa_types::ai::Model = serde_json::from_value(serde_json::json!({
         "id": "z-ai/glm-5.3", "name": "GLM 5.3", "api": "openai-completions",
         "provider": "prime-inference", "baseUrl": "https://inference.example/v1",
         "reasoning": true, "input": ["text"],
@@ -2695,13 +2695,13 @@ async fn tui_flagged_model_turn_reports_the_ts_preflight_error_without_credentia
         "contextWindow": 128_000, "maxTokens": 8192
     }))
     .expect("catalog entry");
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: None,
-        model_selection: pa_tui::interactive::ModelSelection {
+        model_selection: aa_tui::interactive::ModelSelection {
             provider: Some("prime-inference".to_string()),
             model: Some("z-ai/glm-5.3".to_string()),
             ..Default::default()
@@ -2711,12 +2711,12 @@ async fn tui_flagged_model_turn_reports_the_ts_preflight_error_without_credentia
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         client_settings: None,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -2728,20 +2728,20 @@ async fn tui_flagged_model_turn_reports_the_ts_preflight_error_without_credentia
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
         restore_dock_focus: false,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("glm".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("\n".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("hello".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 60_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("glm".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("\n".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("hello".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 60_000 },
         ],
         width: 120,
         height: 36,
@@ -2815,35 +2815,35 @@ async fn tui_model_pick_refreshes_the_label_and_the_next_turn_resolves() {
     .expect("write settings.json");
     let supervisor = spawn_supervisor(dir.path());
     // The client-side snapshot over the same registry scope as the daemon's (hermetic auth).
-    let auth = pa_core::auth::AuthStorage::in_memory_without_env(
-        &pa_core::auth::AuthStorageData::default(),
-        std::sync::Arc::new(pa_core::auth::NoOAuth),
+    let auth = aa_core::auth::AuthStorage::in_memory_without_env(
+        &aa_core::auth::AuthStorageData::default(),
+        std::sync::Arc::new(aa_core::auth::NoOAuth),
     );
-    let registry = pa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
-    let catalog: Vec<pa_types::ai::Model> = registry.get_available().into_iter().cloned().collect();
+    let registry = aa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
+    let catalog: Vec<aa_types::ai::Model> = registry.get_available().into_iter().cloned().collect();
     assert_eq!(
         catalog.len(),
         2,
         "both models.json models resolve available"
     );
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: None,
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: catalog,
         model_configured_providers: ["test-provider".to_string()].into_iter().collect(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         client_settings: None,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -2855,20 +2855,20 @@ async fn tui_model_pick_refreshes_the_label_and_the_next_turn_resolves() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
         restore_dock_focus: false,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("mock-2".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("\n".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("turn after the switch".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 90_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("mock-2".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("\n".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("turn after the switch".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 90_000 },
         ],
         width: 120,
         height: 36,
@@ -2942,19 +2942,19 @@ async fn tui_scoped_models_cycle_through_the_session_scope() {
         "test-provider/mock-3".to_string(),
     ]);
     let key = |code: KeyCode, modifiers: KeyModifiers| {
-        pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(code, modifiers))
+        aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(code, modifiers))
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // alt+m cycles forward: mock-1 -> mock-3 (unscoped would show mock-2).
             key(KeyCode::Char('m'), KeyModifiers::ALT),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Model: test-provider/mock-3".to_string(),
                 timeout_ms: 30_000,
             },
             key(KeyCode::Char('m'), KeyModifiers::SHIFT | KeyModifiers::ALT),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Model: test-provider/mock-1".to_string(),
                 timeout_ms: 30_000,
             },
@@ -2986,24 +2986,24 @@ fn base_options(
     supervisor: &Supervisor,
     dir: &Path,
     session_dir: &Path,
-) -> pa_tui::interactive::InteractiveOptions {
-    pa_tui::interactive::InteractiveOptions {
+) -> aa_tui::interactive::InteractiveOptions {
+    aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.to_path_buf(),
         session_dir: Some(session_dir.to_path_buf()),
         script_path: Some(dir.join("script.json")),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -3012,7 +3012,7 @@ fn base_options(
         telemetry_disabled: None,
         client_auth: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -3036,13 +3036,13 @@ async fn tui_renames_session_through_slash_command() {
     ] });
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
     let options = base_options(&supervisor, dir.path(), &session_dir);
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
             // Set through the alias: /rename resolves to /name.
-            pa_tui::interactive::HeadlessStep::Submit("/rename my session".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("/name".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/rename my session".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/name".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 120,
         height: 36,
@@ -3091,7 +3091,7 @@ async fn tui_renames_session_through_slash_command() {
         "the session_info entry persisted (the /name arm reaches the rename machinery)"
     );
     // The daemon state reports the name (the summary the roster and agents view read).
-    let (client, _client_events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _client_events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect");
     let state = client
@@ -3122,24 +3122,24 @@ async fn tui_new_command_honors_name_and_prompt() {
     ] });
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
     let options = base_options(&supervisor, dir.path(), &session_dir);
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
             // A parse error must not create a session.
-            pa_tui::interactive::HeadlessStep::Submit(
+            aa_tui::interactive::HeadlessStep::Submit(
                 r#"/new --name "one" --name "two""#.to_string(),
             ),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // `--name` plus the `--`-separated initial prompt.
-            pa_tui::interactive::HeadlessStep::Submit(
+            aa_tui::interactive::HeadlessStep::Submit(
                 r#"/new --name "my session" -- do something"#.to_string(),
             ),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // A bare suffix is the initial prompt; the session stays unnamed.
-            pa_tui::interactive::HeadlessStep::Submit("/new plain prompt".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/new plain prompt".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // A name without a prompt names the new session and submits nothing.
-            pa_tui::interactive::HeadlessStep::Submit("/new --name solo".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/new --name solo".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 120,
         height: 36,
@@ -3240,7 +3240,7 @@ async fn tui_new_command_honors_name_and_prompt() {
         "the name-only run submitted no prompt"
     );
     // The daemon state reports the names (the roster summary's field).
-    let (client, _client_events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _client_events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect");
     let state = client
@@ -3276,54 +3276,54 @@ async fn tui_side_question_pane_flow() {
     ] });
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
     let options = base_options(&supervisor, dir.path(), &session_dir);
-    let escape = pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+    let escape = aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
         crossterm::event::KeyCode::Esc,
         crossterm::event::KeyModifiers::NONE,
     ));
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit(
+            aa_tui::interactive::HeadlessStep::Submit(
                 "/btw what is the capital of France".to_string(),
             ),
             // The side question runs outside the turn state (WaitIdle cannot
             // see it): wait for the rendered condition, not a fixed window.
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Paris, obviously".to_string(),
                 timeout_ms: 30_000,
             },
             // The pane must SETTLE first: TS's active-run guard drops a
             // follow-up submitted mid-stream; the settled hint row is the marker.
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "reply to follow up".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::SettleIdle,
             // The open pane captures a plain reply as a follow-up side question.
-            pa_tui::interactive::HeadlessStep::Submit("and its largest city".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::Submit("and its largest city".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Second answer".to_string(),
                 timeout_ms: 30_000,
             },
             // Settle again: an Esc mid-run would CANCEL the run instead of
             // closing the pane (TS's two-stage escape).
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "reply to follow up".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::SettleIdle,
-            pa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::Submit("/model".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Slash commands are not available in side conversations.".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::SettleIdle,
             // Esc returns to the main thread: wait for the pane's hint row to leave the frame.
             escape,
-            pa_tui::interactive::HeadlessStep::WaitGone {
+            aa_tui::interactive::HeadlessStep::WaitGone {
                 needle: "esc to return to session".to_string(),
                 timeout_ms: 10_000,
             },
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::SettleIdle,
         ],
         width: 120,
         height: 36,
@@ -3398,28 +3398,28 @@ async fn tui_settings_menu_cycles_rows() {
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
     let options = base_options(&supervisor, dir.path(), &session_dir);
     let enter = || {
-        pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+        aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
             crossterm::event::KeyCode::Enter,
             crossterm::event::KeyModifiers::NONE,
         ))
     };
     let escape = || {
-        pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+        aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
             crossterm::event::KeyCode::Esc,
             crossterm::event::KeyModifiers::NONE,
         ))
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/settings".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitMs(500),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::Submit("/settings".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(500),
+            aa_tui::interactive::HeadlessStep::SettleIdle,
             // Enter on the first row (Auto-compact) cycles it to false (`set_auto_compaction`).
             enter(),
-            pa_tui::interactive::HeadlessStep::WaitMs(500),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::WaitMs(500),
+            aa_tui::interactive::HeadlessStep::SettleIdle,
             escape(),
-            pa_tui::interactive::HeadlessStep::WaitMs(300),
+            aa_tui::interactive::HeadlessStep::WaitMs(300),
         ],
         width: 120,
         height: 36,
@@ -3480,33 +3480,33 @@ async fn tui_esc_closes_the_completion_menu_without_interrupting_the_turn() {
     let supervisor = spawn_supervisor(dir.path());
     let options = base_options(&supervisor, dir.path(), &session_dir);
     let key = |code: KeyCode| {
-        pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+        aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
             code,
             crossterm::event::KeyModifiers::NONE,
         ))
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("start the long turn".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::Submit("start the long turn".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "the turn is streaming".to_string(),
                 timeout_ms: 30_000,
             },
             // The editor stays live during the turn: `./` + Tab opens the menu over it.
-            pa_tui::interactive::HeadlessStep::Type("./".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("./".to_string()),
             key(KeyCode::Tab),
-            pa_tui::interactive::HeadlessStep::SettleIdle,
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::SettleIdle,
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "notes.md".to_string(),
                 timeout_ms: 30_000,
             },
             // Esc closes the menu; the turn keeps running (a leaked abort would kill it).
             key(KeyCode::Esc),
-            pa_tui::interactive::HeadlessStep::WaitGone {
+            aa_tui::interactive::HeadlessStep::WaitGone {
                 needle: "notes.md".to_string(),
                 timeout_ms: 10_000,
             },
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 60_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 60_000 },
         ],
         width: 100,
         height: 34,
@@ -3562,7 +3562,7 @@ async fn tui_prompt_stash_round_trips_across_in_place_switch() {
     )
     .await;
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         provider_auth: None,
         traces: None,
@@ -3571,17 +3571,17 @@ async fn tui_prompt_stash_round_trips_across_in_place_switch() {
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path.clone()),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(first.clone()),
+        session: aa_tui::interactive::SessionSelection::Attach(first.clone()),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -3591,25 +3591,25 @@ async fn tui_prompt_stash_round_trips_across_in_place_switch() {
         client_auth: None,
         client_settings: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         prompt_stash: std::sync::Arc::default(),
         session_rlm_depth: None,
         session_has_children: false,
         restore_dock_focus: false,
     };
     let enter = || {
-        pa_tui::interactive::HeadlessStep::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE))
+        aa_tui::interactive::HeadlessStep::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE))
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Type("f24 stash draft hello".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit(format!("/switch {second}")),
+            aa_tui::interactive::HeadlessStep::Type("f24 stash draft hello".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit(format!("/switch {second}")),
             // Enter submits nothing; the draft never bleeds into session B.
             enter(),
-            pa_tui::interactive::HeadlessStep::WaitMs(500),
-            pa_tui::interactive::HeadlessStep::Submit(format!("/switch {first}")),
+            aa_tui::interactive::HeadlessStep::WaitMs(500),
+            aa_tui::interactive::HeadlessStep::Submit(format!("/switch {first}")),
             enter(),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -3624,7 +3624,7 @@ async fn tui_prompt_stash_round_trips_across_in_place_switch() {
     );
 
     // Daemon-side: the restored draft ran on session A; B never received it.
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect supervisor");
     let last_first = client
@@ -3692,10 +3692,10 @@ async fn tui_prompt_stash_survives_the_agents_view_handoff() {
     // bytes (the reopened chat's paste registry is empty — the stash hydrates it).
     let png_path = dir.path().join("fixture.png");
     std::fs::write(&png_path, MINIMAL_PNG).expect("write fixture image");
-    std::env::set_var("PRIME_AGENT_TEST_CLIPBOARD_IMAGE", &png_path);
-    let prompt_stash: std::sync::Arc<std::sync::Mutex<pa_tui::prompt_stash::PromptStashStore>> =
+    std::env::set_var("ASYNC_AGENT_TEST_CLIPBOARD_IMAGE", &png_path);
+    let prompt_stash: std::sync::Arc<std::sync::Mutex<aa_tui::prompt_stash::PromptStashStore>> =
         std::sync::Arc::default();
-    let make_options = || pa_tui::interactive::InteractiveOptions {
+    let make_options = || aa_tui::interactive::InteractiveOptions {
         models: None,
         provider_auth: None,
         traces: None,
@@ -3704,17 +3704,17 @@ async fn tui_prompt_stash_survives_the_agents_view_handoff() {
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path.clone()),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(first.clone()),
+        session: aa_tui::interactive::SessionSelection::Attach(first.clone()),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -3724,7 +3724,7 @@ async fn tui_prompt_stash_survives_the_agents_view_handoff() {
         client_auth: None,
         client_settings: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::create(&agent_dir),
+        keybindings: aa_tui::keybindings::KeybindingsManager::create(&agent_dir),
         prompt_stash: prompt_stash.clone(),
         session_rlm_depth: None,
         session_has_children: false,
@@ -3732,15 +3732,15 @@ async fn tui_prompt_stash_survives_the_agents_view_handoff() {
     };
 
     // Run one: the draft is typed, then the resume key hands the pane to the agents view.
-    let plan_one = pa_tui::interactive::HeadlessPlan {
+    let plan_one = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Key(KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::Key(KeyEvent::new(
                 KeyCode::Char('v'),
                 KeyModifiers::CONTROL,
             )),
-            pa_tui::interactive::HeadlessStep::WaitMs(300),
-            pa_tui::interactive::HeadlessStep::Type(" f24 handoff draft".to_string()),
-            pa_tui::interactive::HeadlessStep::Key(KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::WaitMs(300),
+            aa_tui::interactive::HeadlessStep::Type(" f24 handoff draft".to_string()),
+            aa_tui::interactive::HeadlessStep::Key(KeyEvent::new(
                 KeyCode::F(2),
                 KeyModifiers::NONE,
             )),
@@ -3756,14 +3756,14 @@ async fn tui_prompt_stash_survives_the_agents_view_handoff() {
         "the resume key hands the pane to the agents view"
     );
 
-    let plan_two = pa_tui::interactive::HeadlessPlan {
+    let plan_two = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::WaitMs(300),
-            pa_tui::interactive::HeadlessStep::Key(KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::WaitMs(300),
+            aa_tui::interactive::HeadlessStep::Key(KeyEvent::new(
                 KeyCode::Enter,
                 KeyModifiers::NONE,
             )),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -3799,7 +3799,7 @@ async fn tui_prompt_stash_survives_the_agents_view_handoff() {
         "the restored draft attached the stashed image bytes on submit"
     );
 
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect supervisor");
     let last = client
@@ -3832,7 +3832,7 @@ async fn tui_prompt_stash_restores_a_pasted_image_with_the_draft() {
     std::fs::write(&png_path, MINIMAL_PNG).expect("write fixture image");
     // The seam only applies to the paste path (ctrl+v). The var stays set for
     // the whole process: a cross-test remove would race the parallel stash tests.
-    std::env::set_var("PRIME_AGENT_TEST_CLIPBOARD_IMAGE", &png_path);
+    std::env::set_var("ASYNC_AGENT_TEST_CLIPBOARD_IMAGE", &png_path);
     let supervisor = spawn_supervisor(dir.path());
     let script = serde_json::json!({
         "engine": "faux",
@@ -3856,7 +3856,7 @@ async fn tui_prompt_stash_restores_a_pasted_image_with_the_draft() {
     )
     .await;
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         provider_auth: None,
         traces: None,
@@ -3865,17 +3865,17 @@ async fn tui_prompt_stash_restores_a_pasted_image_with_the_draft() {
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path.clone()),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(first.clone()),
+        session: aa_tui::interactive::SessionSelection::Attach(first.clone()),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -3885,34 +3885,34 @@ async fn tui_prompt_stash_restores_a_pasted_image_with_the_draft() {
         client_auth: None,
         client_settings: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         prompt_stash: std::sync::Arc::default(),
         session_rlm_depth: None,
         session_has_children: false,
         restore_dock_focus: false,
     };
     let ctrl_v = || {
-        pa_tui::interactive::HeadlessStep::Key(KeyEvent::new(
+        aa_tui::interactive::HeadlessStep::Key(KeyEvent::new(
             KeyCode::Char('v'),
             KeyModifiers::CONTROL,
         ))
     };
     let enter = || {
-        pa_tui::interactive::HeadlessStep::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE))
+        aa_tui::interactive::HeadlessStep::Key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE))
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
             // Paste an image (the seam fixture), then type around its marker.
             ctrl_v(),
-            pa_tui::interactive::HeadlessStep::WaitMs(300),
-            pa_tui::interactive::HeadlessStep::Type(" f24 image draft".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit(format!("/switch {second}")),
-            pa_tui::interactive::HeadlessStep::WaitMs(300),
-            pa_tui::interactive::HeadlessStep::Submit(format!("/switch {first}")),
-            pa_tui::interactive::HeadlessStep::WaitMs(300),
+            aa_tui::interactive::HeadlessStep::WaitMs(300),
+            aa_tui::interactive::HeadlessStep::Type(" f24 image draft".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit(format!("/switch {second}")),
+            aa_tui::interactive::HeadlessStep::WaitMs(300),
+            aa_tui::interactive::HeadlessStep::Submit(format!("/switch {first}")),
+            aa_tui::interactive::HeadlessStep::WaitMs(300),
             // Submit the restored draft: the marker resolves to the stashed bytes.
             enter(),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -3965,7 +3965,7 @@ async fn tui_ctrl_s_stashes_and_restores_the_prompt_draft() {
     // The draft carries a pasted image, so the manual stash must round-trip the bytes too.
     let png_path = dir.path().join("fixture.png");
     std::fs::write(&png_path, MINIMAL_PNG).expect("write fixture image");
-    std::env::set_var("PRIME_AGENT_TEST_CLIPBOARD_IMAGE", &png_path);
+    std::env::set_var("ASYNC_AGENT_TEST_CLIPBOARD_IMAGE", &png_path);
     let supervisor = spawn_supervisor(dir.path());
     let script = serde_json::json!({
         "engine": "faux",
@@ -3981,7 +3981,7 @@ async fn tui_ctrl_s_stashes_and_restores_the_prompt_draft() {
     )
     .await;
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         provider_auth: None,
         traces: None,
@@ -3990,17 +3990,17 @@ async fn tui_ctrl_s_stashes_and_restores_the_prompt_draft() {
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path.clone()),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(session.clone()),
+        session: aa_tui::interactive::SessionSelection::Attach(session.clone()),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -4010,38 +4010,38 @@ async fn tui_ctrl_s_stashes_and_restores_the_prompt_draft() {
         client_auth: None,
         client_settings: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         prompt_stash: std::sync::Arc::default(),
         session_rlm_depth: None,
         session_has_children: false,
         restore_dock_focus: false,
     };
     let key = |code: KeyCode, modifiers: KeyModifiers| {
-        pa_tui::interactive::HeadlessStep::Key(KeyEvent::new(code, modifiers))
+        aa_tui::interactive::HeadlessStep::Key(KeyEvent::new(code, modifiers))
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
             key(KeyCode::Char('v'), KeyModifiers::CONTROL),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "[image #1]".to_string(),
                 timeout_ms: 5_000,
             },
-            pa_tui::interactive::HeadlessStep::Type(" f24 ctrl s draft".to_string()),
+            aa_tui::interactive::HeadlessStep::Type(" f24 ctrl s draft".to_string()),
             key(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Stashed prompt".to_string(),
                 timeout_ms: 5_000,
             },
             // Enter submits nothing (were the draft still there, this submit would start its turn).
             key(KeyCode::Enter, KeyModifiers::NONE),
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
             key(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Restored stashed prompt".to_string(),
                 timeout_ms: 5_000,
             },
             key(KeyCode::Enter, KeyModifiers::NONE),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -4075,7 +4075,7 @@ async fn tui_ctrl_s_stashes_and_restores_the_prompt_draft() {
     );
 
     // Daemon-side: exactly the restored draft's turn ran, and its image bytes persisted.
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect supervisor");
     let last = client
@@ -4140,7 +4140,7 @@ async fn tui_ctrl_s_stash_keeps_a_held_draft_and_reports_the_empty_editor() {
     )
     .await;
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         provider_auth: None,
         traces: None,
@@ -4149,17 +4149,17 @@ async fn tui_ctrl_s_stash_keeps_a_held_draft_and_reports_the_empty_editor() {
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path.clone()),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(session.clone()),
+        session: aa_tui::interactive::SessionSelection::Attach(session.clone()),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -4169,42 +4169,42 @@ async fn tui_ctrl_s_stash_keeps_a_held_draft_and_reports_the_empty_editor() {
         client_auth: None,
         client_settings: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         prompt_stash: std::sync::Arc::default(),
         session_rlm_depth: None,
         session_has_children: false,
         restore_dock_focus: false,
     };
     let key = |code: KeyCode, modifiers: KeyModifiers| {
-        pa_tui::interactive::HeadlessStep::Key(KeyEvent::new(code, modifiers))
+        aa_tui::interactive::HeadlessStep::Key(KeyEvent::new(code, modifiers))
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
             key(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "No prompt to stash".to_string(),
                 timeout_ms: 5_000,
             },
-            pa_tui::interactive::HeadlessStep::Type("f24 guard draft".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("f24 guard draft".to_string()),
             key(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Stashed prompt".to_string(),
                 timeout_ms: 5_000,
             },
-            pa_tui::interactive::HeadlessStep::Type("f24 second draft".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("f24 second draft".to_string()),
             key(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Prompt stash already has a draft".to_string(),
                 timeout_ms: 5_000,
             },
             key(KeyCode::Enter, KeyModifiers::NONE),
             // The admitted submit returns the held FIRST draft to the emptied
             // editor (TS `promptStashToRestore`, interactive-mode.ts:5752-5759).
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Restored stashed prompt".to_string(),
                 timeout_ms: 5_000,
             },
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -4235,7 +4235,7 @@ async fn tui_ctrl_s_stash_keeps_a_held_draft_and_reports_the_empty_editor() {
         "the admitted send restored the held draft into the editor"
     );
 
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect supervisor");
     let last = client
@@ -4284,7 +4284,7 @@ async fn tui_ctrl_s_stash_is_remappable_via_keybindings_json() {
     )
     .await;
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         provider_auth: None,
         traces: None,
@@ -4293,17 +4293,17 @@ async fn tui_ctrl_s_stash_is_remappable_via_keybindings_json() {
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path.clone()),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(session.clone()),
+        session: aa_tui::interactive::SessionSelection::Attach(session.clone()),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -4313,33 +4313,33 @@ async fn tui_ctrl_s_stash_is_remappable_via_keybindings_json() {
         client_auth: None,
         client_settings: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::create(&agent_dir),
+        keybindings: aa_tui::keybindings::KeybindingsManager::create(&agent_dir),
         prompt_stash: std::sync::Arc::default(),
         session_rlm_depth: None,
         session_has_children: false,
         restore_dock_focus: false,
     };
     let key = |code: KeyCode, modifiers: KeyModifiers| {
-        pa_tui::interactive::HeadlessStep::Key(KeyEvent::new(code, modifiers))
+        aa_tui::interactive::HeadlessStep::Key(KeyEvent::new(code, modifiers))
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Type("f24 remap draft".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("f24 remap draft".to_string()),
             // The replaced default: ctrl+s no longer owns the action.
             key(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
             key(KeyCode::F(3), KeyModifiers::NONE),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Stashed prompt".to_string(),
                 timeout_ms: 5_000,
             },
             key(KeyCode::F(3), KeyModifiers::NONE),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Restored stashed prompt".to_string(),
                 timeout_ms: 5_000,
             },
             key(KeyCode::Enter, KeyModifiers::NONE),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -4377,7 +4377,7 @@ async fn tui_ctrl_s_stash_is_remappable_via_keybindings_json() {
         "the restored draft returned to the editor"
     );
 
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect supervisor");
     let last = client
@@ -4429,7 +4429,7 @@ async fn tui_ctrl_s_during_queue_browse_stashes_the_draft_and_keeps_the_parked_m
     )
     .await;
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         provider_auth: None,
         traces: None,
@@ -4438,17 +4438,17 @@ async fn tui_ctrl_s_during_queue_browse_stashes_the_draft_and_keeps_the_parked_m
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path.clone()),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(session.clone()),
+        session: aa_tui::interactive::SessionSelection::Attach(session.clone()),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -4458,40 +4458,40 @@ async fn tui_ctrl_s_during_queue_browse_stashes_the_draft_and_keeps_the_parked_m
         client_auth: None,
         client_settings: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         prompt_stash: std::sync::Arc::default(),
         session_rlm_depth: None,
         session_has_children: false,
         restore_dock_focus: false,
     };
     let key = |code: KeyCode, modifiers: KeyModifiers| {
-        pa_tui::interactive::HeadlessStep::Key(KeyEvent::new(code, modifiers))
+        aa_tui::interactive::HeadlessStep::Key(KeyEvent::new(code, modifiers))
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("start the slow turn".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitMs(750),
+            aa_tui::interactive::HeadlessStep::Submit("start the slow turn".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(750),
             // Enter parks on the steering lane, alt+Enter on the follow-up lane.
-            pa_tui::interactive::HeadlessStep::Submit("steering prompt".to_string()),
-            pa_tui::interactive::HeadlessStep::Type("follow-up prompt".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("steering prompt".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("follow-up prompt".to_string()),
             key(KeyCode::Enter, KeyModifiers::ALT),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Follow-up: follow-up prompt".to_string(),
                 timeout_ms: 5_000,
             },
             // A real draft, then the browse that parks it and loads the newest parked text.
-            pa_tui::interactive::HeadlessStep::Type("f24 browse draft".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::Type("f24 browse draft".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "f24 browse draft".to_string(),
                 timeout_ms: 5_000,
             },
             key(KeyCode::Up, KeyModifiers::ALT),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "enter steers".to_string(),
                 timeout_ms: 5_000,
             },
             key(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Stashed prompt".to_string(),
                 timeout_ms: 5_000,
             },
@@ -4499,15 +4499,15 @@ async fn tui_ctrl_s_during_queue_browse_stashes_the_draft_and_keeps_the_parked_m
             // (the armed-browse bug would apply an empty edit and DELETE it).
             key(KeyCode::Enter, KeyModifiers::NONE),
             // The run drains: both parked prompts deliver (the follow-up's delivery is the proof).
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 60_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 60_000 },
             // The stash held the pre-browse draft: the key restores it, Enter submits it.
             key(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Restored stashed prompt".to_string(),
                 timeout_ms: 5_000,
             },
             key(KeyCode::Enter, KeyModifiers::NONE),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -4554,7 +4554,7 @@ async fn tui_ctrl_s_during_queue_browse_stashes_the_draft_and_keeps_the_parked_m
             .any(|frame| frame.contains("f24 browse draft")),
         "the restored draft is the pre-browse draft, not the parked text"
     );
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect supervisor");
     let last = client
@@ -4606,32 +4606,32 @@ async fn tui_dispatches_declared_editor_keybindings() {
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
     let mut options = base_options(&supervisor, dir.path(), &session_dir);
     // The exact load path the CLI uses: the fixture binds the two no-default-key actions.
-    options.keybindings = pa_tui::keybindings::KeybindingsManager::create(&agent_dir);
+    options.keybindings = aa_tui::keybindings::KeybindingsManager::create(&agent_dir);
     let key = |code: KeyCode, modifiers: KeyModifiers| {
-        pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(code, modifiers))
+        aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(code, modifiers))
     };
-    let wait_render = |needle: &str| pa_tui::interactive::HeadlessStep::WaitRender {
+    let wait_render = |needle: &str| aa_tui::interactive::HeadlessStep::WaitRender {
         needle: needle.to_string(),
         timeout_ms: 30_000,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
             // The quick reply plays first so the slow turn streams while the interrupt lands.
-            pa_tui::interactive::HeadlessStep::Submit("hello".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("hello".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             key(KeyCode::Char('l'), KeyModifiers::CONTROL),
             wait_render("Search models"),
             key(KeyCode::Esc, KeyModifiers::NONE),
-            pa_tui::interactive::HeadlessStep::Submit("start the slow turn".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("start the slow turn".to_string()),
             wait_render("the slow turn is streaming"),
             key(
                 KeyCode::Char('i'),
                 KeyModifiers::CONTROL | KeyModifiers::ALT,
             ),
             wait_render("Press Ctrl+C again to exit"),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
             // A draft in the editor when the new-session key lands: it must not ride along.
-            pa_tui::interactive::HeadlessStep::Type("stale draft".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("stale draft".to_string()),
             key(
                 KeyCode::Char('n'),
                 KeyModifiers::CONTROL | KeyModifiers::ALT,
@@ -4669,8 +4669,8 @@ async fn tui_dispatches_declared_editor_keybindings() {
 }
 
 /// The empty `prompt`/`prompt_and_wait` payload: every optional field stays absent on the wire.
-fn empty_prompt_input() -> pa_types::daemon::PromptInput {
-    pa_types::daemon::PromptInput {
+fn empty_prompt_input() -> aa_types::daemon::PromptInput {
+    aa_types::daemon::PromptInput {
         content: None,
         images: None,
         streaming_behavior: None,
@@ -4697,7 +4697,7 @@ async fn create_idle_session_with_settled_turn(
     prompt_text: &str,
 ) -> String {
     let session = create_session_via_daemon(socket, script_path, script, cwd, session_dir).await;
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(socket)
         .await
         .expect("connect supervisor");
     client
@@ -4739,9 +4739,9 @@ async fn tui_attach_to_idle_session_renders_without_input() {
     .await;
 
     let mut options = base_options(&supervisor, dir.path(), &session_dir);
-    options.session = pa_tui::interactive::SessionSelection::Attach(session.clone());
-    let plan = pa_tui::interactive::HeadlessPlan {
-        steps: vec![pa_tui::interactive::HeadlessStep::WaitMs(1_500)],
+    options.session = aa_tui::interactive::SessionSelection::Attach(session.clone());
+    let plan = aa_tui::interactive::HeadlessPlan {
+        steps: vec![aa_tui::interactive::HeadlessStep::WaitMs(1_500)],
         width: 100,
         height: 30,
     };
@@ -4779,39 +4779,39 @@ const E2E_SUBSCRIPTION_WARNING: &str = "E2E anthropic subscription ban-risk warn
 /// seam — a stored OAuth credential answers the warning text).
 struct E2ESubscriptionAuth;
 
-impl pa_tui::provider_auth::ProviderAuthCommands for E2ESubscriptionAuth {
-    fn login_options(&self) -> pa_tui::provider_auth::ProviderRowsFuture {
+impl aa_tui::provider_auth::ProviderAuthCommands for E2ESubscriptionAuth {
+    fn login_options(&self) -> aa_tui::provider_auth::ProviderRowsFuture {
         Box::pin(async move { Vec::new() })
     }
 
-    fn logout_options(&self) -> pa_tui::provider_auth::ProviderRowsFuture {
+    fn logout_options(&self) -> aa_tui::provider_auth::ProviderRowsFuture {
         Box::pin(async move { Vec::new() })
     }
 
     fn login(
         &self,
-        _provider: &pa_tui::provider_auth::ProviderRow,
+        _provider: &aa_tui::provider_auth::ProviderRow,
         _api_key: Option<&str>,
-    ) -> pa_tui::provider_auth::ProviderAuthFuture {
-        Box::pin(async move { pa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
+    ) -> aa_tui::provider_auth::ProviderAuthFuture {
+        Box::pin(async move { aa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
     }
 
     fn login_on_panel(
         &self,
-        _provider: &pa_tui::provider_auth::ProviderRow,
-        _panel: pa_tui::auth_panel::AuthPanelHandle,
-    ) -> pa_tui::provider_auth::ProviderAuthFuture {
-        Box::pin(async move { pa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
+        _provider: &aa_tui::provider_auth::ProviderRow,
+        _panel: aa_tui::auth_panel::AuthPanelHandle,
+    ) -> aa_tui::provider_auth::ProviderAuthFuture {
+        Box::pin(async move { aa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
     }
 
     fn logout(
         &self,
-        _provider: &pa_tui::provider_auth::ProviderRow,
-    ) -> pa_tui::provider_auth::ProviderAuthFuture {
-        Box::pin(async move { pa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
+        _provider: &aa_tui::provider_auth::ProviderRow,
+    ) -> aa_tui::provider_auth::ProviderAuthFuture {
+        Box::pin(async move { aa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
     }
 
-    fn anthropic_subscription_warning(&self) -> pa_tui::provider_auth::ProviderWarningFuture {
+    fn anthropic_subscription_warning(&self) -> aa_tui::provider_auth::ProviderWarningFuture {
         Box::pin(async move { Some(E2E_SUBSCRIPTION_WARNING) })
     }
 }
@@ -4822,16 +4822,16 @@ fn subscription_options(
     supervisor: &Supervisor,
     dir: &Path,
     session_dir: &Path,
-    session: pa_tui::interactive::SessionSelection,
-) -> pa_tui::interactive::InteractiveOptions {
+    session: aa_tui::interactive::SessionSelection,
+) -> aa_tui::interactive::InteractiveOptions {
     let mut options = base_options(supervisor, dir, session_dir);
-    options.model_selection = pa_tui::interactive::ModelSelection {
+    options.model_selection = aa_tui::interactive::ModelSelection {
         provider: Some("anthropic".to_string()),
         model: Some("claude-test".to_string()),
         api_key: None,
         thinking: None,
     };
-    options.provider_auth = Some(pa_tui::provider_auth::ProviderAuthCommandsHandle(
+    options.provider_auth = Some(aa_tui::provider_auth::ProviderAuthCommandsHandle(
         std::sync::Arc::new(E2ESubscriptionAuth),
     ));
     options.session = session;
@@ -4873,14 +4873,14 @@ async fn tui_anthropic_warning_warns_once_then_a_fresh_process_reattaches_silent
         &supervisor,
         dir.path(),
         &session_dir,
-        pa_tui::interactive::SessionSelection::New,
+        aa_tui::interactive::SessionSelection::New,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         // The exit gate holds the run until the fire-and-forget mark's
         // write resolves (the worker persists the marker row before its
         // ack), so the durable-row assertions below read completed state —
         // no timing window guards them.
-        steps: vec![pa_tui::interactive::HeadlessStep::WaitRender {
+        steps: vec![aa_tui::interactive::HeadlessStep::WaitRender {
             needle: E2E_SUBSCRIPTION_WARNING.to_string(),
             timeout_ms: 15_000,
         }],
@@ -4917,7 +4917,7 @@ async fn tui_anthropic_warning_warns_once_then_a_fresh_process_reattaches_silent
         persisted.contains("anthropic_subscription_warning_shown"),
         "the marker row reached the session file:\n{persisted}"
     );
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect supervisor");
     let state = client
@@ -4941,15 +4941,15 @@ async fn tui_anthropic_warning_warns_once_then_a_fresh_process_reattaches_silent
         &supervisor,
         dir.path(),
         &session_dir,
-        pa_tui::interactive::SessionSelection::Attach(session.clone()),
+        aa_tui::interactive::SessionSelection::Attach(session.clone()),
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         // The detection arm is awaited at open, so the first dock frame
         // proves its decision baked in — the reattach's negative reads
         // completed state, not a timing window (a late warning cannot
         // miss the window: the open either warned or skipped before the
         // frame painted).
-        steps: vec![pa_tui::interactive::HeadlessStep::WaitRender {
+        steps: vec![aa_tui::interactive::HeadlessStep::WaitRender {
             needle: "subagents".to_string(),
             timeout_ms: 15_000,
         }],
@@ -5000,11 +5000,11 @@ async fn tui_idle_session_event_repaints_without_input() {
     .await;
 
     let mut options = base_options(&supervisor, dir.path(), &session_dir);
-    options.session = pa_tui::interactive::SessionSelection::Attach(session.clone());
+    options.session = aa_tui::interactive::SessionSelection::Attach(session.clone());
     let socket = supervisor.socket.clone();
     let run = tokio::spawn(async move {
-        let plan = pa_tui::interactive::HeadlessPlan {
-            steps: vec![pa_tui::interactive::HeadlessStep::WaitMs(4_000)],
+        let plan = aa_tui::interactive::HeadlessPlan {
+            steps: vec![aa_tui::interactive::HeadlessStep::WaitMs(4_000)],
             width: 100,
             height: 30,
         };
@@ -5015,7 +5015,7 @@ async fn tui_idle_session_event_repaints_without_input() {
     // The attach settles first; the rename arrives as a pure daemon event
     // (the second client never touches the TUI's input).
     tokio::time::sleep(std::time::Duration::from_millis(750)).await;
-    let (renamer, _events) = pa_tui::daemon_client::DaemonClient::connect(&socket)
+    let (renamer, _events) = aa_tui::daemon_client::DaemonClient::connect(&socket)
         .await
         .expect("connect supervisor for the rename");
     renamer
@@ -5040,7 +5040,7 @@ async fn tui_idle_session_event_repaints_without_input() {
 }
 
 /// The bare-launch safety regression (the P6 continue-recent trap): a plain
-/// `prime-agent` run must open a FRESH session even when a newer saved session
+/// `async-agent` run must open a FRESH session even when a newer saved session
 /// exists for the cwd — resuming it blindly would resurrect whatever it holds.
 #[tokio::test]
 async fn tui_bare_launch_opens_a_fresh_session_when_a_newer_saved_one_exists_for_the_cwd() {
@@ -5065,11 +5065,11 @@ async fn tui_bare_launch_opens_a_fresh_session_when_a_newer_saved_one_exists_for
     ] });
     std::fs::write(dir.path().join("script.json"), script.to_string()).expect("write script");
     let mut options = base_options(&supervisor, dir.path(), &session_dir);
-    options.session = pa_tui::interactive::SessionSelection::New;
-    let plan = pa_tui::interactive::HeadlessPlan {
+    options.session = aa_tui::interactive::SessionSelection::New;
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -5139,23 +5139,23 @@ async fn tui_two_back_to_back_submits_reach_the_daemon_in_order() {
     let script_path = dir.path().join("script.json");
     std::fs::write(&script_path, script.to_string()).expect("write script");
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -5167,7 +5167,7 @@ async fn tui_two_back_to_back_submits_reach_the_daemon_in_order() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -5176,11 +5176,11 @@ async fn tui_two_back_to_back_submits_reach_the_daemon_in_order() {
     };
     // Two submits with NO barrier: the second's round trip arms while the
     // first is in flight — the case a per-submit spawn could flip.
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("first submit".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("second submit".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("first submit".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("second submit".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -5260,23 +5260,23 @@ async fn tui_submit_outlived_by_switch_stays_silent_on_the_new_session() {
     )
     .await;
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(first.clone()),
+        session: aa_tui::interactive::SessionSelection::Attach(first.clone()),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -5288,7 +5288,7 @@ async fn tui_submit_outlived_by_switch_stays_silent_on_the_new_session() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -5297,13 +5297,13 @@ async fn tui_submit_outlived_by_switch_stays_silent_on_the_new_session() {
     };
     // The round trip straddles the switch: the switch applies one headless
     // step after the submit, long before the ack lands.
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("for a".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit(format!("/switch {second}")),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("for b".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("for a".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit(format!("/switch {second}")),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("for b".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -5373,23 +5373,23 @@ async fn tui_headless_done_with_a_turn_settling_parks_the_closed_input_channel()
     let script_path = dir.path().join("script.json");
     std::fs::write(&script_path, script.to_string()).expect("write script");
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::New,
+        session: aa_tui::interactive::SessionSelection::New,
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -5401,7 +5401,7 @@ async fn tui_headless_done_with_a_turn_settling_parks_the_closed_input_channel()
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -5409,18 +5409,18 @@ async fn tui_headless_done_with_a_turn_settling_parks_the_closed_input_channel()
         client_settings: None,
     };
     // No trailing WaitIdle: the exit gate must hold on its own until the turn settles.
-    let plan = pa_tui::interactive::HeadlessPlan {
-        steps: vec![pa_tui::interactive::HeadlessStep::Submit(
+    let plan = aa_tui::interactive::HeadlessPlan {
+        steps: vec![aa_tui::interactive::HeadlessStep::Submit(
             "hello there".to_string(),
         )],
         width: 100,
         height: 30,
     };
     let started = Instant::now();
-    let mode = pa_tui::interactive::UiMode::Headless(plan);
+    let mode = aa_tui::interactive::UiMode::Headless(plan);
     let outcome = tokio::time::timeout(
         Duration::from_mins(2),
-        pa_tui::interactive::run_interactive(options, mode),
+        aa_tui::interactive::run_interactive(options, mode),
     )
     .await
     .expect("the parked loop still services events and ends on its own")
@@ -5469,7 +5469,7 @@ async fn tui_refused_submit_restores_the_draft_after_the_round_trip() {
     let kill_session_id = session_id.clone();
     let kill_task = tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(400)).await;
-        let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&kill_socket)
+        let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&kill_socket)
             .await
             .expect("connect supervisor");
         client
@@ -5492,23 +5492,23 @@ async fn tui_refused_submit_restores_the_draft_after_the_round_trip() {
         }
     });
 
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir.clone()),
         script_path: Some(script_path),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(session_id.clone()),
+        session: aa_tui::interactive::SessionSelection::Attach(session_id.clone()),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -5520,18 +5520,18 @@ async fn tui_refused_submit_restores_the_draft_after_the_round_trip() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
         restore_dock_focus: false,
         client_settings: None,
     };
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::WaitMs(900),
-            pa_tui::interactive::HeadlessStep::Submit("lost prompt".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::WaitMs(900),
+            aa_tui::interactive::HeadlessStep::Submit("lost prompt".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -5583,7 +5583,7 @@ async fn tui_accepted_then_killed_turn_renders_closed_error() {
     let kill_socket = supervisor.socket.clone();
     let kill_session_id = session_id.clone();
     let kill_task = tokio::spawn(async move {
-        let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&kill_socket)
+        let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&kill_socket)
             .await
             .expect("connect supervisor for kill");
         let deadline = Instant::now() + Duration::from_secs(20);
@@ -5615,23 +5615,23 @@ async fn tui_accepted_then_killed_turn_renders_closed_error() {
             .expect("kill admitted session");
         client.close();
     });
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir),
         script_path: Some(script_path),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(session_id),
+        session: aa_tui::interactive::SessionSelection::Attach(session_id),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -5643,7 +5643,7 @@ async fn tui_accepted_then_killed_turn_renders_closed_error() {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -5651,17 +5651,17 @@ async fn tui_accepted_then_killed_turn_renders_closed_error() {
         client_settings: None,
     };
     let error_row = "⚠ Error: The daemon stopped this agent session. Its transcript remains saved and can be reopened from Agents View.";
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("held accepted prompt".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("held accepted prompt".to_string()),
             // The cancellation status is a later, replaceable note. Require
             // it first so the error assertion covers the end state after
             // the status that used to overwrite `session closed (killed)`.
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "turn failed: prompt cancelled".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: error_row.to_string(),
                 timeout_ms: 30_000,
             },
@@ -5705,7 +5705,7 @@ async fn tui_accepted_then_killed_turn_renders_closed_error() {
 #[tokio::test]
 async fn tui_close_reason_rows_survive_late_turn_status() {
     for (reason, explanation) in [
-        ("shutdown", "The Prime Agent daemon shut down while this window was attached. The session transcript remains saved; restart Prime Agent and reopen it from Agents View."),
+        ("shutdown", "The Async Agent daemon shut down while this window was attached. The session transcript remains saved; restart Async Agent and reopen it from Agents View."),
         ("replaced", "The daemon replaced this agent session with another session. Reopen the current session from Agents View."),
     ] {
         assert_close_reason_survives_late_turn_status(reason, explanation).await;
@@ -5733,7 +5733,7 @@ async fn assert_close_reason_survives_late_turn_status(reason: &str, explanation
     let reason_owned = reason.to_string();
     let kill_session_id = session_id.clone();
     let kill_task = tokio::spawn(async move {
-        let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&kill_socket)
+        let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&kill_socket)
             .await
             .expect("connect supervisor for kill");
         let deadline = Instant::now() + Duration::from_secs(20);
@@ -5768,23 +5768,23 @@ async fn assert_close_reason_survives_late_turn_status(reason: &str, explanation
             .expect("kill admitted session");
         client.close();
     });
-    let options = pa_tui::interactive::InteractiveOptions {
+    let options = aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: supervisor.socket.clone(),
         cwd: dir.path().to_path_buf(),
         session_dir: Some(session_dir),
         script_path: Some(script_path),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(session_id),
+        session: aa_tui::interactive::SessionSelection::Attach(session_id),
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -5796,7 +5796,7 @@ async fn assert_close_reason_survives_late_turn_status(reason: &str, explanation
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -5804,17 +5804,17 @@ async fn assert_close_reason_survives_late_turn_status(reason: &str, explanation
         client_settings: None,
     };
     let error_row = format!("⚠ Error: {explanation}");
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("held accepted prompt".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("held accepted prompt".to_string()),
             // The cancellation status is a later, replaceable note. Require
             // it first so the error assertion covers the end state after
             // the status that used to overwrite `session closed (killed)`.
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "turn failed: prompt cancelled".to_string(),
                 timeout_ms: 30_000,
             },
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: error_row.clone(),
                 timeout_ms: 30_000,
             },

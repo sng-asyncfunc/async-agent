@@ -9,28 +9,28 @@
 use std::sync::{Arc, OnceLock, Weak};
 use std::time::Duration;
 
-use pa_core::session_engine::agent_messaging::{
+use aa_core::session_engine::agent_messaging::{
     create_agent_session_message_id, create_agent_session_message_prompt,
     create_agent_session_message_row, AgentFamilyMember, AgentFamilyRelationship,
     AgentMessageController, AgentMessageDeliveryStatus, AgentMessagePromptPayload,
     AgentMessageReceipt, AgentMessageSendInput, AgentSessionMessageRowPayload,
 };
-use pa_core::session_engine::engine::SessionEngine;
-use pa_core::session_engine::goal_boundary::custom_message_to_loop_row;
-use pa_core::session_engine::provider_adapter::model_thinking_level;
-use pa_core::session_engine::rlm_host::{
+use aa_core::session_engine::engine::SessionEngine;
+use aa_core::session_engine::goal_boundary::custom_message_to_loop_row;
+use aa_core::session_engine::provider_adapter::model_thinking_level;
+use aa_core::session_engine::rlm_host::{
     resolve_rlm_max_depth, rlm_child_session_dir, rlm_create_session_daemonless_error,
     rlm_depth_limit_error, spawn_name_unavailable_error, RlmChildResult, RlmCreateSessionHandle,
     RlmCreateSessionRequest, RlmDeleteSubagentResult, RlmHostFuture, RlmSpawnHandle,
     RlmSpawnRequest, RlmSubagentEntry, RlmSubagentHost,
 };
 
-use pa_core::session_engine::rlm_notices::{
+use aa_core::session_engine::rlm_notices::{
     create_rlm_child_failure_message, create_rlm_child_terminal_notice, RlmChildTerminalNotice,
 };
-use pa_daemon::rlm_child_model::{cap_text, compact_rlm_text, ANSWER_TEXT_MAX_CHARS};
-use pa_types::ai::Model;
-use pa_types::session::CustomMessage;
+use aa_daemon::rlm_child_model::{cap_text, compact_rlm_text, ANSWER_TEXT_MAX_CHARS};
+use aa_types::ai::Model;
+use aa_types::session::CustomMessage;
 use serde_json::{json, Value};
 use tokio::sync::{Mutex, Notify};
 
@@ -67,7 +67,7 @@ pub(crate) struct InlineSessionNode {
     /// The session's model selector (`provider/id`), inherited by children.
     model_selector: std::sync::Mutex<Option<String>>,
     /// The session's effective thinking level, inherited by children.
-    thinking: std::sync::Mutex<Option<pa_types::ai::ModelThinkingLevel>>,
+    thinking: std::sync::Mutex<Option<aa_types::ai::ModelThinkingLevel>>,
     pub(crate) parent: Option<Weak<InlineSessionNode>>,
     pub(crate) children: Mutex<Vec<Arc<InlineChild>>>,
     /// The session's engine, set right after the build (the host is
@@ -175,7 +175,7 @@ struct InlineChildState {
 /// nothing).
 pub(crate) fn root_node(
     options: &crate::mode::RunOptions,
-    session_manager: &pa_core::session::manager::SessionManager,
+    session_manager: &aa_core::session::manager::SessionManager,
     faux: Option<Value>,
 ) -> Arc<InlineSessionNode> {
     let (max_depth, _) = resolve_rlm_max_depth(
@@ -233,10 +233,10 @@ pub(crate) fn inline_subagent_wiring(
     node: &Arc<InlineSessionNode>,
 ) -> (
     Arc<dyn RlmSubagentHost>,
-    pa_core::kernel::shared::HostRequestHandlers,
+    aa_core::kernel::shared::HostRequestHandlers,
 ) {
-    let mut handlers = pa_core::kernel::shared::HostRequestHandlers::default();
-    pa_core::session_engine::agent_messaging::register_agent_message_host_handlers(
+    let mut handlers = aa_core::kernel::shared::HostRequestHandlers::default();
+    aa_core::session_engine::agent_messaging::register_agent_message_host_handlers(
         std::sync::Arc::new(InlineMessages(Arc::clone(node))),
         &mut handlers,
     );
@@ -248,7 +248,7 @@ pub(crate) fn inline_subagent_wiring(
 /// published by `adopt_built_engine` right after the build).
 pub(crate) fn late_sent_agent_message_sink(
     node: &Arc<InlineSessionNode>,
-) -> pa_core::LateSentAgentMessageHandler {
+) -> aa_core::LateSentAgentMessageHandler {
     let node = Arc::clone(node);
     Arc::new(move |tool_call_id, message| {
         // Account on the whole ancestor chain before spawning: even a previously
@@ -290,7 +290,7 @@ pub(crate) fn late_sent_agent_message_sink(
 async fn record_late_sent_receipt(
     node: Arc<InlineSessionNode>,
     tool_call_id: String,
-    message: pa_core::kernel::shared::KernelSentAgentMessage,
+    message: aa_core::kernel::shared::KernelSentAgentMessage,
 ) -> anyhow::Result<()> {
     let Some(engine) = node.engine.get().and_then(Weak::upgrade) else {
         anyhow::bail!("late receipt arrived without a live print session engine");
@@ -467,19 +467,19 @@ async fn settle_child(child: &Arc<InlineChild>, run_error: Option<String>) {
     // and the no-reply notice carry (trailing non-assistant rows are
     // skipped); a provider-error stop on it is the terminal error.
     let (answer, terminal_error) =
-        if let Some(pa_types::session::AgentMessage::Assistant(assistant)) =
+        if let Some(aa_types::session::AgentMessage::Assistant(assistant)) =
             child.engine.session.last_assistant_message().await
         {
             let text = assistant
                 .content
                 .iter()
                 .filter_map(|block| match block {
-                    pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
-                    pa_types::ai::AssistantContentBlock::Thinking(_)
-                    | pa_types::ai::AssistantContentBlock::ToolCall(_) => None,
+                    aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+                    aa_types::ai::AssistantContentBlock::Thinking(_)
+                    | aa_types::ai::AssistantContentBlock::ToolCall(_) => None,
                 })
                 .collect::<String>();
-            let terminal_error = if assistant.stop_reason == pa_types::ai::StopReason::Error {
+            let terminal_error = if assistant.stop_reason == aa_types::ai::StopReason::Error {
                 Some(
                     assistant
                         .error_message
@@ -542,7 +542,7 @@ async fn settle_child(child: &Arc<InlineChild>, run_error: Option<String>) {
                 )),
             };
             if let Err(error) = delivered {
-                eprintln!("pa-cli: RLM child notice was not delivered: {error:#}");
+                eprintln!("aa-cli: RLM child notice was not delivered: {error:#}");
             }
         }
     }
@@ -638,7 +638,7 @@ impl RlmSubagentHost for InlineHost {
                 None => Arc::clone(&node.recipe),
                 Some(requested) => {
                     let mut options = node.recipe.options.clone();
-                    options.config.cwd = pa_daemon::rlm_child_model::resolve_child_cwd(
+                    options.config.cwd = aa_daemon::rlm_child_model::resolve_child_cwd(
                         &options.config.cwd,
                         Some(requested),
                         "rlm.spawn",
@@ -652,7 +652,7 @@ impl RlmSubagentHost for InlineHost {
             let config = &recipe.options.config;
             let child_id = format!("sub-{}", &uuid::Uuid::new_v4().simple().to_string()[..8]);
             let name = request.name.clone().unwrap_or_else(|| {
-                pa_core::kernel::rlm_runtime::create_default_rlm_subagent_session_name(
+                aa_core::kernel::rlm_runtime::create_default_rlm_subagent_session_name(
                     &request.prompt,
                     &child_id,
                 )
@@ -678,9 +678,9 @@ impl RlmSubagentHost for InlineHost {
             let thinking = request
                 .thinking
                 .as_deref()
-                .and_then(pa_ai::models::thinking_level_from_str)
+                .and_then(aa_ai::models::thinking_level_from_str)
                 .or(*node.thinking.lock().unwrap())
-                .unwrap_or(pa_types::ai::ModelThinkingLevel::Medium);
+                .unwrap_or(aa_types::ai::ModelThinkingLevel::Medium);
             // The model lane: a scripted child runs its own faux queue under
             // `children.<spawn name>`; a real-provider child resolves against
             // the catalog, inheriting the parent's selector.
@@ -690,7 +690,7 @@ impl RlmSubagentHost for InlineHost {
                 .and_then(|children| children.get(&name))
                 .ok_or_else(|| {
                     anyhow::anyhow!(
-                        "PRIME_AGENT_FAUX_SCRIPT has no \"children.{name}\" entry: a scripted print run \
+                        "ASYNC_AGENT_FAUX_SCRIPT has no \"children.{name}\" entry: a scripted print run \
                          must script every spawned child"
                     )
                 })?;
@@ -700,7 +700,7 @@ impl RlmSubagentHost for InlineHost {
                         .and_then(Value::as_array)
                         .ok_or_else(|| {
                             anyhow::anyhow!(
-                            "PRIME_AGENT_FAUX_SCRIPT children.{name} requires a responses array"
+                            "ASYNC_AGENT_FAUX_SCRIPT children.{name} requires a responses array"
                         )
                         })?,
                 )
@@ -719,34 +719,34 @@ impl RlmSubagentHost for InlineHost {
                     thinking,
                 )
             } else {
-                let selector = pa_daemon::rlm_child_model::resolve_child_model_unchecked(
+                let selector = aa_daemon::rlm_child_model::resolve_child_model_unchecked(
                     &config.agent_dir,
                     request.model.as_deref(),
                     node.model_selector.lock().unwrap().as_deref(),
                     "subagent",
                 )
                 .map_err(|error| anyhow::anyhow!("{error:#}"))?;
-                pa_daemon::rlm_child_model::assert_thinking_supported(
+                aa_daemon::rlm_child_model::assert_thinking_supported(
                     &config.agent_dir,
                     request.thinking.as_deref(),
                     &selector,
                 )
                 .map_err(|error| anyhow::anyhow!("{error:#}"))?;
-                let auth = pa_core::auth::AuthStorage::create(&config.agent_dir);
-                let registry = pa_core::models::ModelRegistry::create(
+                let auth = aa_core::auth::AuthStorage::create(&config.agent_dir);
+                let registry = aa_core::models::ModelRegistry::create(
                     auth,
                     config.agent_dir.join("models.json"),
                 );
                 let all: Vec<Model> = registry.get_all().to_vec();
                 let resolved =
-                    pa_core::models::resolve_cli_model(/*cli_provider*/ None, &selector, &all);
+                    aa_core::models::resolve_cli_model(/*cli_provider*/ None, &selector, &all);
                 if let Some(error) = resolved.error {
                     return Err(anyhow::Error::msg(error));
                 }
                 let Some(model) = resolved.model else {
                     return Err(anyhow::Error::msg("No matching model found."));
                 };
-                let thinking = pa_ai::models::clamp_thinking_level(&model, thinking);
+                let thinking = aa_ai::models::clamp_thinking_level(&model, thinking);
                 (selector, ChildLane::Real(Box::new(model)), thinking)
             };
             // The child's session: its own directory under the parent's
@@ -764,15 +764,15 @@ impl RlmSubagentHost for InlineHost {
             )?;
             let mut child_manager = if let Some(parent_file) = &node.session_file {
                 let mut manager =
-                    pa_core::session::manager::SessionManager::persisted(&config.cwd, &child_dir);
-                manager.new_session(&pa_core::session::manager::NewSessionOptions {
+                    aa_core::session::manager::SessionManager::persisted(&config.cwd, &child_dir);
+                manager.new_session(&aa_core::session::manager::NewSessionOptions {
                     parent_session: Some(parent_file.clone()),
                     rlm_depth: Some(u64::from(node.depth + 1)),
                     ..Default::default()
                 });
                 manager
             } else {
-                pa_core::session::manager::SessionManager::in_memory_in_session_dir(
+                aa_core::session::manager::SessionManager::in_memory_in_session_dir(
                     &config.cwd,
                     &child_dir,
                 )
@@ -1274,7 +1274,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let options = run_options(directory.path());
         std::fs::create_dir_all(&options.config.agent_dir).unwrap();
-        let manager = pa_core::session::manager::SessionManager::in_memory(directory.path());
+        let manager = aa_core::session::manager::SessionManager::in_memory(directory.path());
         let mut node = root_node(
             &options,
             &manager,
@@ -1317,7 +1317,7 @@ mod tests {
         node: Arc<InlineSessionNode>,
     }
 
-    impl pa_agent::types::AgentTool for LateReceiptJavaScriptTool {
+    impl aa_agent::types::AgentTool for LateReceiptJavaScriptTool {
         fn name(&self) -> &'static str {
             "javascript"
         }
@@ -1335,20 +1335,20 @@ mod tests {
             self: Arc<Self>,
             tool_call_id: String,
             _params: serde_json::Value,
-            _signal: pa_agent::abort::AbortSignal,
-            _on_update: pa_agent::types::AgentToolUpdateCallback,
-        ) -> pa_agent::BoxFut<'static, anyhow::Result<pa_agent::types::AgentToolResult>> {
+            _signal: aa_agent::abort::AbortSignal,
+            _on_update: aa_agent::types::AgentToolUpdateCallback,
+        ) -> aa_agent::BoxFut<'static, anyhow::Result<aa_agent::types::AgentToolResult>> {
             let node = Arc::clone(&self.node);
             Box::pin(async move {
                 record_late_sent_receipt(
                     node,
                     tool_call_id,
-                    pa_core::kernel::shared::KernelSentAgentMessage {
+                    aa_core::kernel::shared::KernelSentAgentMessage {
                         id: "agentmsg_1".to_string(),
                         message: "Ping.".to_string(),
-                        delivery_status: pa_core::kernel::shared::SentDeliveryStatus::Delivered,
-                        receiver_role: Some(pa_core::kernel::shared::ReceiverRole::Parent),
-                        target: pa_core::kernel::shared::SentAgentMessageTarget {
+                        delivery_status: aa_core::kernel::shared::SentDeliveryStatus::Delivered,
+                        receiver_role: Some(aa_core::kernel::shared::ReceiverRole::Parent),
+                        target: aa_core::kernel::shared::SentAgentMessageTarget {
                             active_session_id: "a1".to_string(),
                             session_id: "s1".to_string(),
                             session_name: Some("Worker".to_string()),
@@ -1356,7 +1356,7 @@ mod tests {
                     },
                 )
                 .await?;
-                Ok(pa_agent::types::AgentToolResult::text("cell done"))
+                Ok(aa_agent::types::AgentToolResult::text("cell done"))
             })
         }
     }
@@ -1365,7 +1365,7 @@ mod tests {
     async fn detached_receipt_failure_holds_quiescence_and_wakes_the_error_path() {
         let directory = tempfile::tempdir().unwrap();
         let options = run_options(directory.path());
-        let manager = pa_core::session::manager::SessionManager::in_memory(directory.path());
+        let manager = aa_core::session::manager::SessionManager::in_memory(directory.path());
         let node = root_node(&options, &manager, None);
         let notified = node.activity.notified();
         tokio::pin!(notified);
@@ -1373,12 +1373,12 @@ mod tests {
         let sink = late_sent_agent_message_sink(&node);
         sink(
             "call-1",
-            pa_core::kernel::shared::KernelSentAgentMessage {
+            aa_core::kernel::shared::KernelSentAgentMessage {
                 id: "agentmsg_1".to_string(),
                 message: "Ping.".to_string(),
-                delivery_status: pa_core::kernel::shared::SentDeliveryStatus::Delivered,
-                receiver_role: Some(pa_core::kernel::shared::ReceiverRole::Parent),
-                target: pa_core::kernel::shared::SentAgentMessageTarget {
+                delivery_status: aa_core::kernel::shared::SentDeliveryStatus::Delivered,
+                receiver_role: Some(aa_core::kernel::shared::ReceiverRole::Parent),
+                target: aa_core::kernel::shared::SentAgentMessageTarget {
                     active_session_id: "a1".to_string(),
                     session_id: "s1".to_string(),
                     session_name: None,
@@ -1416,7 +1416,7 @@ mod tests {
     async fn a_receipt_on_an_idle_child_holds_and_wakes_ancestor_quiescence() {
         let directory = tempfile::tempdir().unwrap();
         let options = run_options(directory.path());
-        let manager = pa_core::session::manager::SessionManager::in_memory(directory.path());
+        let manager = aa_core::session::manager::SessionManager::in_memory(directory.path());
         let root = root_node(&options, &manager, None);
         let mut child = root_node(&options, &manager, None);
         Arc::get_mut(&mut child).unwrap().parent = Some(Arc::downgrade(&root));
@@ -1425,12 +1425,12 @@ mod tests {
         notified.as_mut().enable();
         late_sent_agent_message_sink(&child)(
             "call-1",
-            pa_core::kernel::shared::KernelSentAgentMessage {
+            aa_core::kernel::shared::KernelSentAgentMessage {
                 id: "agentmsg_1".to_string(),
                 message: "Ping.".to_string(),
-                delivery_status: pa_core::kernel::shared::SentDeliveryStatus::Delivered,
-                receiver_role: Some(pa_core::kernel::shared::ReceiverRole::Parent),
-                target: pa_core::kernel::shared::SentAgentMessageTarget {
+                delivery_status: aa_core::kernel::shared::SentDeliveryStatus::Delivered,
+                receiver_role: Some(aa_core::kernel::shared::ReceiverRole::Parent),
+                target: aa_core::kernel::shared::SentAgentMessageTarget {
                     active_session_id: "a1".to_string(),
                     session_id: "s1".to_string(),
                     session_name: None,
@@ -1470,7 +1470,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let options = run_options(directory.path());
         std::fs::create_dir_all(&options.config.agent_dir).unwrap();
-        let manager = pa_core::session::manager::SessionManager::persisted(
+        let manager = aa_core::session::manager::SessionManager::persisted(
             directory.path(),
             &directory.path().join("sessions"),
         );
@@ -1510,11 +1510,11 @@ mod tests {
         let outcome = engine
             .prompt(
                 "run the cell",
-                pa_core::session_engine::PromptOptions::default(),
+                aa_core::session_engine::PromptOptions::default(),
             )
             .await
             .unwrap();
-        assert_eq!(outcome, pa_core::session_engine::PromptOutcome::Prompt);
+        assert_eq!(outcome, aa_core::session_engine::PromptOutcome::Prompt);
         engine.session.agent().wait_for_idle().await;
 
         // The landed row carries the receipt in live state.
@@ -1523,7 +1523,7 @@ mod tests {
             .messages
             .iter()
             .find_map(|row| match row {
-                pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::ToolResult(
+                aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::ToolResult(
                     result,
                 )) if result.tool_call_id == "call-1" => Some(result.clone()),
                 _ => None,
@@ -1539,7 +1539,7 @@ mod tests {
         assert!(
             entries.iter().any(|entry| matches!(
                 entry,
-                pa_types::session::FileEntry::Custom { payload, .. }
+                aa_types::session::FileEntry::Custom { payload, .. }
                     if payload.custom_type == "javascript_sent_agent_message"
             )),
             "the receipt persists as a custom entry"
@@ -1552,7 +1552,7 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         let options = run_options(directory.path());
         std::fs::create_dir_all(&options.config.agent_dir).unwrap();
-        let manager = pa_core::session::manager::SessionManager::in_memory(directory.path());
+        let manager = aa_core::session::manager::SessionManager::in_memory(directory.path());
         let script = json!({ "responses": ["parent"] });
         let node = root_node(&options, &manager, Some(script.clone()));
         let headless = crate::print_runtime::build_engine(

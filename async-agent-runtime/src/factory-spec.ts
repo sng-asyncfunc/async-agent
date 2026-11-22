@@ -841,9 +841,9 @@ export function topologicalOrder(nodes: unknown): string[] {
 
 function resolveAgentDir(): string {
 	const raw =
-		(process.env.PRIME_AGENT_CODING_AGENT_DIR ?? "").trim() ||
+		(process.env.ASYNC_AGENT_CODING_AGENT_DIR ?? "").trim() ||
 		(process.env.PI_CODING_AGENT_DIR ?? "").trim() ||
-		path.join(homedir(), ".prime", "agent");
+		path.join(homedir(), ".async-agent");
 	return path.resolve(raw.replace(/^~(?=\/|$)/, homedir()));
 }
 
@@ -1155,7 +1155,7 @@ export function renderMachineFile(machine: MachineFile): string {
 }
 
 export function repoMachinesDir(): string {
-	const override = (process.env.PRIME_AGENT_MACHINES_DIR ?? "").trim();
+	const override = (process.env.ASYNC_AGENT_MACHINES_DIR ?? "").trim();
 	if (override) return path.resolve(override.replace(/^~(?=\/|$)/, homedir()));
 	return path.resolve(path.dirname(new URL(import.meta.url).pathname), MACHINES_DIR_NAME);
 }
@@ -1491,5 +1491,5 @@ await rlm.factory.stop(result.run_id);
 ## Machine library
 
 Bundled seeds: \`builder\`, \`pr-manager\`, and \`review-sweep\`.
-Manage the library with \`prime-agent factory list | import | export\`.
+Manage the library with \`async-agent factory list | import | export\`.
 `;

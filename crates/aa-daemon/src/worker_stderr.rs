@@ -39,7 +39,7 @@ pub(crate) fn open_for_spawn(log_path: &Path) -> Result<File> {
     crate::paths::ensure_dir(logs_dir)?;
     let mut options = std::fs::OpenOptions::new();
     options.create(true).truncate(true).write(true);
-    pa_core::platform::perms::set_private_mode(&mut options);
+    aa_core::platform::perms::set_private_mode(&mut options);
     let file = options
         .open(log_path)
         .with_context(|| format!("open worker stderr log {}", log_path.display()))?;

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use pa_types::daemon::{
+use aa_types::daemon::{
     DaemonCommand, DaemonErrorInfo, DaemonResponse, KERNEL_NOT_RUNNING_MESSAGE,
 };
 use serde_json::Value;
@@ -61,8 +61,8 @@ pub fn is_update_restarting_rejection(error: &anyhow::Error) -> bool {
             .is_some_and(|rejected| {
                 matches!(
                     &rejected.error_info,
-                    Some(pa_types::daemon::DaemonErrorInfo::UpdateRestarting)
-                ) || rejected.message == pa_types::daemon::UPDATE_RESTART_PREPARING_MESSAGE
+                    Some(aa_types::daemon::DaemonErrorInfo::UpdateRestarting)
+                ) || rejected.message == aa_types::daemon::UPDATE_RESTART_PREPARING_MESSAGE
             })
     })
 }
@@ -95,7 +95,7 @@ pub fn is_daemon_unreachable(error: &anyhow::Error) -> bool {
         || error.chain().any(|cause| {
             let cause = cause.to_string().to_lowercase();
             cause.contains("daemon connection")
-                || cause.contains("prime agent daemon closed")
+                || cause.contains("async agent daemon closed")
                 || cause.contains("direct session connection closed")
                 || cause.contains("the session connection closed")
         })

@@ -13,7 +13,7 @@ use crate::protocol::{response_failure, response_success, DaemonResponse};
 use crate::session_store::{SessionEntry, SessionFile};
 use crate::session_tree;
 use crate::worker::{SessionCore, Worker};
-use pa_agent::abort::AbortController;
+use aa_agent::abort::AbortController;
 
 /// One completed abandoned-branch summary to persist: the text, its usage block, its
 /// file-op details, and the model the summary served on (`None` keeps the attribution).
@@ -189,7 +189,7 @@ impl TreeNavigation {
                 .filter_map(session_tree::entry_as_file_entry)
                 .collect();
             let collected =
-                pa_core::session_engine::branch_summarization::collect_entries_for_branch_summary(
+                aa_core::session_engine::branch_summarization::collect_entries_for_branch_summary(
                     &file_entries,
                     old_leaf.as_deref(),
                     target_id,
@@ -309,9 +309,9 @@ impl TreeNavigation {
         // TS `Boolean(summaryText)`: a created summary entry means the navigation rebuilt
         // the context across a compaction-style cut; a plain move reloads faithfully.
         let goal_reload = if summarized {
-            pa_core::session_engine::goal_driver::GoalBranchReload::SameTimeline
+            aa_core::session_engine::goal_driver::GoalBranchReload::SameTimeline
         } else {
-            pa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch
+            aa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch
         };
         if let Err(error) = rebuild_engine_context(&self.engine, branch_entries, goal_reload).await
         {
@@ -482,7 +482,7 @@ impl TreeNavigation {
         rebuild_engine_context(
             &self.engine,
             branch_entries,
-            pa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch,
+            aa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch,
         )
         .await
     }
@@ -526,8 +526,8 @@ impl TreeNavigation {
 /// — never on the worker's async dispatcher (a `block_on` there panics).
 async fn rebuild_engine_context(
     engine: &std::sync::Arc<dyn crate::engine::SessionEngine>,
-    branch_entries: Vec<pa_types::session::FileEntry>,
-    goal_reload: pa_core::session_engine::goal_driver::GoalBranchReload,
+    branch_entries: Vec<aa_types::session::FileEntry>,
+    goal_reload: aa_core::session_engine::goal_driver::GoalBranchReload,
 ) -> Result<(), String> {
     let engine = std::sync::Arc::clone(engine);
     tokio::task::spawn_blocking(move || engine.rebuild_session_context(branch_entries, goal_reload))
@@ -644,12 +644,12 @@ mod trace_fork_tests {
         let agent_dir = dir.path().join("agent");
         let session_dir = agent_dir.join("sessions");
         std::fs::create_dir_all(&session_dir).unwrap();
-        let mut settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+        let mut settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
         settings.set_agent_traces_enabled(true).unwrap();
         let old_path = session_dir.join("old.jsonl");
         let (_, consent) =
-            pa_core::agent_traces::ContinuousTraceUpload::load_settings(dir.path(), &agent_dir);
-        let controller = pa_core::agent_traces::ContinuousTraceUpload::install(
+            aa_core::agent_traces::ContinuousTraceUpload::load_settings(dir.path(), &agent_dir);
+        let controller = aa_core::agent_traces::ContinuousTraceUpload::install(
             dir.path(),
             &agent_dir,
             Some(&old_path),
@@ -671,8 +671,8 @@ mod trace_fork_tests {
         // A spare registry slot admits the fork's distinct controller at prepare
         // time; publication must keep it attached for later writes.
         let (_, fork_consent) =
-            pa_core::agent_traces::ContinuousTraceUpload::load_settings(dir.path(), &agent_dir);
-        let prepared = pa_core::agent_traces::ContinuousTraceUpload::install(
+            aa_core::agent_traces::ContinuousTraceUpload::load_settings(dir.path(), &agent_dir);
+        let prepared = aa_core::agent_traces::ContinuousTraceUpload::install(
             dir.path(),
             &agent_dir,
             Some(&session_dir.join("fork.jsonl")),
@@ -711,12 +711,12 @@ mod trace_fork_tests {
         let agent_dir = dir.path().join("agent");
         let session_dir = agent_dir.join("sessions");
         std::fs::create_dir_all(&session_dir).unwrap();
-        let mut settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+        let mut settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
         settings.set_agent_traces_enabled(true).unwrap();
         let old_path = session_dir.join("old.jsonl");
         let (_, consent) =
-            pa_core::agent_traces::ContinuousTraceUpload::load_settings(dir.path(), &agent_dir);
-        let controller = pa_core::agent_traces::ContinuousTraceUpload::install(
+            aa_core::agent_traces::ContinuousTraceUpload::load_settings(dir.path(), &agent_dir);
+        let controller = aa_core::agent_traces::ContinuousTraceUpload::install(
             dir.path(),
             &agent_dir,
             Some(&old_path),
@@ -736,7 +736,7 @@ mod trace_fork_tests {
             Arc::new(tokio::sync::Notify::new()),
         );
         // At capacity the prepare-time admission is rejected (the registry
-        // bound is pa-core's, covered by its bounded-admission tests); the
+        // bound is aa-core's, covered by its bounded-admission tests); the
         // unhooked prepared fork is that rejection's daemon-side shape.
         let mut forked = SessionFile::create(dir.path().to_string_lossy().as_ref(), None, 0);
         forked.set_path(session_dir.join("fork.jsonl"));

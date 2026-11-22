@@ -4,14 +4,14 @@
 //! re-issues). A success schedules the auto-refine review; json mode streams
 //! the wire events, text mode stays quiet.
 
-use pa_core::session_engine::compact_session::{CompactOutcome, CompactRun};
-use pa_core::session_engine::engine::SessionEngine;
-use pa_core::session_engine::messages::{CompactionOutcomeKind, CompactionOutcomeReason};
-use pa_core::session_engine::provider_adapter::json_round_trip;
-use pa_core::session_engine::provider_retry::is_context_overflow_failure;
-use pa_core::session_engine::TrailingAssistantFilter;
-use pa_types::ai::Model;
-use pa_types::session::AgentMessage as SessionAgentMessage;
+use aa_core::session_engine::compact_session::{CompactOutcome, CompactRun};
+use aa_core::session_engine::engine::SessionEngine;
+use aa_core::session_engine::messages::{CompactionOutcomeKind, CompactionOutcomeReason};
+use aa_core::session_engine::provider_adapter::json_round_trip;
+use aa_core::session_engine::provider_retry::is_context_overflow_failure;
+use aa_core::session_engine::TrailingAssistantFilter;
+use aa_types::ai::Model;
+use aa_types::session::AgentMessage as SessionAgentMessage;
 use serde_json::{json, Value};
 
 mod events;
@@ -106,7 +106,7 @@ impl TurnBoundary {
         if matches!(
             engine.session.last_assistant_message().await,
             Some(SessionAgentMessage::Assistant(wire))
-                if wire.stop_reason == pa_types::ai::StopReason::Aborted
+                if wire.stop_reason == aa_types::ai::StopReason::Aborted
         ) {
             engine.turn_boundary.clear_pending().await;
         }
@@ -182,8 +182,8 @@ impl TurnBoundary {
             .session
             .prompt(
                 prompt,
-                pa_core::session_engine::PromptOptions {
-                    streaming_behavior: Some(pa_core::session_engine::StreamingBehavior::FollowUp),
+                aa_core::session_engine::PromptOptions {
+                    streaming_behavior: Some(aa_core::session_engine::StreamingBehavior::FollowUp),
                     queue_if_busy: true,
                     ..Default::default()
                 },

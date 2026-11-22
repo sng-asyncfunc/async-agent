@@ -1,5 +1,5 @@
 //! Assistant message event stream: `start` first, then partial updates, terminating with exactly
-//! one of `done` (success) or `error` (failure/abort). The event type is owned by `pa-types`, so
+//! one of `done` (success) or `error` (failure/abort). The event type is owned by `aa-types`, so
 //! the helpers below are an extension trait.
 
 use std::collections::VecDeque;

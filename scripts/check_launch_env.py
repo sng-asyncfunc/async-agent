@@ -26,7 +26,7 @@ from check_restore_notice import texts
 MARKER = 'LAUNCH_ENV_PARITY='
 LIMIT = 35
 CODE = """import os, json, subprocess, sys
-keys = ('PA_ENV_MARKER', 'PA_ENV_BASE', 'PA_ENV_PRECEDENCE', 'PRIME_AGENT_INTERNAL_PARITY_CANARY')
+keys = ('PA_ENV_MARKER', 'PA_ENV_BASE', 'PA_ENV_PRECEDENCE', 'ASYNC_AGENT_INTERNAL_PARITY_CANARY')
 result = {'env': {key: os.environ.get(key) for key in keys},
           'child_marker': subprocess.check_output([sys.executable, '-c', "import os; print(os.environ.get('PA_ENV_MARKER', 'ABSENT'))"], text=True).strip()}
 print('LAUNCH_ENV_PARITY=' + json.dumps(result))"""
@@ -119,13 +119,13 @@ def verify_worker(row, active, binary, socket_path):
     assert command[0] == str(binary).encode(), 'worker argv0 is not fixture binary'
     env = dict(item.split(b'=', 1) for item in Path('/proc/%d/environ' % pid).read_bytes().split(b'\0') if b'=' in item)
     for key, value in {
-        'PRIME_AGENT_INTERNAL_DAEMON_WORKER': '1',
-        'PRIME_AGENT_INTERNAL_DAEMON_WORKER_ACTIVE_SESSION_ID': active,
-        'PRIME_AGENT_INTERNAL_DAEMON_SUPERVISOR_SOCKET': str(socket_path),
+        'ASYNC_AGENT_INTERNAL_DAEMON_WORKER': '1',
+        'ASYNC_AGENT_INTERNAL_DAEMON_WORKER_ACTIVE_SESSION_ID': active,
+        'ASYNC_AGENT_INTERNAL_DAEMON_SUPERVISOR_SOCKET': str(socket_path),
     }.items():
         assert env.get(key.encode()) == value.encode(), 'wrong fixture worker env identity'
     worker_socket = str(row['socketPath']).encode()
-    assert (worker_socket in command or env.get(b'PRIME_AGENT_INTERNAL_DAEMON_WORKER_SOCKET') == worker_socket), 'wrong worker socket identity'
+    assert (worker_socket in command or env.get(b'ASYNC_AGENT_INTERNAL_DAEMON_WORKER_SOCKET') == worker_socket), 'wrong worker socket identity'
     identity, state = process_identity(pid)
     assert row.get('processStartId') == identity and state != 'Z', 'wrong/reused worker PID'
     return pid, identity
@@ -221,7 +221,7 @@ def run_case(binary, root, observed):
     config = {'cwd': str(root), 'agentDir': str(root / 'agent'), 'provider': 'parity-local',
         'model': 'parity-1', 'noExtensions': True, 'noContextFiles': True, 'telemetryDisabled': True}
     launch = {'PA_ENV_MARKER': secret, 'PA_ENV_PRECEDENCE': 'client', 'RLM_DEPTH': '9',
-              'PRIME_AGENT_INTERNAL_PARITY_CANARY': 'must-not-inherit'}
+              'ASYNC_AGENT_INTERNAL_PARITY_CANARY': 'must-not-inherit'}
     def create(name, lifecycle, forwarded):
         row = client.call('create', name=name, lifecycle=lifecycle, config=config, **forwarded)
         active = row.get('activeSessionId') or row.get('id')
@@ -239,7 +239,7 @@ def run_case(binary, root, observed):
         client.call('prompt_and_wait', activeSessionId=active, message='Probe ' + phase)
         result = current_probe(provider.requests[phase], phase)
         expected = {'env': {'PA_ENV_MARKER': expected_marker, 'PA_ENV_BASE': 'daemon-base',
-            'PA_ENV_PRECEDENCE': expected_precedence, 'PRIME_AGENT_INTERNAL_PARITY_CANARY': None},
+            'PA_ENV_PRECEDENCE': expected_precedence, 'ASYNC_AGENT_INTERNAL_PARITY_CANARY': None},
             'child_marker': expected_marker or 'ABSENT'}
         assert result == expected, (phase, result, expected)
         probes[phase] = result
@@ -323,7 +323,7 @@ def main():
     try:
         assert sys.platform == 'linux', 'requires hosted Linux /proc ownership checks'
         with tempfile.TemporaryDirectory(prefix='launch-env-check-', dir='/tmp') as folder:
-            binary = Path(os.environ['PA_RUST_BINARY']).resolve()
+            binary = Path(os.environ['AA_RUST_BINARY']).resolve()
             run = receipt['run'] = {'binary_sha256': digest(binary)}
             try:
                 run_case(binary, Path(folder) / 'rust', run)

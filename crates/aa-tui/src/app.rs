@@ -28,7 +28,7 @@ pub struct AppOptions {
 impl Default for AppOptions {
     fn default() -> Self {
         Self {
-            theme: "prime".to_string(),
+            theme: "async".to_string(),
             replay_delay_ms: 0,
             auto_exit_ms: None,
             panic_after_frame: false,
@@ -41,8 +41,8 @@ pub fn load_theme(name: &str) -> Theme {
     let mode = crate::theme::detect_color_mode();
     // The default brand theme when the caller passes none (empty) or an
     // unknown name; only known builtins resolve.
-    let known = ["prime", "dark", "light"];
-    let name = if known.contains(&name) { name } else { "prime" };
+    let known = ["async", "dark", "light"];
+    let name = if known.contains(&name) { name } else { "async" };
     Theme::builtin(name, mode)
 }
 
@@ -79,7 +79,7 @@ fn run_app_surface(
     // the terminal back whole (the same unwind-guard contract the session surface arms).
     let _surface_restore = crate::exit_restore::SurfaceRestore::armed();
     // Enable Windows VT processing before raw ANSI mode writes.
-    pa_types::platform::console_init();
+    aa_types::platform::console_init();
     // The raw-mode bracket's `cfmakeraw` write clears IXON, the kernel's one trigger for
     // lifting a pending Ctrl+S stop (see the flow e2e's launch route).
     terminal::enable_raw_mode()?;
@@ -123,7 +123,7 @@ fn run_app_surface(
         // surface's unwind guard, not the already-restored exit.
         assert!(
             !options.panic_after_frame,
-            "pa-tui-replay: --panic-exit reached"
+            "aa-tui-replay: --panic-exit reached"
         );
 
         let timeout = Duration::from_millis(if stream_ended { 50 } else { 5 });

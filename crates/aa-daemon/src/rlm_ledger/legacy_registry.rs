@@ -111,14 +111,14 @@ pub fn write_rlm_subagent_display(entry: &RlmSubagentDisplayEntry) -> Result<boo
     // preserves it onto the final file.
     let mut options = fs::OpenOptions::new();
     options.create(true).write(true).truncate(true);
-    pa_core::platform::perms::set_private_mode(&mut options);
+    aa_core::platform::perms::set_private_mode(&mut options);
     let mut file = options.open(&temp)?;
     file.write_all(format!("{payload}\n").as_bytes())?;
     // TS `writeFileAtomicSync(..., { fsync: true })`: the temp is durable
     // before the rename, so a crash mid-write leaves a stale temp and the
     // previous file intact - never a half-written display state.
     file.sync_all()?;
-    pa_core::platform::rename_onto(&temp, &dir.join("rlm-subagent.json"))
+    aa_core::platform::rename_onto(&temp, &dir.join("rlm-subagent.json"))
         .with_context(|| format!("persist rlm-subagent display at {}", dir.display()))?;
     Ok(true)
 }

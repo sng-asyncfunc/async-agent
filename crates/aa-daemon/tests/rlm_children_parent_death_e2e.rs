@@ -31,7 +31,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use pa_core::session_engine::semantic_edges::SemanticEdgeLedgerEvent as LedgerEvent;
+use aa_core::session_engine::semantic_edges::SemanticEdgeLedgerEvent as LedgerEvent;
 
 use serde_json::{json, Value};
 
@@ -51,39 +51,39 @@ impl Drop for Daemon {
 // The timeout panic path cannot wait on the child; the test exits and reaps it.
 #[allow(clippy::zombie_processes)]
 fn spawn_supervisor(socket: &Path, agent_dir: &Path, kernel_bun: &Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
         .arg(socket)
         .arg("--agent-dir")
         .arg(agent_dir)
-        .env("PRIME_AGENT_KERNEL_BUN", kernel_bun)
+        .env("ASYNC_AGENT_KERNEL_BUN", kernel_bun)
         // Hermetic agent dir: the ambient environment exports a real
         // agent dir; point every fallback at the test sandbox instead.
-        .env("PRIME_AGENT_CODING_AGENT_DIR", agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", agent_dir)
         .env_remove("PRIME_API_KEY")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         // A supervisor killed at teardown must not leak its session workers into later
         // test binaries: the supervisor-lost exit runs here.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     Daemon {
         child,
         socket: socket.to_path_buf(),
     }
 }
 
-/// The kernel Bun binary (`PA_E2E_KERNEL_BUN` / `PRIME_AGENT_KERNEL_BUN`,
+/// The kernel Bun binary (`PA_E2E_KERNEL_BUN` / `ASYNC_AGENT_KERNEL_BUN`,
 /// PATH, or `~/.bun/bin/bun`).
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) =
-        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("PRIME_AGENT_KERNEL_BUN"))
+        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("ASYNC_AGENT_KERNEL_BUN"))
     {
         let explicit = PathBuf::from(explicit);
         assert!(
@@ -149,7 +149,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize command");
@@ -368,7 +368,7 @@ fn create_parent(
 /// guards the kill against a stale pid.
 fn parent_worker_pid(agent_dir: &Path, socket: &Path, parent_id: &str) -> u32 {
     let descriptor_path =
-        pa_daemon::descriptor::descriptor_dir(agent_dir, socket).join(format!("{parent_id}.json"));
+        aa_daemon::descriptor::descriptor_dir(agent_dir, socket).join(format!("{parent_id}.json"));
     let descriptor: Value = serde_json::from_str(
         &std::fs::read_to_string(&descriptor_path)
             .unwrap_or_else(|_| panic!("read parent descriptor {}", descriptor_path.display())),
@@ -379,7 +379,7 @@ fn parent_worker_pid(agent_dir: &Path, socket: &Path, parent_id: &str) -> u32 {
         .unwrap_or_else(|_| panic!("read /proc/{pid}/environ"));
     assert!(
         environ.contains(&format!("={parent_id}\0"))
-            && environ.contains(pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV),
+            && environ.contains(aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV),
         "pid {pid} is not the worker for session {parent_id}"
     );
     pid
@@ -525,7 +525,7 @@ fn sigkill_closes_the_spawned_child_and_passivates_the_row() {
     assert_eq!(passive_row["parentActiveSessionId"], json!(parent_id));
 
     // The ledger carried the close as a stop, never a delete: no tombstone exists.
-    let ledger_dir = agent_dir.join(pa_daemon::rlm_ledger::RLM_LEDGER_DIR);
+    let ledger_dir = agent_dir.join(aa_daemon::rlm_ledger::RLM_LEDGER_DIR);
     let ledger = std::fs::read_dir(&ledger_dir)
         .expect("ledger dir")
         .filter_map(std::result::Result::ok)

@@ -1,6 +1,6 @@
-# prime-agent harness
+# async-agent harness
 
-The prime-agent harness has one tool: `javascript`, a persistent Bun (>= 1.3.14) JavaScript/TypeScript REPL. All other tools are "programmatic tools", functions and objects inside the JavaScript REPL called via "programmatic tool calling" (PTC). All programmatic tools are async unless described otherwise and can be run in the background. Top-level `await`, top-level `return`, and static `import` statements work directly in every cell, and top-level bindings and static imports persist across calls and session recovery.
+The async-agent harness has one tool: `javascript`, a persistent Bun (>= 1.3.14) JavaScript/TypeScript REPL. All other tools are "programmatic tools", functions and objects inside the JavaScript REPL called via "programmatic tool calling" (PTC). All programmatic tools are async unless described otherwise and can be run in the background. Top-level `await`, top-level `return`, and static `import` statements work directly in every cell, and top-level bindings and static imports persist across calls and session recovery.
 
 The harness often sends messages to the agent. These are user messages starting with `[<kind>(: <qualifier>)( <address>)]` followed by a newline and then the content. They are not user-generated.
 
@@ -30,7 +30,7 @@ The harness often sends messages to the agent. These are user messages starting 
 
 ## Subagents
 
-prime-agent is a recursive harness. Each session builds a tree of agents, starting at depth 0. Each agent up to a user-configured limit can launch subagents. These subagents are persistent, just like the root session. Each agent can communicate with its nuclear family: its singular parent (except for depth 0 sessions which have no parent), its siblings (other subagents under the same parent), and its children (its own subagents).
+async-agent is a recursive harness. Each session builds a tree of agents, starting at depth 0. Each agent up to a user-configured limit can launch subagents. These subagents are persistent, just like the root session. Each agent can communicate with its nuclear family: its singular parent (except for depth 0 sessions which have no parent), its siblings (other subagents under the same parent), and its children (its own subagents).
 
 The following programmatic tools are available in the REPL for subagent management:
 
@@ -76,7 +76,7 @@ The following programmatic tools are available in the REPL for a2a communication
 
 ## Continual Harness
 
-prime-agent is a continual harness. During a session, persistent memories can be written and read. These stay available even after multiple compactions.
+async-agent is a continual harness. During a session, persistent memories can be written and read. These stay available even after multiple compactions.
 
 Memories are created by two mechanisms:
 
@@ -144,7 +144,7 @@ Memories are created by two mechanisms:
 
 ## Compaction
 
-prime-agent compacts automatically when there is only a given number of tokens left in the context window (default: 16384), when the user triggers compaction, or when the agent triggers compaction. REPL state persists across compactions, but compaction removes individual variables whose serialized form exceeds 16 MiB.
+async-agent compacts automatically when there is only a given number of tokens left in the context window (default: 16384), when the user triggers compaction, or when the agent triggers compaction. REPL state persists across compactions, but compaction removes individual variables whose serialized form exceeds 16 MiB.
 
 - `compact.run(instructions?: string) -> Promise<object>`: schedule a compaction at the next assistant turn boundary
 - `compact.status() -> Promise<object>`: context usage & threshold before auto-compaction
@@ -159,7 +159,7 @@ prime-agent compacts automatically when there is only a given number of tokens l
 
 ## Goal
 
-In goal mode prime-agent helps an agent stay on track until a task is fully finished, and handles interruptions and other issues. Goals can be user- or agent-created.
+In goal mode async-agent helps an agent stay on track until a task is fully finished, and handles interruptions and other issues. Goals can be user- or agent-created.
 
 - `goal.create(objective: string, { tokenBudget? }?) -> Promise<object>`: create goal and return goal state
 - `goal.get() -> Promise<object>`: get goal status (only one goal can be active at a time)
@@ -167,7 +167,7 @@ In goal mode prime-agent helps an agent stay on track until a task is fully fini
 
 ## Heartbeat
 
-In prime-agent, agents can create heartbeats to wake themselves up after a given period of time with remembered instructions, recurrently on a given schedule.
+In async-agent, agents can create heartbeats to wake themselves up after a given period of time with remembered instructions, recurrently on a given schedule.
 
 - `rlmHeartbeat.create(instruction: string, { interval?, label?, deliveryMode? }?) -> Promise<object>`: new recurring heartbeat for this session; `interval` is a schedule string (default: every 5 minutes); `deliveryMode`: `"steer"` (default) interrupts a busy session's current turn, `"follow_up"` waits for it to finish
 - `rlmHeartbeat.list({ includeInactive = false }?) -> Promise<object>`
@@ -176,7 +176,7 @@ In prime-agent, agents can create heartbeats to wake themselves up after a given
 
 ## MCP
 
-prime-agent has support for programmatic tools that are defined in the MCP format. Their schema is discovered at runtime.
+async-agent has support for programmatic tools that are defined in the MCP format. Their schema is discovered at runtime.
 
 - `mcp.listTools(server: string) -> Promise<object[]>`: returns tool schemas
 - `mcp.callTool(server: string, tool: string, arguments?: object) -> Promise<any>`
@@ -188,6 +188,6 @@ prime-agent has support for programmatic tools that are defined in the MCP forma
 
 ## Skills
 
-prime-agent provides multiple executable skills, described by their `SKILL.md` and executable TypeScript/JavaScript modules. A skill's global object can be inspected with `Object.keys(<skill>)` or `console.log(<skill>)` if information is missing. Executable skills are pre-loaded in the REPL as read-only globals (`globalThis.<skill>`), and callable skills can be invoked directly (`await <skill>(...)`).
+async-agent provides multiple executable skills, described by their `SKILL.md` and executable TypeScript/JavaScript modules. A skill's global object can be inspected with `Object.keys(<skill>)` or `console.log(<skill>)` if information is missing. Executable skills are pre-loaded in the REPL as read-only globals (`globalThis.<skill>`), and callable skills can be invoked directly (`await <skill>(...)`).
 
 All programmatic tools described above except for `bash`, `sh`, `$`, `installPackage`, `rlm.*`, and `mcp.*` are implemented as executable skills and will be listed again in the dynamic tail of this prompt. Additional executable and non-executable skills may exist as well; non-executable (markdown) skills are documentation read from disk.

@@ -1,4 +1,4 @@
-//! Durable worker descriptors on disk (fs layer over the pa-types
+//! Durable worker descriptors on disk (fs layer over the aa-types
 //! `DaemonWorkerDescriptor` contract). A descriptor persisted under
 //! `<agent-dir>/daemon-workers/<socket-key>/<workerId>.json` lets a
 //! replacement supervisor adopt or relaunch the worker's session.
@@ -9,7 +9,7 @@ use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use pa_types::daemon::{DaemonWorkerDescriptor, DaemonWorkerLifecycle, DurableDaemonCreateCommand};
+use aa_types::daemon::{DaemonWorkerDescriptor, DaemonWorkerLifecycle, DurableDaemonCreateCommand};
 
 /// TS `daemon-supervisor.ts` names this file without a JSON extension
 /// (`supervisor-config`) so descriptor sweeps filtered on `.json` skip it.
@@ -102,7 +102,7 @@ pub fn worker_launch_env(
     }
     if let Some(orphan_journal_path) = &descriptor.orphan_process_journal_path {
         env.insert(
-            pa_core::kernel::orphan_journal::ORPHAN_PROCESS_JOURNAL_ENV.to_string(),
+            aa_core::kernel::orphan_journal::ORPHAN_PROCESS_JOURNAL_ENV.to_string(),
             orphan_journal_path.clone(),
         );
     }
@@ -261,8 +261,8 @@ fn write_file_atomic_at(path: &Path, content: &str, sync: TempSync) -> Result<()
             writer.get_ref().sync_all()?;
         }
     }
-    let _ = pa_core::platform::perms::restrict_file(&temp);
-    pa_core::platform::rename_onto(&temp, path)
+    let _ = aa_core::platform::perms::restrict_file(&temp);
+    aa_core::platform::rename_onto(&temp, path)
         .with_context(|| format!("persist {}", path.display()))?;
     #[cfg(test)]
     atomic_write_probe::record(path, sync);

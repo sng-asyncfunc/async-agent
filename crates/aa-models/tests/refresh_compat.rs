@@ -8,10 +8,10 @@ mod common;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use pa_models::cache::{CatalogCache, RefreshOptions, PUBLIC_SCOPE};
-use pa_models::fetch::CatalogFetcher;
-use pa_models::pinning::{parse_provider_model_catalog, PinnedTemplates};
-use pa_models::prime_inference::{
+use aa_models::cache::{CatalogCache, RefreshOptions, PUBLIC_SCOPE};
+use aa_models::fetch::CatalogFetcher;
+use aa_models::pinning::{parse_provider_model_catalog, PinnedTemplates};
+use aa_models::prime_inference::{
     build_prime_inference_models, parse_prime_inference_model_catalog, PrimeInferenceCatalog,
     PrimeInferenceCredentials,
 };
@@ -22,9 +22,9 @@ use serde_json::{json, Value};
 fn models_cache(
     dir: &std::path::Path,
     url: impl AsRef<str>,
-) -> CatalogCache<Vec<pa_models::Model>> {
+) -> CatalogCache<Vec<aa_models::Model>> {
     let templates = PinnedTemplates::from_compiled();
-    let parse: pa_models::cache::CatalogParse<Vec<pa_models::Model>> =
+    let parse: aa_models::cache::CatalogParse<Vec<aa_models::Model>> =
         Arc::new(move |payload, _scope| parse_provider_model_catalog(payload, &templates));
     CatalogCache::new(
         url.as_ref(),
@@ -35,7 +35,7 @@ fn models_cache(
 }
 
 fn catalog_json(ids: &[&str]) -> String {
-    let compiled = pa_models::transports::compiled_models();
+    let compiled = aa_models::transports::compiled_models();
     let anthropic = compiled.iter().find(|m| m.provider == "anthropic").unwrap();
     let models: Vec<Value> = ids
         .iter()
@@ -157,7 +157,7 @@ async fn unsupported_future_version_keeps_last_good_silently() {
 #[tokio::test]
 async fn malformed_model_entry_skips_and_the_refresh_succeeds() {
     let dir = tempfile::tempdir().unwrap();
-    let compiled = pa_models::transports::compiled_models();
+    let compiled = aa_models::transports::compiled_models();
     let anthropic = compiled.iter().find(|m| m.provider == "anthropic").unwrap();
     let body = json!({"schemaVersion": 1, "models": [
         {"id": "broken-entry", "api": anthropic.api, "provider": anthropic.provider,
@@ -356,7 +356,7 @@ async fn not_modified_keeps_snapshot_and_updates_fetched_at() {
 #[tokio::test]
 async fn prime_inference_cache_is_scope_keyed_and_isolated() {
     let dir = tempfile::tempdir().unwrap();
-    let compiled = pa_models::transports::prime_inference_offline_entries();
+    let compiled = aa_models::transports::prime_inference_offline_entries();
     let ids: Vec<String> = compiled.iter().map(|m| m.id.clone()).take(60).collect();
     let entry = |id: &str| {
         json!({
@@ -424,7 +424,7 @@ async fn prime_inference_cache_is_scope_keyed_and_isolated() {
         &std::fs::read(dir.path().join("prime-inference-models-cache.json")).unwrap(),
     )
     .unwrap();
-    let expected_scope = pa_models::prime_inference::scope_key("key-a", "team-a");
+    let expected_scope = aa_models::prime_inference::scope_key("key-a", "team-a");
     assert_eq!(stored["scope"], expected_scope, "scope fingerprint on disk");
 }
 
@@ -435,7 +435,7 @@ async fn prime_inference_cache_is_scope_keyed_and_isolated() {
 #[tokio::test]
 async fn private_routes_revoke_through_normal_responses_but_public_routes_survive_thin_ones() {
     let dir = tempfile::tempdir().unwrap();
-    let compiled = pa_models::transports::prime_inference_offline_entries();
+    let compiled = aa_models::transports::prime_inference_offline_entries();
     let entry = |id: &str| {
         json!({
             "id": id,
@@ -468,7 +468,7 @@ async fn private_routes_revoke_through_normal_responses_but_public_routes_surviv
         api_key: "key-a".into(),
         team_id: Some("team-a".into()),
     };
-    let has = |models: &[pa_models::Model], id: &str| models.iter().any(|m| m.id == id);
+    let has = |models: &[aa_models::Model], id: &str| models.iter().any(|m| m.id == id);
 
     let entitled = catalog.refresh(&creds, true).await.expect("entitled fetch");
     assert!(has(&entitled, "internal/entitled"));
@@ -491,7 +491,7 @@ async fn private_routes_revoke_through_normal_responses_but_public_routes_surviv
 #[tokio::test]
 async fn unauthorized_prime_inference_clears_only_that_scope() {
     let dir = tempfile::tempdir().unwrap();
-    let compiled = pa_models::transports::prime_inference_offline_entries();
+    let compiled = aa_models::transports::prime_inference_offline_entries();
     let ids: Vec<String> = compiled.iter().map(|m| m.id.clone()).take(60).collect();
     let data: Vec<Value> = ids
         .iter()
@@ -547,7 +547,7 @@ fn prime_inference_parse_and_coverage_gate_use_public_fns() {
     // Sanity for the closure the PrimeInferenceCatalog installs: an empty
     // live catalog parses (allowEmpty) but fails the coverage gate, so a
     // degraded fetch never replaces a good snapshot.
-    let compiled = pa_models::transports::prime_inference_offline_entries();
+    let compiled = aa_models::transports::prime_inference_offline_entries();
     let payload = json!({"data": []});
     let entries = parse_prime_inference_model_catalog(&payload, true).expect("empty ok");
     assert!(build_prime_inference_models(&compiled, &entries, false, None).is_none());
@@ -666,7 +666,7 @@ async fn a_dropped_refresh_resolves_the_gate_and_the_next_refresh_starts_fresh()
 #[tokio::test]
 async fn the_hourly_loop_refreshes_through_the_credentials_closure() {
     let dir = tempfile::tempdir().unwrap();
-    let compiled = pa_models::transports::prime_inference_offline_entries();
+    let compiled = aa_models::transports::prime_inference_offline_entries();
     let ids: Vec<String> = compiled.iter().map(|m| m.id.clone()).take(60).collect();
     let entry = |id: &str| {
         json!({
@@ -687,13 +687,13 @@ async fn the_hourly_loop_refreshes_through_the_credentials_closure() {
         common::ok_json(pi_payload, None),
     ])
     .await;
-    let catalog = Arc::new(pa_models::ModelCatalog::with_urls(
+    let catalog = Arc::new(aa_models::ModelCatalog::with_urls(
         Some(dir.path().join("models")),
         Some(dir.path().to_path_buf()),
         &server.url("/catalog"),
         &server.url("/api/v1"),
     ));
-    let credentials = pa_models::PrimeCredentials {
+    let credentials = aa_models::PrimeCredentials {
         api_key: "sk-hourly".into(),
         team_id: Some("team-hourly".into()),
     };

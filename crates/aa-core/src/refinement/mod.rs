@@ -164,13 +164,13 @@ pub(crate) fn resolved_state_file(state_path: &Path) -> PathBuf {
 
 /// The settings file the factory opt-in gate reads: the agent dir's
 /// settings.json, the same document the kernel-side gate resolves through
-/// `PRIME_AGENT_CODING_AGENT_DIR` (the host exports the session's agent
+/// `ASYNC_AGENT_CODING_AGENT_DIR` (the host exports the session's agent
 /// dir to the kernel, so both sides read one setting).
 pub const FACTORY_SETTINGS_FILE_NAME: &str = "settings.json";
 
 /// The one refusal every gated factory surface raises while the opt-in is
 /// off. Byte-identical to the kernel's `FACTORY_DISABLED_MESSAGE`
-/// (`prime-agent-runtime/src/rlm/factory.py`), so one exact message pins
+/// (`async-agent-runtime/src/rlm/factory.py`), so one exact message pins
 /// both sides of the gate.
 pub const FACTORY_DISABLED_MESSAGE: &str = "the factory is disabled; run /factory on to enable it";
 

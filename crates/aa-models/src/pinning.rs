@@ -126,7 +126,7 @@ mod tests {
                 reasoning: false,
                 thinking_level_map: None,
                 input: vec![],
-                cost: pa_ai::types::zero_model_cost(),
+                cost: aa_ai::types::zero_model_cost(),
                 context_window: 1,
                 max_tokens: 1,
                 max_tokens_explicit: false,

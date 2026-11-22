@@ -1,5 +1,5 @@
 //! Thread-goal wire state, carried to every attached surface by the `goal_update` session event and
-//! the attach snapshot's `state.goal` field; the goal engine lives in pa-core. Field shape is the
+//! the attach snapshot's `state.goal` field; the goal engine lives in aa-core. Field shape is the
 //! TS `GoalState` (camelCase, optional keys omitted).
 
 use serde::{Deserialize, Serialize};

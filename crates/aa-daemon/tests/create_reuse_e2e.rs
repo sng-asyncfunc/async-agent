@@ -29,7 +29,7 @@ impl Drop for Daemon {
 // immediately afterwards, reaping it.
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &Path, agent_dir: &Path, poison_lease_owner: Option<&str>) -> Daemon {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pa-daemon"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_aa-daemon"));
     command
         .arg("supervisor")
         .arg("--socket")
@@ -39,16 +39,16 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path, poison_lease_owner: Option<&str
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         );
     if let Some(owner) = poison_lease_owner {
         // An ancestor's lease owner id (a CLI running inside a worker's
         // environment): without the per-worker stamp every lease the
         // daemon's workers write would name this stale id instead.
-        command.env(pa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV, owner);
+        command.env(aa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV, owner);
     }
-    let child = command.spawn().expect("spawn pa-daemon supervisor");
+    let child = command.spawn().expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -93,7 +93,7 @@ impl Client {
         let mut line = serde_json::to_string(&json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }))
         .expect("serialize command");
@@ -443,7 +443,7 @@ fn concurrent_creates_for_one_file_share_a_single_launch() {
     let sessions_dir = agent_dir.join("sessions");
     std::fs::create_dir_all(&sessions_dir).expect("sessions dir");
     let mut saved =
-        pa_daemon::session_store::SessionFile::create(&dir.path().to_string_lossy(), None, 0);
+        aa_daemon::session_store::SessionFile::create(&dir.path().to_string_lossy(), None, 0);
     let session_path = sessions_dir.join(format!("{}.jsonl", saved.session_id()));
     saved.set_path(session_path.clone());
     saved.append_session_state("active");

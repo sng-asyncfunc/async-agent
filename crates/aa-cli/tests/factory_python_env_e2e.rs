@@ -17,7 +17,7 @@ fn factory_dispatch_and_probes_drop_project_bun_preload_env() {
     std::fs::create_dir_all(kernel_dir.join("src")).unwrap();
     std::fs::write(
         kernel_dir.join("package.json"),
-        r#"{"name":"prime-agent-runtime"}"#,
+        r#"{"name":"async-agent-runtime"}"#,
     )
     .unwrap();
     std::fs::write(kernel_dir.join("src/repl.ts"), "// stub\n").unwrap();
@@ -50,11 +50,11 @@ esac
     let marker = root.path().join("factory-dispatched");
     let path = std::env::join_paths([Path::new("."), &project, &trusted]).unwrap();
 
-    let output = Command::new(env!("CARGO_BIN_EXE_prime-agent"))
+    let output = Command::new(env!("CARGO_BIN_EXE_async-agent"))
         .args(["factory", "list", "--json"])
         .current_dir(&project)
-        .env("PRIME_AGENT_KERNEL_BUN", &bun)
-        .env("PRIME_AGENT_KERNEL_BUN_DIR", &kernel_dir)
+        .env("ASYNC_AGENT_KERNEL_BUN", &bun)
+        .env("ASYNC_AGENT_KERNEL_BUN_DIR", &kernel_dir)
         .env("NODE_OPTIONS", "--require=./evil.js")
         .env("NODE_PATH", path)
         .env("BUN_PRELOAD", "./evil.ts")
@@ -72,33 +72,33 @@ esac
 
 #[test]
 fn missing_home_reports_agent_directory_requirement_without_a_panic() {
-    let output = Command::new(env!("CARGO_BIN_EXE_prime-agent"))
+    let output = Command::new(env!("CARGO_BIN_EXE_async-agent"))
         .arg("config")
         .env_remove("HOME")
-        .env_remove("PRIME_AGENT_CODING_AGENT_DIR")
+        .env_remove("ASYNC_AGENT_CODING_AGENT_DIR")
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("HOME or PRIME_AGENT_CODING_AGENT_DIR is required"),
+        stderr.contains("HOME or ASYNC_AGENT_CODING_AGENT_DIR is required"),
         "unexpected stderr: {stderr}"
     );
     assert!(!stderr.contains("panicked"), "unexpected panic: {stderr}");
 
-    let help = Command::new(env!("CARGO_BIN_EXE_prime-agent"))
+    let help = Command::new(env!("CARGO_BIN_EXE_async-agent"))
         .arg("--help")
         .env_remove("HOME")
-        .env_remove("PRIME_AGENT_CODING_AGENT_DIR")
+        .env_remove("ASYNC_AGENT_CODING_AGENT_DIR")
         .output()
         .unwrap();
     assert!(help.status.success(), "help should not require a home");
 
     for args in [["help", "package"], ["package", "--help"]] {
-        let help = Command::new(env!("CARGO_BIN_EXE_prime-agent"))
+        let help = Command::new(env!("CARGO_BIN_EXE_async-agent"))
             .args(args)
             .env_remove("HOME")
-            .env_remove("PRIME_AGENT_CODING_AGENT_DIR")
+            .env_remove("ASYNC_AGENT_CODING_AGENT_DIR")
             .output()
             .unwrap();
         assert!(
@@ -108,13 +108,13 @@ fn missing_home_reports_agent_directory_requirement_without_a_panic() {
         );
     }
 
-    let package = Command::new(env!("CARGO_BIN_EXE_prime-agent"))
+    let package = Command::new(env!("CARGO_BIN_EXE_async-agent"))
         .args(["package", "list"])
         .env_remove("HOME")
-        .env_remove("PRIME_AGENT_CODING_AGENT_DIR")
+        .env_remove("ASYNC_AGENT_CODING_AGENT_DIR")
         .output()
         .unwrap();
     assert_eq!(package.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&package.stderr)
-        .contains("HOME or PRIME_AGENT_CODING_AGENT_DIR is required"));
+        .contains("HOME or ASYNC_AGENT_CODING_AGENT_DIR is required"));
 }

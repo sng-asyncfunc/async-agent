@@ -40,7 +40,7 @@ impl Drop for Daemon {
 // The timeout panic path cannot wait on the child; the test process exits and reaps it.
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &std::path::Path, agent_dir: &std::path::Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
@@ -50,11 +50,11 @@ fn spawn_daemon(socket: &std::path::Path, agent_dir: &std::path::Path) -> Daemon
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -99,7 +99,7 @@ impl Client {
         let mut line = serde_json::to_string(&serde_json::json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }))
         .expect("serialize command");
@@ -614,7 +614,7 @@ fn a_restart_after_a_failed_identity_persist_serves_the_moved_session() {
 
     // Save the pre-fork record (the stale identity the restart must NOT serve),
     // then break the record path so the fork's identity persist fails.
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(&agent_dir, &socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(&agent_dir, &socket);
     let descriptor_path = descriptor_dir.join(format!("{address}.json"));
     let stale_record = std::fs::read_to_string(&descriptor_path)
         .expect("the worker's persisted record before the fork");
@@ -811,7 +811,7 @@ fn a_restart_after_a_failed_identity_persist_serves_the_moved_session() {
 /// itself). The timeout panic path cannot wait on the child; the test exits and reaps it.
 #[allow(clippy::zombie_processes)]
 fn spawn_supervisor_raw(socket: &std::path::Path, agent_dir: &std::path::Path) -> Child {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
@@ -821,11 +821,11 @@ fn spawn_supervisor_raw(socket: &std::path::Path, agent_dir: &std::path::Path) -
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {

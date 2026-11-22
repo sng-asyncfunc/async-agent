@@ -2,7 +2,7 @@
 //!
 //! Requests are newline-delimited JSON objects written to the kernel's stdin; events
 //! arrive as newline-delimited JSON objects on the runtime's private protocol dup of
-//! fd 1. See `prime-agent-runtime/src/rlm/repl.md`.
+//! fd 1. See `async-agent-runtime/src/rlm/repl.md`.
 
 use serde_json::{json, Value};
 
@@ -495,7 +495,7 @@ mod tests {
         // The payload is moved out of the parsed map, not rebuilt; key order
         // (serde_json preserve_order, matching the TS byte stream) survives.
         let event = parse_event(
-            r#"{"event":"display","id":"c1","data":{"application/vnd.prime-agent.attachment+json":{"name":"a.png","data":"aGk="}}}"#,
+            r#"{"event":"display","id":"c1","data":{"application/vnd.async-agent.attachment+json":{"name":"a.png","data":"aGk="}}}"#,
         )
         .unwrap();
         let Event::Display { data, .. } = &event else {
@@ -503,7 +503,7 @@ mod tests {
         };
         assert_eq!(
             serde_json::to_string(data).unwrap(),
-            r#"{"application/vnd.prime-agent.attachment+json":{"name":"a.png","data":"aGk="}}"#
+            r#"{"application/vnd.async-agent.attachment+json":{"name":"a.png","data":"aGk="}}"#
         );
         let event = parse_event(
             r#"{"event":"host_request","id":"hr1","data":{"reason":"agent_message.send","target":{"activeSessionId":"a","sessionId":"s"}}}"#,

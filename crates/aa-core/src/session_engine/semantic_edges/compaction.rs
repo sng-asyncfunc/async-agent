@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use pa_agent::abort::AbortSignal;
+use aa_agent::abort::AbortSignal;
 
 use super::{model_request_headers, SemanticEdgeLedgerEvent, SemanticEdgeRecorder};
 
@@ -150,7 +150,7 @@ impl Drop for SemanticCompaction {
         let status = if self
             .abort
             .as_ref()
-            .is_some_and(pa_agent::abort::AbortSignal::is_aborted)
+            .is_some_and(aa_agent::abort::AbortSignal::is_aborted)
         {
             super::CompactionStatus::Cancelled
         } else {

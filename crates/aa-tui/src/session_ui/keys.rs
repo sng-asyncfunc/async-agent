@@ -630,7 +630,7 @@ impl SessionUi {
             .keybindings()
             .matches(&id, "app.model.cycleForward")
         {
-            self.cycle_model(pa_types::daemon::CycleDirection::Forward, view)
+            self.cycle_model(aa_types::daemon::CycleDirection::Forward, view)
                 .await;
             return Ok(());
         }
@@ -639,7 +639,7 @@ impl SessionUi {
             .keybindings()
             .matches(&id, "app.model.cycleBackward")
         {
-            self.cycle_model(pa_types::daemon::CycleDirection::Backward, view)
+            self.cycle_model(aa_types::daemon::CycleDirection::Backward, view)
                 .await;
             return Ok(());
         }

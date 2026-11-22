@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Development rules for Prime Agent (Rust) on PrimeIntellect-ai/prime-agent, branch `main`.
+Development rules for Async Agent (Rust + Bun) on `sng-asyncfunc/async-agent`, branch `main`.
 Every contributor (human or agent) must read this before working on this repo.
 
 ## Repository
@@ -16,16 +16,16 @@ Every contributor (human or agent) must read this before working on this repo.
   suggestions, not as attribution for work merged from branches. A PR's commits carry
   one identity: the ambient git config's. Fabricated or hand-written trailers (including
   noreply forms) misattribute commits to unrelated GitHub accounts.
-- The repo is PrimeIntellect-ai/prime-agent; the Rust implementation lives on the `main` branch.
-- PRs go to the org repo with base `main`:
-  `gh pr create --repo PrimeIntellect-ai/prime-agent --base main`.
-- CI runs on the org's billing: `.github/workflows/continuous.yml` on `main` pushes and
+- The repo is `sng-asyncfunc/async-agent`; the Rust + Bun implementation lives on the `main` branch.
+- PRs go to the repo with base `main`:
+  `gh pr create --repo sng-asyncfunc/async-agent --base main`.
+- CI runs `.github/workflows/ci.yml` on PRs/`main`, `.github/workflows/continuous.yml` on `main` pushes, and
   `release.yml` on version tags.
 
 ## Style and structure
 
-- Workspace crates are prefixed `pa-`. The hard ownership rules: one owned area per crate,
-  pa-types is the only shared crate, cycle-free dependency direction, minimal public APIs,
+- Workspace crates are prefixed `aa-`. The hard ownership rules: one owned area per crate,
+  `aa-types` is the only shared crate, cycle-free dependency direction, minimal public APIs,
   no god-modules. The dependency direction is pinned in the Crates table below; each crate's
   README.md states its scope, non-goals, and public API surface.
 - Prefer private modules with an explicitly exported public crate API. Internals are `pub(crate)`.
@@ -33,13 +33,13 @@ Every contributor (human or agent) must read this before working on this repo.
   signal, not a merge limit: when adding to an already-large file, consider splitting by
   responsibility rather than growing it further. Move related tests and docs with extracted code.
 - Name modules for what they own, not `utils` or `common`. Follow existing structure: in
-  `crates/pa-core/src/kernel/manager/`, `mod.rs` connects `execution.rs`, `requests.rs`, and
+  `crates/aa-core/src/kernel/manager/`, `mod.rs` connects `execution.rs`, `requests.rs`, and
   `teardown.rs`; put a new kernel-manager concern beside them. In
-  `crates/pa-core/src/cron/store/`, `mod.rs` connects `heartbeat.rs`, `jobs.rs`, and
+  `crates/aa-core/src/cron/store/`, `mod.rs` connects `heartbeat.rs`, `jobs.rs`, and
   `session_artifacts.rs`; keep storage work there rather than growing the scheduler.
 - Inline format args: always prefer `format!("{x}")` over positional.
-- Collapse if statements per clippy::collapsible_if.
-- Prefer method references over closures per clippy::redundant_closure_for_method_calls.
+- Collapse if statements per `clippy::collapsible_if`.
+- Prefer method references over closures per `clippy::redundant_closure_for_method_calls`.
 - Make `match` statements exhaustive; avoid wildcard arms.
 - New traits need doc comments explaining their role and how implementations are expected to behave.
 - No opaque positional `bool`/`Option` parameters (`foo(false)` is unreadable). Prefer enums,
@@ -101,10 +101,10 @@ Rules:
   background worker; the paint path hands the work off and returns
   immediately. Delivery semantics (timeout, retry, ordering) live with
   the worker, not the caller.
-- Telemetry is fire-and-forget from user-facing code. `pa-telemetry`'s
+- Telemetry is fire-and-forget from user-facing code. `aa-telemetry`'s
   background worker owns delivery end to end; no startup, session
   create, tab open, or first-render path may hold a flush or await a
-  sink.
+  sink. Telemetry is disabled by default unless an explicit endpoint is configured.
 - Fire-and-forget boundaries need a red-first test: a hanging sink
   (one that never replies) must not delay paint. The test fails if any
   await on the critical path reaches the worker's delivery.
@@ -122,13 +122,12 @@ added `the_startup_flush_never_blocks_the_first_frame` (a hanging sink
 must not delay paint) as the permanent guard. Any change touching the
 launch path must keep that test red-first.
 
-
 ## Merge gates
 
 - `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`,
   `cargo test --workspace` must pass before every merge. Run `make check` — the local mirror of
-  the same gates; CI runs on the org's billing (`.github/workflows/continuous.yml` on `main`
-  pushes; `release.yml` on version tags). The PR-only codebase-health check reports growth
+  the same gates; CI runs `.github/workflows/continuous.yml` on `main` pushes and
+  `release.yml` on version tags. The PR-only codebase-health check reports growth
   past 2,000 lines as review guidance; it never blocks a merge.
 - PRs that change shipped paths need a `.changes/<branch-slug>.md` fragment (one user-facing
   bullet; see `.changes/README.md`) or the `no-changelog` label; the changelog-fragment check enforces it.
@@ -136,70 +135,65 @@ launch path must keep that test red-first.
   direction) and classify the change: internals, new `pub` surface, or a new
   dependency/cross-crate re-export. The latter two are architectural changes — an innocent-looking
   `pub use` is a very simple way to break encapsulation.
-- The compiled fallback model catalog `crates/pa-ai/src/models_generated.rs` is
+- The compiled fallback model catalog `crates/aa-ai/src/models_generated.rs` is
   hand-maintained Rust — edit it by hand (there is no generator). The catalog fixture
-  `crates/pa-models/tests/fixtures/catalog.v1.json` refreshes with
+  `crates/aa-models/tests/fixtures/catalog.v1.json` refreshes with
   `scripts/generate-catalog-fixture.py`. Bulk data files are exempt from the size guidance.
 
 ## Adoption telemetry
 
 Every user-visible feature ships its adoption telemetry event in the same PR as the feature:
-the event name + properties join the versioned schema (`pa-telemetry`), and a
+the event name + properties join the versioned schema (`aa-telemetry`), and a
 seam emits it from day one. Telemetry properties never carry prompt, session, or file content
-(primitives only; see `pa-telemetry`); delivery is fire-and-forget from user-facing code
-(see Performance and the critical path).
+(primitives only; see `aa-telemetry`); delivery is fire-and-forget from user-facing code
+(see Performance and the critical path) and remains disabled unless `ASYNC_AGENT_TELEMETRY_ENDPOINT` is configured.
 
 ## Branding
 
-The product is Prime Agent - we are not a pi fork. Scrub "pi"/"pi-mono"/"pi-ai"/
-"Prime Intellect"-style naming from all user-visible surfaces (docs, READMEs,
-CLI help text, error messages, splash/onboarding strings, keybinding hints, TUI
-labels, and code comments that quote user-facing strings); brand everything
-Prime Agent. Audit with a repo-wide grep and classify every hit (user-visible
-vs wire-internal vs comment) before scrubbing, and list the preserved wire
-identifiers in the PR body so the reviewer can verify none were wrongly scrubbed.
+The product is **Async Agent** (`async-agent`), a Bun-native fork of Prime Agent.
+Keep all user-visible surfaces (docs, READMEs, CLI help text, error messages, splash/onboarding
+strings, keybinding hints, TUI labels, config/cache paths under `~/.async-agent`, and code comments
+that quote user-facing strings) branded consistently as **Async Agent** (`async-agent`).
 
-EXPLICIT EXCEPTION: wire-protocol identifiers (e.g. the PI_PACKAGE_DIR env var, settings keys, provider IDs like prime-inference, harness _meta namespaces like ai.primeintellect.prime-agent, lockfile names) stay unchanged, because existing installs, settings files, and clients depend on them — COMPATIBILITY BEATS BRANDING ON THE WIRE.
-
-
+EXPLICIT EXCEPTION: wire-protocol / third-party provider identifiers (e.g. `PI_PACKAGE_DIR`, third-party LLM provider IDs like `prime-inference`, and settings compatibility keys) stay compatible where required.
 
 ## Surface contract (must not change)
 
 - Tools exposed to the model: `javascript` (persistent Bun REPL; programmatic tools `bash`, `edit`, etc. inside it).
 - RLM kernel API in the persistent Bun JavaScript REPL: `rlm.spawn/findModels/collect/listSubagents/deleteSubagent/createSession/progressNote/rename/endTurn`, `rlm.session`, `rlm.factory`, `rlm.harness` CRUD, `mcp`, `agentMessage.send`, `agentObserve`, `compact`, `goal`, `refine`, `attachImage`, skills (markdown + JavaScript) per the skill contract in the base system prompt.
-- System prompt structure: layered — cache-stable static layer files (core harness description with the full API surface, mandatory usage rules, opinionated guidelines, per-model additions from the model-prompts TOML rule map) followed by one dynamic tail (packages, project context, skills inventory, MCP servers, environment, session role); the harness digest stays a separate `[harness-digest]` user message. `prime-agent prompt` dumps the assembled prompt with its layer breakdown.
-- CLI shape: `prime-agent` keeps its existing commands and flags; headless modes (RPC/daemon/session-worker) keep their behavior.
+- System prompt structure: layered — cache-stable static layer files (core harness description with the full API surface, mandatory usage rules, opinionated guidelines, per-model additions from the model-prompts TOML rule map) followed by one dynamic tail (packages, project context, skills inventory, MCP servers, environment, session role); the harness digest stays a separate `[harness-digest]` user message. `async-agent prompt` dumps the assembled prompt with its layer breakdown.
+- CLI shape: `async-agent` keeps its existing commands and flags; headless modes (RPC/daemon/session-worker) keep their behavior.
 
 ## Crates
 
-One owned area per crate; `pa-types` is the only shared vocabulary crate.
+One owned area per crate; `aa-types` is the only shared vocabulary crate.
 Dependencies flow from the composition root toward lower crates, never back upward.
 The table summarizes each crate's current direct workspace dependencies:
 
 | Crate | Purpose | Direct workspace dependencies |
 | --- | --- | --- |
-| `pa-types` | Shared wire and domain types | none |
-| `pa-telemetry` | Events and sinks | none |
-| `pa-agent` | Provider-independent agent loop | none |
-| `pa-ai` | Providers, model registry, streaming | `pa-types` |
-| `pa-models` | Live model catalog and transport | `pa-ai`, `pa-types` |
-| `pa-core` | Session engine, tools, skills, kernel, settings | `pa-types`, `pa-ai`, `pa-models`, `pa-agent`, `pa-telemetry` |
-| `pa-daemon` | Supervisor, workers, wire protocol | `pa-types`, `pa-core`, `pa-agent`, `pa-ai`, `pa-telemetry`, `pa-models` |
-| `pa-tui` | Terminal UI, daemon-wire client | `pa-types` |
-| `pa-cli` | `prime-agent` binary, composition root | `pa-types`, `pa-core`, `pa-ai`, `pa-agent`, `pa-daemon`, `pa-tui`, `pa-telemetry` |
-| `pa-perf` | Performance corpora + pty bench harness (dev/CI tooling, never shipped) | `pa-types`, `pa-core`, `pa-daemon` |
+| `aa-types` | Shared wire and domain types | none |
+| `aa-telemetry` | Events and sinks | none |
+| `aa-agent` | Provider-independent agent loop | none |
+| `aa-ai` | Providers, model registry, streaming | `aa-types` |
+| `aa-models` | Live model catalog and transport | `aa-ai`, `aa-types` |
+| `aa-core` | Session engine, tools, skills, kernel, settings | `aa-types`, `aa-ai`, `aa-models`, `aa-agent`, `aa-telemetry` |
+| `aa-daemon` | Supervisor, workers, wire protocol | `aa-types`, `aa-core`, `aa-agent`, `aa-ai`, `aa-telemetry`, `aa-models` |
+| `aa-tui` | Terminal UI, daemon-wire client | `aa-types` |
+| `aa-cli` | `async-agent` binary, composition root | `aa-types`, `aa-core`, `aa-ai`, `aa-agent`, `aa-daemon`, `aa-tui`, `aa-telemetry` |
+| `aa-perf` | Performance corpora + pty bench harness (dev/CI tooling, never shipped) | `aa-types`, `aa-core`, `aa-daemon` |
 
 Layering rules:
 
 - Dependencies only point from higher crates to lower crates shown above. No cycles or
   reverse edges. The leaf crates are peers; add only the dependencies needed for their work.
-  Shared wire/domain vocabulary belongs in `pa-types`, not in a higher crate or a duplicate.
-- `pa-tui` renders from wire types and events; it does not link the session engine.
-- `pa-cli` is a composition root: it wires crates together and contains no business logic.
+  Shared wire/domain vocabulary belongs in `aa-types`, not in a higher crate or a duplicate.
+- `aa-tui` renders from wire types and events; it does not link the session engine.
+- `aa-cli` is a composition root: it wires crates together and contains no business logic.
 
 ## Reliability model
 
-- The daemon is a supervisor: it spawns one worker process per active session instead of hosting sessions in-process. Workers are supervised, restarted with backoff, and sessions persist on disk (append-only JSONL, same layout as `~/.prime/agent/sessions`) so reattach works even if the supervisor restarts.
+- The daemon is a supervisor: it spawns one worker process per active session instead of hosting sessions in-process. Workers are supervised, restarted with backoff, and sessions persist on disk (append-only JSONL under `~/.async-agent/sessions`) so reattach works even if the supervisor restarts.
 - No stubs, no `todo!()`, no swallowed errors (`anyhow` bubbling to UI is fine).
 
 ## References

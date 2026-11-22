@@ -1,17 +1,17 @@
 //! One session file's rows: the entry builders over the product's own
-//! serializers (pa-types payloads inside pa-daemon's `SessionEntry`), the
+//! serializers (aa-types payloads inside aa-daemon's `SessionEntry`), the
 //! conversation turn generator, and the marker discipline the bench
 //! needles read from the corpus manifest.
 
 use std::io::Write;
 use std::path::Path;
 
-use pa_daemon::session_store::{session_header_line, SessionEntry};
-use pa_types::ai::{
+use aa_daemon::session_store::{session_header_line, SessionEntry};
+use aa_types::ai::{
     AssistantContentBlock, AssistantMessage, StopReason, TextContent, ThinkingContent, ToolCall,
     ToolResultMessage, Usage, UsageCost, UserContent, UserContentBlock, UserMessage,
 };
-use pa_types::session::{
+use aa_types::session::{
     CompactionEntry, CustomMessageEntry, ModelChangeEntry, ServiceTierChangeEntry, SessionHeader,
     SessionState, SessionStateEntry, SessionStateStatus, ThinkingLevelChangeEntry,
 };
@@ -99,7 +99,7 @@ const TOOL_OUTPUTS: [&str; 6] = [
     "test result: ok. 96 passed; 0 failed; 3 ignored\n",
     "commit 33da15a2c (HEAD -> main)\nAuthor: dev <dev@example.com>\n",
     "total 24\ndrwxr-xr-x  7 user  staff  224 Oct 14 09:02 .\n",
-    "updating crates.io index\n   Compiling pa-perf v0.10.0\n",
+    "updating crates.io index\n   Compiling aa-perf v0.10.0\n",
     "{\"median_ms\": 812.3, \"p95_ms\": 941.0, \"runs\": 10}\n",
 ];
 
@@ -198,7 +198,7 @@ fn usage(rng: &mut Rng) -> Usage {
     let output = 50 + rng.below(2000);
     let cache_write = rng.below(500);
     let total = input + output + cache_read + cache_write;
-    let cost = |n: u64| pa_types::JsNumber::from(n as f64 / 1000.0);
+    let cost = |n: u64| aa_types::JsNumber::from(n as f64 / 1000.0);
     Usage {
         input,
         output,
@@ -309,7 +309,7 @@ pub(crate) fn write_session_file(
     rows.push(
         "service_tier_change",
         serde_json::to_value(ServiceTierChangeEntry {
-            service_tier: Some(pa_types::ai::ServiceTier::Default),
+            service_tier: Some(aa_types::ai::ServiceTier::Default),
         })?,
         rng,
     )?;
@@ -375,7 +375,7 @@ pub(crate) fn write_session_file(
         rows.push(
             "message",
             serde_json::json!({
-                "message": pa_types::session::AgentMessage::User(UserMessage {
+                "message": aa_types::session::AgentMessage::User(UserMessage {
                     content,
                     timestamp: rows.millis,
                     rest: serde_json::Map::new(),
@@ -442,7 +442,7 @@ pub(crate) fn write_session_file(
         rows.push(
             "message",
             serde_json::json!({
-                "message": pa_types::session::AgentMessage::Assistant(AssistantMessage {
+                "message": aa_types::session::AgentMessage::Assistant(AssistantMessage {
                     content: blocks,
                     api: "openai".to_string(),
                     provider: provider.to_string(),
@@ -465,7 +465,7 @@ pub(crate) fn write_session_file(
             rows.push(
                 "message",
                 serde_json::json!({
-                    "message": pa_types::session::AgentMessage::ToolResult(ToolResultMessage {
+                    "message": aa_types::session::AgentMessage::ToolResult(ToolResultMessage {
                         tool_call_id: call_id,
                         tool_name: name.to_string(),
                         content: vec![UserContentBlock::Text(TextContent {
@@ -560,17 +560,17 @@ mod tests {
                 1,
                 "seed={seed}"
             );
-            let entries = pa_core::session::parse_session_entries(
+            let entries = aa_core::session::parse_session_entries(
                 &std::fs::read_to_string(&path).expect("read generated session"),
             );
-            let context = pa_core::session::build_session_context(&entries, None);
+            let context = aa_core::session::build_session_context(&entries, None);
             assert_eq!(
                 context
                     .messages
                     .iter()
                     .filter(|message| matches!(
                         message,
-                        pa_types::session::AgentMessage::CompactionSummary(_)
+                        aa_types::session::AgentMessage::CompactionSummary(_)
                     ))
                     .count(),
                 1,

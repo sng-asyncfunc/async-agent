@@ -211,7 +211,7 @@ async fn serve_callback(mut stream: tokio::net::TcpStream, shared: &CallbackShar
         let _ = write_response(
             &mut stream,
             "400 Bad Request",
-            oauth_error_page("Prime Agent", "Callback route not found."),
+            oauth_error_page("Async Agent", "Callback route not found."),
         )
         .await;
         return;
@@ -229,7 +229,7 @@ async fn serve_callback(mut stream: tokio::net::TcpStream, shared: &CallbackShar
         let _ = write_response(
             &mut stream,
             "404 Not Found",
-            oauth_error_page("Prime Agent", "Callback route not found."),
+            oauth_error_page("Async Agent", "Callback route not found."),
         )
         .await;
         return;
@@ -244,8 +244,8 @@ async fn serve_callback(mut stream: tokio::net::TcpStream, shared: &CallbackShar
             &mut stream,
             "400 Bad Request",
             oauth_error_page(
-                "Prime Agent",
-                &format!("Prime Agent authentication failed. Error: {error}"),
+                "Async Agent",
+                &format!("Async Agent authentication failed. Error: {error}"),
             ),
         )
         .await;
@@ -258,7 +258,7 @@ async fn serve_callback(mut stream: tokio::net::TcpStream, shared: &CallbackShar
                 &mut stream,
                 "200 OK",
                 oauth_success_page(
-                    "Prime Agent authentication completed. You can close this window.",
+                    "Async Agent authentication completed. You can close this window.",
                 ),
             )
             .await;
@@ -268,7 +268,7 @@ async fn serve_callback(mut stream: tokio::net::TcpStream, shared: &CallbackShar
             let _ = write_response(
                 &mut stream,
                 "400 Bad Request",
-                oauth_error_page("Prime Agent", "Missing code or state parameter."),
+                oauth_error_page("Async Agent", "Missing code or state parameter."),
             )
             .await;
         }
@@ -378,7 +378,7 @@ fn render_page(title: &str, message: &str) -> String {
 }
 
 fn oauth_success_page(message: &str) -> String {
-    render_page("Prime Agent authentication completed", message)
+    render_page("Async Agent authentication completed", message)
 }
 
 fn oauth_error_page(label: &str, message: &str) -> String {

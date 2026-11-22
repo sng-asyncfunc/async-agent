@@ -13,7 +13,7 @@ import { getHarnessState, harnessProxy } from "./harness.ts";
 
 const RENAMED_RUN_MESSAGE =
 	"rlm.run was renamed; spawn a child with: const handle = await rlm.spawn('sub-task', { name: 'worker' })";
-const TRANSCRIPT_READ_MIME = "application/vnd.prime-agent.transcript-read+json";
+const TRANSCRIPT_READ_MIME = "application/vnd.async-agent.transcript-read+json";
 export const RLM_PROGRESS_NOTE_MAX_LENGTH = 512;
 
 export interface RlmSpawnHandle {

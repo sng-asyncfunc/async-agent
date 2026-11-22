@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 
 struct Supervisor {
     child: Child,
@@ -110,7 +110,7 @@ fn child_pids_of(parent_pid: u32) -> Vec<u32> {
 /// Liveness without `/proc`: the platform probe, which also reads zombies as dead.
 #[cfg(not(target_os = "linux"))]
 fn process_alive(pid: u32) -> bool {
-    pa_types::platform::process::is_process_alive(pid).unwrap_or(false)
+    aa_types::platform::process::is_process_alive(pid).unwrap_or(false)
 }
 
 fn graceful_shutdown(socket: &Path) {
@@ -129,7 +129,7 @@ fn graceful_shutdown(socket: &Path) {
     let command = serde_json::json!({
         "type": "command",
         "id": "test-shutdown",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "shutdown" },
     });
     let mut line = serde_json::to_string(&command).expect("serialize");
@@ -151,28 +151,28 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     let agent_dir = dir.join("agent");
     std::fs::create_dir_all(&agent_dir).expect("agent dir");
     let stderr_path = dir.join("supervisor.stderr");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(std::fs::File::create(&stderr_path).expect("supervisor stderr"));
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
-    for provider in pa_ai::models_generated::get_providers() {
-        if let Some(vars) = pa_ai::env_api_keys::get_api_key_env_vars(provider) {
+    for provider in aa_ai::models_generated::get_providers() {
+        if let Some(vars) = aa_ai::env_api_keys::get_api_key_env_vars(provider) {
             for var in vars {
                 command.env_remove(var);
             }
@@ -180,10 +180,10 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     }
     command.env_remove("PRIME_TEAM_ID");
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
-    let mut child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let mut child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if let Some(status) = child.try_wait().expect("check supervisor exit") {
@@ -205,24 +205,24 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
 
 use std::sync::{Arc, Mutex};
 
-use pa_tui::provider_auth::{
+use aa_tui::provider_auth::{
     AuthFlow, AuthStatusIndicator, AuthStatusStyle, AuthType, ProviderAuthCommands,
     ProviderAuthFuture, ProviderAuthOutcome, ProviderRow, ProviderRowsFuture,
     ProviderWarningFuture, PRIME_INFERENCE_PROVIDER_ID,
 };
-use pa_tui::traces::{
+use aa_tui::traces::{
     TraceLoginOutcome, TracePreviewInfo, TracePreviewOutcome, TraceUploadAllNote,
     TraceUploadAllNoteSender, TraceUploadAllReport, TraceUploadCancel, TraceUploadStatus,
     TracesCommands, TracesCommandsHandle, TracesFuture,
 };
-use pa_tui::update_command::{UpdateCommands, UpdateCommandsHandle};
+use aa_tui::update_command::{UpdateCommands, UpdateCommandsHandle};
 
 struct ScriptedTraces {
     credential: Mutex<Option<String>>,
     enabled: Mutex<Vec<bool>>,
     set_calls: Mutex<Vec<bool>>,
     logins: Mutex<std::collections::VecDeque<TraceLoginOutcome>>,
-    uploads: Mutex<std::collections::VecDeque<pa_tui::traces::TraceUploadReport>>,
+    uploads: Mutex<std::collections::VecDeque<aa_tui::traces::TraceUploadReport>>,
 }
 
 impl ScriptedTraces {
@@ -290,14 +290,14 @@ impl TracesCommands for ScriptedTraces {
     fn upload_current(
         &self,
         _session_file: Option<&str>,
-    ) -> TracesFuture<pa_tui::traces::TraceUploadReport> {
+    ) -> TracesFuture<aa_tui::traces::TraceUploadReport> {
         // The scripted one-shot upload: the queued reports answer in order.
         let report =
             self.uploads
                 .lock()
                 .unwrap()
                 .pop_front()
-                .unwrap_or(pa_tui::traces::TraceUploadReport {
+                .unwrap_or(aa_tui::traces::TraceUploadReport {
                     status: TraceUploadStatus::Uploaded,
                     text: "Trace uploaded (64 bytes).".to_string(),
                 });
@@ -336,13 +336,13 @@ impl TracesCommands for ScriptedTraces {
 
     fn login(
         &self,
-        _panel: pa_tui::auth_panel::AuthPanelHandle,
+        _panel: aa_tui::auth_panel::AuthPanelHandle,
     ) -> TracesFuture<TraceLoginOutcome> {
         // The scripted login flow: the queued outcomes answer in order.
         let outcome = self.logins.lock().unwrap().pop_front().unwrap_or_else(|| {
             if self.credential.lock().unwrap().is_some() {
                 TraceLoginOutcome::Status(
-                    "Saved API key for Prime Agent Traces. Credentials saved to /agent/auth.json."
+                    "Saved API key for Async Agent Traces. Credentials saved to /agent/auth.json."
                         .to_string(),
                 )
             } else {
@@ -377,8 +377,8 @@ impl ScriptedProviderAuth {
         }
     }
 
-    fn handle(self) -> pa_tui::provider_auth::ProviderAuthCommandsHandle {
-        pa_tui::provider_auth::ProviderAuthCommandsHandle(Arc::new(self))
+    fn handle(self) -> aa_tui::provider_auth::ProviderAuthCommandsHandle {
+        aa_tui::provider_auth::ProviderAuthCommandsHandle(Arc::new(self))
     }
 
     fn openai_row(&self, name: &str, auth_type: AuthType) -> ProviderRow {
@@ -486,7 +486,7 @@ impl ProviderAuthCommands for ScriptedProviderAuth {
     fn login_on_panel(
         &self,
         provider: &ProviderRow,
-        panel: pa_tui::auth_panel::AuthPanelHandle,
+        panel: aa_tui::auth_panel::AuthPanelHandle,
     ) -> ProviderAuthFuture {
         let name = provider.name.clone();
         self.calls
@@ -496,14 +496,14 @@ impl ProviderAuthCommands for ScriptedProviderAuth {
         Box::pin(async move {
             panel.progress("Loading Prime teams...");
             let teams = vec![
-                pa_tui::auth_panel::PrimeTeamOption {
+                aa_tui::auth_panel::PrimeTeamOption {
                     team_id: "team-acme".to_string(),
                     name: "Acme Corp".to_string(),
                     slug: Some("acme".to_string()),
                     role: Some("Owner".to_string()),
                     created_at: None,
                 },
-                pa_tui::auth_panel::PrimeTeamOption {
+                aa_tui::auth_panel::PrimeTeamOption {
                     team_id: "team-beta".to_string(),
                     name: "Beta Team".to_string(),
                     slug: None,
@@ -512,11 +512,11 @@ impl ProviderAuthCommands for ScriptedProviderAuth {
                 },
             ];
             match panel.select_team(teams, None).await {
-                pa_tui::auth_panel::PrimeTeamPick::Team(team) => ProviderAuthOutcome::Status(
+                aa_tui::auth_panel::PrimeTeamPick::Team(team) => ProviderAuthOutcome::Status(
                     format!("Saved API key for {name}. Using team \"{}\".", team.name),
                 ),
-                pa_tui::auth_panel::PrimeTeamPick::PersonalAccount
-                | pa_tui::auth_panel::PrimeTeamPick::Cancelled => ProviderAuthOutcome::Status(
+                aa_tui::auth_panel::PrimeTeamPick::PersonalAccount
+                | aa_tui::auth_panel::PrimeTeamPick::Cancelled => ProviderAuthOutcome::Status(
                     format!("Saved API key for {name}. Using personal account."),
                 ),
             }
@@ -531,7 +531,7 @@ struct ScriptedUpdate {
 }
 
 impl UpdateCommands for ScriptedUpdate {
-    fn run_update(&self) -> pa_tui::update_command::UpdateRunFuture {
+    fn run_update(&self) -> aa_tui::update_command::UpdateRunFuture {
         *self.calls.lock().unwrap() += 1;
         let outcome = self.outcome.clone();
         Box::pin(async move { outcome })
@@ -547,27 +547,27 @@ fn command_options(
     script_path: &Path,
     session_id: &str,
     traces: Option<TracesCommandsHandle>,
-    provider_auth: Option<pa_tui::provider_auth::ProviderAuthCommandsHandle>,
+    provider_auth: Option<aa_tui::provider_auth::ProviderAuthCommandsHandle>,
     update_commands: Option<UpdateCommandsHandle>,
-) -> pa_tui::interactive::InteractiveOptions {
-    pa_tui::interactive::InteractiveOptions {
+) -> aa_tui::interactive::InteractiveOptions {
+    aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: socket.to_path_buf(),
         cwd: dir.to_path_buf(),
         session_dir: Some(session_dir.to_path_buf()),
         script_path: Some(script_path.to_path_buf()),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
         default_thinking_level: None,
         no_session: false,
-        session: pa_tui::interactive::SessionSelection::Attach(session_id.to_string()),
+        session: aa_tui::interactive::SessionSelection::Attach(session_id.to_string()),
         show_images: false,
         client_settings: None,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -579,7 +579,7 @@ fn command_options(
         provider_auth,
         update_commands,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -596,7 +596,7 @@ async fn create_session_via_daemon(
     session_dir: &Path,
 ) -> String {
     std::fs::write(script_path, script.to_string()).expect("write script");
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(socket)
         .await
         .expect("connect supervisor");
     let data = client
@@ -629,12 +629,12 @@ async fn create_session_via_daemon(
 }
 
 /// The joined rendered frames of one headless run.
-fn rendered_frames(outcome: &pa_tui::interactive::InteractiveOutcome) -> String {
+fn rendered_frames(outcome: &aa_tui::interactive::InteractiveOutcome) -> String {
     outcome.frames.join("\n")
 }
 
-fn enter() -> pa_tui::interactive::HeadlessStep {
-    pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+fn enter() -> aa_tui::interactive::HeadlessStep {
+    aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
         crossterm::event::KeyCode::Enter,
         crossterm::event::KeyModifiers::NONE,
     ))
@@ -683,21 +683,21 @@ async fn tui_copy_emits_the_ts_osc52_sequence() {
         None,
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/copy".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/copy".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
             // Let the turn start before the idle barrier samples the state (it passes when idle).
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("/copy".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/copy extra".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/copy".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/copy extra".to_string()),
         ],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -762,23 +762,23 @@ async fn tui_copy_toast_coalesces_consecutive_copies_and_auto_dismisses() {
         None,
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit("/copy".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/copy".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/copy".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("/copy".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/copy".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/copy".to_string()),
             // The coalesced count-bump toast renders (observed, not slept-for).
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle:
                     "Clipboard request sent; paste in the local terminal to verify delivery (x3)"
                         .to_string(),
                 timeout_ms: 10_000,
             },
             // Past the toast's TTL: the overlay dismisses.
-            pa_tui::interactive::HeadlessStep::WaitGone {
+            aa_tui::interactive::HeadlessStep::WaitGone {
                 needle: "Clipboard request sent; paste in the local terminal to verify delivery"
                     .to_string(),
                 timeout_ms: 10_000,
@@ -788,7 +788,7 @@ async fn tui_copy_toast_coalesces_consecutive_copies_and_auto_dismisses() {
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
 
@@ -839,8 +839,8 @@ async fn tui_copy_toast_coalesces_consecutive_copies_and_auto_dismisses() {
 // /login Prime Inference: the inline team picker
 
 /// One raw key step (the arrows and Esc the typed-text path cannot express).
-fn key(code: crossterm::event::KeyCode) -> pa_tui::interactive::HeadlessStep {
-    pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+fn key(code: crossterm::event::KeyCode) -> aa_tui::interactive::HeadlessStep {
+    aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
         code,
         crossterm::event::KeyModifiers::NONE,
     ))
@@ -875,24 +875,24 @@ async fn tui_prime_login_renders_the_inline_team_picker() {
         &script_path,
         &session_id,
         None,
-        Some(pa_tui::provider_auth::ProviderAuthCommandsHandle(
+        Some(aa_tui::provider_auth::ProviderAuthCommandsHandle(
             Arc::clone(&auth) as Arc<dyn ProviderAuthCommands>,
         )),
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/login".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/login".to_string()),
             enter(),
             // The team rows exist only once the picker loaded its teams.
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "slug: acme".to_string(),
                 timeout_ms: 10_000,
             },
             // Personal rides first (TS order): down selects Acme Corp.
             key(crossterm::event::KeyCode::Down),
             enter(),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Using team \"Acme Corp\".".to_string(),
                 timeout_ms: 10_000,
             },
@@ -901,7 +901,7 @@ async fn tui_prime_login_renders_the_inline_team_picker() {
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -998,22 +998,22 @@ async fn tui_prime_login_escape_keeps_the_default_team_status() {
         &script_path,
         &session_id,
         None,
-        Some(pa_tui::provider_auth::ProviderAuthCommandsHandle(
+        Some(aa_tui::provider_auth::ProviderAuthCommandsHandle(
             Arc::clone(&auth) as Arc<dyn ProviderAuthCommands>,
         )),
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/login".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/login".to_string()),
             enter(),
             // The team rows exist only once the picker loaded its teams.
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "slug: acme".to_string(),
                 timeout_ms: 10_000,
             },
             key(crossterm::event::KeyCode::Esc),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "Using personal account.".to_string(),
                 timeout_ms: 10_000,
             },
@@ -1022,7 +1022,7 @@ async fn tui_prime_login_escape_keeps_the_default_team_status() {
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1077,23 +1077,23 @@ async fn tui_import_replaces_the_session_from_a_fixture() {
     // The fixture: the exported branch, plus a copy whose header cwd points at a gone directory.
     let fixture = dir.path().join("fixture.jsonl");
     let gone_fixture = dir.path().join("gone-cwd-fixture.jsonl");
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
             // The missing-file error (confirm first, then the TS error).
-            pa_tui::interactive::HeadlessStep::Submit(
+            aa_tui::interactive::HeadlessStep::Submit(
                 "/import /definitely/not/there.jsonl".to_string(),
             ),
             enter(),
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
-            pa_tui::interactive::HeadlessStep::Submit(format!("/export {}", fixture.display())),
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit(format!("/export {}", fixture.display())),
         ],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1146,13 +1146,13 @@ async fn tui_import_replaces_the_session_from_a_fixture() {
         None,
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit(format!("/import {}", fixture.display())),
+            aa_tui::interactive::HeadlessStep::Submit(format!("/import {}", fixture.display())),
             enter(),
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
             // The gone-cwd confirm; Yes retries with the fallback cwd.
-            pa_tui::interactive::HeadlessStep::Submit(format!(
+            aa_tui::interactive::HeadlessStep::Submit(format!(
                 "/import {}",
                 gone_fixture.display()
             )),
@@ -1163,7 +1163,7 @@ async fn tui_import_replaces_the_session_from_a_fixture() {
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1184,7 +1184,7 @@ async fn tui_import_replaces_the_session_from_a_fixture() {
         "the missing-cwd message renders:\n{rendered}"
     );
     // The imported branch answers on the fresh session's daemon state.
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(&supervisor.socket)
         .await
         .expect("connect supervisor");
     let last = client
@@ -1211,15 +1211,15 @@ async fn tui_import_replaces_the_session_from_a_fixture() {
         None,
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
-        steps: vec![pa_tui::interactive::HeadlessStep::Submit(
+    let plan = aa_tui::interactive::HeadlessPlan {
+        steps: vec![aa_tui::interactive::HeadlessStep::Submit(
             "/import".to_string(),
         )],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     assert!(
@@ -1262,20 +1262,20 @@ async fn tui_traces_renders_status_and_toggles_the_setting() {
         None,
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/traces".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/traces on".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/traces off".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/traces sideways".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/traces preview".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/traces upload".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces on".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces off".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces sideways".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces preview".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces upload".to_string()),
         ],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1370,16 +1370,16 @@ async fn tui_traces_upload_all_sweeps_with_live_progress() {
         None,
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/traces upload-all".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/traces upload-all".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces upload-all".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces upload-all".to_string()),
         ],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1428,7 +1428,7 @@ async fn tui_traces_without_a_credential_runs_the_login_flow() {
         .lock()
         .unwrap()
         .push_back(TraceLoginOutcome::Error(
-            "Failed to login to Prime Agent Traces: no browser and no pasted key.".to_string(),
+            "Failed to login to Async Agent Traces: no browser and no pasted key.".to_string(),
         ));
     let options = command_options(
         &supervisor.socket,
@@ -1440,23 +1440,23 @@ async fn tui_traces_without_a_credential_runs_the_login_flow() {
         None,
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/traces on".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces on".to_string()),
             // The login flow runs against the inline panel: the settle wait lets
             // its outcome row land in the captured frames.
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
         ],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
     assert!(
-        rendered.contains("Failed to login to Prime Agent Traces: no browser and no pasted key."),
+        rendered.contains("Failed to login to Async Agent Traces: no browser and no pasted key."),
         "the login flow's error row renders:\n{rendered}"
     );
     assert!(
@@ -1477,18 +1477,18 @@ async fn tui_traces_without_a_credential_runs_the_login_flow() {
         None,
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/traces on".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
-            pa_tui::interactive::HeadlessStep::Submit("/traces upload-current".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/traces upload-all".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces on".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::Submit("/traces upload-current".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/traces upload-all".to_string()),
         ],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1533,14 +1533,14 @@ async fn tui_traces_login_enables_and_uploads() {
         .lock()
         .unwrap()
         .push_back(TraceLoginOutcome::Status(
-            "Saved API key for Prime Agent Traces. Credentials saved to /agent/auth.json."
+            "Saved API key for Async Agent Traces. Credentials saved to /agent/auth.json."
                 .to_string(),
         ));
     traces
         .credential
         .lock()
         .unwrap()
-        .replace("Prime Agent Traces credential".to_string());
+        .replace("Async Agent Traces credential".to_string());
     let traces_view = Arc::clone(&traces);
     let options = command_options(
         &supervisor.socket,
@@ -1552,16 +1552,16 @@ async fn tui_traces_login_enables_and_uploads() {
         None,
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/traces on".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::Submit("/traces on".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
         ],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1609,25 +1609,25 @@ async fn tui_login_and_logout_run_the_provider_flows() {
         &script_path,
         &session_id,
         None,
-        Some(pa_tui::provider_auth::ProviderAuthCommandsHandle(
+        Some(aa_tui::provider_auth::ProviderAuthCommandsHandle(
             Arc::clone(&auth) as Arc<dyn ProviderAuthCommands>,
         )),
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/login".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/login".to_string()),
             enter(),
-            pa_tui::interactive::HeadlessStep::Type("sk-test-key".to_string()),
+            aa_tui::interactive::HeadlessStep::Type("sk-test-key".to_string()),
             enter(),
-            pa_tui::interactive::HeadlessStep::Submit("/logout".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/logout".to_string()),
             enter(),
         ],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1673,21 +1673,21 @@ async fn tui_login_and_logout_run_the_provider_flows() {
         &script_path,
         &session_id,
         None,
-        Some(pa_tui::provider_auth::ProviderAuthCommandsHandle(
+        Some(aa_tui::provider_auth::ProviderAuthCommandsHandle(
             Arc::clone(&auth) as Arc<dyn ProviderAuthCommands>,
         )),
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/login arg".to_string()),
-            pa_tui::interactive::HeadlessStep::Submit("/logout arg".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/login arg".to_string()),
+            aa_tui::interactive::HeadlessStep::Submit("/logout arg".to_string()),
         ],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1744,14 +1744,14 @@ async fn tui_update_runs_out_of_band_during_a_turn() {
             Arc::clone(&update) as Arc<dyn UpdateCommands>
         )),
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitMs(800),
-            pa_tui::interactive::HeadlessStep::Submit("/update".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(800),
+            aa_tui::interactive::HeadlessStep::Submit("/update".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
             enter(),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "updated to".to_string(),
                 timeout_ms: 10_000,
             },
@@ -1760,7 +1760,7 @@ async fn tui_update_runs_out_of_band_during_a_turn() {
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1769,12 +1769,12 @@ async fn tui_update_runs_out_of_band_during_a_turn() {
         "the out-of-band update has no busy guard:\n{rendered}"
     );
     assert!(
-        rendered.contains("your sessions and configuration (~/.prime/agent) are never touched"),
+        rendered.contains("your sessions and configuration (~/.async-agent) are never touched"),
         "the confirm carries the preserve invariant:\n{rendered}"
     );
     assert!(
         rendered.contains(
-            "updated to 9.9.9-continuous.0123456789abcdef — restart prime-agent to run it"
+            "updated to 9.9.9-continuous.0123456789abcdef — restart async-agent to run it"
         ),
         "the outcome note renders:\n{rendered}"
     );
@@ -1822,24 +1822,24 @@ async fn tui_update_failure_lands_the_error_row() {
             Arc::clone(&update) as Arc<dyn UpdateCommands>
         )),
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("/update".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitMs(300),
+            aa_tui::interactive::HeadlessStep::Submit("/update".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(300),
             enter(),
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "the installer exited with code 3".to_string(),
                 timeout_ms: 10_000,
             },
             // The outcome landed: the guard is clear; a second run confirms again.
-            pa_tui::interactive::HeadlessStep::Submit("/update".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitMs(400),
+            aa_tui::interactive::HeadlessStep::Submit("/update".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitMs(400),
         ],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);
@@ -1852,7 +1852,7 @@ async fn tui_update_failure_lands_the_error_row() {
         "the guard clears when the outcome lands:\n{rendered}"
     );
     assert!(
-        rendered.contains("Update installs the latest Prime Agent build"),
+        rendered.contains("Update installs the latest Async Agent build"),
         "the second run re-opens the confirm:\n{rendered}"
     );
     assert_eq!(*update_view.calls.lock().unwrap(), 1, "one funnel run");
@@ -1888,15 +1888,15 @@ async fn tui_logout_with_no_stored_credentials_reports_the_ts_status() {
         Some(ScriptedProviderAuth::new().handle()),
         None,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
-        steps: vec![pa_tui::interactive::HeadlessStep::Submit(
+    let plan = aa_tui::interactive::HeadlessPlan {
+        steps: vec![aa_tui::interactive::HeadlessStep::Submit(
             "/logout".to_string(),
         )],
         width: 120,
         height: 36,
     };
     let outcome =
-        pa_tui::interactive::run_interactive(options, pa_tui::interactive::UiMode::Headless(plan))
+        aa_tui::interactive::run_interactive(options, aa_tui::interactive::UiMode::Headless(plan))
             .await
             .expect("interactive run");
     let rendered = rendered_frames(&outcome);

@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn detail_renders_as_a_dim_subtitle_and_counts_toward_the_row_width() {
-        let theme = Theme::builtin("prime", ColorMode::TrueColor);
+        let theme = Theme::builtin("async", ColorMode::TrueColor);
         let wash = highlight_wash(&theme);
         let choice = OnboardingChoice::new(
             vec![
@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn row_width_overrides_and_clamps_to_the_pane() {
-        let theme = Theme::builtin("prime", ColorMode::TrueColor);
+        let theme = Theme::builtin("async", ColorMode::TrueColor);
         // An explicit override under the pane sizes the wash band exactly.
         let choice =
             OnboardingChoice::new(vec![option("Share", None)], None, choice_config(Some(20)));

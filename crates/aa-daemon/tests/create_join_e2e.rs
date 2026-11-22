@@ -41,36 +41,36 @@ impl Drop for WorkerGuard {
     }
 }
 
-/// Spawn the real `pa-daemon worker` binary with no create-config model (the restore
+/// Spawn the real `aa-daemon worker` binary with no create-config model (the restore
 /// path runs) and a nonexistent supervisor socket (the two authenticated clients
 /// below disarm the orphan monitor).
 fn spawn_worker(dir: &Path, socket: &Path, token: &str) -> WorkerGuard {
     std::fs::create_dir_all(dir.join("agent")).expect("agent dir");
-    let child = Command::new(env!("CARGO_BIN_EXE_pa-daemon"))
+    let child = Command::new(env!("CARGO_BIN_EXE_aa-daemon"))
         .arg("worker")
-        .env(pa_daemon::worker::WORKER_ROLE_ENV, "1")
-        .env(pa_daemon::worker::WORKER_TOKEN_ENV, token)
+        .env(aa_daemon::worker::WORKER_ROLE_ENV, "1")
+        .env(aa_daemon::worker::WORKER_TOKEN_ENV, token)
         .env(
-            pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+            aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
             "create-join",
         )
-        .env(pa_daemon::worker::WORKER_SOCKET_ENV, socket)
+        .env(aa_daemon::worker::WORKER_SOCKET_ENV, socket)
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
             dir.join("absent-supervisor.sock"),
         )
         .env(
-            pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+            aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
             dir.join("recovery.jsonl"),
         )
-        .env(pa_daemon::worker::WORKER_CWD_ENV, dir)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", dir.join("agent"))
-        .env_remove("PRIME_AGENT_MODEL")
-        .env_remove("PRIME_AGENT_MODEL_PROVIDER")
+        .env(aa_daemon::worker::WORKER_CWD_ENV, dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", dir.join("agent"))
+        .env_remove("ASYNC_AGENT_MODEL")
+        .env_remove("ASYNC_AGENT_MODEL_PROVIDER")
         // A supervisor killed at teardown must not leak this worker into later test
         // binaries: the orphan exit runs on this short window.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .stdin(Stdio::null())
@@ -121,10 +121,10 @@ impl WorkerClient {
     }
 
     fn send_frame(&mut self, header: &Value, payload: &Value) {
-        let frame = pa_daemon::framing::encode_private_frame(
+        let frame = aa_daemon::framing::encode_private_frame(
             header,
             &serde_json::to_vec(payload).expect("payload"),
-            pa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+            aa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
         )
         .expect("encode frame");
         self.stream.write_all(&frame).expect("write frame");
@@ -229,7 +229,7 @@ fn write_models_json(agent_dir: &Path) {
 /// holds the first create open long enough for the second to land.
 fn write_padded_session_file(dir: &Path) -> PathBuf {
     let mut session =
-        pa_daemon::session_store::SessionFile::create(dir.to_str().expect("utf8 dir"), None, 0);
+        aa_daemon::session_store::SessionFile::create(dir.to_str().expect("utf8 dir"), None, 0);
     session.append_model_change("battery", "mock-1");
     for index in 0..2_000 {
         session.append_message(&json!({
@@ -238,7 +238,7 @@ fn write_padded_session_file(dir: &Path) -> PathBuf {
             "timestamp": index as u64,
         }));
     }
-    let path = dir.join(pa_daemon::session_store::session_file_name(
+    let path = dir.join(aa_daemon::session_store::session_file_name(
         session.session_id(),
     ));
     session.set_path(path.clone());
@@ -301,7 +301,7 @@ fn concurrent_creates_join_the_first_create() {
     // The join contract: exactly one creation prefix. A raced double initialization
     // appends the thinking level (and the active-state row) twice.
     let store =
-        pa_daemon::session_store::SessionFile::open(&session_path).expect("reopen session file");
+        aa_daemon::session_store::SessionFile::open(&session_path).expect("reopen session file");
     let entries = store.entries();
     let thinking_rows = entries
         .iter()

@@ -5,12 +5,12 @@ use serde_json::Map;
 fn message_node(id: &str, parent: Option<&str>, timestamp: &str, text: &str) -> TreeNodeData {
     TreeNodeData {
         entry: FileEntry::Message {
-            message: pa_types::session::AgentMessage::User(pa_types::ai::UserMessage {
-                content: pa_types::ai::UserContent::Text(text.to_string()),
+            message: aa_types::session::AgentMessage::User(aa_types::ai::UserMessage {
+                content: aa_types::ai::UserContent::Text(text.to_string()),
                 timestamp: 0,
                 rest: Map::default(),
             }),
-            base: pa_types::session::EntryBase {
+            base: aa_types::session::EntryBase {
                 id: Some(id.to_string()),
                 parent_id: parent.map(str::to_string),
                 timestamp: Some(timestamp.to_string()),
@@ -25,7 +25,7 @@ fn message_node(id: &str, parent: Option<&str>, timestamp: &str, text: &str) -> 
 fn assistant_node(id: &str, parent: Option<&str>, timestamp: &str) -> TreeNodeData {
     TreeNodeData {
         entry: FileEntry::Message {
-            message: pa_types::session::AgentMessage::Assistant(pa_types::ai::AssistantMessage {
+            message: aa_types::session::AgentMessage::Assistant(aa_types::ai::AssistantMessage {
                 content: vec![],
                 api: "openai-completions".to_string(),
                 provider: "openai".to_string(),
@@ -33,14 +33,14 @@ fn assistant_node(id: &str, parent: Option<&str>, timestamp: &str) -> TreeNodeDa
                 response_model: None,
                 response_id: None,
                 diagnostics: None,
-                usage: pa_types::ai::Usage::default(),
-                stop_reason: pa_types::ai::StopReason::Stop,
+                usage: aa_types::ai::Usage::default(),
+                stop_reason: aa_types::ai::StopReason::Stop,
                 stop_reason_raw: None,
                 error_message: None,
                 timestamp: 0,
                 rest: Map::default(),
             }),
-            base: pa_types::session::EntryBase {
+            base: aa_types::session::EntryBase {
                 id: Some(id.to_string()),
                 parent_id: parent.map(str::to_string),
                 timestamp: Some(timestamp.to_string()),
@@ -60,12 +60,12 @@ fn assistant_text_node(
 ) -> TreeNodeData {
     let mut node = assistant_node(id, parent, timestamp);
     if let FileEntry::Message {
-        message: pa_types::session::AgentMessage::Assistant(assistant),
+        message: aa_types::session::AgentMessage::Assistant(assistant),
         ..
     } = &mut node.entry
     {
-        assistant.content = vec![pa_types::ai::AssistantContentBlock::Text(
-            pa_types::ai::TextContent {
+        assistant.content = vec![aa_types::ai::AssistantContentBlock::Text(
+            aa_types::ai::TextContent {
                 text: text.to_string(),
                 text_signature: None,
                 rest: Map::default(),
@@ -78,11 +78,11 @@ fn assistant_text_node(
 fn settings_node(id: &str, parent: Option<&str>, timestamp: &str) -> TreeNodeData {
     TreeNodeData {
         entry: FileEntry::ModelChange {
-            payload: pa_types::session::ModelChangeEntry {
+            payload: aa_types::session::ModelChangeEntry {
                 provider: "openai".to_string(),
                 model_id: "m".to_string(),
             },
-            base: pa_types::session::EntryBase {
+            base: aa_types::session::EntryBase {
                 id: Some(id.to_string()),
                 parent_id: parent.map(str::to_string),
                 timestamp: Some(timestamp.to_string()),
@@ -294,7 +294,7 @@ fn the_space_key_id_types_a_space() {
 
 #[test]
 fn user_only_filter_keeps_hidden_intermediates_out_of_the_visible_tree() {
-    let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+    let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
     // u1 -> a1 -> u2 (leaf): the hidden assistant must not join the
     // visible tree (a stray child would branch u1 and give u2 a connector).
     let flat = vec![
@@ -350,7 +350,7 @@ fn fold_or_up_moves_to_branch_segment() {
 
 #[test]
 fn render_marks_active_path_and_connectors() {
-    let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+    let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
     // u1 -> a1 -> u2 (leaf) plus sibling u3.
     let flat = vec![
         message_node("u1", None, "2024-01-01T00:00:01.000Z", "first"),
@@ -421,7 +421,7 @@ fn deep_chain_walks_and_renders() {
     let tree = list(flat, Some(&leaf));
     assert_eq!(tree.selected_id().as_deref(), Some(leaf.as_str()));
     assert_eq!(tree.active_path.len(), depth);
-    let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+    let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
     let rows = tree.render(&theme, 80);
     assert_eq!(rows.len(), 41, "max_visible rows plus the counter");
     let text: Vec<String> = rows
@@ -434,7 +434,7 @@ fn deep_chain_walks_and_renders() {
 
 #[test]
 fn zero_and_tiny_widths_render_wide_glyphs() {
-    let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+    let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
     // Wide glyphs at the cut boundary exercise the grapheme-aware
     // truncation: no row may exceed the budget, not even at zero.
     let flat = vec![

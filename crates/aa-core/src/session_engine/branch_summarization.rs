@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use pa_types::session::{AgentMessage, CompactionSummaryMessage, FileEntry};
+use aa_types::session::{AgentMessage, CompactionSummaryMessage, FileEntry};
 
 use super::compaction::estimate_tokens;
 use super::compaction_utils::{
@@ -27,7 +27,7 @@ pub struct BranchSummaryResult {
     pub modified_files: Vec<String>,
     pub aborted: bool,
     pub error: Option<String>,
-    pub usage: Option<pa_types::ai::Usage>,
+    pub usage: Option<aa_types::ai::Usage>,
     /// The model that served the summary call: the caller persists it, so the
     /// cost fold bills the model that billed it, not the branch timeline.
     pub model: Option<(String, String)>,
@@ -116,7 +116,7 @@ fn get_message_from_entry(entry: &FileEntry) -> Option<AgentMessage> {
             {
                 return None;
             }
-            Some(AgentMessage::Custom(pa_types::session::CustomMessage {
+            Some(AgentMessage::Custom(aa_types::session::CustomMessage {
                 custom_type: payload.custom_type.clone(),
                 content: payload.content.clone(),
                 display: payload.display,
@@ -126,7 +126,7 @@ fn get_message_from_entry(entry: &FileEntry) -> Option<AgentMessage> {
             }))
         }
         FileEntry::BranchSummary { payload, .. } => Some(AgentMessage::BranchSummary(
-            pa_types::session::BranchSummaryMessage {
+            aa_types::session::BranchSummaryMessage {
                 summary: payload.summary.clone(),
                 from_id: payload.from_id.clone(),
                 timestamp: super::super::session::timestamp_to_millis(entry.timestamp()),
@@ -257,8 +257,8 @@ fn build_branch_summary_request_with_refinements(
         };
         let prompt_text =
             format!("<conversation>\n{conversation_text}\n</conversation>\n\n{instructions}");
-        vec![AgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text(prompt_text),
+        vec![AgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text(prompt_text),
             timestamp: 0,
             rest: serde_json::Map::default(),
         })]
@@ -292,7 +292,7 @@ pub fn finalize_branch_summary(
 
 /// Options for one branch-summary generation run.
 pub struct GenerateBranchSummaryOptions<'a> {
-    pub model: &'a pa_types::ai::Model,
+    pub model: &'a aa_types::ai::Model,
     pub api_key: Option<String>,
     pub custom_instructions: Option<&'a str>,
     /// Replace the default prompt instead of appending the custom focus.
@@ -441,13 +441,13 @@ pub async fn generate_branch_summary(
             ..Default::default()
         };
     }
-    let context = pa_types::ai::Context {
+    let context = aa_types::ai::Context {
         system_prompt: Some(super::compaction_utils::SUMMARIZATION_SYSTEM_PROMPT.to_string()),
         messages: convert_to_llm(&request_messages)
             .into_iter()
             .filter_map(|message| match message {
                 AgentMessage::User(user) => {
-                    Some(pa_types::ai::Message::User(pa_types::ai::UserMessage {
+                    Some(aa_types::ai::Message::User(aa_types::ai::UserMessage {
                         content: user.content,
                         timestamp: user.timestamp,
                         rest: user.rest,
@@ -459,18 +459,18 @@ pub async fn generate_branch_summary(
         tools: None,
     };
     let mut stream_options =
-        pa_ai::types::SimpleStreamOptions::from_base(pa_ai::types::StreamOptions {
+        aa_ai::types::SimpleStreamOptions::from_base(aa_ai::types::StreamOptions {
             max_tokens: Some(BRANCH_SUMMARY_MAX_TOKENS),
             api_key,
             session_id: session_id.map(str::to_string),
             // One-off prompts ride SSE: they keep the conversation id (cache key, opencode routing)
             // but never take or replace the session's Codex WebSocket and its continuation.
-            transport: Some(pa_ai::types::Transport::Sse),
+            transport: Some(aa_ai::types::Transport::Sse),
             headers: summary_headers.map(|headers| headers.into_iter().collect()),
             ..Default::default()
         });
-    stream_options.reasoning = pa_types::ai::minimum_reasoning(model);
-    let response = match pa_ai::complete_simple(model, &context, Some(stream_options)).await {
+    stream_options.reasoning = aa_types::ai::minimum_reasoning(model);
+    let response = match aa_ai::complete_simple(model, &context, Some(stream_options)).await {
         Ok(response) => response,
         Err(error) => {
             return BranchSummaryResult {
@@ -479,13 +479,13 @@ pub async fn generate_branch_summary(
             };
         }
     };
-    if response.stop_reason == pa_types::ai::StopReason::Aborted {
+    if response.stop_reason == aa_types::ai::StopReason::Aborted {
         return BranchSummaryResult {
             aborted: true,
             ..Default::default()
         };
     }
-    if response.stop_reason == pa_types::ai::StopReason::Error {
+    if response.stop_reason == aa_types::ai::StopReason::Error {
         return BranchSummaryResult {
             error: Some(
                 response
@@ -499,7 +499,7 @@ pub async fn generate_branch_summary(
         .content
         .iter()
         .filter_map(|block| match block {
-            pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+            aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
             _ => None,
         })
         .collect::<Vec<_>>()
@@ -519,7 +519,7 @@ pub fn branch_summary_presentation(summary: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::session::EntryBase;
+    use aa_types::session::EntryBase;
 
     fn entry(id: &str, parent: Option<&str>, message: AgentMessage) -> FileEntry {
         FileEntry::Message {
@@ -534,8 +534,8 @@ mod tests {
     }
 
     fn user(text: &str) -> AgentMessage {
-        AgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text(text.to_string()),
+        AgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
         })
@@ -550,7 +550,7 @@ mod tests {
         session
             .append_custom_message(
                 "refinement_notice",
-                pa_types::ai::UserContent::Text("saved refinement ".repeat(500)),
+                aa_types::ai::UserContent::Text("saved refinement ".repeat(500)),
                 /*display*/ false,
                 None,
             )
@@ -585,7 +585,7 @@ mod tests {
         session
             .append_custom_message(
                 super::super::javascript_state::JAVASCRIPT_STATE_CUSTOM_TYPE,
-                pa_types::ai::UserContent::Text(super::super::javascript_state::notice_content(
+                aa_types::ai::UserContent::Text(super::super::javascript_state::notice_content(
                     None,
                     Some(&["stacked_kernel_var".to_string()]),
                 )),
@@ -680,7 +680,7 @@ mod tests {
     #[test]
     fn compaction_entries_become_summary_messages() {
         let compaction = FileEntry::Compaction {
-            payload: pa_types::session::CompactionEntry {
+            payload: aa_types::session::CompactionEntry {
                 summary: "prior state".to_string(),
                 first_kept_entry_id: "x".to_string(),
                 tokens_before: 10,
@@ -717,14 +717,14 @@ mod tests {
             let _guard = FAUX_LOCK
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions::default())
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions::default())
         };
         let model = registration.get_model();
-        let response = pa_ai::faux::faux_assistant_text_message(
+        let response = aa_ai::faux::faux_assistant_text_message(
             "## Goal\nexplore the tree",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         );
-        registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(response)]);
+        registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(response)]);
         let entries = vec![entry("e0", None, user("explore the widget"))];
         let result = generate_branch_summary(
             &entries,
@@ -752,7 +752,7 @@ mod tests {
 
     #[tokio::test]
     async fn empty_branch_summarizes_to_a_note() {
-        let model: pa_types::ai::Model = serde_json::from_value(serde_json::json!({
+        let model: aa_types::ai::Model = serde_json::from_value(serde_json::json!({
             "id": "m", "name": "m", "api": "openai-completions", "provider": "test",
             "baseUrl": "http://localhost", "reasoning": false, "input": ["text"],
             "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
@@ -787,8 +787,8 @@ mod tests {
                 let _guard = FAUX_LOCK
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
-                pa_ai::faux::register_faux_provider(
-                    pa_ai::faux::RegisterFauxProviderOptions::default(),
+                aa_ai::faux::register_faux_provider(
+                    aa_ai::faux::RegisterFauxProviderOptions::default(),
                 )
             };
             let model = registration.get_model();
@@ -810,21 +810,21 @@ mod tests {
                     Vec::<(String, Option<String>, bool)>::new(),
                 ));
             let recorder = seen_models.clone();
-            registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Factory(
+            registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Factory(
                 std::sync::Arc::new(
-                    move |_context: &pa_types::ai::Context,
-                          options: Option<&pa_ai::types::StreamOptions>,
+                    move |_context: &aa_types::ai::Context,
+                          options: Option<&aa_ai::types::StreamOptions>,
                           _call: u64,
-                          model: &pa_types::ai::Model| {
+                          model: &aa_types::ai::Model| {
                         recorder.lock().unwrap().push((
                             model.id.clone(),
                             options.and_then(|options| options.session_id.clone()),
                             options.and_then(|options| options.transport)
-                                == Some(pa_ai::types::Transport::Sse),
+                                == Some(aa_ai::types::Transport::Sse),
                         ));
-                        Ok(pa_ai::faux::faux_assistant_text_message(
+                        Ok(aa_ai::faux::faux_assistant_text_message(
                             "## Goal\nexplore the tree",
-                            pa_ai::faux::FauxAssistantMessageOptions::default(),
+                            aa_ai::faux::FauxAssistantMessageOptions::default(),
                         ))
                     },
                 ),

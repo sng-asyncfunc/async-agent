@@ -4,7 +4,7 @@
 
 Do not report security vulnerabilities through public Issues, Discussions, or pull requests.
 
-Send the report to [security@primeintellect.ai](mailto:security@primeintellect.ai). For encrypted communication and the current company-wide disclosure policy, see [primeintellect.ai/security](https://www.primeintellect.ai/security).
+Please report vulnerabilities privately via [GitHub Security Advisories](https://github.com/sng-asyncfunc/async-agent/security/advisories/new).
 
 Include the following when possible:
 
@@ -22,4 +22,4 @@ Maintainers will assess the report, determine its scope, and coordinate remediat
 
 Security fixes are generally prepared against the default branch and released on a schedule chosen by the maintainers. We do not guarantee fixes for older versions.
 
-For ordinary bugs, feature requests, and support questions, use [GitHub Discussions](https://github.com/PrimeIntellect-ai/prime-agent/discussions).
+For ordinary bugs, feature requests, and support questions, use [GitHub Discussions](https://github.com/sng-asyncfunc/async-agent/discussions).

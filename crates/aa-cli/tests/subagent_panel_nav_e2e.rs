@@ -23,9 +23,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use pa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
-use pa_tui::interactive::SessionSelection;
-use pa_tui::interactive::UiMode;
+use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
+use aa_tui::interactive::SessionSelection;
+use aa_tui::interactive::UiMode;
 
 struct Supervisor {
     child: Child,
@@ -56,7 +56,7 @@ fn graceful_shutdown(socket: &Path) {
     let command = serde_json::json!({
         "type": "command",
         "id": "test-shutdown",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "shutdown" },
     });
     let Ok(mut line) = serde_json::to_string(&command) else {
@@ -79,36 +79,36 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     let socket = dir.join("daemon.sock");
     let agent_dir = dir.join("agent");
     std::fs::create_dir_all(&agent_dir).expect("agent dir");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
     // The daemon's default sessions dir must stay the agent dir under the
-    // tempdir: an ambient `PRIME_AGENT_SESSION_DIR` would resolve the family
+    // tempdir: an ambient `ASYNC_AGENT_SESSION_DIR` would resolve the family
     // ledger against the foreign dir, so the seeded family never registers.
-    command.env_remove("PRIME_AGENT_SESSION_DIR");
-    command.env_remove("PRIME_AGENT_CODING_AGENT_SESSION_DIR");
+    command.env_remove("ASYNC_AGENT_SESSION_DIR");
+    command.env_remove("ASYNC_AGENT_CODING_AGENT_SESSION_DIR");
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -206,8 +206,8 @@ fn session_options(
     session: SessionSelection,
     rlm_depth: Option<u32>,
     has_children: bool,
-) -> pa_tui::interactive::InteractiveOptions {
-    pa_tui::interactive::InteractiveOptions {
+) -> aa_tui::interactive::InteractiveOptions {
+    aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: socket.to_path_buf(),
         cwd: PathBuf::from("/tmp"),
@@ -217,13 +217,13 @@ fn session_options(
         default_thinking_level: None,
         session_dir: Some(session_dir.to_path_buf()),
         script_path: None,
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         no_session: false,
         session,
         initial_message: None,
         show_images: true,
         fullscreen_mouse: true,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -236,7 +236,7 @@ fn session_options(
         update_commands: None,
         client_settings: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: rlm_depth,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: has_children,
@@ -275,9 +275,9 @@ async fn down_arrow_focuses_the_dock_and_enter_opens_the_scoped_agents_view() {
     );
     // The durable spawn edge: the roster surfaces the child as the
     // parent's passive descendant, so the parent renders the summary box.
-    let ledger = pa_daemon::rlm_ledger::RlmSpawnLedger::new(&agent_dir, &session_dir, |_m| {});
+    let ledger = aa_daemon::rlm_ledger::RlmSpawnLedger::new(&agent_dir, &session_dir, |_m| {});
     ledger
-        .append_spawn(&pa_daemon::rlm_ledger::RlmSpawnInput {
+        .append_spawn(&aa_daemon::rlm_ledger::RlmSpawnInput {
             child_id: "panel-nav-child".to_string(),
             parent: parent_path.to_string_lossy().to_string(),
             child: child_path.to_string_lossy().to_string(),
@@ -296,15 +296,15 @@ async fn down_arrow_focuses_the_dock_and_enter_opens_the_scoped_agents_view() {
         None,
         true,
     );
-    let parent_plan = pa_tui::interactive::HeadlessPlan {
+    let parent_plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 15_000 },
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 15_000 },
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Down,
                 crossterm::event::KeyModifiers::NONE,
             )),
-            pa_tui::interactive::HeadlessStep::WaitMs(300),
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::WaitMs(300),
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Enter,
                 crossterm::event::KeyModifiers::NONE,
             )),
@@ -313,7 +313,7 @@ async fn down_arrow_focuses_the_dock_and_enter_opens_the_scoped_agents_view() {
         height: 36,
     };
     let parent_run =
-        pa_tui::interactive::run_interactive(parent_options, UiMode::Headless(parent_plan))
+        aa_tui::interactive::run_interactive(parent_options, UiMode::Headless(parent_plan))
             .await
             .expect("parent session run");
 
@@ -347,7 +347,7 @@ async fn down_arrow_focuses_the_dock_and_enter_opens_the_scoped_agents_view() {
         socket_path: supervisor.socket.clone(),
         cwd: PathBuf::from("/tmp"),
         session_dir: Some(session_dir.clone()),
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         version: "0.0.0".to_string(),
         anchor_session_id: None,
         scope: Some(scope),
@@ -356,7 +356,7 @@ async fn down_arrow_focuses_the_dock_and_enter_opens_the_scoped_agents_view() {
         selected_row_identity: None,
         selected_key: None,
         status_message: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         show_hardware_cursor: false,
         incident_notice_state: None,
         create_config: serde_json::json!({}),
@@ -369,7 +369,7 @@ async fn down_arrow_focuses_the_dock_and_enter_opens_the_scoped_agents_view() {
         width: 120,
         height: 36,
     };
-    let view = pa_tui::agents_view::run_agents_view(
+    let view = aa_tui::agents_view::run_agents_view(
         view_options,
         AgentsViewUiMode::Headless(view_plan),
         None,
@@ -404,11 +404,11 @@ async fn down_arrow_focuses_the_dock_and_enter_opens_the_scoped_agents_view() {
         view.opened_rlm_depth,
         view.opened_has_children,
     );
-    let child_plan = pa_tui::interactive::HeadlessPlan {
+    let child_plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 15_000 },
-            pa_tui::interactive::HeadlessStep::ScrollTop,
-            pa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 15_000 },
+            aa_tui::interactive::HeadlessStep::ScrollTop,
+            aa_tui::interactive::HeadlessStep::Key(crossterm::event::KeyEvent::new(
                 crossterm::event::KeyCode::Left,
                 crossterm::event::KeyModifiers::NONE,
             )),
@@ -417,7 +417,7 @@ async fn down_arrow_focuses_the_dock_and_enter_opens_the_scoped_agents_view() {
         height: 36,
     };
     let child_run =
-        pa_tui::interactive::run_interactive(child_options, UiMode::Headless(child_plan))
+        aa_tui::interactive::run_interactive(child_options, UiMode::Headless(child_plan))
             .await
             .expect("child session run");
     let child_frame = frame_of(&child_run.frames, "work complete alpha");
@@ -471,9 +471,9 @@ async fn the_title_bills_a_passive_subagents_spend() {
 
     // The durable spawn edge: the title rolls the child's spend up from
     // the real daemon's seeded row.
-    let ledger = pa_daemon::rlm_ledger::RlmSpawnLedger::new(&agent_dir, &session_dir, |_m| {});
+    let ledger = aa_daemon::rlm_ledger::RlmSpawnLedger::new(&agent_dir, &session_dir, |_m| {});
     ledger
-        .append_spawn(&pa_daemon::rlm_ledger::RlmSpawnInput {
+        .append_spawn(&aa_daemon::rlm_ledger::RlmSpawnInput {
             child_id: "title-bill-child".to_string(),
             parent: parent_path.to_string_lossy().to_string(),
             child: child_path.to_string_lossy().to_string(),
@@ -490,10 +490,10 @@ async fn the_title_bills_a_passive_subagents_spend() {
         None,
         true,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 15_000 },
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 15_000 },
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "$1.30".to_string(),
                 timeout_ms: 15_000,
             },
@@ -501,7 +501,7 @@ async fn the_title_bills_a_passive_subagents_spend() {
         width: 120,
         height: 36,
     };
-    let run = pa_tui::interactive::run_interactive(options, UiMode::Headless(plan))
+    let run = aa_tui::interactive::run_interactive(options, UiMode::Headless(plan))
         .await
         .expect("parent session run");
     // The top bar row: the chat name plus the family rollup, with no split.
@@ -564,9 +564,9 @@ async fn the_title_bills_a_deleted_subagents_spend() {
     // The durable spawn edge plus the RLM delete's tombstone carrying
     // the captured usage (the amendment the stop finalize appends after
     // the flush barrier): the child's spend survives the deletion.
-    let ledger = pa_daemon::rlm_ledger::RlmSpawnLedger::new(&agent_dir, &session_dir, |_m| {});
+    let ledger = aa_daemon::rlm_ledger::RlmSpawnLedger::new(&agent_dir, &session_dir, |_m| {});
     ledger
-        .append_spawn(&pa_daemon::rlm_ledger::RlmSpawnInput {
+        .append_spawn(&aa_daemon::rlm_ledger::RlmSpawnInput {
             child_id: "title-del-child".to_string(),
             parent: parent_path.to_string_lossy().to_string(),
             child: child_path.to_string_lossy().to_string(),
@@ -579,8 +579,8 @@ async fn the_title_bills_a_deleted_subagents_spend() {
         .append_delete_with_usage(
             "title-del-child",
             &child_path.to_string_lossy(),
-            pa_daemon::rlm_ledger::RlmLedgerDeleteReason::User,
-            &pa_daemon::session_usage::SessionUsageSummary {
+            aa_daemon::rlm_ledger::RlmLedgerDeleteReason::User,
+            &aa_daemon::session_usage::SessionUsageSummary {
                 input_tokens: 50,
                 output_tokens: 5,
                 cost: 0.3,
@@ -596,10 +596,10 @@ async fn the_title_bills_a_deleted_subagents_spend() {
         None,
         true,
     );
-    let plan = pa_tui::interactive::HeadlessPlan {
+    let plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 15_000 },
-            pa_tui::interactive::HeadlessStep::WaitRender {
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 15_000 },
+            aa_tui::interactive::HeadlessStep::WaitRender {
                 needle: "$1.30".to_string(),
                 timeout_ms: 15_000,
             },
@@ -607,7 +607,7 @@ async fn the_title_bills_a_deleted_subagents_spend() {
         width: 120,
         height: 36,
     };
-    let run = pa_tui::interactive::run_interactive(options, UiMode::Headless(plan))
+    let run = aa_tui::interactive::run_interactive(options, UiMode::Headless(plan))
         .await
         .expect("parent session run");
     // The top bar row (render_top_bar): the parent's own $1.00 plus the

@@ -2,7 +2,7 @@
 name: review-sweep
 description: Sweep the changed files of a branch for review findings and merge them into one issue list.
 version: 1
-author: Prime Agent
+author: Async Agent
 ---
 
 # review-sweep

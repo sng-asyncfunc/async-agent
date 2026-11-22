@@ -85,7 +85,7 @@ fn prompt_may_have_been_sent(error: &anyhow::Error) -> bool {
                 && error.chain().any(|cause| {
                     let message = cause.to_string().to_lowercase();
                     message.contains("connection closed")
-                        || message.starts_with("connection to the prime agent daemon closed")
+                        || message.starts_with("connection to the async agent daemon closed")
                 })))
 }
 
@@ -379,7 +379,7 @@ impl SessionUi {
         let Some(model) = self.current_model_entry(view) else {
             return true;
         };
-        model.input.contains(&pa_types::ai::ModelInput::Image)
+        model.input.contains(&aa_types::ai::ModelInput::Image)
     }
 
     /// Submit a prompt (the Enter path): the user message arrives back as a `message_start` event
@@ -409,7 +409,7 @@ impl SessionUi {
         // everything else a follow-up; a reply that merely starts with "/" is not a command.
         if view.side_pane.is_some() {
             let registry = SlashCommandRegistry::builtin();
-            let is_command = pa_types::slash_commands::parse_slash_command(text)
+            let is_command = aa_types::slash_commands::parse_slash_command(text)
                 .is_some_and(|(name, _)| registry.is_builtin(&name));
             if is_command {
                 self.add_side_notice(
@@ -443,7 +443,7 @@ impl SessionUi {
         // A `/skill:<name>` mid-message the session does not know stays plain
         // text; say so (nothing is flagged before the command catalog loads).
         if !self.skill_commands_cache.is_empty() {
-            let unknown: Vec<String> = pa_types::skill_blocks::skill_references(text)
+            let unknown: Vec<String> = aa_types::skill_blocks::skill_references(text)
                 .into_iter()
                 .filter(|name| {
                     !self
@@ -759,12 +759,12 @@ impl SessionUi {
                 id: None,
                 active_session_id: order.active_session_id.clone(),
                 message: order.text.clone(),
-                input: pa_types::daemon::PromptInput {
+                input: aa_types::daemon::PromptInput {
                     content: None,
                     images: order.images.clone(),
                     streaming_behavior: Some(match order.behavior {
-                        SubmitBehavior::Steer => pa_types::daemon::StreamingBehavior::Steer,
-                        SubmitBehavior::FollowUp => pa_types::daemon::StreamingBehavior::FollowUp,
+                        SubmitBehavior::Steer => aa_types::daemon::StreamingBehavior::Steer,
+                        SubmitBehavior::FollowUp => aa_types::daemon::StreamingBehavior::FollowUp,
                     }),
                     queue_if_busy: Some(true),
                     expand_prompt_templates: None,
@@ -785,7 +785,7 @@ impl SessionUi {
             .await
             .map_err(|_| {
                 anyhow!(
-                    "timed out after {UI_REQUEST_TIMEOUT_MS}ms waiting for the Prime Agent daemon response"
+                    "timed out after {UI_REQUEST_TIMEOUT_MS}ms waiting for the Async Agent daemon response"
                 )
             })
             .and_then(|result| result.map(|_| ()));
@@ -1032,8 +1032,8 @@ mod prompt_delivery_tests {
         for message in [
             "the daemon connection closed",
             "the session connection closed",
-            "Connection to the Prime Agent daemon closed. Socket: fixture.",
-            "Timed out after 100ms waiting for the Prime Agent daemon response",
+            "Connection to the Async Agent daemon closed. Socket: fixture.",
+            "Timed out after 100ms waiting for the Async Agent daemon response",
         ] {
             assert!(prompt_may_have_been_sent(&anyhow::anyhow!(message)));
         }

@@ -22,8 +22,8 @@ COMPAT_ASSETS = (
     "PHOTON-LICENSE.md",
 )
 REQUIRED_NATIVE_FILES = (
-    "prime-agent", "package.json", "install.sh",
-    "prime-agent-runtime/package.json", "prime-agent-runtime/src/repl.ts",
+    "async-agent", "package.json", "install.sh",
+    "async-agent-runtime/package.json", "async-agent-runtime/src/repl.ts",
     *COMPAT_ASSETS,
 )
 
@@ -39,7 +39,7 @@ def stage_native_compat(staging: Path) -> list[str]:
         shutil.copyfile(ASSET_DIR / name, target)
     # This file is validated, not executed, by the already-running TS installer.
     # Ship the maintained Rust installer so manual repair uses current code.
-    shutil.copyfile(ASSET_DIR.parents[2] / "install-rust.sh", staging / "install.sh")
+    shutil.copyfile(ASSET_DIR.parents[2] / "install.sh", staging / "install.sh")
     return ["theme", "export-html", "photon_rs_bg.wasm", "PHOTON-LICENSE.md", "install.sh"]
 
 
@@ -59,7 +59,7 @@ def validate_compatibility_archive(path: Path) -> None:
             if member.name in members:
                 raise ValueError(f"duplicate member in compatibility archive: {member.name}")
             members[member.name] = member
-        windows = "prime-agent.exe" in members
+        windows = "async-agent.exe" in members
         required = ("package.json",) if windows else REQUIRED_NATIVE_FILES
         for name in required:
             member = members.get(name)

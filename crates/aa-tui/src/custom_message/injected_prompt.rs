@@ -262,7 +262,7 @@ mod tests {
     use crate::Span;
 
     fn theme() -> Theme {
-        Theme::builtin("prime", ColorMode::TrueColor)
+        Theme::builtin("async", ColorMode::TrueColor)
     }
 
     fn flat(row: &Line) -> String {

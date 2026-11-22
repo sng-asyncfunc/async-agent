@@ -51,20 +51,20 @@ where
 }
 
 /// The production signals: a real SIGINT disposition swap and a
-/// process-group-wide SIGTSTP, through the pa-types platform wall.
+/// process-group-wide SIGTSTP, through the aa-types platform wall.
 pub(crate) struct ProcessSignals;
 
 impl SuspendSignals for ProcessSignals {
     fn ignore_sigint(&mut self) -> Result<()> {
-        pa_types::platform::process::ignore_sigint_for_suspend()
+        aa_types::platform::process::ignore_sigint_for_suspend()
     }
 
     fn restore_sigint(&mut self) -> Result<()> {
-        pa_types::platform::process::restore_default_sigint()
+        aa_types::platform::process::restore_default_sigint()
     }
 
     fn stop_process_group(&mut self) -> Result<()> {
-        pa_types::platform::process::stop_own_process_group()
+        aa_types::platform::process::stop_own_process_group()
     }
 }
 

@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use pa_ai::oauth::{
+use aa_ai::oauth::{
     refresh_anthropic_token, refresh_github_copilot_token, refresh_openai_codex_token,
     refresh_xai_token, CodexHttp, ProviderHttp, ReqwestCodexHttp, ReqwestProviderHttp,
 };
@@ -205,7 +205,7 @@ impl crate::auth::OAuthIntegration for ProviderOAuth {
 mod tests {
     use std::collections::HashMap;
 
-    use pa_ai::oauth::{CodexHttpResponse, ProviderHttpRequest, ProviderHttpResponse};
+    use aa_ai::oauth::{CodexHttpResponse, ProviderHttpRequest, ProviderHttpResponse};
 
     use super::*;
 

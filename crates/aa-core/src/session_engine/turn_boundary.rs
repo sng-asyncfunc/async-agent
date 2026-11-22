@@ -5,15 +5,15 @@
 
 use std::sync::Arc;
 
-use pa_agent::agent::Agent;
-use pa_types::session::FileEntry;
+use aa_agent::agent::Agent;
+use aa_types::session::FileEntry;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
 use crate::kernel::shared::{host_handler, HostRequestHandlers};
 use crate::session::manager::SessionManager;
 
-use pa_types::usage::{calculate_context_tokens, estimate_tokens, valid_assistant_usage};
+use aa_types::usage::{calculate_context_tokens, estimate_tokens, valid_assistant_usage};
 
 use super::compact_session::{prepare_compaction, CompactSkip};
 use super::engine::SessionEngine;
@@ -39,7 +39,7 @@ pub struct ModelInfo {
     pub provider: String,
     /// Input modalities (empty when the resolved model did not declare
     /// any, e.g. harness-converted minimal models).
-    pub input: Vec<pa_types::ai::ModelInput>,
+    pub input: Vec<aa_types::ai::ModelInput>,
 }
 
 /// The runtime the handlers read once the session is assembled;
@@ -211,8 +211,8 @@ impl TurnBoundaryRequests {
                         "id": model_info.id,
                         "provider": model_info.provider,
                         "input": model_info.input.iter().map(|input| match input {
-                            pa_types::ai::ModelInput::Text => "text",
-                            pa_types::ai::ModelInput::Image => "image",
+                            aa_types::ai::ModelInput::Text => "text",
+                            aa_types::ai::ModelInput::Image => "image",
                         }).collect::<Vec<&str>>(),
                     }))
                 })
@@ -398,9 +398,9 @@ impl SessionEngine {
     /// surfacing the abort marker error the consumer maps to its cancelled outcome.
     pub async fn consume_pending_compaction(
         &self,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         api_key: Option<String>,
-        abort: Option<&pa_agent::abort::AbortSignal>,
+        abort: Option<&aa_agent::abort::AbortSignal>,
     ) -> Option<anyhow::Result<super::compact_session::CompactOutcome>> {
         let pending = self.turn_boundary.take_compaction().await?;
         let compact = async {
@@ -411,7 +411,7 @@ impl SessionEngine {
         Some(match abort {
             // The refinement is not raced — TS `abortCompaction` never
             // aborts it.
-            Some(signal) => match pa_agent::abort::race_with_abort(compact, signal).await {
+            Some(signal) => match aa_agent::abort::race_with_abort(compact, signal).await {
                 Ok(inner) => inner,
                 Err(error) => Err(error),
             },
@@ -423,7 +423,7 @@ impl SessionEngine {
     /// its idle-boundary commit. The host owns only completion reporting.
     pub async fn start_pending_refinement(
         &self,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         api_key: Option<String>,
     ) -> Option<tokio::task::JoinHandle<anyhow::Result<super::refine::CommittedRefinement>>> {
         let pending = self.turn_boundary.take_refine().await?;

@@ -7,16 +7,16 @@ use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
 
-use pa_ai::oauth::{
+use aa_ai::oauth::{
     login_anthropic, login_github_copilot, login_xai, AnthropicCredentials, OAuthLoginUi,
     OAuthPrompt, ProviderHttp, ANTHROPIC_LOGIN_CANCELLED, COPILOT_LOGIN_CANCELLED,
     XAI_LOGIN_CANCELLED,
 };
-use pa_core::auth::{
+use aa_core::auth::{
     AuthCredential, AuthStorage, ANTHROPIC_PROVIDER_ID, GITHUB_COPILOT_PROVIDER_ID, XAI_PROVIDER_ID,
 };
-use pa_tui::auth_panel::{AuthPanelHandle, PastePromptTone, PasteStyle};
-use pa_tui::provider_auth::ProviderAuthOutcome;
+use aa_tui::auth_panel::{AuthPanelHandle, PastePromptTone, PasteStyle};
+use aa_tui::provider_auth::ProviderAuthOutcome;
 
 /// The manual-input prompt (the callback-server providers' paste line).
 const MANUAL_INPUT_PROMPT: &str = "Paste redirect URL below, or complete login in browser:";
@@ -43,7 +43,7 @@ impl PanelSubscriptionLoginUi {
 impl OAuthLoginUi for PanelSubscriptionLoginUi {
     fn on_auth(&self, url: &str, instructions: Option<&str>) {
         self.panel.auth_url(url, instructions);
-        pa_core::platform::browser::open_in_browser(url);
+        aa_core::platform::browser::open_in_browser(url);
         if self.provider_id == GITHUB_COPILOT_PROVIDER_ID {
             // `showWaiting` is the dialog's own method, no onboarding guard —
             // never the `onProgress` chatter arm.
@@ -269,7 +269,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
-    use pa_ai::oauth::ProviderHttpResponse;
+    use aa_ai::oauth::ProviderHttpResponse;
 
     /// A scripted transport: queued responses per url (popped in order; unknown urls fail the
     /// request).
@@ -303,7 +303,7 @@ mod tests {
     impl ProviderHttp for ScriptedHttp {
         fn request(
             &self,
-            request: pa_ai::oauth::ProviderHttpRequest,
+            request: aa_ai::oauth::ProviderHttpRequest,
             _timeout_ms: u64,
         ) -> Pin<Box<dyn Future<Output = Result<ProviderHttpResponse, String>> + Send + '_>>
         {
@@ -493,7 +493,7 @@ mod tests {
     }
 
     /// The Anthropic login's store step: the credential's wire shape
-    /// under the provider id (the flow is covered in pa-ai).
+    /// under the provider id (the flow is covered in aa-ai).
     #[test]
     fn the_anthropic_login_stores_the_credential_and_reports_the_ts_status() {
         let dir = tempfile::tempdir().expect("temp dir");
@@ -592,8 +592,8 @@ mod tests {
         }
         let mut expired = AuthStorage::in_memory_without_env(
             &data,
-            Arc::new(pa_core::auth::ProviderOAuth::with_transports(
-                Arc::new(pa_ai::oauth::ReqwestCodexHttp::new()),
+            Arc::new(aa_core::auth::ProviderOAuth::with_transports(
+                Arc::new(aa_ai::oauth::ReqwestCodexHttp::new()),
                 Arc::new(xai_http()),
             )),
         );

@@ -1,5 +1,5 @@
 //! Code-preview extraction for tool-call cards (`javascript` collapsed line).
-//! The pa-tui dependency boundary (pa-types only) keeps the session engine
+//! The aa-tui dependency boundary (aa-types only) keeps the session engine
 //! out of the UI, so the display-side preview algorithm lives here; the
 //! TypeScript golden corpus test lives here too.
 

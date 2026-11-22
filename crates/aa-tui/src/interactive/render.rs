@@ -174,7 +174,7 @@ impl Renderer {
         match ui {
             UiMode::Terminal => {
                 // Enable Windows VT processing before raw ANSI mode writes.
-                pa_types::platform::console_init();
+                aa_types::platform::console_init();
                 // The raw-mode bracket's own `cfmakeraw` write clears IXON, which is the
                 // kernel's one trigger for lifting a pending Ctrl+S stop: a tty stopped at the
                 // shell prompt self-heals here (verified by the flow e2e's launch route).
@@ -366,7 +366,7 @@ impl Renderer {
     /// Leave the alternate screen and paint the accumulated inline layout onto the main screen:
     /// the inline repaint flushes the fullscreen-era transcript into native scrollback, keeping
     /// the exit frame — and the resume hint printed below it — visible after the process exits.
-    /// The kill-switch `PRIME_AGENT_TUI_EXIT_FLUSH=0` skips the paint (the alt screen is still
+    /// The kill-switch `ASYNC_AGENT_TUI_EXIT_FLUSH=0` skips the paint (the alt screen is still
     /// left): the flush writes into the user's scrollback, so it can be disabled without a
     /// release if it misbehaves.
     fn flush_to_main_screen(&mut self, view: &mut AgentView) -> Result<()> {
@@ -541,7 +541,7 @@ pub(crate) fn write_flush_rows(buffer: &mut String, rows: &[crate::Line]) {
     }
 }
 
-/// The main-screen exit flush is on unless `PRIME_AGENT_TUI_EXIT_FLUSH=0` opts out.
+/// The main-screen exit flush is on unless `ASYNC_AGENT_TUI_EXIT_FLUSH=0` opts out.
 fn exit_flush_enabled() -> bool {
-    std::env::var_os("PRIME_AGENT_TUI_EXIT_FLUSH").is_none_or(|value| value != "0")
+    std::env::var_os("ASYNC_AGENT_TUI_EXIT_FLUSH").is_none_or(|value| value != "0")
 }

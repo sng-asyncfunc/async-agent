@@ -20,7 +20,7 @@ fn run_lock() -> MutexGuard<'static, ()> {
     }
 }
 
-use pa_tui::interactive::{run_interactive, HeadlessPlan, HeadlessStep, UiMode};
+use aa_tui::interactive::{run_interactive, HeadlessPlan, HeadlessStep, UiMode};
 use serde_json::{json, Value};
 
 use support::{
@@ -170,7 +170,7 @@ fn bash_data(id: &str) -> Value {
 
 /// Run the headless plan and return the outcome. Holds the run lock: mouse tracking is
 /// process-global.
-fn run_plan(steps: Vec<HeadlessStep>) -> pa_tui::interactive::InteractiveOutcome {
+fn run_plan(steps: Vec<HeadlessStep>) -> aa_tui::interactive::InteractiveOutcome {
     let _guard = run_lock();
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("tui.sock");
@@ -223,7 +223,7 @@ fn locate(frames: &[String], needle: &str) -> Option<(usize, usize)> {
 /// multi-byte, so the byte offset a `find` returns would land wide of the marked cell.
 fn visible_col(line: &str, needle: &str) -> Option<usize> {
     let byte = line.find(needle)?;
-    Some(line[..byte].chars().map(pa_tui::width::char_width).sum())
+    Some(line[..byte].chars().map(aa_tui::width::char_width).sum())
 }
 
 /// The focused Enter's dispatch, arrived at by the mouse.

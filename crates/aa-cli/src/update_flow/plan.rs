@@ -6,12 +6,12 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
-use pa_core::update::install::{
+use aa_core::update::install::{
     current_platform_alias, read_installation, read_rollback_installation, running_release,
     RunningRelease, CURRENT_LAUNCHER,
 };
-use pa_core::update::release::{artifact_for_platform, latest_release};
-use pa_core::update::version::{
+use aa_core::update::release::{artifact_for_platform, latest_release};
+use aa_core::update::version::{
     has_prerelease_tag, is_base_version_downgrade, is_release_update_candidate,
     resolve_update_channel, UpdateChannel,
 };
@@ -117,7 +117,7 @@ pub async fn plan(
     // name the same release (a launcher pointing elsewhere selected an obsolete
     // train over newer code).
     let running = running_release_anchor().map_err(|error| {
-        anyhow!("This binary does not run from a managed release directory: {error:#}. Update from a binary installed by the Prime Agent installer.")
+        anyhow!("This binary does not run from a managed release directory: {error:#}. Update from a binary installed by the Async Agent installer.")
     })?;
     // The directory's version and the binary's own report must agree:
     // a release directory named around a binary it lacks is inconsistent.
@@ -152,7 +152,7 @@ pub async fn plan(
         });
     };
     if release.version.is_empty()
-        || pa_core::update::version::parse_package_version(&release.version).is_none()
+        || aa_core::update::version::parse_package_version(&release.version).is_none()
     {
         return Ok(UpdatePlan::Skipped {
             reason: "Could not resolve a compiled release; the installed version was kept."

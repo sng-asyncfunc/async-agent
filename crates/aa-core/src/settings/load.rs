@@ -154,9 +154,9 @@ mod tests {
 
     #[test]
     fn clean_document_strict_parses() {
-        let value: Value = serde_json::json!({ "theme": "prime", "rlmMaxDepth": 4 });
+        let value: Value = serde_json::json!({ "theme": "async", "rlmMaxDepth": 4 });
         let settings = from_value_lenient(&value);
-        assert_eq!(settings.theme.as_deref(), Some("prime"));
+        assert_eq!(settings.theme.as_deref(), Some("async"));
         assert_eq!(settings.rlm_max_depth, Some(4));
     }
 

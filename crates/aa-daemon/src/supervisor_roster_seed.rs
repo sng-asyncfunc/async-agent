@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use pa_types::daemon::agent_roster::{roster_agent_id_for_summary, AgentRosterEntry};
+use aa_types::daemon::agent_roster::{roster_agent_id_for_summary, AgentRosterEntry};
 use serde_json::{json, Value};
 
 use crate::lease::canonical_session_path;
@@ -464,7 +464,7 @@ pub(crate) mod tests {
     use crate::registry::ResidentWorker;
     use crate::rlm_ledger::RlmLedgerEdge;
     use crate::supervisor::ClientRouting;
-    use pa_types::daemon::agent_roster::AgentRosterStatus;
+    use aa_types::daemon::agent_roster::AgentRosterStatus;
     use serde_json::Map;
 
     fn edge(child_id: &str, parent: &str, child: &str, depth: u32, name: &str) -> RlmLedgerEdge {
@@ -663,7 +663,7 @@ pub(crate) mod tests {
         worker_id: &str,
         session_file: &Path,
     ) {
-        let descriptor = pa_types::daemon::DaemonWorkerDescriptor {
+        let descriptor = aa_types::daemon::DaemonWorkerDescriptor {
             version: 1,
             worker_id: worker_id.to_string(),
             pid: 4242,
@@ -687,8 +687,8 @@ pub(crate) mod tests {
             telemetry_disabled: Some(true),
             created_at: "t".to_string(),
             updated_at: "t".to_string(),
-            lifecycle: pa_types::daemon::DaemonWorkerLifecycle::Ready,
-            create_command: pa_types::daemon::DurableDaemonCreateCommand {
+            lifecycle: aa_types::daemon::DaemonWorkerLifecycle::Ready,
+            create_command: aa_types::daemon::DurableDaemonCreateCommand {
                 session_path: None,
                 no_session: None,
                 rest: Map::default(),

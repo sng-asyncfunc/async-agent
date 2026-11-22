@@ -6,10 +6,10 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use pa_agent::abort::AbortSignal;
-use pa_core::session_engine::provider_adapter::json_round_trip;
-use pa_core::session_engine::provider_retry::{ProviderRetryPolicy, UNBOUNDED_BACKOFF_MS};
-use pa_core::session_engine::side_question::{SideQuestionSink, SideQuestionTurn};
+use aa_agent::abort::AbortSignal;
+use aa_core::session_engine::provider_adapter::json_round_trip;
+use aa_core::session_engine::provider_retry::{ProviderRetryPolicy, UNBOUNDED_BACKOFF_MS};
+use aa_core::session_engine::side_question::{SideQuestionSink, SideQuestionTurn};
 use serde_json::{json, Value};
 
 mod wire;
@@ -33,14 +33,14 @@ pub trait SessionEngine: Send + Sync {
     /// `replace_acp_mcp_servers` command writes through it.
     fn acp_mcp_manager(
         &self,
-    ) -> Option<std::sync::Arc<std::sync::Mutex<pa_core::mcp::McpManager>>> {
+    ) -> Option<std::sync::Arc<std::sync::Mutex<aa_core::mcp::McpManager>>> {
         None
     }
 
     /// The session's current goal state as the wire `GoalState` value.
     /// Engines without thread goals report the empty state.
     fn goal_state_value(&self) -> Value {
-        serde_json::to_value(pa_core::goals::empty_goal_state()).unwrap_or(Value::Null)
+        serde_json::to_value(aa_core::goals::empty_goal_state()).unwrap_or(Value::Null)
     }
 
     /// Purge the queued goal-context turns: withdraw minted continuations
@@ -151,7 +151,7 @@ pub trait SessionEngine: Send + Sync {
     /// Errors when the armed round itself fails (its model call).
     fn consume_compact_auto_refine(
         &self,
-    ) -> anyhow::Result<Option<pa_core::refinement::RefinementResult>> {
+    ) -> anyhow::Result<Option<aa_core::refinement::RefinementResult>> {
         Ok(None)
     }
 
@@ -173,8 +173,8 @@ pub trait SessionEngine: Send + Sync {
     /// Errors when the live-context rebuild fails.
     fn rebuild_session_context(
         &self,
-        branch_entries: Vec<pa_types::session::FileEntry>,
-        goal_reload: pa_core::session_engine::goal_driver::GoalBranchReload,
+        branch_entries: Vec<aa_types::session::FileEntry>,
+        goal_reload: aa_core::session_engine::goal_driver::GoalBranchReload,
     ) -> Result<()>;
 
     /// The `goal_update` payload for a goal state change published outside
@@ -269,14 +269,14 @@ pub trait SessionEngine: Send + Sync {
     /// scoped model or the saved default; continuing sessions keep their own.
     fn configure_startup_scope(
         &self,
-        _scoped_models: Vec<pa_core::models::ScopedModel>,
+        _scoped_models: Vec<aa_core::models::ScopedModel>,
         _patterns: Vec<String>,
         _is_continuing: bool,
     ) {
     }
 
     /// Set the session's resolved service-tier preference before the next request.
-    fn configure_service_tier(&self, _tier: Option<pa_types::ai::ServiceTier>) {}
+    fn configure_service_tier(&self, _tier: Option<aa_types::ai::ServiceTier>) {}
 
     /// The effective thinking level as a wire name (`"off"`, `"minimal"`, ...):
     /// the create-config flag (else the settings default, else `"medium"`),
@@ -345,7 +345,7 @@ pub trait SessionEngine: Send + Sync {
 
     /// Apply a live thinking-level switch (`set_thinking_level`): the
     /// level merges over the selection, clamped to the supported levels.
-    fn switch_thinking_level(&self, _level: pa_types::ai::ModelThinkingLevel) -> bool {
+    fn switch_thinking_level(&self, _level: aa_types::ai::ModelThinkingLevel) -> bool {
         false
     }
 
@@ -371,7 +371,7 @@ pub trait SessionEngine: Send + Sync {
         &self,
     ) -> std::pin::Pin<
         Box<
-            dyn std::future::Future<Output = Option<pa_core::autonomous::AgentAutonomousStatus>>
+            dyn std::future::Future<Output = Option<aa_core::autonomous::AgentAutonomousStatus>>
                 + Send
                 + '_,
         >,
@@ -450,7 +450,7 @@ pub trait SessionEngine: Send + Sync {
     /// resolution, the session build, or the round fails.
     fn run_refinement(
         &self,
-        options: pa_core::session_engine::refine::RefineOptions,
+        options: aa_core::session_engine::refine::RefineOptions,
     ) -> Result<Value> {
         let _ = options;
         anyhow::bail!("This session does not support refinement")

@@ -3,13 +3,13 @@
 
 use std::path::{Path, PathBuf};
 
-use pa_core::agent_traces::{
+use aa_core::agent_traces::{
     agent_traces_log_path, preview_trace_file, trace_credential, upload_all_traces,
     upload_trace_file, TracePreviewResult, TraceUploadAllOptions, TraceUploadAllProgress,
     TraceUploadCancel as EngineCancel, TraceUploadOptions, TraceUploadResult,
     DEFAULT_REQUEST_TIMEOUT_MS,
 };
-use pa_tui::traces::{
+use aa_tui::traces::{
     TraceLoginOutcome, TracePreviewInfo, TracePreviewOutcome, TraceUploadAllNote,
     TraceUploadAllNoteSender, TraceUploadAllReport, TraceUploadCancel, TraceUploadOutcome,
     TraceUploadReport, TracesCommands, TracesFuture,
@@ -29,19 +29,19 @@ impl ClientTraces {
         }
     }
 
-    fn settings(&self) -> pa_core::settings::SettingsManager {
-        pa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
+    fn settings(&self) -> aa_core::settings::SettingsManager {
+        aa_core::settings::SettingsManager::create(&self.cwd, &self.agent_dir)
     }
 
-    /// TS `getPrimeAgentTraceCredential` precedence: the traces env key,
-    /// the stored `prime-agent-traces` credential, the Prime env key, and
+    /// TS `getAsyncAgentTraceCredential` precedence: the traces env key,
+    /// the stored `async-agent-traces` credential, the Prime env key, and
     /// the stored prime-inference credential.
     fn credential_inner(&self) -> Option<String> {
         trace_credential(&self.agent_dir).map(|credential| credential.label)
     }
 
     async fn upload_once(&self, session_file: Option<&str>) -> TraceUploadReport {
-        let http = pa_core::agent_traces::ReqwestTraceHttp;
+        let http = aa_core::agent_traces::ReqwestTraceHttp;
         let session_file = session_file.map(PathBuf::from);
         let options = TraceUploadOptions {
             session_file: session_file.as_deref(),
@@ -171,7 +171,7 @@ impl TracesCommands for ClientTraces {
         let cwd = self.cwd.clone();
         let agent_dir = self.agent_dir.clone();
         Box::pin(async move {
-            let http = pa_core::agent_traces::ReqwestTraceHttp;
+            let http = aa_core::agent_traces::ReqwestTraceHttp;
             let engine_cancel = EngineCancel::new();
             let bridge = {
                 let tui_handle = cancel.clone();
@@ -227,7 +227,7 @@ impl TracesCommands for ClientTraces {
 
     /// The login flow against the inline auth panel; the panel channel
     /// carries the flow's surfaces and the settled outcome.
-    fn login(&self, panel: pa_tui::auth_panel::AuthPanelHandle) -> TracesFuture<TraceLoginOutcome> {
+    fn login(&self, panel: aa_tui::auth_panel::AuthPanelHandle) -> TracesFuture<TraceLoginOutcome> {
         let agent_dir = self.agent_dir.clone();
         Box::pin(async move { crate::traces_login::run_traces_login(&agent_dir, panel).await })
     }
@@ -274,15 +274,15 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn the_credential_labels_follow_the_ts_precedence() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_API_KEY");
+        std::env::remove_var("ASYNC_AGENT_TRACES_API_KEY");
         std::env::remove_var("PRIME_API_KEY");
         let (_dir, agent) = temp_agent_dir();
         let traces = ClientTraces::new("/tmp", agent.clone());
         assert_eq!(traces.credential().await, None);
-        let mut auth = pa_core::auth::AuthStorage::create(&agent);
+        let mut auth = aa_core::auth::AuthStorage::create(&agent);
         auth.set(
             "prime-inference",
-            pa_core::auth::AuthCredential::ApiKey {
+            aa_core::auth::AuthCredential::ApiKey {
                 key: "k".to_string(),
                 prime_team: None,
             },
@@ -292,22 +292,22 @@ mod tests {
             Some("Prime Inference credential")
         );
         auth.set(
-            "prime-agent-traces",
-            pa_core::auth::AuthCredential::ApiKey {
+            "async-agent-traces",
+            aa_core::auth::AuthCredential::ApiKey {
                 key: "t".to_string(),
                 prime_team: None,
             },
         );
         assert_eq!(
             traces.credential().await.as_deref(),
-            Some("Prime Agent Traces credential")
+            Some("Async Agent Traces credential")
         );
-        std::env::set_var("PRIME_AGENT_TRACES_API_KEY", "env-key");
+        std::env::set_var("ASYNC_AGENT_TRACES_API_KEY", "env-key");
         assert_eq!(
             traces.credential().await.as_deref(),
-            Some("PRIME_AGENT_TRACES_API_KEY")
+            Some("ASYNC_AGENT_TRACES_API_KEY")
         );
-        std::env::remove_var("PRIME_AGENT_TRACES_API_KEY");
+        std::env::remove_var("ASYNC_AGENT_TRACES_API_KEY");
     }
 
     #[tokio::test]
@@ -345,7 +345,7 @@ mod tests {
     #[allow(clippy::await_holding_lock)]
     async fn the_report_formats_the_engine_rows() {
         let _env = env_lock();
-        std::env::remove_var("PRIME_AGENT_TRACES_API_KEY");
+        std::env::remove_var("ASYNC_AGENT_TRACES_API_KEY");
         std::env::remove_var("PRIME_API_KEY");
         let (_dir, agent) = temp_agent_dir();
         let traces = ClientTraces::new("/tmp", agent.clone());

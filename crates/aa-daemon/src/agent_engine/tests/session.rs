@@ -152,7 +152,7 @@ fn a_side_question_bills_the_session_it_ran_on() {
         .blocking_lock()
         .clone()
         .expect("built session");
-    let sink: pa_core::session_engine::side_question::SideQuestionSink =
+    let sink: aa_core::session_engine::side_question::SideQuestionSink =
         std::sync::Arc::new(|_| true);
     let outcome = engine.run_side_question(
         crate::engine::SideQuestionRequest {
@@ -160,7 +160,7 @@ fn a_side_question_bills_the_session_it_ran_on() {
             question: "why?".to_string(),
             previous_turns: Vec::new(),
         },
-        &pa_agent::abort::AbortController::new().signal(),
+        &aa_agent::abort::AbortController::new().signal(),
         &sink,
     );
     assert!(
@@ -231,7 +231,7 @@ async fn replacement_teardown_retires_the_session_and_the_funnel_adopts_the_bran
             use crate::engine::SessionEngine as _;
             engine.rebuild_session_context(
                 branch,
-                pa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch,
+                aa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch,
             )
         })
         .await
@@ -262,10 +262,10 @@ async fn replacement_teardown_retires_the_session_and_the_funnel_adopts_the_bran
         .messages
         .iter()
         .filter_map(|message| match message {
-            pa_agent::types::AgentMessage::Standard(pa_agent::types::Message::User(user)) => {
+            aa_agent::types::AgentMessage::Standard(aa_agent::types::Message::User(user)) => {
                 match &user.content {
-                    pa_agent::types::UserContent::Text(text) => Some(text.clone()),
-                    pa_agent::types::UserContent::Parts(_) => None,
+                    aa_agent::types::UserContent::Text(text) => Some(text.clone()),
+                    aa_agent::types::UserContent::Parts(_) => None,
                 }
             }
             _ => None,
@@ -325,7 +325,7 @@ async fn live_branch_rebuild_reloads_the_goal_state_from_the_moved_branch() {
             // store form carries no header row).
             entries
                 .iter()
-                .filter(|entry| !matches!(entry, pa_types::session::FileEntry::Header { .. }))
+                .filter(|entry| !matches!(entry, aa_types::session::FileEntry::Header { .. }))
                 .cloned()
                 .collect::<Vec<_>>()
         })
@@ -347,7 +347,7 @@ async fn live_branch_rebuild_reloads_the_goal_state_from_the_moved_branch() {
             use crate::engine::SessionEngine as _;
             engine.rebuild_session_context(
                 branch,
-                pa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch,
+                aa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch,
             )
         })
         .await
@@ -370,7 +370,7 @@ async fn live_branch_rebuild_reloads_the_goal_state_from_the_moved_branch() {
             use crate::engine::SessionEngine as _;
             engine.rebuild_session_context(
                 goal_branch,
-                pa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch,
+                aa_core::session_engine::goal_driver::GoalBranchReload::FaithfulBranch,
             )
         })
         .await
@@ -399,8 +399,8 @@ fn core_session_user_texts(engine: &AgentSessionEngine) -> Vec<String> {
                 .await
                 .iter()
                 .filter_map(|entry| match entry {
-                    pa_types::session::FileEntry::Message {
-                        message: pa_types::session::AgentMessage::User(user),
+                    aa_types::session::FileEntry::Message {
+                        message: aa_types::session::AgentMessage::User(user),
                         ..
                     } => Some(user.content.text()),
                     _ => None,
@@ -488,7 +488,7 @@ fn a_bare_skill_invocation_admits_with_the_no_task_instruction() {
         .iter()
         .find(|text| text.starts_with("<skill"))
         .unwrap_or_else(|| panic!("the accepted row carries the expanded block: {texts:?}"));
-    let parsed = pa_types::skill_blocks::parse_skill_block(row)
+    let parsed = aa_types::skill_blocks::parse_skill_block(row)
         .unwrap_or_else(|| panic!("the accepted row parses as a skill block: {row:?}"));
     assert_eq!(parsed.name, "demo-skill");
     assert_eq!(
@@ -517,7 +517,7 @@ fn a_skill_invocation_with_args_persists_the_block_and_the_args() {
         .iter()
         .find(|text| text.starts_with("<skill"))
         .unwrap_or_else(|| panic!("the accepted row carries the expanded block: {texts:?}"));
-    let parsed = pa_types::skill_blocks::parse_skill_block(row)
+    let parsed = aa_types::skill_blocks::parse_skill_block(row)
         .unwrap_or_else(|| panic!("the accepted row parses as a skill block: {row:?}"));
     assert_eq!(parsed.name, "demo-skill");
     assert_eq!(
@@ -547,7 +547,7 @@ fn a_batched_bare_skill_row_admits_on_the_floored_text() {
         .iter()
         .find(|text| text.starts_with("<skill"))
         .unwrap_or_else(|| panic!("the batched row carries the expanded block: {texts:?}"));
-    let parsed = pa_types::skill_blocks::parse_skill_block(row)
+    let parsed = aa_types::skill_blocks::parse_skill_block(row)
         .unwrap_or_else(|| panic!("the batched row parses as a skill block: {row:?}"));
     assert_eq!(parsed.name, "demo-skill");
     assert_eq!(
@@ -577,7 +577,7 @@ fn a_bare_invocation_of_a_close_tagged_body_still_floors() {
         .iter()
         .find(|text| text.starts_with("<skill"))
         .unwrap_or_else(|| panic!("the accepted row carries the expanded block: {texts:?}"));
-    let parsed = pa_types::skill_blocks::parse_skill_block(row)
+    let parsed = aa_types::skill_blocks::parse_skill_block(row)
         .unwrap_or_else(|| panic!("the close-tagged body still parses: {row:?}"));
     assert_eq!(parsed.name, "demo-skill");
     assert!(
@@ -616,38 +616,38 @@ fn an_unbuilt_engine_branch_summary_carries_the_request_session_id() {
     .unwrap();
     let model = engine.resolve_model().expect("faux model");
     assert!(engine.session.blocking_lock().is_none(), "no session built");
-    let recorder = pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+    let recorder = aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
         api: Some(model.api),
         provider: Some("faux".to_string()),
         ..Default::default()
     });
     let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let sink = std::sync::Arc::clone(&seen);
-    recorder.set_responses(vec![pa_ai::faux::FauxResponseStep::Factory(
+    recorder.set_responses(vec![aa_ai::faux::FauxResponseStep::Factory(
         std::sync::Arc::new(
-            move |_context: &pa_types::ai::Context,
-                  options: Option<&pa_ai::types::StreamOptions>,
+            move |_context: &aa_types::ai::Context,
+                  options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  _model: &pa_types::ai::Model| {
+                  _model: &aa_types::ai::Model| {
                 sink.lock()
                     .unwrap()
                     .push(options.and_then(|options| options.session_id.clone()));
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     "## Goal\nexplore the tree",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ),
     )]);
     let outcome = engine.run_branch_summary(
         crate::engine::BranchSummaryRequest {
-            entries: vec![pa_types::session::FileEntry::Message {
-                message: pa_types::session::AgentMessage::User(pa_types::ai::UserMessage {
-                    content: pa_types::ai::UserContent::Text("explore the widget".to_string()),
+            entries: vec![aa_types::session::FileEntry::Message {
+                message: aa_types::session::AgentMessage::User(aa_types::ai::UserMessage {
+                    content: aa_types::ai::UserContent::Text("explore the widget".to_string()),
                     timestamp: 0,
                     rest: Map::default(),
                 }),
-                base: pa_types::session::EntryBase {
+                base: aa_types::session::EntryBase {
                     id: Some("e0".to_string()),
                     parent_id: None,
                     timestamp: Some("2024-01-01T00:00:00.000Z".to_string()),
@@ -658,7 +658,7 @@ fn an_unbuilt_engine_branch_summary_carries_the_request_session_id() {
             replace_instructions: false,
             session_id: "durable-session".to_string(),
         },
-        &pa_agent::abort::AbortController::new().signal(),
+        &aa_agent::abort::AbortController::new().signal(),
     );
     recorder.unregister();
     assert!(
@@ -720,7 +720,7 @@ fn an_injected_custom_row_without_a_timestamp_admits_the_turn() {
     // default-filled clock rides it, so the frames clients get and the
     // model context hold one representation (the frame/context pair is
     // pinned end to end at the worker delivery seam; the default itself at
-    // the pa-types seam).
+    // the aa-types seam).
     let parse_failed = events.iter().any(|event| {
         matches!(event, EngineEvent::Done(Err(message)) if message.contains("parse failed"))
     });
@@ -765,7 +765,7 @@ fn the_parse_failure_log_line_carries_the_senders_identity_not_the_payload() {
     });
     // A real seam-shaped parse failure (content is the wrong shape for
     // UserContent), exactly the kind the diagnostic logs.
-    let error = serde_json::from_value::<pa_types::session::AgentMessage>(serde_json::json!({
+    let error = serde_json::from_value::<aa_types::session::AgentMessage>(serde_json::json!({
         "role": "custom",
         "customType": "queued.note",
         "content": 123,

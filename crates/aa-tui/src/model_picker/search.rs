@@ -1,4 +1,4 @@
-use pa_types::ai::Model;
+use aa_types::ai::Model;
 /// Match quality for the scored search (lower sorts first).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum MatchQuality {

@@ -46,7 +46,7 @@ pub struct MarkdownStyle {
 impl Default for MarkdownStyle {
     fn default() -> Self {
         Self::from_theme(&crate::theme::Theme::builtin(
-            "prime",
+            "async",
             crate::theme::ColorMode::TrueColor,
         ))
     }

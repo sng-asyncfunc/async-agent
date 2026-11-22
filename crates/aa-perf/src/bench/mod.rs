@@ -48,7 +48,7 @@ pub enum Scenario {
 /// Every bench knob for one scenario over one corpus.
 #[derive(Debug, Clone)]
 pub struct BenchOptions {
-    /// The release binary under test (`target/release/prime-agent`).
+    /// The release binary under test (`target/release/async-agent`).
     pub binary: PathBuf,
     /// The corpus root (holds `corpus.json`).
     pub corpus: PathBuf,

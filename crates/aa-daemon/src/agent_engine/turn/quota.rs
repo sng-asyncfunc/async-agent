@@ -8,8 +8,8 @@ impl AgentSessionEngine {
     /// The quota-park policy from settings (`retry.provider.waitForUsage`).
     pub(in crate::agent_engine) fn park_policy(
         &self,
-    ) -> pa_core::session_engine::provider_park::ProviderParkPolicy {
-        pa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir)
+    ) -> aa_core::session_engine::provider_park::ProviderParkPolicy {
+        aa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir)
             .get_provider_park_policy()
     }
 
@@ -32,20 +32,20 @@ impl AgentSessionEngine {
         let binding = self.kernel_cron_binding()?;
         let schedule_text = format!(
             "at {}",
-            pa_core::session::manager::format_iso(resume_at_ms as i64)
+            aa_core::session::manager::format_iso(resume_at_ms as i64)
         );
         let job = wiring
             .store
-            .create(&pa_core::cron::store::CreateAgentCronJobInput {
+            .create(&aa_core::cron::store::CreateAgentCronJobInput {
                 active_session_id: binding.active_session_id.clone(),
                 session_id: binding.session_id.clone(),
                 session_file: binding.session_file.clone(),
                 cwd: binding.cwd.clone(),
                 source: Some("quota_resume".to_string()),
                 label: Some(
-                    pa_core::session_engine::provider_park::QUOTA_RESUME_CRON_LABEL.to_string(),
+                    aa_core::session_engine::provider_park::QUOTA_RESUME_CRON_LABEL.to_string(),
                 ),
-                prompt: pa_core::session_engine::provider_park::QUOTA_RESUME_MARKER_TEXT
+                prompt: aa_core::session_engine::provider_park::QUOTA_RESUME_MARKER_TEXT
                     .to_string(),
                 schedule_text,
                 now: Some(crate::util::now_ms()),
@@ -55,7 +55,7 @@ impl AgentSessionEngine {
         // Re-arm the scheduler so the armed job gets a live timer
         // (`drop_queued: false` keeps the queued-fire withdrawal a no-op).
         if let Some(hook) = &wiring.mutation_hook {
-            let mutation = pa_core::session_engine::host_requests::RlmHeartbeatMutation {
+            let mutation = aa_core::session_engine::host_requests::RlmHeartbeatMutation {
                 job: job.clone(),
                 drop_queued: false,
             };
@@ -73,7 +73,7 @@ impl AgentSessionEngine {
             .store
             .list()
             .iter()
-            .any(|job| job.id == job_id && job.status == pa_core::cron::JobStatus::Active);
+            .any(|job| job.id == job_id && job.status == aa_core::cron::JobStatus::Active);
         if matches_job {
             if let Err(error) = wiring.store.cancel(job_id, crate::util::now_ms()) {
                 eprintln!("failed to cancel quota resume job: {error}");
@@ -87,10 +87,10 @@ impl AgentSessionEngine {
     /// keep the give-up.
     pub(in crate::agent_engine) async fn park_for_quota_reset(
         &self,
-        message: &pa_agent::types::AssistantMessage,
+        message: &aa_agent::types::AssistantMessage,
         abort: &str,
-    ) -> Option<pa_core::session_engine::provider_park::ProviderParkOutcome> {
-        use pa_core::session_engine::provider_park::{
+    ) -> Option<aa_core::session_engine::provider_park::ProviderParkOutcome> {
+        use aa_core::session_engine::provider_park::{
             is_quota_block_failure, provider_park_decision, quota_failure_reset_ms,
             quota_parked_final_error, NoParkReason, ProviderParkDecision, ProviderParkOutcome,
         };
@@ -150,11 +150,11 @@ impl AgentSessionEngine {
                         .await
                     {
                         eprintln!(
-                            "pa-daemon: quota park wake-rebuild entry write failed: {write_error}"
+                            "aa-daemon: quota park wake-rebuild entry write failed: {write_error}"
                         );
                     }
                 }
-                let resume_at_iso = pa_core::session::manager::format_iso(resume_at_ms as i64);
+                let resume_at_iso = aa_core::session::manager::format_iso(resume_at_ms as i64);
                 return Some(ProviderParkOutcome {
                     status_message: format!(
                         "Session is parked until {resume_at_iso} waiting for the provider usage reset; this turn ended without a retry: {error}",
@@ -216,7 +216,7 @@ impl AgentSessionEngine {
         {
             self.cancel_quota_resume_job(&job_id);
             eprintln!(
-                "pa-daemon: quota park entry write failed, the park is declined: {write_error}"
+                "aa-daemon: quota park entry write failed, the park is declined: {write_error}"
             );
             return None;
         }
@@ -242,7 +242,7 @@ impl AgentSessionEngine {
         &self,
         park: QuotaParkState,
         error: &str,
-    ) -> Option<pa_core::session_engine::provider_park::ProviderParkOutcome> {
+    ) -> Option<aa_core::session_engine::provider_park::ProviderParkOutcome> {
         let retries = park.wake_retries + 1;
         if retries > QUOTA_WAKE_MAX_RETRIES {
             if let Some(job_id) = &park.job_id {
@@ -271,7 +271,7 @@ impl AgentSessionEngine {
         {
             self.cancel_quota_resume_job(&job_id);
             eprintln!(
-                "pa-daemon: quota park entry write failed, the re-armed wake is dropped: {write_error}"
+                "aa-daemon: quota park entry write failed, the re-armed wake is dropped: {write_error}"
             );
             // The spent park cannot stay live without a wake.
             *self
@@ -290,8 +290,8 @@ impl AgentSessionEngine {
             .quota_park
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(state);
-        let resume_at_iso = pa_core::session::manager::format_iso(resume_at_ms as i64);
-        Some(pa_core::session_engine::provider_park::ProviderParkOutcome {
+        let resume_at_iso = aa_core::session::manager::format_iso(resume_at_ms as i64);
+        Some(aa_core::session_engine::provider_park::ProviderParkOutcome {
             status_message: format!(
                 "Session is parked until {resume_at_iso} waiting for the provider usage reset; this turn ended without a retry: {error}"
             ),
@@ -314,11 +314,11 @@ impl AgentSessionEngine {
         // so a failed write surfaces as a log; the restart's arms own
         // the recovery.
         if let Err(write_error) = session.append_custom_entry(
-            pa_core::session_engine::provider_park::PROVIDER_QUOTA_RESUME_ENTRY,
+            aa_core::session_engine::provider_park::PROVIDER_QUOTA_RESUME_ENTRY,
             Some(serde_json::json!({ "outcome": outcome })),
         ) {
             eprintln!(
-                "pa-daemon: quota resume entry write failed (outcome {outcome}): {write_error}"
+                "aa-daemon: quota resume entry write failed (outcome {outcome}): {write_error}"
             );
         }
     }
@@ -331,7 +331,7 @@ impl AgentSessionEngine {
             .store
             .list()
             .iter()
-            .any(|job| job.id == job_id && job.status == pa_core::cron::JobStatus::Active)
+            .any(|job| job.id == job_id && job.status == aa_core::cron::JobStatus::Active)
     }
 
     /// Record the parked transition in the session log, so a restart
@@ -341,7 +341,7 @@ impl AgentSessionEngine {
     pub(in crate::agent_engine) async fn append_quota_park_entry(
         &self,
         persistence: Option<
-            std::sync::Arc<tokio::sync::Mutex<pa_core::session::manager::SessionManager>>,
+            std::sync::Arc<tokio::sync::Mutex<aa_core::session::manager::SessionManager>>,
         >,
         resume_at_ms: u64,
         park_count: u32,
@@ -349,7 +349,7 @@ impl AgentSessionEngine {
         provider: Option<&str>,
     ) -> std::io::Result<()> {
         let data = serde_json::json!({
-            "resumeAt": pa_core::session::manager::format_iso(resume_at_ms as i64),
+            "resumeAt": aa_core::session::manager::format_iso(resume_at_ms as i64),
             "parkCount": park_count,
             "jobId": job_id,
             "provider": provider,
@@ -360,7 +360,7 @@ impl AgentSessionEngine {
         let mut session = persistence.lock().await;
         session
             .append_custom_entry(
-                pa_core::session_engine::provider_park::PROVIDER_QUOTA_PARK_ENTRY,
+                aa_core::session_engine::provider_park::PROVIDER_QUOTA_PARK_ENTRY,
                 Some(data),
             )
             .map(|_| ())
@@ -368,7 +368,7 @@ impl AgentSessionEngine {
 
     async fn installed_persistence(
         &self,
-    ) -> Option<std::sync::Arc<tokio::sync::Mutex<pa_core::session::manager::SessionManager>>> {
+    ) -> Option<std::sync::Arc<tokio::sync::Mutex<aa_core::session::manager::SessionManager>>> {
         self.session
             .lock()
             .await
@@ -407,7 +407,7 @@ impl AgentSessionEngine {
             sink(crate::engine::GoalTurnEndWork::Continuation(
                 crate::engine::GoalContinuation {
                     request: crate::engine::PromptRequest {
-                        message: pa_core::session_engine::provider_park::QUOTA_RESUME_MARKER_TEXT
+                        message: aa_core::session_engine::provider_park::QUOTA_RESUME_MARKER_TEXT
                             .to_string(),
                         images: Vec::new(),
                         source: "user".to_string(),

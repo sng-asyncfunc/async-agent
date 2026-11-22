@@ -1,8 +1,8 @@
 {
-	"name": "@prime-agent/skill-agent-message",
+	"name": "@async-agent/skill-agent-message",
 	"private": true,
 	"type": "module",
-	"primeAgent": {
+	"asyncAgent": {
 		"entry": "src/index.ts",
 		"global": "agentMessage"
 	}

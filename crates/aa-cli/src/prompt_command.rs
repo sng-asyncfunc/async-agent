@@ -1,8 +1,8 @@
-//! `prime-agent prompt`: dump the fully-assembled effective system prompt with
+//! `async-agent prompt`: dump the fully-assembled effective system prompt with
 //! its per-layer breakdown, without starting a session or a provider.
 
-use pa_core::resources::{load_resources, LoadedResources, ResourceLoaderOptions};
-use pa_core::settings::SettingsManager;
+use aa_core::resources::{load_resources, LoadedResources, ResourceLoaderOptions};
+use aa_core::settings::SettingsManager;
 
 use crate::config::get_agent_dir;
 
@@ -48,7 +48,7 @@ pub fn run_prompt_command(args: &[String]) -> i32 {
         Err(help_request) if help_request.is_empty() => return 0,
         Err(error) => {
             eprintln!("Error: {error}");
-            eprintln!("Run `prime-agent help prompt` for usage.");
+            eprintln!("Run `async-agent help prompt` for usage.");
             return 1;
         }
     };
@@ -86,7 +86,7 @@ pub(crate) fn load_session_resources(
 ) -> anyhow::Result<(LoadedResources, Vec<String>)> {
     let settings = SettingsManager::create(cwd, agent_dir);
     let (skill_overrides, generic_servers, _manager) =
-        pa_core::resources::mcp_gating(settings.global_settings(), agent_dir);
+        aa_core::resources::mcp_gating(settings.global_settings(), agent_dir);
     let resources = load_resources(ResourceLoaderOptions {
         settings: Some(settings),
         extra_builtin_skill_overrides: skill_overrides,
@@ -99,12 +99,12 @@ pub(crate) fn load_session_resources(
 fn assemble_breakdown(
     cwd: &std::path::Path,
     model: Option<&str>,
-) -> anyhow::Result<(pa_core::prompts::SystemPromptBreakdown, Vec<String>)> {
+) -> anyhow::Result<(aa_core::prompts::SystemPromptBreakdown, Vec<String>)> {
     let agent_dir = get_agent_dir();
-    let model_prompts = pa_core::prompts::model_prompts::load_model_prompts(model, &agent_dir);
+    let model_prompts = aa_core::prompts::model_prompts::load_model_prompts(model, &agent_dir);
     let (resources, generic_servers) = load_session_resources(cwd, &agent_dir)?;
-    let breakdown = pa_core::prompts::system_prompt::system_prompt_breakdown(
-        &pa_core::prompts::BuildSystemPromptOptions {
+    let breakdown = aa_core::prompts::system_prompt::system_prompt_breakdown(
+        &aa_core::prompts::BuildSystemPromptOptions {
             cwd: cwd.display().to_string(),
             // A dump has no session file; the tail states the value it uses.
             messages_path: None,
@@ -117,7 +117,7 @@ fn assemble_breakdown(
             skills: resources.skills.clone(),
             // The shipped model-tool surface: `javascript` only; bash/edit are kernel-resident
             // programmatic tools.
-            selected_tools: Some(vec![pa_types::ai::JAVASCRIPT_TOOL_NAME]),
+            selected_tools: Some(vec![aa_types::ai::JAVASCRIPT_TOOL_NAME]),
             allow_recursion: Some(true),
             generic_mcp_servers: generic_servers,
             rlm_depth: Some(0),
@@ -128,18 +128,18 @@ fn assemble_breakdown(
     Ok((breakdown, model_prompts.errors))
 }
 
-fn print_text(breakdown: &pa_core::prompts::SystemPromptBreakdown) {
-    println!("# prime-agent system prompt breakdown");
+fn print_text(breakdown: &aa_core::prompts::SystemPromptBreakdown) {
+    println!("# async-agent system prompt breakdown");
     println!();
     println!("cached prefix (static layers, byte-stable across sessions):");
     for segment in &breakdown.segments {
-        if segment.kind == pa_core::prompts::SegmentKind::Static {
+        if segment.kind == aa_core::prompts::SegmentKind::Static {
             print_segment(segment);
         }
     }
     println!("dynamic tail (session-specific, appended after the cached prefix):");
     for segment in &breakdown.segments {
-        if segment.kind == pa_core::prompts::SegmentKind::Dynamic {
+        if segment.kind == aa_core::prompts::SegmentKind::Dynamic {
             print_segment(segment);
         }
     }
@@ -153,7 +153,7 @@ fn print_text(breakdown: &pa_core::prompts::SystemPromptBreakdown) {
     println!("{}", breakdown.assembled);
 }
 
-fn print_segment(segment: &pa_core::prompts::PromptSegment) {
+fn print_segment(segment: &aa_core::prompts::PromptSegment) {
     println!(
         "  {:<20} {:<38} {:>7} chars",
         segment.name,
@@ -162,14 +162,14 @@ fn print_segment(segment: &pa_core::prompts::PromptSegment) {
     );
 }
 
-fn print_json(breakdown: &pa_core::prompts::SystemPromptBreakdown) {
+fn print_json(breakdown: &aa_core::prompts::SystemPromptBreakdown) {
     let segments = breakdown
         .segments
         .iter()
         .map(|segment| {
             serde_json::json!({
                 "name": segment.name,
-                "kind": if segment.kind == pa_core::prompts::SegmentKind::Static { "static" } else { "dynamic" },
+                "kind": if segment.kind == aa_core::prompts::SegmentKind::Static { "static" } else { "dynamic" },
                 "source": segment.source,
                 "chars": segment.text.chars().count(),
             })
@@ -222,7 +222,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let (breakdown, errors) = assemble_breakdown(dir.path(), Some("mock/mock-1")).unwrap();
         assert!(errors.is_empty());
-        assert!(breakdown.assembled.starts_with("# prime-agent harness"));
+        assert!(breakdown.assembled.starts_with("# async-agent harness"));
         assert!(breakdown
             .assembled
             .contains("Recursive agent depth: 0 (root)"));
@@ -237,7 +237,7 @@ mod tests {
                 .is_some_and(|at| at < breakdown.cached_prefix_len);
             assert_eq!(
                 inside,
-                segment.kind == pa_core::prompts::SegmentKind::Static,
+                segment.kind == aa_core::prompts::SegmentKind::Static,
                 "segment {} on the wrong side of the cache boundary",
                 segment.name
             );

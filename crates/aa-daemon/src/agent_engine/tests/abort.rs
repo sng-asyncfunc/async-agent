@@ -13,8 +13,8 @@ fn abort_in_flight_turn_cancels_a_mid_provider_wait() {
     let script = json!({
         "responses": [{ "text": "held reply", "delayMs": 60000 }],
     });
-    let parsed = pa_ai::faux::script::parse_faux_script(&script).expect("faux script parses");
-    let registration = pa_ai::faux::script::register_faux_provider_from_script(&parsed);
+    let parsed = aa_ai::faux::script::parse_faux_script(&script).expect("faux script parses");
+    let registration = aa_ai::faux::script::register_faux_provider_from_script(&parsed);
     std::fs::write(
         agent_dir.join("models.json"),
         json!({
@@ -471,10 +471,10 @@ fn abort_in_flight_turn_cancels_a_running_kernel_cell() {
     };
     let _env = KernelEnvOverride::apply(&[
         (
-            "PRIME_AGENT_KERNEL_BUN",
+            "ASYNC_AGENT_KERNEL_BUN",
             Some(kernel_bun.display().to_string()),
         ),
-        ("PRIME_AGENT_CODING_AGENT_DIR", None),
+        ("ASYNC_AGENT_CODING_AGENT_DIR", None),
         ("PRIME_API_KEY", None),
     ]);
     let dir = tempfile::TempDir::new().unwrap();

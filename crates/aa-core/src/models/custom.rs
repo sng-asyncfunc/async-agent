@@ -4,8 +4,8 @@ use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 
-use pa_types::ai::{Model, ModelCompat, ModelCost, ModelInput};
-use pa_types::JsNumber;
+use aa_types::ai::{Model, ModelCompat, ModelCost, ModelInput};
+use aa_types::JsNumber;
 
 /// Strip `//` line comments and trailing commas, leaving strings intact.
 #[must_use]
@@ -433,7 +433,7 @@ pub fn load_custom_models(
                 // The definition's `thinkingLevelMap` is the model's,
                 // parsed from the same wire names the override merge uses.
                 thinking_level_map: model_def.thinking_level_map.as_ref().and_then(|map| {
-                    serde_json::from_value::<pa_types::ai::ThinkingLevelMap>(
+                    serde_json::from_value::<aa_types::ai::ThinkingLevelMap>(
                         serde_json::to_value(map).ok()?,
                     )
                     .ok()
@@ -526,9 +526,9 @@ mod tests {
             .thinking_level_map
             .as_ref()
             .expect("the definition's thinkingLevelMap is the model's");
-        assert_eq!(map.get(&pa_types::ai::ModelThinkingLevel::Off), Some(&None));
+        assert_eq!(map.get(&aa_types::ai::ModelThinkingLevel::Off), Some(&None));
         assert_eq!(
-            map.get(&pa_types::ai::ModelThinkingLevel::Xhigh),
+            map.get(&aa_types::ai::ModelThinkingLevel::Xhigh),
             Some(&Some("xhigh".to_string()))
         );
     }

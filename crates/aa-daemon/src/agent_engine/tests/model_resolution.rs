@@ -113,7 +113,7 @@ fn settings_default_drives_unflagged_resolution() {
     let dir = tempfile::TempDir::new().unwrap();
     let agent_dir = dir.path().join("agent");
     write_custom_provider_models_json(&agent_dir, "http://127.0.0.1:9");
-    let mut settings = pa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
+    let mut settings = aa_core::settings::SettingsManager::create(dir.path(), &agent_dir);
     settings
         .set_default_model_and_provider("battery", "mock-1")
         .unwrap();
@@ -138,7 +138,7 @@ fn settings_default_drives_unflagged_resolution() {
     assert_eq!(model.id, "mock-1");
 }
 
-/// A scripted loopback HTTP server (the pa-core tests/common pattern,
+/// A scripted loopback HTTP server (the aa-core tests/common pattern,
 /// in-crate): answers from a queue of raw responses and records every
 /// request head. Nothing leaves loopback.
 struct MockCatalogServer {
@@ -236,7 +236,7 @@ fn write_prime_auth(agent_dir: &std::path::Path) {
 /// entry (the coverage gate keeps thin fetches out) plus the private
 /// `internal/glm-5.3-fast` the compiled fallback lacks.
 fn pi_payload() -> String {
-    let mut data: Vec<Value> = pa_models::transports::prime_inference_offline_entries()
+    let mut data: Vec<Value> = aa_models::transports::prime_inference_offline_entries()
         .iter()
         .map(|model| {
             serde_json::json!({
@@ -271,13 +271,13 @@ fn pi_payload() -> String {
 /// at `server`; no bundled snapshot, so the compiled fallback is the
 /// base and only the fetches add the private team model).
 fn install_loopback_catalog(agent_dir: &std::path::Path, server: &MockCatalogServer) {
-    let catalog = pa_models::ModelCatalog::with_urls(
+    let catalog = aa_models::ModelCatalog::with_urls(
         Some(agent_dir.join("models")),
         None,
         &server.url("/catalog"),
         &server.url("/api/v1"),
     );
-    pa_core::models::install_catalog(&agent_dir.join("models.json"), std::sync::Arc::new(catalog));
+    aa_core::models::install_catalog(&agent_dir.join("models.json"), std::sync::Arc::new(catalog));
 }
 
 /// A session file whose last `model_change` row pins the private team
@@ -357,7 +357,7 @@ fn the_startup_chain_refuses_models_outside_the_allowlist() {
         .resolve_registry_model()
         .expect_err("off-allowlist model refused");
     let refusal = error
-        .downcast_ref::<pa_core::models::ModelAllowlistRefusal>()
+        .downcast_ref::<aa_core::models::ModelAllowlistRefusal>()
         .expect("typed refusal");
     assert_eq!(refusal.selector, "battery/mock-1");
     assert!(
@@ -817,7 +817,7 @@ async fn a_replacement_re_clamps_the_thinking_level_against_the_restored_model()
         provider: None,
         model: None,
         api_key: None,
-        thinking: Some(pa_types::ai::ModelThinkingLevel::High),
+        thinking: Some(aa_types::ai::ModelThinkingLevel::High),
     });
 
     let plain = session_file_pinning_model(dir.path(), "battery", "mock-plain");
@@ -1083,14 +1083,14 @@ fn configure_model_thinking_clamps_to_the_models_supported_levels() {
         provider: None,
         model: None,
         api_key: None,
-        thinking: Some(pa_types::ai::ModelThinkingLevel::Max),
+        thinking: Some(aa_types::ai::ModelThinkingLevel::Max),
     });
     assert_eq!(engine.effective_thinking_level().as_deref(), Some("high"));
     engine.configure_model(EngineModelSelection {
         provider: None,
         model: None,
         api_key: None,
-        thinking: Some(pa_types::ai::ModelThinkingLevel::Low),
+        thinking: Some(aa_types::ai::ModelThinkingLevel::Low),
     });
     assert_eq!(engine.effective_thinking_level().as_deref(), Some("low"));
 }
@@ -1166,7 +1166,7 @@ fn a_model_switch_keeps_the_agent_slot_in_sync_with_the_reported_level() {
         provider: Some("battery".to_string()),
         model: Some("mock-reason".to_string()),
         api_key: None,
-        thinking: Some(pa_types::ai::ModelThinkingLevel::High),
+        thinking: Some(aa_types::ai::ModelThinkingLevel::High),
         session_dir: None,
         session_file: None,
         faux_script: None,
@@ -1186,7 +1186,7 @@ fn a_model_switch_keeps_the_agent_slot_in_sync_with_the_reported_level() {
         let state = engine
             .runtime
             .block_on(async { core.session.agent().state().await });
-        pa_core::session_engine::provider_adapter::model_thinking_level(state.thinking_level)
+        aa_core::session_engine::provider_adapter::model_thinking_level(state.thinking_level)
             .wire_name()
             .to_string()
     };

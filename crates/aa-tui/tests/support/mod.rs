@@ -1,4 +1,4 @@
-//! Shared plumbing for the pa-tui headless integration tests: each test binary includes it with
+//! Shared plumbing for the aa-tui headless integration tests: each test binary includes it with
 //! `mod support;` and serves its scenario-specific daemon answers on top of it.
 
 #![allow(
@@ -11,8 +11,8 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use pa_tui::agents_view::AgentsViewOptions;
-use pa_tui::interactive::{
+use aa_tui::agents_view::AgentsViewOptions;
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, InteractiveOptions, InteractiveOutcome, ModelSelection,
     SessionSelection, UiMode,
 };
@@ -117,7 +117,7 @@ pub fn options(socket: PathBuf) -> InteractiveOptions {
         initial_message: None,
         show_images: true,
         fullscreen_mouse: true,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -129,7 +129,7 @@ pub fn options(socket: PathBuf) -> InteractiveOptions {
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -145,7 +145,7 @@ pub fn view_options(socket: &Path) -> AgentsViewOptions {
         socket_path: socket.to_path_buf(),
         cwd: PathBuf::from("/tmp"),
         session_dir: Some(PathBuf::from("/tmp/sessions")),
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         version: "0.0.0".to_string(),
         anchor_session_id: None,
         scope: None,
@@ -154,7 +154,7 @@ pub fn view_options(socket: &Path) -> AgentsViewOptions {
         selected_row_identity: None,
         selected_key: None,
         status_message: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         show_hardware_cursor: false,
         incident_notice_state: None,
         create_config: json!({}),
@@ -171,7 +171,7 @@ pub fn attach_response(id: &str, session_name: &str) -> Value {
         "command": "attach",
         "success": true,
         "data": {
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "activeSessionId": "s1",
             "snapshot": {
                 "activeSessionId": "s1",
@@ -256,7 +256,7 @@ pub fn serve_connection(
         &mut writer,
         &json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": capabilities,
             "clientId": "mock",
         }),

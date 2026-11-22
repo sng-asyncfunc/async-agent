@@ -4,7 +4,7 @@ use serde_json::json;
 
 fn test_view() -> crate::view::AgentView {
     crate::view::AgentView::new(crate::theme::Theme::builtin(
-        "prime",
+        "async",
         crate::theme::ColorMode::TrueColor,
     ))
 }
@@ -321,7 +321,7 @@ fn tool_execution_start_reports_the_tool_name() {
 
 fn slim_attach() -> Value {
     json!({
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "activeSessionId": "abc123def456",
         "snapshot": {
             "activeSessionId": "abc123def456",
@@ -1970,8 +1970,8 @@ fn goal_update_decodes_the_goal_payload() {
     let TurnUpdate::GoalUpdate(goal) = update else {
         panic!("expected a goal update");
     };
-    let goal: pa_types::goal::GoalState = serde_json::from_value(goal).unwrap();
-    assert_eq!(goal.status, pa_types::goal::GoalStatus::Complete);
+    let goal: aa_types::goal::GoalState = serde_json::from_value(goal).unwrap();
+    assert_eq!(goal.status, aa_types::goal::GoalStatus::Complete);
     assert_eq!(goal.objective.as_deref(), Some("ship it"));
     assert_eq!(goal.last_reason.as_deref(), Some("Goal achieved"));
 }
@@ -1979,7 +1979,7 @@ fn goal_update_decodes_the_goal_payload() {
 #[test]
 fn attach_snapshot_carries_the_goal_state() {
     let attach = json!({
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "activeSessionId": "abc123def456",
         "snapshot": {
             "activeSessionId": "abc123def456",
@@ -2020,7 +2020,7 @@ fn attach_snapshot_carries_the_goal_state() {
     let data = attach_data_from_response(attach).unwrap();
     let reconstructed = reconstruct(&data);
     let goal = reconstructed.goal.expect("snapshot goal");
-    assert_eq!(goal.status, pa_types::goal::GoalStatus::Active);
+    assert_eq!(goal.status, aa_types::goal::GoalStatus::Active);
     assert_eq!(goal.objective.as_deref(), Some("keep shipping"));
 }
 
@@ -2149,7 +2149,7 @@ fn elided_image_tool_results_render_their_marker_metadata() {
         0,
         crate::chat::Detail::All,
         crate::chat::Detail::All,
-        &crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor),
+        &crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor),
         100,
         true,
     );

@@ -252,7 +252,7 @@ async fn goal_turn_end_loop_runs_to_completion() {
     if let Some(failure) = kernel_failure {
         panic!(
             "the completing javascript cell failed — this test needs the Bun kernel \
-                 environment (Bun >= 1.3.14 on PATH or PRIME_AGENT_KERNEL_BUN): {failure:?}"
+                 environment (Bun >= 1.3.14 on PATH or ASYNC_AGENT_KERNEL_BUN): {failure:?}"
         );
     }
     let goal_rows: Vec<&Value> = events
@@ -420,7 +420,7 @@ fn thread_goal_state_rows(path: &std::path::Path) -> Vec<Value> {
         .filter(|entry| {
             entry.get("type").and_then(Value::as_str) == Some("custom")
                 && entry.get("customType").and_then(Value::as_str)
-                    == Some(pa_core::goals::GOAL_STATE_CUSTOM_TYPE)
+                    == Some(aa_core::goals::GOAL_STATE_CUSTOM_TYPE)
         })
         .collect()
 }

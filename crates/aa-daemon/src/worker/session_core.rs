@@ -67,11 +67,11 @@ pub(crate) struct SessionCore {
     pub(crate) child_script: Option<String>,
     /// The session's service-tier preference (TS `_serviceTierPreference`,
     /// `None` = "auto"): clamps `priority` to `default` without fast mode.
-    pub(crate) service_tier: Option<pa_types::ai::ServiceTier>,
+    pub(crate) service_tier: Option<aa_types::ai::ServiceTier>,
     /// The ACTIVE tier the engine's request slot carries: the preference clamped
     /// to the current model. Diverges from `service_tier` only while the current
     /// model does not support the requested tier.
-    pub(crate) active_service_tier: Option<pa_types::ai::ServiceTier>,
+    pub(crate) active_service_tier: Option<aa_types::ai::ServiceTier>,
     /// The queue delivery modes: "all" or "one-at-a-time". The steering default
     /// is "all" (queued steers co-deliver as ONE turn); the follow-up default is
     /// "one-at-a-time" (drain one per turn when idle).

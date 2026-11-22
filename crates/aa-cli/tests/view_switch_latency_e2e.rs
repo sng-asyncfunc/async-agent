@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 
 /// A healthy attach is tens of milliseconds; one full second is the regression ceiling.
 const VIEW_SWITCH_CEILING: Duration = Duration::from_secs(1);
@@ -65,7 +65,7 @@ fn graceful_shutdown(socket: &Path) {
     let command = serde_json::json!({
         "type": "command",
         "id": "test-shutdown",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "shutdown" },
     });
     let Ok(mut line) = serde_json::to_string(&command) else {
@@ -88,31 +88,31 @@ fn spawn_supervisor(dir: &Path) -> Supervisor {
     let socket = dir.join("daemon.sock");
     let agent_dir = dir.join("agent");
     std::fs::create_dir_all(&agent_dir).expect("agent dir");
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(&socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", &agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", &agent_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -134,7 +134,7 @@ async fn create_session_from_file_via_daemon(
     session_path: &Path,
 ) -> String {
     std::fs::write(script_path, script.to_string()).expect("write script");
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(socket)
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(socket)
         .await
         .expect("connect supervisor");
     let data = client
@@ -213,15 +213,15 @@ fn chat_options(
     dir: &Path,
     session_dir: &Path,
     script_path: &Path,
-    session: pa_tui::interactive::SessionSelection,
-) -> pa_tui::interactive::InteractiveOptions {
-    pa_tui::interactive::InteractiveOptions {
+    session: aa_tui::interactive::SessionSelection,
+) -> aa_tui::interactive::InteractiveOptions {
+    aa_tui::interactive::InteractiveOptions {
         models: None,
         socket_path: socket.to_path_buf(),
         cwd: dir.to_path_buf(),
         session_dir: Some(session_dir.to_path_buf()),
         script_path: Some(script_path.to_path_buf()),
-        model_selection: pa_tui::interactive::ModelSelection::default(),
+        model_selection: aa_tui::interactive::ModelSelection::default(),
         model_catalog: Vec::new(),
         model_configured_providers: std::collections::HashSet::default(),
         model_recent_models: Vec::new(),
@@ -231,7 +231,7 @@ fn chat_options(
         show_images: true,
         fullscreen_mouse: true,
         initial_message: None,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -243,7 +243,7 @@ fn chat_options(
         provider_auth: None,
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -326,10 +326,10 @@ async fn agents_view_round_trip_reattaches_under_the_ceiling() {
     }
 
     // The first chat surface: attach, one scripted turn, idle.
-    let first_plan = pa_tui::interactive::HeadlessPlan {
+    let first_plan = aa_tui::interactive::HeadlessPlan {
         steps: vec![
-            pa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
-            pa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
+            aa_tui::interactive::HeadlessStep::Submit("hi".to_string()),
+            aa_tui::interactive::HeadlessStep::WaitIdle { timeout_ms: 30_000 },
         ],
         width: 100,
         height: 30,
@@ -339,15 +339,15 @@ async fn agents_view_round_trip_reattaches_under_the_ceiling() {
         dir.path(),
         &session_dir,
         &script_path,
-        pa_tui::interactive::SessionSelection::Attach(active.clone()),
+        aa_tui::interactive::SessionSelection::Attach(active.clone()),
     );
-    pa_tui::interactive::run_interactive(first, pa_tui::interactive::UiMode::Headless(first_plan))
+    aa_tui::interactive::run_interactive(first, aa_tui::interactive::UiMode::Headless(first_plan))
         .await
         .expect("first interactive run");
 
     // The Esc handoff's own path: a fresh surface attaching to the same
     // live session; the wall time is the reported 5-10s round trip.
-    let second_plan = pa_tui::interactive::HeadlessPlan {
+    let second_plan = aa_tui::interactive::HeadlessPlan {
         steps: Vec::new(),
         width: 100,
         height: 30,
@@ -357,12 +357,12 @@ async fn agents_view_round_trip_reattaches_under_the_ceiling() {
         dir.path(),
         &session_dir,
         &script_path,
-        pa_tui::interactive::SessionSelection::Attach(active.clone()),
+        aa_tui::interactive::SessionSelection::Attach(active.clone()),
     );
     let started = Instant::now();
-    let outcome = pa_tui::interactive::run_interactive(
+    let outcome = aa_tui::interactive::run_interactive(
         second,
-        pa_tui::interactive::UiMode::Headless(second_plan),
+        aa_tui::interactive::UiMode::Headless(second_plan),
     )
     .await
     .expect("second interactive run");

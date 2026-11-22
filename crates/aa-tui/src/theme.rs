@@ -1,4 +1,4 @@
-//! The `prime`, `dark`, and `light` built-in palettes with the TS JSON
+//! The `async`, `dark`, and `light` built-in palettes with the TS JSON
 //! themes' variable/color layout; colors resolve to truecolor or 256-color
 //! ANSI depending on `COLORTERM`/`TERM`.
 
@@ -769,22 +769,22 @@ fn bg_name_lookup(name: &str) -> Option<&'static str> {
 }
 
 /// The bundled theme files, shared with the session HTML exporter
-/// via [`pa_types::themes`].
-pub const PRIME_JSON: &str = pa_types::themes::PRIME_THEME_JSON;
-pub const DARK_JSON: &str = pa_types::themes::DARK_THEME_JSON;
-pub const LIGHT_JSON: &str = pa_types::themes::LIGHT_THEME_JSON;
+/// via [`aa_types::themes`].
+pub const ASYNC_JSON: &str = aa_types::themes::ASYNC_THEME_JSON;
+pub const DARK_JSON: &str = aa_types::themes::DARK_THEME_JSON;
+pub const LIGHT_JSON: &str = aa_types::themes::LIGHT_THEME_JSON;
 
-/// Resolve a bundled theme JSON by name, falling back to the prime
+/// Resolve a bundled theme JSON by name, falling back to the `async`
 /// theme when the name is unknown.
 ///
 /// # Panics
 ///
-/// Panics only if the bundled `prime` theme JSON fails to parse.
+/// Panics only if the bundled `async` theme JSON fails to parse.
 #[must_use]
 pub fn builtin_theme_json(name: &str) -> ThemeJson {
-    let raw = pa_types::themes::builtin_theme_json(name).unwrap_or(PRIME_JSON);
+    let raw = aa_types::themes::builtin_theme_json(name).unwrap_or(ASYNC_JSON);
     serde_json::from_str(raw)
-        .unwrap_or_else(|_| serde_json::from_str(PRIME_JSON).expect("prime.json is valid"))
+        .unwrap_or_else(|_| serde_json::from_str(ASYNC_JSON).expect("async.json is valid"))
 }
 
 /// Load a theme from a JSON file path.
@@ -805,8 +805,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn prime_theme_resolves() {
-        let theme = Theme::builtin("prime", ColorMode::TrueColor);
+    fn async_theme_resolves() {
+        let theme = Theme::builtin("async", ColorMode::TrueColor);
         let accent = theme.fg_style(ThemeColor::Accent);
         match accent.fg {
             Some(Color::Rgb(0x7c, 0x6f, 0xaf)) => {}
@@ -824,7 +824,7 @@ mod tests {
 
     #[test]
     fn var_reference_resolves() {
-        let theme = Theme::builtin("prime", ColorMode::Color256);
+        let theme = Theme::builtin("async", ColorMode::Color256);
         let accent = theme.fg_style(ThemeColor::Accent);
         assert!(matches!(accent.fg, Some(Color::Indexed(_))));
     }
@@ -845,11 +845,11 @@ mod tests {
 
     #[test]
     fn the_selection_style_is_the_hover_color_never_the_accent() {
-        let theme = Theme::builtin("prime", ColorMode::TrueColor);
+        let theme = Theme::builtin("async", ColorMode::TrueColor);
         assert_eq!(
             theme.selection_row_style(),
             theme.hover_row_style(),
-            "prime: the selection paints the hover's own band — the one-color ruling"
+            "async: the selection paints the hover's own band — the one-color ruling"
         );
         assert_ne!(
             theme.selection_row_style().bg,
@@ -897,7 +897,7 @@ mod tests {
 
     #[test]
     fn soft_selection_reads_off_the_editor_surface() {
-        for name in ["prime", "dark", "light"] {
+        for name in ["async", "dark", "light"] {
             for mode in [ColorMode::TrueColor, ColorMode::Color256] {
                 let theme = Theme::builtin(name, mode);
                 let wash = theme
@@ -922,14 +922,14 @@ mod tests {
 
     #[test]
     fn soft_selection_pins_the_contrast_ladder_values() {
-        let prime = Theme::builtin("prime", ColorMode::TrueColor);
+        let async_theme = Theme::builtin("async", ColorMode::TrueColor);
         assert_eq!(
-            prime.soft_selection_style().bg,
+            async_theme.soft_selection_style().bg,
             Some(Color::Rgb(54, 54, 58))
         );
-        let prime256 = Theme::builtin("prime", ColorMode::Color256);
+        let async256 = Theme::builtin("async", ColorMode::Color256);
         assert_eq!(
-            prime256.soft_selection_style().bg,
+            async256.soft_selection_style().bg,
             Some(Color::Indexed(237))
         );
         let dark = Theme::builtin("dark", ColorMode::TrueColor);
@@ -981,7 +981,7 @@ mod tests {
 
     #[test]
     fn the_hover_band_and_the_selection_share_one_color() {
-        for name in ["prime", "dark", "light"] {
+        for name in ["async", "dark", "light"] {
             for mode in [ColorMode::TrueColor, ColorMode::Color256] {
                 let theme = Theme::builtin(name, mode);
                 let hover = theme.hover_row_style();
@@ -1016,7 +1016,7 @@ mod tests {
 
     #[test]
     fn the_hover_band_splits_on_grapheme_clusters() {
-        let theme = Theme::builtin("prime", ColorMode::TrueColor);
+        let theme = Theme::builtin("async", ColorMode::TrueColor);
         let combining = "e\u{301}x";
         let wide = "\u{4e2d}y";
         let mut line = vec![crate::Span::raw(combining), crate::Span::raw(wide)];
@@ -1048,7 +1048,7 @@ mod tests {
 
     #[test]
     fn the_hover_band_covers_its_columns_and_never_demotes_the_selection() {
-        let theme = Theme::builtin("prime", ColorMode::TrueColor);
+        let theme = Theme::builtin("async", ColorMode::TrueColor);
         let mut line = vec![
             crate::Span::raw("plain "),
             crate::Span::styled("focused".to_string(), theme.selection_row_style()),

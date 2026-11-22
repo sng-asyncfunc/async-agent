@@ -7,7 +7,7 @@ use std::net::TcpListener;
 use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
-use pa_telemetry::{
+use aa_telemetry::{
     AnalyticsSink, Properties, SinkOutcome, TelemetryClient, TelemetryClientConfig, TelemetryEvent,
     TelemetrySink,
 };
@@ -48,13 +48,13 @@ fn ts_body(events: &[TelemetryEvent]) -> serde_json::Value {
 async fn batch_posts_the_exact_ts_request() {
     // The binary's runtime version (a beta restamps only the packaged
     // manifest) rides the User-Agent and every event, not the crate's.
-    pa_telemetry::set_version("0.9.9-beta.3");
+    aa_telemetry::set_version("0.9.9-beta.3");
     assert_eq!(
-        pa_telemetry::base_properties("print").get("version"),
+        aa_telemetry::base_properties("print").get("version"),
         Some(&json!("0.9.9-beta.3"))
     );
     let (base, rx) = spawn_stub(vec![(202, json!({ "accepted": 2 }))]);
-    let sink = AnalyticsSink::new(format!("{base}/api/v1/agent-analytics/events"));
+    let sink = AnalyticsSink::new(format!("{base}/v1/telemetry/events"));
     let events = vec![event("agent started"), event("agent run completed")];
     let outcome = sink.send_batch(INSTALL_ID, events.clone()).await;
     assert_eq!(outcome, SinkOutcome::Sent);
@@ -62,14 +62,14 @@ async fn batch_posts_the_exact_ts_request() {
     let request = rx.recv().expect("stub captured request");
     assert!(request
         .request_line
-        .starts_with("POST /api/v1/agent-analytics/events "));
+        .starts_with("POST /v1/telemetry/events "));
     assert_eq!(
         header(&request.headers, "content-type"),
         Some("application/json")
     );
     assert_eq!(
         header(&request.headers, "user-agent"),
-        Some("prime-agent/0.9.9-beta.3")
+        Some("async-agent/0.9.9-beta.3")
     );
     assert_eq!(header(&request.headers, "authorization"), None);
     assert_eq!(request.body, ts_body(&events));

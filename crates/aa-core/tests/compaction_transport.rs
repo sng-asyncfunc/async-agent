@@ -1,12 +1,12 @@
 //! Synthetic-provider regressions for summary and refinement request controls and cancellation.
 use std::time::Duration;
 
-use pa_core::session_engine::branch_summarization::{
+use aa_core::session_engine::branch_summarization::{
     generate_branch_summary, GenerateBranchSummaryOptions, DEFAULT_BRANCH_RESERVE_TOKENS,
 };
-use pa_core::session_engine::compaction_exec::complete_summary_call;
-use pa_core::session_engine::refine::default_refiner_call;
-use pa_types::session::{AgentMessage, EntryBase, FileEntry};
+use aa_core::session_engine::compaction_exec::complete_summary_call;
+use aa_core::session_engine::refine::default_refiner_call;
+use aa_types::session::{AgentMessage, EntryBase, FileEntry};
 use serde_json::{json, Value};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -21,7 +21,7 @@ enum Reply {
 async fn mock_summary(
     reply: Reply,
 ) -> (
-    pa_types::ai::Model,
+    aa_types::ai::Model,
     tokio::sync::oneshot::Receiver<Value>,
     tokio::task::JoinHandle<bool>,
 ) {
@@ -120,7 +120,7 @@ async fn dropped_summary_closes_hung_transport() {
         let on_delta = matches!(reply, Reply::HangAfterDelta).then(|| {
             std::sync::Arc::new(move |delta: &str| {
                 delta_tx.send(delta.to_owned()).unwrap();
-            }) as pa_core::session_engine::compaction_exec::SummaryDeltaSink
+            }) as aa_core::session_engine::compaction_exec::SummaryDeltaSink
         });
         let task = tokio::spawn(async move {
             complete_summary_call(
@@ -188,8 +188,8 @@ async fn summary_preserves_unspecified_reasoning_when_off_is_supported() {
 async fn branch_summary_respects_mandatory_thinking() {
     let (model, request, server) = mock_summary(Reply::Complete).await;
     let entries = [FileEntry::Message {
-        message: AgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text("explored a side branch".to_string()),
+        message: AgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text("explored a side branch".to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
         }),
@@ -235,7 +235,7 @@ async fn refiner_call_respects_mandatory_thinking() {
     .unwrap();
     assert!(matches!(
         reply.content.as_slice(),
-        [pa_types::ai::AssistantContentBlock::Text(text)] if text.text == "summary"
+        [aa_types::ai::AssistantContentBlock::Text(text)] if text.text == "summary"
     ));
     assert_eq!(request.await.unwrap()["enable_thinking"], json!(true));
     assert!(server.await.unwrap());

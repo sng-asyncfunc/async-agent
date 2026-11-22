@@ -2,7 +2,7 @@
 //!
 //! The kernel is a JSON-lines subprocess (`bun run src/repl.ts`): requests on
 //! stdin, events on stdout, stderr kept as a diagnostics tail. The protocol is
-//! documented in `prime-agent-runtime/src/repl.md` (protocol version 3).
+//! documented in `async-agent-runtime/src/repl.md` (protocol version 3).
 
 pub mod bootstrap;
 pub(crate) mod bun_env;

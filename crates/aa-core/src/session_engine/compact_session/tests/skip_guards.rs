@@ -9,7 +9,7 @@ use super::*;
 async fn execute_compaction_with_pre_aborted_signal_never_runs_the_summarizer() {
     let registration = faux_registration();
     let model = registration.get_model();
-    let controller = pa_agent::abort::AbortController::new();
+    let controller = aa_agent::abort::AbortController::new();
     controller.abort();
     let signal = controller.signal();
     let tmp = tempfile::tempdir().unwrap();
@@ -33,7 +33,7 @@ async fn execute_compaction_with_pre_aborted_signal_never_runs_the_summarizer() 
     )
     .await
     .unwrap_err();
-    assert!(pa_agent::abort::is_abort_error(&error), "{error:#}");
+    assert!(aa_agent::abort::is_abort_error(&error), "{error:#}");
     assert!(session
         .get_entries()
         .iter()
@@ -49,14 +49,14 @@ async fn execute_compaction_with_late_abort_cancels_before_the_commit() {
     let model = registration.get_model();
     // The delayed response holds the summarizer in flight while the
     // abort lands mid-run.
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Delayed {
-        message: pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Delayed {
+        message: aa_ai::faux::faux_assistant_text_message(
             "## Goal\nsummarized goal",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
         delay_ms: 200,
     }]);
-    let controller = pa_agent::abort::AbortController::new();
+    let controller = aa_agent::abort::AbortController::new();
     let signal = controller.signal();
     let aborter = {
         let controller = controller.clone();
@@ -87,7 +87,7 @@ async fn execute_compaction_with_late_abort_cancels_before_the_commit() {
     .await
     .unwrap_err();
     aborter.await.unwrap();
-    assert!(pa_agent::abort::is_abort_error(&error), "{error:#}");
+    assert!(aa_agent::abort::is_abort_error(&error), "{error:#}");
     assert!(
         session
             .get_entries()
@@ -104,14 +104,14 @@ async fn execute_compaction_with_late_abort_cancels_before_the_commit() {
 async fn a_late_abort_records_the_discarded_summary_call() {
     let registration = faux_registration();
     let model = registration.get_model();
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Delayed {
-        message: pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Delayed {
+        message: aa_ai::faux::faux_assistant_text_message(
             "## Goal\nsummarized goal",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
         delay_ms: 200,
     }]);
-    let controller = pa_agent::abort::AbortController::new();
+    let controller = aa_agent::abort::AbortController::new();
     let signal = controller.signal();
     let aborter = {
         let controller = controller.clone();
@@ -122,8 +122,8 @@ async fn a_late_abort_records_the_discarded_summary_call() {
     };
     let tmp = tempfile::tempdir().unwrap();
     let session = crate::session_engine::AgentSession::new(
-        std::sync::Arc::new(pa_agent::agent::Agent::new(
-            pa_agent::agent::AgentOptions::default(),
+        std::sync::Arc::new(aa_agent::agent::Agent::new(
+            aa_agent::agent::AgentOptions::default(),
         )),
         session_with_turns(tmp.path(), 3),
         vec![],
@@ -139,7 +139,7 @@ async fn a_late_abort_records_the_discarded_summary_call() {
         .await
         .unwrap_err();
     aborter.await.unwrap();
-    assert!(pa_agent::abort::is_abort_error(&error), "{error:#}");
+    assert!(aa_agent::abort::is_abort_error(&error), "{error:#}");
     let billed = session
         .shared_persistence()
         .lock()
@@ -204,7 +204,7 @@ async fn execute_compaction_skips_when_already_compacted() {
     let tmp = tempfile::tempdir().unwrap();
     let mut session = session_with_turns(tmp.path(), 3);
     session
-        .append_compaction(pa_types::session::CompactionEntry {
+        .append_compaction(aa_types::session::CompactionEntry {
             summary: "summary".to_string(),
             first_kept_entry_id: "e1".to_string(),
             tokens_before: 100,

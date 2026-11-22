@@ -319,7 +319,7 @@ fn queue_snapshot_round_trips_through_the_recovery_journal() {
     let content = "[heartbeat: every 10m run#0]\n\nnudge the mission";
     let labeled_preview = format!(
         "{}: {content}",
-        pa_core::session_engine::messages::HEARTBEAT_PROMPT_PREVIEW_LABEL
+        aa_core::session_engine::messages::HEARTBEAT_PROMPT_PREVIEW_LABEL
     );
     let heartbeat = crate::journal::WorkerQueueItemRecord {
         message: content.to_string(),

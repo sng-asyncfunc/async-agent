@@ -12,8 +12,8 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use pa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewUiMode};
-use pa_tui::interactive::SessionSelection;
+use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewUiMode};
+use aa_tui::interactive::SessionSelection;
 use serde_json::{json, Value};
 
 use support::{read_line, view_options};
@@ -57,7 +57,7 @@ impl MockSupervisor {
         let mut reader = BufReader::new(stream);
         let hello = json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": [],
         });
         if !write_line(&mut writer, &hello) {
@@ -216,7 +216,7 @@ async fn the_render_barrier_holds_until_the_catalog_row_renders() {
         width: 120,
         height: 36,
     };
-    let outcome = pa_tui::agents_view::run_agents_view(
+    let outcome = aa_tui::agents_view::run_agents_view(
         view_options(&socket),
         AgentsViewUiMode::Headless(plan),
         None,
@@ -270,7 +270,7 @@ async fn the_barrier_deadline_pops_the_hold_and_the_plan_proceeds() {
         height: 36,
     };
     let started = Instant::now();
-    let outcome = pa_tui::agents_view::run_agents_view(
+    let outcome = aa_tui::agents_view::run_agents_view(
         view_options(&socket),
         AgentsViewUiMode::Headless(plan),
         None,

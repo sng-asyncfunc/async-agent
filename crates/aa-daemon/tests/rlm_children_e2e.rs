@@ -1,4 +1,4 @@
-//! End-to-end RLM child machinery against the real `pa-daemon` supervisor: child sessions
+//! End-to-end RLM child machinery against the real `aa-daemon` supervisor: child sessions
 //! spawn through the supervisor link, run in their own worker processes, appear in the
 //! supervisor roster, settle with an answer, and die on delete (`rlm.spawn`/
 //! `list_subagents`/`collect`/`delete_subagent`/`create_session`).
@@ -29,11 +29,11 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use pa_core::session_engine::rlm_host::{
+use aa_core::session_engine::rlm_host::{
     RlmCreateSessionRequest, RlmSpawnRequest, RlmSubagentHost,
 };
-use pa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
-use pa_daemon::supervisor_link::SupervisorLink;
+use aa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
+use aa_daemon::supervisor_link::SupervisorLink;
 use serde_json::{json, Value};
 
 struct Daemon {
@@ -52,7 +52,7 @@ impl Drop for Daemon {
 // The timeout panic path cannot wait on the child; the test exits and reaps it.
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
@@ -64,11 +64,11 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
         // A supervisor killed at teardown must not leak its session workers into later
         // test binaries: the supervisor-lost exit runs here.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -113,7 +113,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize command");
@@ -193,7 +193,7 @@ fn children(socket: &Path, agent_dir: &Path, script: &Path, depth: u32) -> Super
         Arc::new(SupervisorLink::new(socket.to_path_buf())),
         agent_dir.to_path_buf(),
         "parent-active-id".to_string(),
-        std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+        std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
             agent_dir.to_path_buf(),
             /*telemetry_disabled*/ true,
         )),

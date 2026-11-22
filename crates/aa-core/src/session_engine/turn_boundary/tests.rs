@@ -5,13 +5,13 @@ use crate::kernel::shared::{HostRequestHandlers, HostRequestPayload};
 use crate::session::manager::SessionManager;
 use crate::session_engine::tool_bridge::bridge_tool;
 use crate::tools::tool_definition::ToolDefinition;
-use pa_agent::agent::{Agent, AgentInitialState, AgentOptions};
-use pa_agent::scripted::ScriptedProvider;
-use pa_agent::types::ThinkingLevel;
-use pa_types::ai::{
+use aa_agent::agent::{Agent, AgentInitialState, AgentOptions};
+use aa_agent::scripted::ScriptedProvider;
+use aa_agent::types::ThinkingLevel;
+use aa_types::ai::{
     AssistantContentBlock, AssistantMessage, StopReason, TextContent, Usage, UserContent,
 };
-use pa_types::session::AgentMessage as SessionMessage;
+use aa_types::session::AgentMessage as SessionMessage;
 
 fn payload(data: Value) -> HostRequestPayload {
     HostRequestPayload { data }
@@ -21,19 +21,19 @@ fn model_info() -> ModelInfo {
     ModelInfo {
         id: "faux-1".to_string(),
         provider: "faux".to_string(),
-        input: vec![pa_types::ai::ModelInput::Text],
+        input: vec![aa_types::ai::ModelInput::Text],
     }
 }
 
-fn agent_model() -> pa_agent::types::Model {
-    pa_agent::types::Model {
+fn agent_model() -> aa_agent::types::Model {
+    aa_agent::types::Model {
         id: "faux-1".to_string(),
         name: "Faux".to_string(),
         api: "test".to_string(),
         provider: "faux".to_string(),
         base_url: "http://localhost".to_string(),
         reasoning: false,
-        cost: pa_agent::types::UsageCost::default(),
+        cost: aa_agent::types::UsageCost::default(),
         context_window: 100_000,
         max_tokens: 1_000,
         max_tokens_explicit: false,
@@ -41,7 +41,7 @@ fn agent_model() -> pa_agent::types::Model {
 }
 
 fn user_entry(text: &str) -> SessionMessage {
-    SessionMessage::User(pa_types::ai::UserMessage {
+    SessionMessage::User(aa_types::ai::UserMessage {
         content: UserContent::Text(text.to_string()),
         timestamp: 1,
         rest: serde_json::Map::default(),
@@ -67,7 +67,7 @@ fn assistant_entry(text: &str) -> SessionMessage {
             cache_read: 0,
             cache_write: 0,
             total_tokens: 50,
-            cost: pa_types::ai::UsageCost::default(),
+            cost: aa_types::ai::UsageCost::default(),
         },
         stop_reason: StopReason::Stop,
         stop_reason_raw: None,
@@ -97,7 +97,7 @@ fn session_with_history(end_with_compaction: bool) -> SessionManager {
             .unwrap_or_default()
             .to_string();
         session
-            .append_compaction(pa_types::session::CompactionEntry {
+            .append_compaction(aa_types::session::CompactionEntry {
                 summary: "summary".to_string(),
                 first_kept_entry_id: first_kept,
                 tokens_before: 10,
@@ -635,7 +635,7 @@ fn context_usage_anchors_on_the_last_valid_assistant_usage() {
         cache_read: 0,
         cache_write: 0,
         total_tokens: 130,
-        cost: pa_types::ai::UsageCost::default(),
+        cost: aa_types::ai::UsageCost::default(),
     };
     session.append_message(assistant).unwrap();
     session
@@ -660,7 +660,7 @@ fn context_usage_after_a_compaction_without_post_usage_is_null_tokens() {
         .unwrap_or_default()
         .to_string();
     session
-        .append_compaction(pa_types::session::CompactionEntry {
+        .append_compaction(aa_types::session::CompactionEntry {
             summary: "summary".to_string(),
             first_kept_entry_id: first_kept,
             tokens_before: 10,
@@ -678,7 +678,7 @@ fn context_usage_after_a_compaction_without_post_usage_is_null_tokens() {
 /// kernel-cell shape — host requests fire inside a tool call while the turn streams) and records
 /// the response.
 struct Probe {
-    tool: Arc<dyn pa_agent::types::AgentTool>,
+    tool: Arc<dyn aa_agent::types::AgentTool>,
     slot: Arc<std::sync::Mutex<Option<Value>>>,
 }
 

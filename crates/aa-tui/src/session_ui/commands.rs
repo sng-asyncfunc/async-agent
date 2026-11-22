@@ -18,7 +18,7 @@ impl SessionUi {
         view: &mut AgentView,
     ) -> Result<()> {
         let registry = SlashCommandRegistry::builtin();
-        let (name, args) = pa_types::slash_commands::parse_slash_command(text)
+        let (name, args) = aa_types::slash_commands::parse_slash_command(text)
             .unwrap_or_else(|| (String::new(), String::new()));
 
         // A bare `/skill:<name>` never sends: the daemon's admission seam would hand the model the
@@ -28,7 +28,7 @@ impl SessionUi {
             // become the request.
             view.editor.set_text(&format!("{text} "));
             self.note(
-                "add your request after the skill, e.g. /skill:prime-agent-release make a release of PR #2731",
+                "add your request after the skill, e.g. /skill:async-agent-release make a release of PR #2731",
                 view,
             );
             return Ok(());
@@ -69,7 +69,7 @@ impl SessionUi {
                 return self.send_prompt(text, behavior, view);
             }
             let candidates = registry.suggestion_candidates();
-            return match pa_types::slash_commands::find_slash_command_suggestion(&name, &candidates)
+            return match aa_types::slash_commands::find_slash_command_suggestion(&name, &candidates)
             {
                 Some(suggestion) => {
                     self.note(
@@ -118,7 +118,7 @@ impl SessionUi {
     /// the rest report unavailability.
     async fn dispatch_client_command(
         &mut self,
-        resolved: &pa_types::slash_commands::ResolvedSlashCommand,
+        resolved: &aa_types::slash_commands::ResolvedSlashCommand,
         text: &str,
         view: &mut AgentView,
     ) -> Result<()> {
@@ -317,7 +317,7 @@ impl SessionUi {
             // `/nightly [on|off|status]` (TS `interactive-mode.ts`
             // 5455-5484): status resolves the effective channel; on (or
             // bare) and off/stable save the `updateChannel` setting that
-            // `/update` and `prime-agent update` follow.
+            // `/update` and `async-agent update` follow.
             "nightly" => {
                 let arg = resolved.args.trim().to_lowercase();
                 if arg == "status" {
@@ -516,7 +516,7 @@ impl SessionUi {
             // takes effect on restart and nothing here blocks or tears
             // down; there is no busy guard to keep). The confirm carries
             // the preserve invariant: sessions and configuration
-            // (~/.prime/agent) are never touched.
+            // (~/.async-agent) are never touched.
             "update" => {
                 if !resolved.args.trim().is_empty() {
                     view.editor.set_text(text);
@@ -535,8 +535,8 @@ impl SessionUi {
                 // The message is hand-wrapped to fit the panel rows (the
                 // confirm renders each line truncated, never wrapped).
                 view.confirm = Some(crate::confirm::ConfirmPanel::yes_no(
-                    "Update Prime Agent",
-                    "Update installs the latest Prime Agent build;\nyour sessions and configuration (~/.prime/agent) are never touched.\n\nThe update runs in the background — restart prime-agent after it\nfinishes to run the new build.",
+                    "Update Async Agent",
+                    "Update installs the latest Async Agent build;\nyour sessions and configuration (~/.async-agent) are never touched.\n\nThe update runs in the background — restart async-agent after it\nfinishes to run the new build.",
                 ));
                 self.pending_confirm = Some(PendingConfirm::Update);
                 self.dirty = true;
@@ -713,7 +713,7 @@ impl SessionUi {
                     self.error_row("Usage: /logs", view);
                     return Ok(());
                 }
-                let Some(agent_dir) = pa_types::platform::agent_dir() else {
+                let Some(agent_dir) = aa_types::platform::agent_dir() else {
                     self.error_row(
                         "home directory not found: set HOME (or USERPROFILE on Windows)",
                         view,

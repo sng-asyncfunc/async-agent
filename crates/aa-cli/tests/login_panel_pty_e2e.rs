@@ -26,11 +26,11 @@ use nix::fcntl::{fcntl, FcntlArg::F_SETFL, OFlag};
 use nix::pty::{openpty, Winsize};
 use serde_json::{json, Value};
 
-use pa_tui::auth_panel::{AuthPanelHandle, PrimeTeamOption, PrimeTeamPick};
-use pa_tui::interactive::{
+use aa_tui::auth_panel::{AuthPanelHandle, PrimeTeamOption, PrimeTeamPick};
+use aa_tui::interactive::{
     run_interactive, InteractiveOptions, ModelSelection, SessionSelection, UiMode,
 };
-use pa_tui::provider_auth::{
+use aa_tui::provider_auth::{
     AuthFlow, AuthStatusIndicator, AuthStatusStyle, AuthType, ProviderAuthCommands,
     ProviderAuthCommandsHandle, ProviderAuthOutcome, ProviderRow, ProviderRowsFuture,
     ProviderWarningFuture, PRIME_INFERENCE_PROVIDER_ID,
@@ -187,7 +187,7 @@ fn child_options(socket: PathBuf) -> InteractiveOptions {
         initial_message: None,
         show_images: true,
         fullscreen_mouse: true,
-        theme: "prime".to_string(),
+        theme: "async".to_string(),
         code_block_indent: "  ".to_string(),
         tree_filter_mode: String::new(),
         branch_summary_skip_prompt: false,
@@ -199,7 +199,7 @@ fn child_options(socket: PathBuf) -> InteractiveOptions {
         provider_auth: Some(ProviderAuthCommandsHandle(Arc::new(ScriptedProviderAuth))),
         update_commands: None,
         telemetry: None,
-        keybindings: pa_tui::keybindings::KeybindingsManager::new(),
+        keybindings: aa_tui::keybindings::KeybindingsManager::new(),
         session_rlm_depth: None,
         prompt_stash: std::sync::Arc::default(),
         session_has_children: false,
@@ -211,7 +211,7 @@ fn child_options(socket: PathBuf) -> InteractiveOptions {
 /// The `/mcp` view's client-auth hook: one progress line, then the status.
 struct ScriptedClientAuth;
 
-impl pa_tui::client_auth::ClientAuthCommands for ScriptedClientAuth {
+impl aa_tui::client_auth::ClientAuthCommands for ScriptedClientAuth {
     fn login(
         &self,
         server: &str,
@@ -254,7 +254,7 @@ impl pa_tui::client_auth::ClientAuthCommands for ScriptedClientAuth {
 fn mcp_child_options(socket: PathBuf) -> InteractiveOptions {
     InteractiveOptions {
         models: None,
-        client_auth: Some(pa_tui::client_auth::ClientAuthCommandsHandle(Arc::new(
+        client_auth: Some(aa_tui::client_auth::ClientAuthCommandsHandle(Arc::new(
             ScriptedClientAuth,
         ))),
         ..child_options(socket)
@@ -263,7 +263,7 @@ fn mcp_child_options(socket: PathBuf) -> InteractiveOptions {
 
 /// One model from a provider the client does not count as signed in
 /// (the picker's "require sign in" discovery row).
-fn unauthenticated_catalog_model() -> pa_types::ai::Model {
+fn unauthenticated_catalog_model() -> aa_types::ai::Model {
     serde_json::from_value(serde_json::json!({
         "id": "glm-5.3-fast", "name": "GLM 5.3 Fast",
         "api": "openai-completions", "provider": "zai",
@@ -668,7 +668,7 @@ impl MockSupervisor {
             &mut writer,
             &json!({
                 "type": "daemon_hello",
-                "protocol": { "name": "prime-agent.daemon", "version": 7 },
+                "protocol": { "name": "async-agent.daemon", "version": 7 },
                 "serverCapabilities": [],
                 "clientId": "mock",
             }),
@@ -831,7 +831,7 @@ fn attach_data(id: &str) -> Value {
         "command": "attach",
         "success": true,
         "data": {
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "activeSessionId": "s1",
             "snapshot": {
                 "activeSessionId": "s1",

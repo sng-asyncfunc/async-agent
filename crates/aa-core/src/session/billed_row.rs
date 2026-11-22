@@ -3,9 +3,9 @@
 //! rows (refinement planning and review, side questions, uncommitted
 //! compaction summaries). Every usage reader classifies rows here.
 
-use pa_types::ai::{Usage, UsageCost};
-use pa_types::session::FileEntry;
-use pa_types::JsNumber;
+use aa_types::ai::{Usage, UsageCost};
+use aa_types::session::FileEntry;
+use aa_types::JsNumber;
 use serde::Deserialize;
 
 use crate::session_engine::model_usage::MODEL_USAGE_CUSTOM_TYPE;

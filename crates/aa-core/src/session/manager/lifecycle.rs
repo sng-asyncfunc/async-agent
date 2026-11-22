@@ -396,7 +396,7 @@ impl SessionManager {
                 parent_session: options.parent_session.clone(),
                 rlm_depth,
                 git,
-                rest: pa_types::JsonMap::new(),
+                rest: aa_types::JsonMap::new(),
             },
         };
         self.file_entries = vec![header];
@@ -457,7 +457,7 @@ impl SessionManager {
                         .unwrap_or(0),
                 ),
                 git,
-                rest: pa_types::JsonMap::new(),
+                rest: aa_types::JsonMap::new(),
             },
         };
         let rest = std::mem::take(&mut self.file_entries);

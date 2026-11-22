@@ -208,7 +208,7 @@ mod tests {
     fn table_matches_the_ts_layout() {
         let table = format_daemon_list_table(&[
             daemon(
-                "/tmp/prime-agent-1000/daemon.sock",
+                "/tmp/async-agent-1000/daemon.sock",
                 DaemonStatus::Current,
                 true,
             ),
@@ -233,7 +233,7 @@ mod tests {
         assert!(lines
             .next()
             .unwrap()
-            .starts_with("/tmp/prime-agent-1000/daemon.sock *  42   0.1.0"));
+            .starts_with("/tmp/async-agent-1000/daemon.sock *  42   0.1.0"));
         assert!(table.ends_with("* default background service"));
     }
 

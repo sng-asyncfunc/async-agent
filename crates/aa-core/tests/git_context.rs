@@ -13,8 +13,8 @@
 
 use std::path::Path;
 
-use pa_core::session::manager::{capture_git_context, SessionManager};
-use pa_types::session::{AgentMessage, FileEntry};
+use aa_core::session::manager::{capture_git_context, SessionManager};
+use aa_types::session::{AgentMessage, FileEntry};
 
 fn git(cwd: &Path, args: &[&str]) -> String {
     let output = std::process::Command::new("git")
@@ -45,8 +45,8 @@ fn commit(dir: &Path, message: &str) -> String {
 }
 
 fn user(text: &str) -> AgentMessage {
-    AgentMessage::User(pa_types::ai::UserMessage {
-        content: pa_types::ai::UserContent::Text(text.to_string()),
+    AgentMessage::User(aa_types::ai::UserMessage {
+        content: aa_types::ai::UserContent::Text(text.to_string()),
         timestamp: 0,
         rest: serde_json::Map::default(),
     })
@@ -69,7 +69,7 @@ fn reads_branch_commit_and_normalized_repo_url() {
 
     assert_eq!(
         capture_git_context(repo.path()),
-        Some(pa_types::session::GitContext {
+        Some(aa_types::session::GitContext {
             repo_url: Some("https://github.com/acme/widgets.git".to_string()),
             commit: Some(sha),
             branch: Some("main".to_string()),
@@ -152,7 +152,7 @@ fn dirty_tree_does_not_change_capture() {
 
     assert_eq!(
         capture_git_context(repo.path()),
-        Some(pa_types::session::GitContext {
+        Some(aa_types::session::GitContext {
             repo_url: Some("https://github.com/acme/widgets.git".to_string()),
             commit: Some(sha),
             branch: Some("main".to_string()),
@@ -162,7 +162,7 @@ fn dirty_tree_does_not_change_capture() {
 
 /// Byte-parity pin: a session header captured by the installed TS binary (0.9.5) in a fixture repo
 /// parses into the same Rust git context, wire shape included. The line below is the verbatim first
-/// line of `~/.prime/sessions/<id>.jsonl` produced by `prime-agent -p --session-dir ... "say hi"`
+/// line of `~/.async-agent/sessions/<id>.jsonl` produced by `async-agent -p --session-dir ... "say hi"`
 /// in that repo (the header is written before any model call).
 #[test]
 fn ts_binary_session_header_round_trips() {
@@ -172,13 +172,13 @@ fn ts_binary_session_header_round_trips() {
         r#""git":{"repoUrl":"https://github.com/acme/widgets.git","#,
         r#""commit":"5a0875f3b33b639d2d7a57ee51ca19d44fa7ce70","branch":"main"}}"#
     );
-    let entries = pa_core::session::parse_session_entries(&format!("{ts_header}\n"));
+    let entries = aa_core::session::parse_session_entries(&format!("{ts_header}\n"));
     let [FileEntry::Header { header }] = &entries[..] else {
         panic!("expected exactly one session header, got {entries:?}");
     };
     assert_eq!(
         header.git,
-        Some(pa_types::session::GitContext {
+        Some(aa_types::session::GitContext {
             repo_url: Some("https://github.com/acme/widgets.git".to_string()),
             commit: Some("5a0875f3b33b639d2d7a57ee51ca19d44fa7ce70".to_string()),
             branch: Some("main".to_string()),
@@ -217,7 +217,7 @@ fn session_header_captures_git_context() {
     let manager = SessionManager::persisted(repo.path(), sessions.path());
     assert_eq!(
         manager.get_header().and_then(|header| header.git.clone()),
-        Some(pa_types::session::GitContext {
+        Some(aa_types::session::GitContext {
             repo_url: Some("https://github.com/acme/widgets.git".to_string()),
             commit: Some(sha),
             branch: Some("main".to_string()),
@@ -306,7 +306,7 @@ fn git_state_entries_stay_out_of_llm_context() {
     let mut manager = SessionManager::persisted(repo.path(), sessions.path());
     commit(repo.path(), "second");
     manager.record_git_state_if_changed(capture_git_context(repo.path()).unwrap());
-    let context = pa_core::session::build_session_context(
+    let context = aa_core::session::build_session_context(
         &manager.get_entries(),
         manager.get_leaf_id().map(str::to_string).as_deref(),
     );

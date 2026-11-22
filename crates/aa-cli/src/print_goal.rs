@@ -5,14 +5,14 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use pa_agent::agent::Agent;
-use pa_agent::types::{AgentEvent, AgentMessage, Message};
-use pa_core::session_engine::engine::SessionEngine;
-use pa_core::session_engine::goal_boundary::custom_message_to_loop_row;
-use pa_core::session_engine::goal_continuation::{ContinuationTrigger, GoalContinuationDecision};
-use pa_core::session_engine::goal_driver::UsageOutcome;
-use pa_core::session_engine::provider_adapter::json_round_trip;
-use pa_types::session::CustomMessage;
+use aa_agent::agent::Agent;
+use aa_agent::types::{AgentEvent, AgentMessage, Message};
+use aa_core::session_engine::engine::SessionEngine;
+use aa_core::session_engine::goal_boundary::custom_message_to_loop_row;
+use aa_core::session_engine::goal_continuation::{ContinuationTrigger, GoalContinuationDecision};
+use aa_core::session_engine::goal_driver::UsageOutcome;
+use aa_core::session_engine::provider_adapter::json_round_trip;
+use aa_types::session::CustomMessage;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
@@ -58,7 +58,7 @@ pub(crate) enum NaturalContinuation {
     /// delivers it after the descendants settle.
     HeldForRlmWork,
     /// The goal minted its next continuation row.
-    GoalRow(Box<pa_agent::types::AgentMessage>),
+    GoalRow(Box<aa_agent::types::AgentMessage>),
     /// No goal work owns the boundary: the autonomous arm may consult.
     FallThrough,
 }
@@ -79,11 +79,11 @@ impl QueuedGoalTurn {
 /// The text of one custom row's content: the plain text, or the text blocks joined.
 fn custom_message_text(message: &CustomMessage) -> String {
     match &message.content {
-        pa_types::ai::UserContent::Text(text) => text.clone(),
-        pa_types::ai::UserContent::Blocks(blocks) => blocks
+        aa_types::ai::UserContent::Text(text) => text.clone(),
+        aa_types::ai::UserContent::Blocks(blocks) => blocks
             .iter()
             .map(|block| match block {
-                pa_types::ai::UserContentBlock::Text(text) => text.text.clone(),
+                aa_types::ai::UserContentBlock::Text(text) => text.text.clone(),
                 _ => String::new(),
             })
             .collect::<Vec<_>>()
@@ -108,7 +108,7 @@ pub(crate) struct PrintGoalSurface {
     /// The last `session_action_update` snapshot emitted (unchanged projections stay silent).
     last_action_snapshot: Mutex<Value>,
     /// The last goal state published as a `goal_update` (the publish dedupe).
-    last_published_goal: Mutex<pa_types::goal::GoalState>,
+    last_published_goal: Mutex<aa_types::goal::GoalState>,
 }
 
 impl PrintGoalSurface {
@@ -121,7 +121,7 @@ impl PrintGoalSurface {
             active_label: Mutex::new(None),
             running_frame_at_turn_start: AtomicBool::new(false),
             last_action_snapshot: Mutex::new(Value::Null),
-            last_published_goal: Mutex::new(pa_types::goal::empty_goal_state()),
+            last_published_goal: Mutex::new(aa_types::goal::empty_goal_state()),
         }
     }
 
@@ -136,7 +136,7 @@ impl PrintGoalSurface {
             active_label: Mutex::new(None),
             running_frame_at_turn_start: AtomicBool::new(false),
             last_action_snapshot: Mutex::new(Value::Null),
-            last_published_goal: Mutex::new(pa_types::goal::empty_goal_state()),
+            last_published_goal: Mutex::new(aa_types::goal::empty_goal_state()),
         }
     }
 
@@ -158,8 +158,8 @@ impl PrintGoalSurface {
             let mut last = self.last_published_goal.lock().await;
             // The dedupe is age-invariant: the timer's age ticks with the wall
             // clock (a boundary between reads must not re-emit an unchanged goal).
-            if pa_core::goals::goal_update_dedupe_projection(&last)
-                == pa_core::goals::goal_update_dedupe_projection(&goal)
+            if aa_core::goals::goal_update_dedupe_projection(&last)
+                == aa_core::goals::goal_update_dedupe_projection(&goal)
             {
                 false
             } else {
@@ -391,7 +391,7 @@ impl PrintGoalSurface {
         self: &Arc<Self>,
         engine: &Arc<SessionEngine>,
         agent: &Arc<Agent>,
-    ) -> pa_agent::agent::Subscription {
+    ) -> aa_agent::agent::Subscription {
         let engine = Arc::clone(engine);
         let surface = Arc::clone(self);
         agent
@@ -404,13 +404,13 @@ impl PrintGoalSurface {
                     } = &event
                     {
                         if let Some(wire) =
-                            json_round_trip::<_, pa_types::ai::AssistantMessage>(assistant)
+                            json_round_trip::<_, aa_types::ai::AssistantMessage>(assistant)
                         {
                             // Only turns that were neither errors nor aborted spend the budget; the
                             // crossing flips the goal to `budget_limited` and arms the steer.
                             if !matches!(
                                 wire.stop_reason,
-                                pa_types::ai::StopReason::Error | pa_types::ai::StopReason::Aborted
+                                aa_types::ai::StopReason::Error | aa_types::ai::StopReason::Aborted
                             ) {
                                 // The message identity for the double-counting guard: the loop does
                                 // not assign message ids in-process.
@@ -430,7 +430,7 @@ impl PrintGoalSurface {
                                     Ok(_) => {}
                                     Err(error) => {
                                         eprintln!(
-                                            "pa-cli: goal usage accounting persist failed: {error:#}"
+                                            "aa-cli: goal usage accounting persist failed: {error:#}"
                                         );
                                     }
                                 }
@@ -467,7 +467,7 @@ impl PrintGoalSurface {
     pub(crate) async fn natural_continuation(
         &self,
         engine: &Arc<SessionEngine>,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         unsettled_rlm_work: bool,
     ) -> NaturalContinuation {
         // Queued session input owns the boundary before any goal work — the armed budget steer ends
@@ -523,14 +523,14 @@ impl PrintGoalSurface {
         &self,
         engine: &SessionEngine,
         boundary: &mut crate::print_boundary::TurnBoundary,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         api_key: Option<String>,
     ) -> Result<bool, String> {
         let mut ran = false;
         loop {
             if let Some(message) = self.take_threshold_continuation().await {
                 // A goal that went inactive mid-turn drops its queued continuation.
-                if engine.goal_state().await.status == pa_types::goal::GoalStatus::Active {
+                if engine.goal_state().await.status == aa_types::goal::GoalStatus::Active {
                     self.run_queued_turn(engine, boundary, model, api_key.clone(), &message)
                         .await?;
                     ran = true;
@@ -553,7 +553,7 @@ impl PrintGoalSurface {
             }
             if let Some(wake_at) = engine.take_goal_backoff_wake_at().await {
                 tokio::time::sleep(std::time::Duration::from_millis(
-                    wake_at.saturating_sub(pa_core::autonomous::now_millis()),
+                    wake_at.saturating_sub(aa_core::autonomous::now_millis()),
                 ))
                 .await;
                 boundary
@@ -561,7 +561,7 @@ impl PrintGoalSurface {
                         engine,
                         model,
                         api_key.clone(),
-                        pa_core::session_engine::goal_driver::GOAL_BACKOFF_WAKE_MARKER_TEXT,
+                        aa_core::session_engine::goal_driver::GOAL_BACKOFF_WAKE_MARKER_TEXT,
                     )
                     .await?;
                 ran = true;
@@ -578,7 +578,7 @@ impl PrintGoalSurface {
         &self,
         engine: &SessionEngine,
         boundary: &mut crate::print_boundary::TurnBoundary,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         api_key: Option<String>,
         message: &CustomMessage,
     ) -> Result<(), String> {
@@ -618,7 +618,7 @@ impl PrintGoalSurface {
         &self,
         engine: &SessionEngine,
         boundary: &mut crate::print_boundary::TurnBoundary,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         api_key: Option<String>,
         message: &CustomMessage,
     ) -> Result<(), String> {
@@ -646,7 +646,7 @@ impl PrintGoalSurface {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_core::session_engine::provider_adapter::json_round_trip;
+    use aa_core::session_engine::provider_adapter::json_round_trip;
     use serde_json::json;
 
     /// One captured event line (the sink's frames, in order).
@@ -696,11 +696,11 @@ mod tests {
             .await
             .into_iter()
             .filter_map(|entry| match entry {
-                pa_types::session::FileEntry::CustomMessage { payload, .. } => Some((
+                aa_types::session::FileEntry::CustomMessage { payload, .. } => Some((
                     payload.custom_type.clone(),
                     match &payload.content {
-                        pa_types::ai::UserContent::Text(text) => text.clone(),
-                        pa_types::ai::UserContent::Blocks(_) => String::new(),
+                        aa_types::ai::UserContent::Text(text) => text.clone(),
+                        aa_types::ai::UserContent::Blocks(_) => String::new(),
                     },
                 )),
                 _ => None,
@@ -716,15 +716,15 @@ mod tests {
             .await
             .into_iter()
             .filter(|entry| {
-                let pa_types::session::FileEntry::Message {
-                    message: pa_types::session::AgentMessage::User(user),
+                let aa_types::session::FileEntry::Message {
+                    message: aa_types::session::AgentMessage::User(user),
                     ..
                 } = entry
                 else {
                     return false;
                 };
                 user.content.text()
-                    == pa_core::session_engine::goal_driver::GOAL_BACKOFF_WAKE_MARKER_TEXT
+                    == aa_core::session_engine::goal_driver::GOAL_BACKOFF_WAKE_MARKER_TEXT
             })
             .count()
     }
@@ -737,11 +737,11 @@ mod tests {
             .await
             .into_iter()
             .filter_map(|entry| match entry {
-                pa_types::session::FileEntry::Message {
-                    message: pa_types::session::AgentMessage::Assistant(assistant),
+                aa_types::session::FileEntry::Message {
+                    message: aa_types::session::AgentMessage::Assistant(assistant),
                     ..
                 } => match assistant.content.first() {
-                    Some(pa_types::ai::AssistantContentBlock::Text(text)) => {
+                    Some(aa_types::ai::AssistantContentBlock::Text(text)) => {
                         Some(text.text.clone())
                     }
                     _ => None,
@@ -756,7 +756,7 @@ mod tests {
         engine: &Arc<SessionEngine>,
     ) -> (
         Arc<std::sync::atomic::AtomicU64>,
-        pa_agent::agent::Subscription,
+        aa_agent::agent::Subscription,
     ) {
         let counter = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let counter_clone = Arc::clone(&counter);
@@ -786,9 +786,9 @@ mod tests {
         let agent_dir = dir.path().join("agent");
         std::fs::create_dir_all(&agent_dir).unwrap();
         std::fs::write(agent_dir.join("settings.json"), settings.to_string()).unwrap();
-        let parsed = pa_ai::faux::script::parse_faux_script(&script).unwrap();
+        let parsed = aa_ai::faux::script::parse_faux_script(&script).unwrap();
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 models: Some(vec![parsed.model]),
                 ..Default::default()
             });
@@ -796,16 +796,16 @@ mod tests {
         registration.set_repeat_last_response(parsed.repeat_last_response);
         let model = registration.get_model();
         let stream_fn =
-            pa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
-        let agent_model: pa_agent::types::Model =
+            aa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
+        let agent_model: aa_agent::types::Model =
             json_round_trip(&model).expect("the faux model crosses the loop boundary");
-        let session_manager = pa_core::session::manager::SessionManager::persisted(
+        let session_manager = aa_core::session::manager::SessionManager::persisted(
             dir.path(),
             &dir.path().join("sessions"),
         );
         let engine = Arc::new(
-            pa_core::session_engine::engine::create_session(
-                pa_core::session_engine::engine::SessionEngineConfig {
+            aa_core::session_engine::engine::create_session(
+                aa_core::session_engine::engine::SessionEngineConfig {
                     on_late_sent_agent_message: None,
                     semantic_edges: None,
                     cron_store: None,
@@ -885,10 +885,10 @@ mod tests {
 
     struct GoalBed {
         engine: Arc<SessionEngine>,
-        model: pa_types::ai::Model,
+        model: aa_types::ai::Model,
         surface: Arc<PrintGoalSurface>,
         frames: Frames,
-        _accounting: pa_agent::agent::Subscription,
+        _accounting: aa_agent::agent::Subscription,
         /// Keeps the composed hook's autonomous arm alive for the bed's lifetime (the hook holds it
         /// weakly).
         _autonomous_run: Arc<crate::headless_autonomous::HeadlessAutonomous>,
@@ -906,7 +906,7 @@ mod tests {
                 .unwrap();
             self.engine
                 .session
-                .prompt(text, pa_core::session_engine::PromptOptions::default())
+                .prompt(text, aa_core::session_engine::PromptOptions::default())
                 .await
                 .unwrap();
             self.engine.session.agent().wait_for_idle().await;
@@ -956,7 +956,7 @@ mod tests {
         assert_eq!(runs, 1, "the continuation turn shares the one run");
         assert!(!owns, "the failed goal no longer owns the boundary");
         let goal = bed.engine.goal_state().await;
-        assert_eq!(goal.status, pa_types::goal::GoalStatus::Error);
+        assert_eq!(goal.status, aa_types::goal::GoalStatus::Error);
         assert_eq!(goal.continuations_used, 1, "the seed itself mints nothing");
         let rows = custom_rows(&bed.engine).await;
         assert_eq!(
@@ -970,8 +970,8 @@ mod tests {
         let mut kinds: Vec<String> = Vec::new();
         for entry in &entries {
             match entry {
-                pa_types::session::FileEntry::CustomMessage { payload, .. }
-                    if payload.custom_type == pa_core::goals::GOAL_CONTEXT_CUSTOM_TYPE =>
+                aa_types::session::FileEntry::CustomMessage { payload, .. }
+                    if payload.custom_type == aa_core::goals::GOAL_CONTEXT_CUSTOM_TYPE =>
                 {
                     let details = payload.details.as_ref().unwrap();
                     kinds.push(format!(
@@ -979,7 +979,7 @@ mod tests {
                         details["continuationsUsed"].as_u64().unwrap_or_default()
                     ));
                 }
-                pa_types::session::FileEntry::Message { .. } => {
+                aa_types::session::FileEntry::Message { .. } => {
                     kinds.push("message".to_string());
                 }
                 _ => {}
@@ -1037,7 +1037,7 @@ mod tests {
         );
         assert_eq!(
             bed.engine.goal_state().await.status,
-            pa_types::goal::GoalStatus::Idle
+            aa_types::goal::GoalStatus::Idle
         );
     }
 
@@ -1074,7 +1074,7 @@ mod tests {
             "the seed context plus one minted context per turn"
         );
         let goal = bed.engine.goal_state().await;
-        assert_eq!(goal.status, pa_types::goal::GoalStatus::Error);
+        assert_eq!(goal.status, aa_types::goal::GoalStatus::Error);
         assert_eq!(goal.continuations_used, 2);
         // The stream: each turn's usage bump, each mint's bump, and the terminal
         // error — no queue frames (the natural mints never queue).
@@ -1122,7 +1122,7 @@ mod tests {
         );
         assert_eq!(
             bed.engine.goal_state().await.status,
-            pa_types::goal::GoalStatus::Error
+            aa_types::goal::GoalStatus::Error
         );
     }
 
@@ -1147,10 +1147,10 @@ mod tests {
         assert!(!owns, "the capped goal no longer owns the boundary");
         assert_eq!(wake_marker_rows(&bed.engine).await, 2);
         let goal = bed.engine.goal_state().await;
-        assert_eq!(goal.status, pa_types::goal::GoalStatus::Error);
+        assert_eq!(goal.status, aa_types::goal::GoalStatus::Error);
         assert_eq!(
             goal.last_error.as_deref(),
-            Some(pa_core::session_engine::goal_driver::CONTINUATION_NO_PROGRESS_CAP_REASON)
+            Some(aa_core::session_engine::goal_driver::CONTINUATION_NO_PROGRESS_CAP_REASON)
         );
         assert_eq!(goal.no_progress_streak, Some(3));
     }
@@ -1167,7 +1167,7 @@ mod tests {
         assert_eq!(wake_marker_rows(&bed.engine).await, 0);
         assert_eq!(
             bed.engine.goal_state().await.status,
-            pa_types::goal::GoalStatus::Idle
+            aa_types::goal::GoalStatus::Idle
         );
     }
 
@@ -1188,7 +1188,7 @@ mod tests {
         assert_eq!(runs, 2, "the crossing turn and the steer run");
         assert!(!owns, "the budget-limited goal no longer owns the boundary");
         let goal = bed.engine.goal_state().await;
-        assert_eq!(goal.status, pa_types::goal::GoalStatus::BudgetLimited);
+        assert_eq!(goal.status, aa_types::goal::GoalStatus::BudgetLimited);
         assert_eq!(
             goal.last_reason.as_deref(),
             Some("Reached 5 token goal budget")
@@ -1272,8 +1272,8 @@ mod tests {
             match entry {
                 // The goal-state rows are `Custom` entries (`data` carries the state);
                 // the context rows are `CustomMessage` entries (`details` carries the slot).
-                pa_types::session::FileEntry::Custom { payload, .. }
-                    if payload.custom_type == pa_core::goals::GOAL_STATE_CUSTOM_TYPE =>
+                aa_types::session::FileEntry::Custom { payload, .. }
+                    if payload.custom_type == aa_core::goals::GOAL_STATE_CUSTOM_TYPE =>
                 {
                     let slot = payload
                         .data
@@ -1282,7 +1282,7 @@ mod tests {
                         .unwrap_or_default();
                     marks.push((payload.custom_type.clone(), slot));
                 }
-                pa_types::session::FileEntry::CustomMessage { payload, .. } => {
+                aa_types::session::FileEntry::CustomMessage { payload, .. } => {
                     let slot = payload
                         .details
                         .as_ref()
@@ -1290,7 +1290,7 @@ mod tests {
                         .unwrap_or_default();
                     marks.push((payload.custom_type.clone(), slot));
                 }
-                pa_types::session::FileEntry::Compaction { .. } => {
+                aa_types::session::FileEntry::Compaction { .. } => {
                     marks.push(("compaction".to_string(), 0));
                 }
                 _ => {}
@@ -1302,14 +1302,14 @@ mod tests {
             .expect("the threshold arm compacted");
         assert_eq!(
             marks[compaction - 1],
-            (pa_core::goals::GOAL_STATE_CUSTOM_TYPE.to_string(), 1),
+            (aa_core::goals::GOAL_STATE_CUSTOM_TYPE.to_string(), 1),
             "the mint's slot bump immediately precedes the compaction"
         );
         // The live CompactionSummary prevents a second threshold check from
         // writing a spurious skipped `compaction_outcome` before this turn.
         assert_eq!(
             marks[compaction + 1],
-            (pa_core::goals::GOAL_CONTEXT_CUSTOM_TYPE.to_string(), 1),
+            (aa_core::goals::GOAL_CONTEXT_CUSTOM_TYPE.to_string(), 1),
             "the held context row follows the compaction as the next turn"
         );
         assert!(
@@ -1334,7 +1334,7 @@ mod tests {
             ]
         );
         let goal = bed.engine.goal_state().await;
-        assert_eq!(goal.status, pa_types::goal::GoalStatus::Error);
+        assert_eq!(goal.status, aa_types::goal::GoalStatus::Error);
         assert_eq!(
             goal.continuations_used, 2,
             "the held mint plus the held turn's own natural mint"
@@ -1348,9 +1348,9 @@ mod tests {
         let agent_dir = dir.path().join("agent");
         std::fs::create_dir_all(&agent_dir).unwrap();
         std::fs::write(agent_dir.join("settings.json"), settings.to_string()).unwrap();
-        let parsed = pa_ai::faux::script::parse_faux_script(&script).unwrap();
+        let parsed = aa_ai::faux::script::parse_faux_script(&script).unwrap();
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 models: Some(vec![parsed.model]),
                 ..Default::default()
             });
@@ -1358,20 +1358,20 @@ mod tests {
         registration.set_repeat_last_response(parsed.repeat_last_response);
         let model = registration.get_model();
         let stream_fn =
-            pa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
-        let agent_model: pa_agent::types::Model =
+            aa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
+        let agent_model: aa_agent::types::Model =
             json_round_trip(&model).expect("the faux model crosses the loop boundary");
         // The resumed session: one history turn (a user row and a settled assistant reply), then
         // the active goal state.
-        let mut session_manager = pa_core::session::manager::SessionManager::persisted(
+        let mut session_manager = aa_core::session::manager::SessionManager::persisted(
             dir.path(),
             &dir.path().join("sessions"),
         );
         session_manager.materialize_session_file(Some(dir.path().join("sessions")));
         session_manager
-            .append_message(pa_types::session::AgentMessage::User(
-                pa_types::ai::UserMessage {
-                    content: pa_types::ai::UserContent::Text(
+            .append_message(aa_types::session::AgentMessage::User(
+                aa_types::ai::UserMessage {
+                    content: aa_types::ai::UserContent::Text(
                         // A large history turn: it crosses the reserve headroom on the crossing
                         // turn's request estimate, and the compaction summarizes it away.
                         String::from("a resumed history turn ") + &"x".repeat(60000),
@@ -1382,7 +1382,7 @@ mod tests {
             ))
             .expect("the resumed user turn appends");
         session_manager
-            .append_message(pa_types::session::AgentMessage::Assistant(
+            .append_message(aa_types::session::AgentMessage::Assistant(
             serde_json::from_value(json!({
                 "role": "assistant",
                 "content": [{ "type": "text", "text": "resumed history reply" }],
@@ -1401,14 +1401,14 @@ mod tests {
         ))
             .expect("the resumed history reply appends");
         {
-            let mut driver = pa_core::session_engine::goal_driver::GoalDriver::new();
+            let mut driver = aa_core::session_engine::goal_driver::GoalDriver::new();
             driver
                 .start(&mut session_manager, "finish the work", Some(1_000_000))
                 .unwrap();
         }
         let engine = Arc::new(
-            pa_core::session_engine::engine::create_session(
-                pa_core::session_engine::engine::SessionEngineConfig {
+            aa_core::session_engine::engine::create_session(
+                aa_core::session_engine::engine::SessionEngineConfig {
                     on_late_sent_agent_message: None,
                     semantic_edges: None,
                     cron_store: None,
@@ -1454,7 +1454,7 @@ mod tests {
         );
         assert_eq!(
             engine.goal_state().await.status,
-            pa_types::goal::GoalStatus::Active,
+            aa_types::goal::GoalStatus::Active,
             "the persisted goal state loads at construction"
         );
         let (frames, sink) = capture_sink();

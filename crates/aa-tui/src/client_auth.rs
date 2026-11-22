@@ -5,13 +5,13 @@
 //! `/mcp` view's api-key credential flow (`key <id>`, the view's stored
 //! keys such as the web-search one). The TUI owns the command UX and the
 //! inline auth panel; the composition root runs the flow against it
-//! (pa-core owns the flow — this crate stays pa-types-only).
+//! (aa-core owns the flow — this crate stays aa-types-only).
 
 use std::pin::Pin;
 use std::sync::Arc;
 
 /// The boxed-future shape of [`ClientAuthCommands`] methods (the same
-/// contract the pa-core login UI uses for dyn dispatch across crates).
+/// contract the aa-core login UI uses for dyn dispatch across crates).
 pub type AuthFuture = Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send>>;
 
 /// `/mcp login` and `/mcp logout`, implemented by the composition root.

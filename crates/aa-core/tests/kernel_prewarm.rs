@@ -15,19 +15,19 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use pa_core::session_engine::compact_session::CompactOutcome;
-use pa_core::session_engine::engine::{create_session, SessionEngineConfig};
-use pa_core::session_engine::provider_adapter::{json_round_trip, real_stream_fn};
-use pa_core::session_engine::telemetry::{build_client, TelemetryWiring};
-use pa_core::session_engine::{PromptOptions, PromptOutcome};
-use pa_core::settings::SettingsManager;
-use pa_types::session::FileEntry;
+use aa_core::session_engine::compact_session::CompactOutcome;
+use aa_core::session_engine::engine::{create_session, SessionEngineConfig};
+use aa_core::session_engine::provider_adapter::{json_round_trip, real_stream_fn};
+use aa_core::session_engine::telemetry::{build_client, TelemetryWiring};
+use aa_core::session_engine::{PromptOptions, PromptOutcome};
+use aa_core::settings::SettingsManager;
+use aa_types::session::FileEntry;
 
 /// The faux provider registry is process-global and both tests drive it:
 /// the std lock serializes them (the only contenders).
 static FAUX_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// The kernel Bun binary with `prime-agent-runtime` available. Skipped (with a note) on machines
+/// The kernel Bun binary with `async-agent-runtime` available. Skipped (with a note) on machines
 /// without a live runtime; set `PA_CORE_KERNEL_BUN` to point at an explicit executable instead.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) = std::env::var_os("PA_CORE_KERNEL_BUN") {
@@ -39,20 +39,20 @@ fn kernel_bun() -> Option<PathBuf> {
         );
         return Some(explicit);
     }
-    let runtime_ready = pa_core::kernel::bootstrap::kernel_worker_entry(
-        &pa_core::kernel::bootstrap::kernel_bun_dir(),
+    let runtime_ready = aa_core::kernel::bootstrap::kernel_worker_entry(
+        &aa_core::kernel::bootstrap::kernel_bun_dir(),
     )
     .is_file()
         || std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(2)
-            .is_some_and(|root| root.join("prime-agent-runtime/src/repl.ts").is_file());
+            .is_some_and(|root| root.join("async-agent-runtime/src/repl.ts").is_file());
     if !runtime_ready {
-        eprintln!("prime-agent-runtime/src/repl.ts not found; skipping live prewarm test");
+        eprintln!("async-agent-runtime/src/repl.ts not found; skipping live prewarm test");
         return None;
     }
     for candidate in [
-        std::env::var_os("PRIME_AGENT_KERNEL_BUN").map(PathBuf::from),
+        std::env::var_os("ASYNC_AGENT_KERNEL_BUN").map(PathBuf::from),
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".bun/bin/bun")),
         Some(PathBuf::from("/usr/local/bin/bun")),
         Some(PathBuf::from("/usr/bin/bun")),
@@ -71,18 +71,18 @@ fn kernel_bun() -> Option<PathBuf> {
 /// One faux provider session: the model, its agent-loop shape, and the
 /// stream function, with the scripted responses queued.
 struct FauxSession {
-    model: pa_types::ai::Model,
-    stream_fn: pa_agent::stream::StreamFn,
+    model: aa_types::ai::Model,
+    stream_fn: aa_agent::stream::StreamFn,
 }
 
 fn faux_session(responses: Vec<String>) -> FauxSession {
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
-            models: Some(vec![pa_ai::faux::FauxModelDefinition {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
+            models: Some(vec![aa_ai::faux::FauxModelDefinition {
                 id: "faux-1".to_string(),
                 name: Some("Faux".to_string()),
                 reasoning: Some(false),
-                input: Some(vec![pa_types::ai::ModelInput::Text]),
+                input: Some(vec![aa_types::ai::ModelInput::Text]),
                 cost: None,
                 context_window: Some(100_000),
                 max_tokens: Some(4_096),
@@ -93,9 +93,9 @@ fn faux_session(responses: Vec<String>) -> FauxSession {
         responses
             .into_iter()
             .map(|text| {
-                pa_ai::faux::FauxResponseStep::Message(pa_ai::faux::faux_assistant_text_message(
+                aa_ai::faux::FauxResponseStep::Message(aa_ai::faux::faux_assistant_text_message(
                     &text,
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             })
             .collect(),
@@ -106,13 +106,13 @@ fn faux_session(responses: Vec<String>) -> FauxSession {
 }
 
 /// The agent-loop model shape the engine config takes.
-fn agent_model(model: &pa_types::ai::Model) -> pa_agent::types::Model {
+fn agent_model(model: &aa_types::ai::Model) -> aa_agent::types::Model {
     json_round_trip(model).expect("model conversion")
 }
 
 /// Wait for the prewarmed boot to finish (a background task): poll the
 /// session's kernel provisioner until a kernel runs.
-async fn wait_for_kernel_boot(engine: &pa_core::session_engine::engine::SessionEngine) {
+async fn wait_for_kernel_boot(engine: &aa_core::session_engine::engine::SessionEngine) {
     let deadline = Instant::now() + Duration::from_mins(2);
     loop {
         if engine
@@ -214,7 +214,7 @@ async fn prewarmed_kernel_lands_compaction_notice_without_tool_use() {
         .expect("the prewarmed kernel must land the javascript_state notice");
     assert_eq!(notice.custom_type, "javascript_state");
     assert!(!notice.display, "the notice is never rendered");
-    let pa_types::ai::UserContent::Text(content) = &notice.content else {
+    let aa_types::ai::UserContent::Text(content) = &notice.content else {
         panic!("the notice content is text");
     };
     assert!(content.contains("[javascript-state]"), "{content}");
@@ -314,7 +314,7 @@ async fn subagent_sessions_stay_lazy_despite_the_prewarm_flag() {
 /// while it runs and restores them after, serialized through its own lock.
 static TELEMETRY_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-const TELEMETRY_ENV_VARS: [&str; 3] = ["DO_NOT_TRACK", "PI_OFFLINE", "PRIME_AGENT_TELEMETRY"];
+const TELEMETRY_ENV_VARS: [&str; 3] = ["DO_NOT_TRACK", "PI_OFFLINE", "ASYNC_AGENT_TELEMETRY"];
 
 struct CleanTelemetryEnv {
     saved: Vec<(&'static str, Option<String>)>,
@@ -379,10 +379,10 @@ async fn an_off_switch_at_creation_keeps_the_prewarm_window_uncounted() {
     let mut settings = SettingsManager::create(&cwd, &agent_dir);
     // Telemetry off through the whole prewarm window.
     settings.set_telemetry_enabled(false).expect("settings off");
-    let mock = std::sync::Arc::new(pa_telemetry::MockSink::new());
-    let mut config = pa_telemetry::TelemetryClientConfig::new("install-1");
-    config.sinks = vec![mock.clone() as std::sync::Arc<dyn pa_telemetry::TelemetrySink>];
-    let client = pa_telemetry::TelemetryClient::spawn(config).expect("client");
+    let mock = std::sync::Arc::new(aa_telemetry::MockSink::new());
+    let mut config = aa_telemetry::TelemetryClientConfig::new("install-1");
+    config.sinks = vec![mock.clone() as std::sync::Arc<dyn aa_telemetry::TelemetrySink>];
+    let client = aa_telemetry::TelemetryClient::spawn(config).expect("client");
 
     let faux = faux_session(vec!["ok".to_string()]);
     let engine = create_session(SessionEngineConfig {
@@ -399,7 +399,7 @@ async fn an_off_switch_at_creation_keeps_the_prewarm_window_uncounted() {
             execution_mode: Some("test".to_string()),
             now: None,
             telemetry_enabled: Some(
-                pa_core::session_engine::telemetry::telemetry_enabled_switch(&cwd, &agent_dir),
+                aa_core::session_engine::telemetry::telemetry_enabled_switch(&cwd, &agent_dir),
             ),
         }),
         prewarm_javascript_kernel: Some(true),

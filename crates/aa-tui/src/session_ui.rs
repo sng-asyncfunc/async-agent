@@ -57,8 +57,8 @@ use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Context, Result};
-use pa_types::daemon::{CycleDirection, DaemonCommand};
-use pa_types::slash_commands::{SlashCommandExecution, SlashCommandRegistry};
+use aa_types::daemon::{CycleDirection, DaemonCommand};
+use aa_types::slash_commands::{SlashCommandExecution, SlashCommandRegistry};
 use serde_json::{Map, Value};
 
 use crate::bash_view::{BashView, BashViewAction};
@@ -115,7 +115,7 @@ const EXIT_STATS_TIMEOUT_MS: u64 = 500;
 
 /// Ban-risk warning a completed Anthropic subscription login shows once
 /// per session; the settings toggle `warnings.anthropicExtraUsage` gates it.
-const ANTHROPIC_SUBSCRIPTION_AUTH_WARNING: &str = "Anthropic subscription auth is active. Usage draws from your plan limits, but Prime Agent identifies as Claude Code and this may violate Anthropic's terms — your account can be restricted or banned. An Anthropic API key avoids the risk. Manage usage at https://claude.ai/settings/usage.";
+const ANTHROPIC_SUBSCRIPTION_AUTH_WARNING: &str = "Anthropic subscription auth is active. Usage draws from your plan limits, but Async Agent identifies as Claude Code and this may violate Anthropic's terms — your account can be restricted or banned. An Anthropic API key avoids the risk. Manage usage at https://claude.ai/settings/usage.";
 
 /// A landed `get_commands` refresh: the session's `skill:` commands for
 /// the autocomplete provider; an older refresh never applies.
@@ -124,7 +124,7 @@ pub(crate) struct CommandCatalogUpdate {
     pub skill_commands: Vec<crate::autocomplete::SlashCommandEntry>,
 }
 
-pub(crate) fn attach_capabilities() -> Vec<pa_types::daemon::DaemonClientCapability> {
+pub(crate) fn attach_capabilities() -> Vec<aa_types::daemon::DaemonClientCapability> {
     vec![
         "attach_snapshot".to_string(),
         "event_sequence".to_string(),
@@ -173,7 +173,7 @@ pub(crate) struct SessionUi {
     models: Option<Vec<String>>,
     /// The `/model` picker's catalog: a startup snapshot (the bundled
     /// fallback), replaced by the daemon's `get_model_catalog` response.
-    model_catalog: Vec<pa_types::ai::Model>,
+    model_catalog: Vec<aa_types::ai::Model>,
     model_configured_providers: std::collections::HashSet<String>,
     /// The settings recent-model list (`provider/id` keys, newest first).
     model_recent_models: Vec<String>,
@@ -560,7 +560,7 @@ impl SessionUi {
             .await
             .map_err(|_| {
                 anyhow!(
-                    "timed out after {}ms waiting for the Prime Agent daemon response",
+                    "timed out after {}ms waiting for the Async Agent daemon response",
                     timeout.as_millis()
                 )
             })?
@@ -571,7 +571,7 @@ impl SessionUi {
     fn update_model_eligibility_filters(&self, view: &mut AgentView) {
         let eligible = self
             .current_model_entry(view)
-            .is_some_and(pa_types::ai::supports_fast_mode);
+            .is_some_and(aa_types::ai::supports_fast_mode);
         let mut hidden = std::collections::HashSet::new();
         if !eligible {
             hidden.insert("fast".to_string());
@@ -589,15 +589,15 @@ impl SessionUi {
         };
         let mut tiers = vec!["default"];
         for tier in [
-            pa_types::ai::ServiceTier::Flex,
-            pa_types::ai::ServiceTier::Priority,
-            pa_types::ai::ServiceTier::Auto,
+            aa_types::ai::ServiceTier::Flex,
+            aa_types::ai::ServiceTier::Priority,
+            aa_types::ai::ServiceTier::Auto,
         ] {
-            if pa_types::ai::supports_service_tier(model, tier) {
+            if aa_types::ai::supports_service_tier(model, tier) {
                 tiers.push(match tier {
-                    pa_types::ai::ServiceTier::Flex => "flex",
-                    pa_types::ai::ServiceTier::Priority => "priority",
-                    pa_types::ai::ServiceTier::Auto => "auto",
+                    aa_types::ai::ServiceTier::Flex => "flex",
+                    aa_types::ai::ServiceTier::Priority => "priority",
+                    aa_types::ai::ServiceTier::Auto => "auto",
                     _ => unreachable!("the loop names every choice"),
                 });
             }
@@ -654,7 +654,7 @@ impl SessionUi {
             return;
         }
         let Ok(tier) =
-            serde_json::from_value::<pa_types::ai::ServiceTier>(Value::String(requested.clone()))
+            serde_json::from_value::<aa_types::ai::ServiceTier>(Value::String(requested.clone()))
         else {
             self.error_row(&format!("Unknown service tier: {requested}"), view);
             return;

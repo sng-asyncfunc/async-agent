@@ -29,7 +29,7 @@ struct DaemonBuilder {
 
 impl DaemonBuilder {
     fn new(socket: &Path, agent_dir: &Path) -> Self {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_pa-daemon"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_aa-daemon"));
         command
             .arg("supervisor")
             .arg("--socket")
@@ -39,7 +39,7 @@ impl DaemonBuilder {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .env(
-                pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+                aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
                 "15000",
             );
         DaemonBuilder { command }
@@ -54,7 +54,7 @@ impl DaemonBuilder {
     // exits immediately afterwards, reaping it.
     #[allow(clippy::zombie_processes)]
     fn spawn(mut self, socket: &Path) -> Daemon {
-        let child = self.command.spawn().expect("spawn pa-daemon supervisor");
+        let child = self.command.spawn().expect("spawn aa-daemon supervisor");
         let deadline = Instant::now() + Duration::from_secs(10);
         while Instant::now() < deadline {
             if socket.exists() {
@@ -97,7 +97,7 @@ impl Client {
         let mut line = serde_json::to_string(&json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }))
         .expect("serialize command");
@@ -233,7 +233,7 @@ fn worker_stderr_lands_in_the_per_worker_log_and_prunes_retention() {
 #[test]
 fn never_ready_worker_failure_carries_the_captured_stderr_tail() {
     // Under /tmp: a TMPDIR too long for a socket path (macOS's default) makes
-    // the socket dir fall back to the real /tmp/prime-agent-<uid>, which exists.
+    // the socket dir fall back to the real /tmp/async-agent-<uid>, which exists.
     let dir = tempfile::TempDir::new_in("/tmp").expect("temp dir");
     let socket = dir.path().join("daemon.sock");
     let agent_dir = dir.path().join("agent");

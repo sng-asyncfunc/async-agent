@@ -7,7 +7,7 @@
 use std::collections::VecDeque;
 
 use anyhow::Result;
-use pa_types::daemon::{DaemonCommand, TranscriptPage};
+use aa_types::daemon::{DaemonCommand, TranscriptPage};
 use serde_json::{Map, Value};
 
 use super::SessionUi;
@@ -716,7 +716,7 @@ mod tests {
         let server = tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
             let (read, mut write) = stream.into_split();
-            write.write_all(b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"prime-agent.daemon\",\"version\":7},\"serverCapabilities\":[],\"clientId\":\"mock\"}\n").await.unwrap();
+            write.write_all(b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"async-agent.daemon\",\"version\":7},\"serverCapabilities\":[],\"clientId\":\"mock\"}\n").await.unwrap();
             let mut lines = BufReader::new(read).lines();
             while let Some(line) = lines.next_line().await.unwrap() {
                 let request: Value = serde_json::from_str(&line).unwrap();
@@ -797,7 +797,7 @@ mod tests {
             })
             .is_ok());
         let mut view = AgentView::new(crate::theme::Theme::builtin(
-            "prime",
+            "async",
             crate::theme::ColorMode::TrueColor,
         ));
         session.rebuild_transcript(&mut view).await;
@@ -824,7 +824,7 @@ mod tests {
             BackfillSeam::Preserve,
         );
         let mut view = AgentView::new(crate::theme::Theme::builtin(
-            "prime",
+            "async",
             crate::theme::ColorMode::TrueColor,
         ));
         let empty = LoadedPage {
@@ -883,7 +883,7 @@ mod tests {
             BackfillSeam::RetryOutcome,
         );
         let mut view = AgentView::new(crate::theme::Theme::builtin(
-            "prime",
+            "async",
             crate::theme::ColorMode::TrueColor,
         ));
         let page = LoadedPage {
@@ -940,7 +940,7 @@ mod tests {
             BackfillSeam::Preserve,
         );
         let mut view = AgentView::new(crate::theme::Theme::builtin(
-            "prime",
+            "async",
             crate::theme::ColorMode::TrueColor,
         ));
         view.push_entry(crate::snapshot::transcript_to_entries(&[user("later")]).remove(0));
@@ -991,7 +991,7 @@ mod tests {
                 BackfillSeam::Preserve,
             );
             let mut view = AgentView::new(crate::theme::Theme::builtin(
-                "prime",
+                "async",
                 crate::theme::ColorMode::TrueColor,
             ));
             view.splash_suppressed = true;

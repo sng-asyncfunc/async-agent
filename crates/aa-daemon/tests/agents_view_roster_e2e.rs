@@ -42,7 +42,7 @@ impl Drop for Daemon {
 
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
@@ -54,11 +54,11 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
         // A supervisor killed at teardown must not leak its session workers: the worker's
         // supervisor-lost exit runs on this short window, not the 5-minute default.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -109,7 +109,7 @@ impl Client {
         self.send(&serde_json::json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }));
     }
@@ -342,8 +342,8 @@ fn worker_roster_delta_requires_authentication() {
 /// `parentSessionPath#childId` (TS `rosterAgentIdForSummary`).
 #[tokio::test]
 async fn rlm_children_key_the_roster_by_parent_path_and_child_id() {
-    use pa_core::session_engine::rlm_host::{RlmSpawnRequest, RlmSubagentHost};
-    use pa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
+    use aa_core::session_engine::rlm_host::{RlmSpawnRequest, RlmSubagentHost};
+    use aa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
 
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("daemon.sock");
@@ -360,23 +360,23 @@ async fn rlm_children_key_the_roster_by_parent_path_and_child_id() {
             }
         }
         #[allow(clippy::zombie_processes)]
-        let child = Command::new(env!("CARGO_BIN_EXE_pa-daemon"))
+        let child = Command::new(env!("CARGO_BIN_EXE_aa-daemon"))
             .arg("supervisor")
             .arg("--socket")
             .arg(&socket)
             .arg("--agent-dir")
             .arg(&agent_dir)
-            .env("RUST_LOG", "pa_daemon=debug")
+            .env("RUST_LOG", "aa_daemon=debug")
             .stdout(log)
             .stderr(Stdio::inherit())
             // A supervisor killed at teardown must not leak its session workers: the worker's
             // supervisor-lost exit runs on this short window, not the 5-minute default.
             .env(
-                pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+                aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
                 "15000",
             )
             .spawn()
-            .expect("spawn pa-daemon supervisor");
+            .expect("spawn aa-daemon supervisor");
         let deadline = Instant::now() + Duration::from_secs(10);
         while Instant::now() < deadline {
             if socket.exists() {
@@ -396,12 +396,12 @@ async fn rlm_children_key_the_roster_by_parent_path_and_child_id() {
     .expect("write script");
     let parent_file = agent_dir.join("parent.jsonl");
     let children = SupervisorChildSessions::new(
-        std::sync::Arc::new(pa_daemon::supervisor_link::SupervisorLink::new(
+        std::sync::Arc::new(aa_daemon::supervisor_link::SupervisorLink::new(
             socket.clone(),
         )),
         agent_dir.clone(),
         "parent-active-id".to_string(),
-        std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+        std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
             agent_dir.clone(),
             /*telemetry_disabled*/ true,
         )),

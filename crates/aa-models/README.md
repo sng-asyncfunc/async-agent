@@ -1,4 +1,4 @@
-# pa-models
+# aa-models
 
 The live model catalog subsystem: fetch layer, no-cold-start chain, strict
 schemas, transport pinning, and the credentialed Prime Inference catalog.
@@ -35,7 +35,7 @@ Port of the TS catalog client (branch `feat/catalog-client`:
   bytes).
 - The build-time asset generator + release packer (the build lane).
 - Session auth storage, `models.json` parsing, and registry merges
-  (`pa-core`): the user's local `models.json` takes precedence over this
+  (`aa-core`): the user's local `models.json` takes precedence over this
   catalog and is merged by its owner.
 - The catalog repo's sync/export tooling (lives with the data).
 
@@ -63,8 +63,8 @@ Port of the TS catalog client (branch `feat/catalog-client`:
 
 ## Dependencies (direction compliance)
 
-Depends on `pa-ai` (compiled transport templates: `models_generated`) and
-`pa-types` (shared `Model`). Nothing else in the workspace; no crate below
-`pa-ai` is touched. Consumers live at or above `pa-agent` (registry wiring
-in `pa-core`). The plugins lane must not place its catalog code in `pa-ai`
-(pa-models already depends on it).
+Depends on `aa-ai` (compiled transport templates: `models_generated`) and
+`aa-types` (shared `Model`). Nothing else in the workspace; no crate below
+`aa-ai` is touched. Consumers live at or above `aa-agent` (registry wiring
+in `aa-core`). The plugins lane must not place its catalog code in `aa-ai`
+(aa-models already depends on it).

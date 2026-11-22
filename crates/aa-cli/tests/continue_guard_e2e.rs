@@ -38,25 +38,25 @@ impl Drop for Daemon {
 
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command
         .args(["--mode", "daemon", "--daemon-socket"])
         .arg(socket)
-        .env("PRIME_AGENT_CODING_AGENT_DIR", agent_dir)
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", agent_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     // The launcher strips inherited worker role env vars before spawning the
     // supervisor; a CLI running inside a daemon worker must not leak them.
     for var in [
-        pa_daemon::worker::WORKER_ROLE_ENV,
-        pa_daemon::worker::WORKER_TOKEN_ENV,
-        pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
-        pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
-        pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
-        pa_daemon::worker::WORKER_SOCKET_ENV,
-        pa_daemon::worker::WORKER_INSTANCE_ID_ENV,
-        pa_daemon::worker::WORKER_SCRIPT_ENV,
+        aa_daemon::worker::WORKER_ROLE_ENV,
+        aa_daemon::worker::WORKER_TOKEN_ENV,
+        aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+        aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+        aa_daemon::worker::WORKER_SOCKET_ENV,
+        aa_daemon::worker::WORKER_INSTANCE_ID_ENV,
+        aa_daemon::worker::WORKER_SCRIPT_ENV,
     ] {
         command.env_remove(var);
     }
@@ -64,10 +64,10 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
     // later test binaries: the worker's supervisor-lost exit runs on this
     // short window instead of the 5-minute default.
     command.env(
-        pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+        aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
         "15000",
     );
-    let child = command.spawn().expect("spawn prime-agent --mode daemon");
+    let child = command.spawn().expect("spawn async-agent --mode daemon");
     let deadline = Instant::now() + Duration::from_secs(15);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -94,7 +94,7 @@ fn make_session_active(socket: &Path, session_path: &Path, cwd: &Path) -> String
     let command = json!({
         "type": "command",
         "id": "guard-create",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": {
             "type": "create",
             "sessionPath": session_path.to_string_lossy(),
@@ -134,7 +134,7 @@ fn make_session_active(socket: &Path, session_path: &Path, cwd: &Path) -> String
 }
 
 fn run_print(args: &[&str], env: &[(String, String)]) -> (String, String, i32) {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_prime-agent"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_async-agent"));
     command.args(args);
     for (key, value) in env {
         command.env(key, value);
@@ -161,11 +161,11 @@ fn print_continue_refuses_an_active_daemon_session() {
     let env = vec![
         ("HOME".to_string(), dir.path().to_string_lossy().to_string()),
         (
-            "PRIME_AGENT_CODING_AGENT_DIR".to_string(),
+            "ASYNC_AGENT_CODING_AGENT_DIR".to_string(),
             agent_dir.to_string_lossy().to_string(),
         ),
         (
-            "PRIME_AGENT_FAUX_SCRIPT".to_string(),
+            "ASYNC_AGENT_FAUX_SCRIPT".to_string(),
             json!({"responses": [{"text": "first turn"}]}).to_string(),
         ),
     ];
@@ -240,7 +240,7 @@ fn print_continue_refuses_an_active_daemon_session() {
     );
     assert!(
         stderr.contains(&format!(
-            "Attach to it instead: prime-agent --resume '{active_session_id}'\n"
+            "Attach to it instead: async-agent --resume '{active_session_id}'\n"
         )),
         "the refusal suggests attaching to the live session (the holder id rides shell-quoted): {stderr}"
     );
@@ -283,11 +283,11 @@ fn print_resume_refuses_a_foreign_lease_holder() {
     let env = vec![
         ("HOME".to_string(), dir.path().to_string_lossy().to_string()),
         (
-            "PRIME_AGENT_CODING_AGENT_DIR".to_string(),
+            "ASYNC_AGENT_CODING_AGENT_DIR".to_string(),
             agent_dir.to_string_lossy().to_string(),
         ),
         (
-            "PRIME_AGENT_FAUX_SCRIPT".to_string(),
+            "ASYNC_AGENT_FAUX_SCRIPT".to_string(),
             json!({"responses": [{"text": "first turn"}]}).to_string(),
         ),
     ];
@@ -298,16 +298,16 @@ fn print_resume_refuses_a_foreign_lease_holder() {
     // exactly the role the other product's daemon worker plays. The
     // lease-enable env is consumed at the acquire itself, so it leaves this
     // test's window immediately.
-    std::env::set_var(pa_daemon::lease::SESSION_LEASES_ENABLED_ENV, "1");
+    std::env::set_var(aa_daemon::lease::SESSION_LEASES_ENABLED_ENV, "1");
     std::env::set_var(
-        pa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV,
+        aa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV,
         "foreign01ab3c",
     );
-    let holder = pa_daemon::lease::acquire_session_lease(Some(&session_path), &agent_dir)
+    let holder = aa_daemon::lease::acquire_session_lease(Some(&session_path), &agent_dir)
         .expect("lease acquire probe")
         .expect("the lease must be held");
-    std::env::remove_var(pa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV);
-    std::env::remove_var(pa_daemon::lease::SESSION_LEASES_ENABLED_ENV);
+    std::env::remove_var(aa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV);
+    std::env::remove_var(aa_daemon::lease::SESSION_LEASES_ENABLED_ENV);
 
     // The refusal: this test process runs a build of this product, so the
     // holder classification reads as another Rust build, never the TypeScript
@@ -321,12 +321,12 @@ fn print_resume_refuses_a_foreign_lease_holder() {
         .unwrap_or_default();
     let expected = format!(
         concat!(
-            "Error: This session is currently open in another Rust build of Prime Agent ",
+            "Error: This session is currently open in another Rust build of Async Agent ",
             "(active in foreign01ab3c) — another daemon or window of this product holds the file's ",
             "runtime lease.\n",
             "\n",
             "• Continue where you left off:\n",
-            "  prime-agent --daemon-socket <socket> --resume 'foreign01ab3c'\n",
+            "  async-agent --daemon-socket <socket> --resume 'foreign01ab3c'\n",
             "  (<socket> is that instance's daemon socket, from the shell where you started ",
             "it — that daemon owns this session)\n",
             "\n",

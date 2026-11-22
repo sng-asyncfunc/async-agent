@@ -1,4 +1,4 @@
-# Continuous build pipeline for Prime Agent (Rust).
+# Continuous build pipeline for Async Agent (Rust).
 #
 # Builds the 4-target release matrix on every push to `main` and
 # uploads the tarballs as workflow artifacts (downloadable from the run page).
@@ -64,7 +64,7 @@ jobs:
             echo "superseded=false" >> "${GITHUB_OUTPUT}"
           fi
 
-  # The prime-agent-catalog commit every build job bundles, resolved once
+  # The async-agent-catalog commit every build job bundles, resolved once
   # per run so all targets ship the same catalog revision.
   catalog-ref:
     name: Resolve the bundled catalog commit
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - name: Resolve prime-agent-catalog main
+      - name: Resolve async-agent-catalog main
         id: resolve
         env:
           # Authenticated lookups avoid the shared-runner anonymous API limit.
@@ -86,7 +86,7 @@ jobs:
           set -euo pipefail
           sha="$(python3 scripts/release/bundle_catalog.py resolve-ref)"
           echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
-          echo "bundling prime-agent-catalog ${sha}"
+          echo "bundling async-agent-catalog ${sha}"
 
   # The dependency audit gate (RELEASE_SECURITY pragmatic baseline): the
   # same advisories + licenses check as `make deny` (deny.toml), on every
@@ -172,26 +172,26 @@ jobs:
           # the new key builds cold; the marker moves only with reviewed
           # baseline changes (same protocol as the image digest below).
           key: ${{ matrix.target }}-glibc235
-      # Only the shipped binary links here: the job packages `prime-agent`
-      # alone, so pa-daemon's [[bin]] would be a second thin-LTO link with
+      # Only the shipped binary links here: the job packages `async-agent`
+      # alone, so aa-daemon's [[bin]] would be a second thin-LTO link with
       # no consumer (~26% of the build step, measured).
       - name: Build (release, locked)
-        run: cargo build --release --locked --target ${{ matrix.target }} -j 4 -p pa-cli --bin prime-agent
+        run: cargo build --release --locked --target ${{ matrix.target }} -j 4 -p aa-cli --bin async-agent
       - name: Split the shipped binary + split-debug decoder (Option C posture)
         run: |
           set -euo pipefail
           version="$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -1)"
           [[ -n "${version}" ]] || { echo "could not read the workspace version"; exit 1; }
           python3 scripts/release/split_debug.py \
-            --binary "target/${{ matrix.target }}/release/prime-agent" \
-            --shipped "target/${{ matrix.target }}/dist/prime-agent" \
+            --binary "target/${{ matrix.target }}/release/async-agent" \
+            --shipped "target/${{ matrix.target }}/dist/async-agent" \
             --out "target/${{ matrix.target }}/dist" \
             --version "${version}" \
             --target "${{ matrix.target }}"
       - name: "GLIBC baseline gate: no symbols above GLIBC_2.35 (Ubuntu 22.04)"
         run: |
           set -euo pipefail
-          bin="target/${{ matrix.target }}/dist/prime-agent"
+          bin="target/${{ matrix.target }}/dist/async-agent"
           syms="$(objdump -T "${bin}" | grep -o 'GLIBC_[0-9.]*' || true)"
           if [ -z "${syms}" ]; then
             echo "::error::could not inspect ${bin} with objdump (no GLIBC symbols found) - refusing to pass the gate without evidence"
@@ -204,7 +204,7 @@ jobs:
             echo "::error::binary requires ${max_glibc}, above the GLIBC_2.35 (Ubuntu 22.04) release baseline"
             exit 1
           fi
-      # The live catalog from prime-agent-catalog (public; no token needed)
+      # The live catalog from async-agent-catalog (public; no token needed)
       # at the commit the catalog-ref job resolved: a fresh install's first
       # model list comes from this snapshot, identical across targets.
       - name: Generate bundled catalog assets (live catalog)
@@ -226,8 +226,8 @@ jobs:
             --version "${version}" \
             --target "${{ matrix.target }}" \
             --sha "${GITHUB_SHA}" \
-            --binary "target/${{ matrix.target }}/dist/prime-agent" \
-            --decoder "target/${{ matrix.target }}/dist/prime-agent-${version}-$(case "${{ matrix.target }}" in x86_64*) echo linux-x64;; aarch64*) echo linux-arm64;; esac).debug.gz" \
+            --binary "target/${{ matrix.target }}/dist/async-agent" \
+            --decoder "target/${{ matrix.target }}/dist/async-agent-${version}-$(case "${{ matrix.target }}" in x86_64*) echo linux-x64;; aarch64*) echo linux-arm64;; esac).debug.gz" \
             --catalog-assets "target/${{ matrix.target }}/catalog-assets" \
             --out-dir "target/${{ matrix.target }}/dist"
           cat "target/${{ matrix.target }}/dist/manifest.json"
@@ -246,7 +246,7 @@ jobs:
         with:
           name: artifacts-${{ matrix.target }}
           path: |
-            target/${{ matrix.target }}/dist/prime-agent-*
+            target/${{ matrix.target }}/dist/async-agent-*
             target/${{ matrix.target }}/dist/SHA256SUMS
             target/${{ matrix.target }}/dist/manifest.json
           if-no-files-found: error
@@ -271,7 +271,7 @@ jobs:
           # macos-15-intel pool with far tighter variance (484 s vs 1046 s
           # same-commit link tail, 2026-09-30). The livecheck below runs
           # the assembled x64 artifact under Rosetta 2 — the macos-15
-          # arm64 image installs it, and install-rust.sh ships the x64
+          # arm64 image installs it, and install.sh ships the x64
           # build to an Apple-Silicon Mac's Rosetta shell, so the gate
           # still boots the binary on its delivery runtime.
           - target: x86_64-apple-darwin
@@ -293,12 +293,12 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           key: ${{ matrix.target }}
-      # Only the shipped binary links here: the job packages `prime-agent`
-      # alone, so pa-daemon's [[bin]] would be a second thin-LTO link with
+      # Only the shipped binary links here: the job packages `async-agent`
+      # alone, so aa-daemon's [[bin]] would be a second thin-LTO link with
       # no consumer (~26% of the build step, measured).
       - name: Build (release, locked)
-        run: cargo build --release --locked --target ${{ matrix.target }} -j 4 -p pa-cli --bin prime-agent
-      # The live catalog from prime-agent-catalog (public; no token needed)
+        run: cargo build --release --locked --target ${{ matrix.target }} -j 4 -p aa-cli --bin async-agent
+      # The live catalog from async-agent-catalog (public; no token needed)
       # at the commit the catalog-ref job resolved: a fresh install's first
       # model list comes from this snapshot, identical across targets.
       - name: Generate bundled catalog assets (live catalog)
@@ -320,7 +320,7 @@ jobs:
             --version "${version}" \
             --target "${{ matrix.target }}" \
             --sha "${GITHUB_SHA}" \
-            --binary "target/${{ matrix.target }}/release/prime-agent" \
+            --binary "target/${{ matrix.target }}/release/async-agent" \
             --catalog-assets "target/${{ matrix.target }}/catalog-assets" \
             --out-dir "target/${{ matrix.target }}/dist"
           cat "target/${{ matrix.target }}/dist/manifest.json"
@@ -345,7 +345,7 @@ jobs:
         with:
           name: artifacts-${{ matrix.target }}
           path: |
-            target/${{ matrix.target }}/dist/prime-agent-*
+            target/${{ matrix.target }}/dist/async-agent-*
             target/${{ matrix.target }}/dist/SHA256SUMS
             target/${{ matrix.target }}/dist/manifest.json
           if-no-files-found: error

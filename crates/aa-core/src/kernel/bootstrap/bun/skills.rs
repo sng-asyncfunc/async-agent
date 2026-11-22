@@ -202,7 +202,7 @@ fn copy_dir_filtered(src: &Path, dst: &Path, skip_git: bool) -> anyhow::Result<(
         }
         let src_path = entry.path();
         let dst_path = dst.join(&name);
-        // Follow symlinks (dereference), matching ref-prime-bun `cp(..., { dereference: true })`.
+        // Follow symlinks (dereference), matching `cp(..., { dereference: true })`.
         let meta = std::fs::metadata(&src_path)
             .with_context(|| format!("reading metadata for {}", src_path.display()))?;
         if meta.is_dir() {
@@ -445,7 +445,7 @@ mod tests {
         std::fs::create_dir_all(skill_dir.join("src")).unwrap();
         std::fs::write(
             skill_dir.join("package.json"),
-            r#"{"name":"edit","primeAgent":{"global":"edit","entry":"src/index.ts"}}"#,
+            r#"{"name":"edit","asyncAgent":{"global":"edit","entry":"src/index.ts"}}"#,
         )
         .unwrap();
         std::fs::write(skill_dir.join("src/index.ts"), "export default () => {};\n").unwrap();
@@ -485,7 +485,7 @@ mod tests {
         std::fs::create_dir_all(skill_dir.join("src")).unwrap();
         std::fs::write(
             skill_dir.join("package.json"),
-            r#"{"name":"bad","primeAgent":{"global":"bad","entry":"src/index.ts"}}"#,
+            r#"{"name":"bad","asyncAgent":{"global":"bad","entry":"src/index.ts"}}"#,
         )
         .unwrap();
         #[cfg(unix)]

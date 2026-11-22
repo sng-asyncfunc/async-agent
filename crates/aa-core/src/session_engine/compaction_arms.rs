@@ -6,7 +6,7 @@ use super::{
 };
 
 impl AgentSession {
-    pub(crate) fn refinement_signal(&self) -> pa_agent::abort::AbortSignal {
+    pub(crate) fn refinement_signal(&self) -> aa_agent::abort::AbortSignal {
         self.refinement_cancel
             .lock()
             .expect("refinement cancellation lock")
@@ -30,7 +30,7 @@ impl AgentSession {
     /// Whether an automatic threshold compaction is due at a turn boundary:
     /// the live loop context over the model's context window against the
     /// effective threshold; usage before the latest compaction never re-triggers.
-    pub async fn auto_compaction_due(&self, model: &pa_types::ai::Model) -> bool {
+    pub async fn auto_compaction_due(&self, model: &aa_types::ai::Model) -> bool {
         let state = self.agent.state().await;
         // The live loop context is the agent's message list (the same
         // JSON round-trip `compact` uses).
@@ -59,15 +59,15 @@ impl AgentSession {
     pub async fn drop_trailing_assistant(&self, filter: TrailingAssistantFilter) {
         let state = self.agent.state().await;
         let mut messages = state.messages;
-        let matches_filter = |message: &pa_agent::types::AgentMessage| {
-            let Some(pa_agent::types::Message::Assistant(assistant)) = standard_message(message)
+        let matches_filter = |message: &aa_agent::types::AgentMessage| {
+            let Some(aa_agent::types::Message::Assistant(assistant)) = standard_message(message)
             else {
                 return false;
             };
             match filter {
                 TrailingAssistantFilter::Any => true,
                 TrailingAssistantFilter::ErrorOnly => {
-                    assistant.stop_reason == pa_agent::types::StopReason::Error
+                    assistant.stop_reason == aa_agent::types::StopReason::Error
                 }
             }
         };
@@ -95,12 +95,12 @@ impl AgentSession {
                 else {
                     return;
                 };
-                let Some(pa_agent::types::Message::Assistant(corpse)) =
+                let Some(aa_agent::types::Message::Assistant(corpse)) =
                     messages.get(corpse_index).and_then(standard_message)
                 else {
                     return;
                 };
-                let no_progress = corpse.stop_reason == pa_agent::types::StopReason::Error
+                let no_progress = corpse.stop_reason == aa_agent::types::StopReason::Error
                     || super::goal_driver::turn_produced_no_output(corpse);
                 if !no_progress {
                     return;
@@ -112,10 +112,10 @@ impl AgentSession {
                     .enumerate()
                     .rev()
                     .take_while(|(_, message)| {
-                        matches!(message, pa_agent::types::AgentMessage::Custom(_))
+                        matches!(message, aa_agent::types::AgentMessage::Custom(_))
                     })
                     .find(|(_, message)| {
-                        let pa_agent::types::AgentMessage::Custom(custom) = message else {
+                        let aa_agent::types::AgentMessage::Custom(custom) = message else {
                             return false;
                         };
                         custom
@@ -167,9 +167,9 @@ impl AgentSession {
     pub async fn compact(
         &self,
         custom_instructions: Option<&str>,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         api_key: Option<String>,
-        abort: Option<&pa_agent::abort::AbortSignal>,
+        abort: Option<&aa_agent::abort::AbortSignal>,
     ) -> anyhow::Result<CompactOutcome> {
         compaction_trace::trace(
             "compact.enter",
@@ -342,7 +342,7 @@ impl AgentSession {
             // A structural conflict retries from PREPARE: the discarded calls
             // land first, so the retry builds on their row.
             self.record_model_usage(summaries.bill.take()).await;
-            pa_agent::abort::throw_if_aborted_signal(options.abort)?;
+            aa_agent::abort::throw_if_aborted_signal(options.abort)?;
         }
         Err(anyhow::anyhow!(
             "compaction retried {MAX_COMPACTION_ATTEMPTS} times while the branch kept changing; try again"
@@ -362,7 +362,7 @@ impl AgentSession {
         reason: crate::session_engine::messages::CompactionOutcomeReason,
         outcome: crate::session_engine::messages::CompactionOutcomeKind,
         content: &str,
-    ) -> anyhow::Result<pa_types::session::CustomMessage> {
+    ) -> anyhow::Result<aa_types::session::CustomMessage> {
         // The same flight as the other live-context replacers: the push
         // below read-modify-writes the live context, and a replace
         // interleaving it would roll the pushed row — or the replace —
@@ -380,7 +380,7 @@ impl AgentSession {
                 row.details.clone(),
             );
             if let Some(error) = write_error {
-                eprintln!("pa-core: compaction outcome row not persisted: {error}");
+                eprintln!("aa-core: compaction outcome row not persisted: {error}");
             }
         }
         if let Some(loop_message) =
@@ -422,7 +422,7 @@ impl AgentSession {
         &self,
         options: refine::RefineOptions,
         source: refine::RefinementSource,
-        model: pa_types::ai::Model,
+        model: aa_types::ai::Model,
         api_key: Option<String>,
     ) -> tokio::task::JoinHandle<anyhow::Result<refine::CommittedRefinement>> {
         let session = self.session.clone();
@@ -460,7 +460,7 @@ impl AgentSession {
         &self,
         options: &refine::RefineOptions,
         source: refine::RefinementSource,
-        model: &pa_types::ai::Model,
+        model: &aa_types::ai::Model,
         refine_call: crate::refinement::executor::RefinerFn,
     ) -> anyhow::Result<crate::refinement::RefinementResult> {
         let stores = self.refinement_stores()?;
@@ -513,7 +513,7 @@ impl Drop for UncommittedSummaries {
         let session_id = std::mem::take(&mut self.session_id);
         runtime.spawn(async move {
             if let Err(error) = store.append_model_usage(session_id, usage).await {
-                eprintln!("pa-core: model usage row not persisted: {error}");
+                eprintln!("aa-core: model usage row not persisted: {error}");
             }
         });
     }

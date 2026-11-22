@@ -10,8 +10,8 @@ use crate::agents_view_forest::RowKind;
 use crate::editor::{Editor, EditorEvent};
 use crate::theme::{Theme, ThemeColor};
 use crate::{Line, Span};
-use pa_types::daemon::{DaemonCommand, PromptInput, StreamingBehavior};
-use pa_types::slash_commands::{
+use aa_types::daemon::{DaemonCommand, PromptInput, StreamingBehavior};
+use aa_types::slash_commands::{
     is_session_slash_command_name, parse_slash_command, SlashCommandRegistry,
     SESSION_SLASH_COMMAND_NAMES,
 };
@@ -835,7 +835,7 @@ async fn send_reply(
         // outside a Herdr pane sends nothing — the wire keeps its shape).
         let client_env = {
             let env =
-                pa_types::daemon::herdr_env::collect_client_env(|key| std::env::var(key).ok());
+                aa_types::daemon::herdr_env::collect_client_env(|key| std::env::var(key).ok());
             (!env.is_empty()).then_some(env)
         };
         let created = client

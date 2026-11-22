@@ -171,8 +171,8 @@ impl PromptAdmissionTable {
 /// The admission id a prompt-family command carries (the registration and
 /// route hooks match the same pair). The wire field is the TS
 /// `admissionId`: it rides the command's lossless `rest` map.
-pub(crate) fn input_admission_id(command: &pa_types::daemon::DaemonCommand) -> Option<&str> {
-    use pa_types::daemon::DaemonCommand;
+pub(crate) fn input_admission_id(command: &aa_types::daemon::DaemonCommand) -> Option<&str> {
+    use aa_types::daemon::DaemonCommand;
     match command {
         DaemonCommand::Prompt { input, rest, .. }
         | DaemonCommand::PromptAndWait { input, rest, .. } => input
@@ -190,7 +190,7 @@ impl Supervisor {
     pub(crate) async fn route_prompt_with_admission(
         self: &Arc<Self>,
         connection: &Arc<crate::input_pause_lease::ClientConnectionState>,
-        command: &pa_types::daemon::DaemonCommand,
+        command: &aa_types::daemon::DaemonCommand,
         client_id: &str,
         attached: &Arc<crate::supervisor::subscribers::ClientSubscriptions>,
         command_id: String,
@@ -329,11 +329,11 @@ impl Supervisor {
     pub(crate) async fn handle_cancel_prompt_admission(
         self: &Arc<Self>,
         connection: &Arc<crate::input_pause_lease::ClientConnectionState>,
-        command: &pa_types::daemon::DaemonCommand,
+        command: &aa_types::daemon::DaemonCommand,
         command_id: &str,
         type_name: &str,
     ) -> (Vec<Value>, bool) {
-        let pa_types::daemon::DaemonCommand::CancelPromptAdmission {
+        let aa_types::daemon::DaemonCommand::CancelPromptAdmission {
             active_session_id,
             admission_id,
             cancel_owned,

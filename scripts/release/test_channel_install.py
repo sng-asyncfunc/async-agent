@@ -25,7 +25,7 @@ def main() -> int:
     report = {"version": version, "platform": platform, "archive_sha256": digest(args.archive),
               "installer_sha256": digest(args.installer), "steps": []}
     try:
-        with tempfile.TemporaryDirectory(prefix="prime-channel-install-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="async-channel-install-") as temporary:
             root = Path(temporary)
             feed = root / "feed"
             publish_archive(feed, args.archive)
@@ -36,22 +36,22 @@ def main() -> int:
             with release_server(feed) as base:
                 env = isolated_environment(root / "user", base)
                 prefix = root / "user" / "prefix with spaces"
-                env.update(PRIME_AGENT_RUST_PREFIX=str(prefix), PRIME_AGENT_ALLOW_HTTP="1")
-                state = Path(env["PRIME_AGENT_CODING_AGENT_DIR"])
+                env.update(ASYNC_AGENT_RUST_PREFIX=str(prefix), ASYNC_AGENT_ALLOW_HTTP="1")
+                state = Path(env["ASYNC_AGENT_CODING_AGENT_DIR"])
                 witnesses = {"settings.json": '{}\n', "auth.json": '{}\n',
                              "sessions/preserved.jsonl": '{"migrationWitness":"saved session"}\n'}
                 for name, content in witnesses.items():
                     path = state / name
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_text(content)
-                command = ["bash", "-o", "pipefail", "-c", 'curl -fsSL "$PRIME_AGENT_DOWNLOAD_BASE_URL/install.sh" | sh']
+                command = ["bash", "-o", "pipefail", "-c", 'curl -fsSL "$ASYNC_AGENT_DOWNLOAD_BASE_URL/install.sh" | sh']
                 for _ in range(2):
                     report["steps"].append(execute(command, env))
-                    probe = execute([str(prefix / "bin/prime-agent"), "--version"], env)
+                    probe = execute([str(prefix / "bin/async-agent"), "--version"], env)
                     report["steps"].append(probe)
                     if probe["stdout"].strip() != version:
                         raise ValueError("Installed launcher did not report channel version")
-                    report["steps"].append(execute([str(prefix / "bin/prime-agent"), "--help"], env))
+                    report["steps"].append(execute([str(prefix / "bin/async-agent"), "--help"], env))
                     for name, content in witnesses.items():
                         if (state / name).read_text() != content:
                             raise ValueError(f"Installer changed user state: {name}")

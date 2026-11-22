@@ -15,8 +15,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use pa_tui::agents_view::{run_agents_view, AgentsHeadlessPlan, AgentsStep, AgentsViewUiMode};
-use pa_tui::interactive::SessionSelection;
+use aa_tui::agents_view::{run_agents_view, AgentsHeadlessPlan, AgentsStep, AgentsViewUiMode};
+use aa_tui::interactive::SessionSelection;
 use serde_json::{json, Value};
 
 use support::{read_line, view_options};
@@ -123,7 +123,7 @@ impl MockSupervisor {
         };
         let hello = json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": capabilities,
         });
         write_line(&mut writer, &hello);
@@ -230,14 +230,14 @@ fn respond_failure(writer: &mut UnixStream, id: &str, command: &str, error: &str
 
 /// Run one headless plan and return the outcome. Holds the run lock: the click dispatch gates on
 /// the process-global tracking state.
-async fn run_plan(steps: Vec<AgentsStep>) -> pa_tui::agents_view::AgentsViewOutcome {
+async fn run_plan(steps: Vec<AgentsStep>) -> aa_tui::agents_view::AgentsViewOutcome {
     run_plan_with(steps, |mock| mock).await
 }
 
 async fn run_plan_with(
     steps: Vec<AgentsStep>,
     configure: impl FnOnce(MockSupervisor) -> MockSupervisor,
-) -> pa_tui::agents_view::AgentsViewOutcome {
+) -> aa_tui::agents_view::AgentsViewOutcome {
     let _guard = RUN_LOCK.lock().await;
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("agents-view.sock");
@@ -497,7 +497,7 @@ async fn a_held_shells_read_survives_the_agents_view_handoff() {
         let (read, mut write) = stream.into_split();
         let hello = json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": ["kernel_bash_activity"],
         });
         write

@@ -2,10 +2,10 @@
 //! row identity, written through the same persist core as every other row.
 use super::{SessionEntry, SessionFile};
 use anyhow::{ensure, Context, Result};
-use pa_core::session_engine::rlm_usage::{
+use aa_core::session_engine::rlm_usage::{
     attribute_child_usage, child_usage_identity_matches, ChildUsageAppendResult,
 };
-use pa_types::{
+use aa_types::{
     ai::Usage,
     session::{ChildUsageAttributionEntry, ChildUsageOrigin},
 };
@@ -300,7 +300,7 @@ impl SessionFile {
                 // append_cached would insert a newline into this incomplete row.
                 file.write_all(&receipt.bytes[present..])?;
                 file.flush()?;
-                pa_core::platform::fsync(&file)?;
+                aa_core::platform::fsync(&file)?;
                 ensure!(
                     file.metadata()?.len() == expected_end,
                     "attribution recovery tail changed during completion"
@@ -332,11 +332,11 @@ impl SessionFile {
                 // Stay within the same lease fence rather than recursively admitting
                 // a second mutation while release may already be draining this one.
                 let ownership = if self.lease.is_some() {
-                    pa_core::session::window::AppendOwnership::SessionLeaseHeld
+                    aa_core::session::window::AppendOwnership::SessionLeaseHeld
                 } else {
-                    pa_core::session::window::AppendOwnership::Unleased
+                    aa_core::session::window::AppendOwnership::Unleased
                 };
-                pa_core::session::window::append_cached(&receipt.path, &[], ownership)?;
+                aa_core::session::window::append_cached(&receipt.path, &[], ownership)?;
                 ensure!(
                     file_identity(&std::fs::metadata(&receipt.path)?)
                         == file_identity(&file.metadata()?),
@@ -413,13 +413,13 @@ impl SessionFile {
                     "attribution confirmation file changed before sync"
                 );
                 if self.lease.is_some() {
-                    pa_core::session::window::append_cached(
+                    aa_core::session::window::append_cached(
                         &self.path,
                         &[],
-                        pa_core::session::window::AppendOwnership::SessionLeaseHeld,
+                        aa_core::session::window::AppendOwnership::SessionLeaseHeld,
                     )?;
                 } else {
-                    pa_core::platform::fsync(&file)?;
+                    aa_core::platform::fsync(&file)?;
                 }
                 ensure!(
                     file_identity(&std::fs::metadata(&self.path)?)

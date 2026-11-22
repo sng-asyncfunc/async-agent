@@ -17,7 +17,7 @@ pub(crate) struct BuiltHandles {
     /// driver lock release it through this atomic handle.
     pub(crate) pending_goal_continuation: Arc<std::sync::atomic::AtomicBool>,
     /// The eager turn-abort funnel's target.
-    pub(crate) turn_agent: Arc<pa_agent::agent::Agent>,
+    pub(crate) turn_agent: Arc<aa_agent::agent::Agent>,
     /// The in-run autonomous consult's view (see
     /// [`crate::autonomous_continuation`]).
     pub(crate) autonomous_boundary: AutonomousBoundaryMirror,
@@ -26,9 +26,9 @@ pub(crate) struct BuiltHandles {
     /// The stop-with-snapshot kernel release over a weak provisioner
     /// reference (the park arm never takes the session mutex).
     pub(crate) kernel_release: SettledKernelRelease,
-    pub(crate) progress_notes: Arc<pa_core::session_engine::rlm_host::RlmProgressNotes>,
+    pub(crate) progress_notes: Arc<aa_core::session_engine::rlm_host::RlmProgressNotes>,
     /// The last emitted `goal_update`; unchanged states stay silent.
-    pub(crate) published_goal: Mutex<Option<pa_core::goals::GoalState>>,
+    pub(crate) published_goal: Mutex<Option<aa_core::goals::GoalState>>,
 }
 
 impl BuiltHandles {
@@ -58,7 +58,7 @@ impl BuiltHandles {
                 Box::pin(async move {
                     if let Some(provisioner) = provisioner.upgrade() {
                         provisioner
-                            .stop_kernel(Some(pa_core::kernel::shared::KernelShutdownOptions {
+                            .stop_kernel(Some(aa_core::kernel::shared::KernelShutdownOptions {
                                 snapshot: true,
                                 drain_host_requests: true,
                             }))
@@ -76,12 +76,12 @@ impl BuiltHandles {
     /// a second boundary must not re-emit an unchanged goal.
     pub(crate) fn publish_goal(
         &self,
-        goal: &pa_core::goals::GoalState,
+        goal: &aa_core::goals::GoalState,
     ) -> Option<serde_json::Value> {
         let mut published = self.published_goal.lock().expect("published goal lock");
         if published.as_ref().is_some_and(|last| {
-            pa_core::goals::goal_update_dedupe_projection(last)
-                == pa_core::goals::goal_update_dedupe_projection(goal)
+            aa_core::goals::goal_update_dedupe_projection(last)
+                == aa_core::goals::goal_update_dedupe_projection(goal)
         }) {
             return None;
         }

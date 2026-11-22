@@ -322,7 +322,7 @@ fn live_scope_keyed_cache_merges_over_the_compiled_prime_inference_models() {
         "prime-inference": { "type": "api_key", "key": "live-key",
             "primeTeam": { "teamId": "team-1", "name": "Team 1" } }
     }));
-    let compiled = pa_models::transports::prime_inference_offline_entries();
+    let compiled = aa_models::transports::prime_inference_offline_entries();
     let repriced = &compiled[0];
     let mut entries = Vec::new();
     for model in &compiled {
@@ -351,7 +351,7 @@ fn live_scope_keyed_cache_merges_over_the_compiled_prime_inference_models() {
             "modalities": { "input": ["text"], "output": ["text"] },
         },
     }));
-    let scope = pa_models::prime_inference::scope_key("live-key", "team-1");
+    let scope = aa_models::prime_inference::scope_key("live-key", "team-1");
     let snapshot = serde_json::json!({
         "url": format!("{}/models", super::super::prime_inference::PRIME_INFERENCE_BASE_URL),
         "scope": scope,
@@ -483,7 +483,7 @@ fn a_stored_xai_subscription_switches_its_models_onto_responses() {
     // The catalog's xai model is non-reasoning: "off" is the only
     // supported level whatever the subscription map nulls (the
     // helper answers the non-reasoning branch first).
-    let supported = pa_types::ai::thinking_levels::get_supported_thinking_levels(grok);
+    let supported = aa_types::ai::thinking_levels::get_supported_thinking_levels(grok);
     assert_eq!(supported, vec![ModelThinkingLevel::Off]);
     // The compat is the shared-key-only object (TS
     // `supportsLongCacheRetention: false`); the responses provider
@@ -611,7 +611,7 @@ async fn scope_readiness_timeout_keeps_models_available_before_refresh() {
         }
     }));
     let mut registry = ModelRegistry::in_memory(auth);
-    registry.catalog = Arc::new(pa_models::ModelCatalog::with_urls(None, None, &url, &url));
+    registry.catalog = Arc::new(aa_models::ModelCatalog::with_urls(None, None, &url, &url));
     let existing = model("internal/existing", "prime-inference");
     registry.models = vec![existing.clone()];
     let patterns = vec![
@@ -647,7 +647,7 @@ fn a_prime_base_url_override_voids_the_live_serving_label() {
             "primeTeam": { "teamId": "team-1", "name": "Team 1" } }
     }));
     // Every compiled route labeled hosted, so the snapshot passes the coverage gate.
-    let compiled = pa_models::transports::prime_inference_offline_entries();
+    let compiled = aa_models::transports::prime_inference_offline_entries();
     let entries: Vec<_> = compiled
         .iter()
         .map(|model| {
@@ -660,7 +660,7 @@ fn a_prime_base_url_override_voids_the_live_serving_label() {
         .collect();
     let snapshot = serde_json::json!({
         "url": format!("{}/models", super::super::prime_inference::PRIME_INFERENCE_BASE_URL),
-        "scope": pa_models::prime_inference::scope_key("live-key", "team-1"),
+        "scope": aa_models::prime_inference::scope_key("live-key", "team-1"),
         "fetchedAt": 1,
         "payload": { "data": entries },
     });
@@ -683,7 +683,7 @@ fn a_prime_base_url_override_voids_the_live_serving_label() {
     };
     assert_eq!(
         probe(&registry).serving,
-        Some(pa_types::ai::ModelServing::Hosted)
+        Some(aa_types::ai::ModelServing::Hosted)
     );
 
     std::fs::write(

@@ -27,29 +27,29 @@ impl Drop for WorkerGuard {
 
 fn spawn_worker(dir: &Path, socket: &Path) -> WorkerGuard {
     std::fs::create_dir_all(dir.join("agent")).expect("agent dir");
-    let child = Command::new(env!("CARGO_BIN_EXE_pa-daemon"))
+    let child = Command::new(env!("CARGO_BIN_EXE_aa-daemon"))
         .arg("worker")
-        .env(pa_daemon::worker::WORKER_ROLE_ENV, "1")
-        .env(pa_daemon::worker::WORKER_TOKEN_ENV, TOKEN)
+        .env(aa_daemon::worker::WORKER_ROLE_ENV, "1")
+        .env(aa_daemon::worker::WORKER_TOKEN_ENV, TOKEN)
         .env(
-            pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
+            aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV,
             "shutdown-flush",
         )
-        .env(pa_daemon::worker::WORKER_SOCKET_ENV, socket)
+        .env(aa_daemon::worker::WORKER_SOCKET_ENV, socket)
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
             dir.join("absent-supervisor.sock"),
         )
         .env(
-            pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+            aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
             dir.join("recovery.jsonl"),
         )
-        .env("PRIME_AGENT_CODING_AGENT_DIR", dir.join("agent"))
+        .env("ASYNC_AGENT_CODING_AGENT_DIR", dir.join("agent"))
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .expect("spawn pa-daemon worker");
+        .expect("spawn aa-daemon worker");
     WorkerGuard(child)
 }
 
@@ -84,10 +84,10 @@ fn read_until_response(stream: &mut UnixStream, request_id: &str) -> Value {
 
 fn request(stream: &mut UnixStream, command_type: &str, payload: &Value) -> Value {
     let request_id = format!("req-{command_type}");
-    let frame = pa_daemon::framing::encode_private_frame(
+    let frame = aa_daemon::framing::encode_private_frame(
         &json!({ "kind": "command", "requestId": request_id, "commandType": command_type }),
         &serde_json::to_vec(payload).expect("payload"),
-        pa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
+        aa_daemon::framing::DEFAULT_PRIVATE_FRAME_LIMITS,
     )
     .expect("encode");
     stream.write_all(&frame).expect("write");

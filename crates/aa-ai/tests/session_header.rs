@@ -1,5 +1,5 @@
-use pa_ai::types::{SimpleStreamOptions, StreamOptions};
-use pa_types::ai::{Context, Model};
+use aa_ai::types::{SimpleStreamOptions, StreamOptions};
+use aa_types::ai::{Context, Model};
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -51,7 +51,7 @@ async fn capture(api: &str, session_id: Option<&str>) -> Vec<(String, String)> {
         messages: vec![],
         tools: None,
     };
-    let _ = pa_ai::complete_simple(&model, &context, Some(options))
+    let _ = aa_ai::complete_simple(&model, &context, Some(options))
         .await
         .unwrap();
     tokio::time::timeout(std::time::Duration::from_secs(10), server)

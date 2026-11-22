@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 use futures::future::join_all;
-use pa_types::daemon::UpdateTimeoutBudget;
+use aa_types::daemon::UpdateTimeoutBudget;
 
 use crate::registry::ResidentWorker;
 
@@ -143,7 +143,7 @@ mod tests {
     fn resident(name: &str) -> Arc<ResidentWorker> {
         // The stop driver only reads `worker_id`; a real descriptor is
         // needed because `ResidentWorker::new` takes one.
-        let descriptor = pa_types::daemon::DaemonWorkerDescriptor {
+        let descriptor = aa_types::daemon::DaemonWorkerDescriptor {
             version: 2,
             worker_id: name.to_string(),
             pid: 0,
@@ -162,8 +162,8 @@ mod tests {
             telemetry_disabled: None,
             created_at: String::new(),
             updated_at: String::new(),
-            lifecycle: pa_types::daemon::DaemonWorkerLifecycle::Ready,
-            create_command: pa_types::daemon::DurableDaemonCreateCommand {
+            lifecycle: aa_types::daemon::DaemonWorkerLifecycle::Ready,
+            create_command: aa_types::daemon::DurableDaemonCreateCommand {
                 session_path: None,
                 no_session: None,
                 rest: Map::default(),

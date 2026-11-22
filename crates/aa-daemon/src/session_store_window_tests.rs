@@ -182,7 +182,7 @@ fn window_preserves_transcript_metadata_and_append_then_hydrate() {
             json!({"message":{"role":"user","content":"appended","timestamp":222}}),
         )
         .unwrap();
-    let warm = pa_core::session::window::WindowedSessionStore::open(&path)
+    let warm = aa_core::session::window::WindowedSessionStore::open(&path)
         .unwrap()
         .unwrap();
     assert!(warm.read_stats().cache_hit);
@@ -256,7 +256,7 @@ fn captured_window_matches_full_transcript_and_stats() {
                 reference.session_name()
             )
         );
-        let probe = pa_core::session::window::WindowedSessionStore::open(&path)
+        let probe = aa_core::session::window::WindowedSessionStore::open(&path)
             .unwrap()
             .unwrap();
         assert!(probe.read_stats().cache_hit);
@@ -269,7 +269,7 @@ fn captured_window_matches_full_transcript_and_stats() {
                 .unwrap();
             eprintln!("resume_active_append={:?}", started.elapsed());
             assert!(std::fs::read(&path).unwrap().starts_with(&original));
-            let maintained = pa_core::session::window::WindowedSessionStore::open(&path)
+            let maintained = aa_core::session::window::WindowedSessionStore::open(&path)
                 .unwrap()
                 .unwrap();
             assert!(

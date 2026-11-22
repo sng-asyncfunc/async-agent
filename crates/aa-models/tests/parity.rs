@@ -1,11 +1,11 @@
 //! Parity verifier: parse the real catalog payload (a byte-faithful
-//! snapshot of `prime-agent-catalog` `models/catalog.v1.json`; refresh
+//! snapshot of `async-agent-catalog` `models/catalog.v1.json`; refresh
 //! with `scripts/generate-catalog-fixture.py`) against the strict
 //! schema and transport pinning.
 
-use pa_models::pinning::{parse_provider_model_catalog, PinnedTemplates};
-use pa_models::schema::{parse_model_catalog, InvalidEntries};
-use pa_models::transports;
+use aa_models::pinning::{parse_provider_model_catalog, PinnedTemplates};
+use aa_models::schema::{parse_model_catalog, InvalidEntries};
+use aa_models::transports;
 use serde_json::Value;
 
 const FIXTURE: &str = include_str!("fixtures/catalog.v1.json");

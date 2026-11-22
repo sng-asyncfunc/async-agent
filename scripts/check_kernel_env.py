@@ -27,7 +27,7 @@ LIMIT = 35
 CODE = '''import os, json
 shell = await bash("printf '%s' \\"${PA_PREFIX_SENTINEL:-ABSENT}\\"")
 print('KERNEL_ENV_PARITY=' + json.dumps({'serper': os.environ.get('SERPER_API_KEY'),
-    'prefix': os.environ.get('PRIME_AGENT_BASH_COMMAND_PREFIX'),
+    'prefix': os.environ.get('ASYNC_AGENT_BASH_COMMAND_PREFIX'),
     'bash_output': shell.output, 'bash_exit': shell.exit_code}))'''
 CASES = {
     'command_key_and_prefix': {'skill': True, 'ambient': None, 'prefix': 'export PA_PREFIX_SENTINEL=prefix-ran'},
@@ -97,7 +97,7 @@ def owned_kernel(pid, owner, fixture, identity=None):
         if state == 'Z' or (identity is not None and current != identity):
             return None
         env = dict(item.split(b'=', 1) for item in Path('/proc/%d/environ' % pid).read_bytes().split(b'\0') if b'=' in item)
-        if (env.get(b'PRIME_AGENT_KERNEL_OWNER_PID') != str(owner).encode()
+        if (env.get(b'ASYNC_AGENT_KERNEL_OWNER_PID') != str(owner).encode()
                 or env.get(b'PA_KERNEL_ENV_FIXTURE_ID') != fixture.encode()):
             return None
         command = Path('/proc/%d/cmdline' % pid).read_bytes().split(b'\0')
@@ -140,13 +140,13 @@ def verify_worker(row, active, binary, socket_path):
     assert command[0] == str(binary).encode(), 'worker argv0 is not fixture binary'
     env = dict(item.split(b'=', 1) for item in Path('/proc/%d/environ' % pid).read_bytes().split(b'\0') if b'=' in item)
     for key, value in {
-        'PRIME_AGENT_INTERNAL_DAEMON_WORKER': '1',
-        'PRIME_AGENT_INTERNAL_DAEMON_WORKER_ACTIVE_SESSION_ID': active,
-        'PRIME_AGENT_INTERNAL_DAEMON_SUPERVISOR_SOCKET': str(socket_path),
+        'ASYNC_AGENT_INTERNAL_DAEMON_WORKER': '1',
+        'ASYNC_AGENT_INTERNAL_DAEMON_WORKER_ACTIVE_SESSION_ID': active,
+        'ASYNC_AGENT_INTERNAL_DAEMON_SUPERVISOR_SOCKET': str(socket_path),
     }.items():
         assert env.get(key.encode()) == value.encode(), 'wrong fixture worker env identity'
     worker_socket = str(row['socketPath']).encode()
-    assert (worker_socket in command or env.get(b'PRIME_AGENT_INTERNAL_DAEMON_WORKER_SOCKET') == worker_socket), 'wrong worker socket identity'
+    assert (worker_socket in command or env.get(b'ASYNC_AGENT_INTERNAL_DAEMON_WORKER_SOCKET') == worker_socket), 'wrong worker socket identity'
     identity, state = process_identity(pid)
     assert row.get('processStartId') == identity and state != 'Z', 'wrong/reused worker PID'
     return pid, identity
@@ -183,7 +183,7 @@ class KernelClient(BounceClient):
         self.counter += 1
         ident = str(self.counter)
         envelope = {'type': 'command', 'id': ident,
-            'protocol': {'name': 'prime-agent.daemon', 'version': 7},
+            'protocol': {'name': 'async-agent.daemon', 'version': 7},
             'command': {'type': kind, **payload}}
         deadline = time.monotonic() + timeout_seconds
         previous_timeout = self.sock.gettimeout()
@@ -299,10 +299,10 @@ def run_case(binary, name, case, root, observation):
         (root / directory).mkdir(parents=True)
     agent, cwd = root / 'agent', root / 'work'
     env = {key: os.environ[key] for key in ('PATH', 'LANG', 'LC_ALL', 'TZ',
-        'PRIME_AGENT_KERNEL_PYTHON', 'PA_E2E_KERNEL_PYTHON') if key in os.environ}
+        'ASYNC_AGENT_KERNEL_PYTHON', 'AA_E2E_KERNEL_PYTHON') if key in os.environ}
     env.update(HOME=str(root / 'home'), TMPDIR=str(root / 'tmp'), DO_NOT_TRACK='1', PI_OFFLINE='1',
-        PI_CODING_AGENT_DIR=str(agent), PRIME_AGENT_CODING_AGENT_DIR=str(agent),
-        PI_SESSION_DIR=str(root / 'sessions'), PRIME_AGENT_SESSION_DIR=str(root / 'sessions'),
+        PI_CODING_AGENT_DIR=str(agent), ASYNC_AGENT_CODING_AGENT_DIR=str(agent),
+        PI_SESSION_DIR=str(root / 'sessions'), ASYNC_AGENT_SESSION_DIR=str(root / 'sessions'),
         XDG_CONFIG_HOME=str(root / 'config'), XDG_CACHE_HOME=str(root / 'cache'), XDG_DATA_HOME=str(root / 'data'))
     env['PA_KERNEL_ENV_FIXTURE_ID'] = str(root.resolve())
     if case['ambient'] is not None:
@@ -425,7 +425,7 @@ def main():
     try:
         assert sys.platform == 'linux', 'requires hosted Linux binaries'
         with tempfile.TemporaryDirectory(prefix='kernel-env-check-', dir='/tmp') as folder:
-            binary = Path(os.environ['PA_RUST_BINARY']).resolve()
+            binary = Path(os.environ['AA_RUST_BINARY']).resolve()
             receipt.update(binary_sha256=digest(binary), cases={})
             for name, case in CASES.items():
                 observation = receipt['cases'][name] = {}

@@ -53,7 +53,7 @@ impl Worker {
         let requested_thinking = match payload.get("thinking") {
             None => None,
             Some(Value::String(level)) => {
-                match pa_ai::models::thinking_level_from_str(level) {
+                match aa_ai::models::thinking_level_from_str(level) {
                     Some(level) => Some(level),
                     // The wire contract takes validated levels only: reject
                     // the create loudly instead of silently dropping it.
@@ -109,7 +109,7 @@ impl Worker {
         if let Some(agent_engine) = &self.agent_engine {
             if let Some(autonomous) = &resources.autonomous {
                 *agent_engine.autonomous.lock().await =
-                    pa_core::autonomous::create_autonomous_runtime_state(Some(autonomous), None);
+                    aa_core::autonomous::create_autonomous_runtime_state(Some(autonomous), None);
             }
             *agent_engine
                 .create_resources
@@ -199,16 +199,16 @@ impl Worker {
         // Set by the continuing arm when it OPENED an existing session file:
         // `is_continuing` reads this arm fact, never an existence check.
         let mut opened_existing_session = false;
-        let mut restored_tier: Option<Option<pa_types::ai::ServiceTier>> = None;
+        let mut restored_tier: Option<Option<aa_types::ai::ServiceTier>> = None;
         // The fresh arms defer their creation prefix to after the startup scope
         // registers, so a fresh `--models` session persists the scoped startup pick.
         let mut fresh_prefix = FreshPrefixPlan::None;
-        let (settings, trace_consent) = pa_core::agent_traces::ContinuousTraceUpload::load_settings(
+        let (settings, trace_consent) = aa_core::agent_traces::ContinuousTraceUpload::load_settings(
             std::path::Path::new(&cwd),
             &self.config.agent_dir,
         );
         let traces = |path: &std::path::Path| {
-            pa_core::agent_traces::ContinuousTraceUpload::install(
+            aa_core::agent_traces::ContinuousTraceUpload::install(
                 std::path::Path::new(&cwd),
                 &self.config.agent_dir,
                 Some(path),
@@ -222,7 +222,7 @@ impl Worker {
                     let agent_dir = self.config.agent_dir.clone();
                     tokio::task::spawn_blocking(move || {
                         let lease = crate::lease::acquire_runtime_session_lease(&path, &agent_dir)?;
-                        pa_core::session::manager::repair_jsonl_damage(&path);
+                        aa_core::session::manager::repair_jsonl_damage(&path);
                         let mut store = SessionFile::open_windowed(&path)?;
                         store.lease = Some(Arc::new(lease));
                         Ok(store)
@@ -243,7 +243,7 @@ impl Worker {
                             // unnoticed (the operator's 2026-10-08
                             // report).
                             eprintln!(
-                                "pa-daemon: session {} skipped {} unparsable row(s) on open; they stay on disk",
+                                "aa-daemon: session {} skipped {} unparsable row(s) on open; they stay on disk",
                                 path.display(),
                                 opened.skipped_lines
                             );
@@ -409,14 +409,14 @@ impl Worker {
             Vec::new()
         } else {
             let mut registry = crate::state_getters::worker_model_registry(&self.config.agent_dir);
-            pa_core::models::resolve_model_scope_from_models_with_readiness(
+            aa_core::models::resolve_model_scope_from_models_with_readiness(
                 &mut registry,
                 &model_patterns,
                 settings
                     .get_default_provider()
                     .zip(settings.get_default_model()),
                 is_continuing,
-                pa_core::models::SESSION_MODEL_RESTORE_READINESS_TIMEOUT_MS,
+                aa_core::models::SESSION_MODEL_RESTORE_READINESS_TIMEOUT_MS,
             )
             .await
         };
@@ -495,10 +495,10 @@ impl Worker {
         // The session's settings-seeded switches: a restarted session re-seeds
         // its auto-compaction flag from the persisted `compaction.enabled`.
         let (service_tier, steering_mode, follow_up_mode, auto_compaction_enabled) = {
-            let queue_mode = |mode: pa_core::settings::QueueModeSetting| -> String {
+            let queue_mode = |mode: aa_core::settings::QueueModeSetting| -> String {
                 match mode {
-                    pa_core::settings::QueueModeSetting::All => "all".to_string(),
-                    pa_core::settings::QueueModeSetting::OneAtATime => "one-at-a-time".to_string(),
+                    aa_core::settings::QueueModeSetting::All => "all".to_string(),
+                    aa_core::settings::QueueModeSetting::OneAtATime => "one-at-a-time".to_string(),
                 }
             };
             (
@@ -661,9 +661,9 @@ impl Worker {
         // bundled catalog without touching the session.
         let agent_dir = self.config.agent_dir.clone();
         tokio::spawn(async move {
-            let auth = pa_core::auth::AuthStorage::create(&agent_dir);
+            let auth = aa_core::auth::AuthStorage::create(&agent_dir);
             let mut registry =
-                pa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
+                aa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
             let _ = registry.refresh_available_models().await;
         });
         self.work_notify.notify_one();
@@ -699,7 +699,7 @@ impl Worker {
         }
         // A resumed create just rebuilt the store from the session
         // file: return the load's freed heap to the OS.
-        pa_types::memory_release::trim_freed_heap();
+        aa_types::memory_release::trim_freed_heap();
         response_success(None, "create", Some(data))
     }
 
@@ -843,7 +843,7 @@ fn append_creation_prefix(
         store.append_thinking_level_change(&thinking_level);
     }
     if fresh || !has_service_tier_entry {
-        let settings = pa_core::settings::SettingsManager::create(cwd, agent_dir);
+        let settings = aa_core::settings::SettingsManager::create(cwd, agent_dir);
         let service_tier = settings.get_default_service_tier();
         store.append_entry(
             "service_tier_change",

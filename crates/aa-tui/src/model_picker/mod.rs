@@ -7,7 +7,7 @@ mod render;
 
 use std::collections::{HashMap, HashSet};
 
-use pa_types::ai::{
+use aa_types::ai::{
     clamp_thinking_level, get_supported_thinking_levels, Model, ModelServing, ModelThinkingLevel,
     PRIME_INFERENCE_PROVIDER_ID,
 };

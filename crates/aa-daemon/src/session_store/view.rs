@@ -5,7 +5,7 @@ use super::{
     json, HashMap, MessageWindowScalars, SessionEntry, SessionFile, SessionMessages,
     TranscriptPageRows, Value,
 };
-use pa_types::daemon::TranscriptPage;
+use aa_types::daemon::TranscriptPage;
 
 /// One display-transcript row: its entry id and wire message.
 type DisplayRow<'a> = (&'a str, std::borrow::Cow<'a, Value>);
@@ -45,13 +45,13 @@ pub(super) fn count_role(counts: &mut HashMap<String, usize>, role: &str) {
 
 /// Whether `entry` is the session's Anthropic subscription warning shown
 /// marker: a `custom` row carrying
-/// [`pa_core::session::ANTHROPIC_WARNING_SHOWN_CUSTOM_TYPE`] with
+/// [`aa_core::session::ANTHROPIC_WARNING_SHOWN_CUSTOM_TYPE`] with
 /// `data.shown == true` (the once-per-session-lifecycle gate's persisted
 /// state, written by [`SessionFile::mark_anthropic_warning_shown`]).
 pub(crate) fn is_warning_shown_row(entry: &SessionEntry) -> bool {
     entry.type_ == "custom"
         && entry.fields.get("customType").and_then(Value::as_str)
-            == Some(pa_core::session::ANTHROPIC_WARNING_SHOWN_CUSTOM_TYPE)
+            == Some(aa_core::session::ANTHROPIC_WARNING_SHOWN_CUSTOM_TYPE)
         && entry
             .fields
             .get("data")
@@ -247,9 +247,9 @@ impl SessionFile {
         self.window.as_ref()?.boundary_model.clone()
     }
 
-    pub(crate) fn restored_settings(&self) -> pa_core::session::SessionContext {
+    pub(crate) fn restored_settings(&self) -> aa_core::session::SessionContext {
         if let Some(window) = &self.window {
-            let mut context = pa_core::session::SessionContext {
+            let mut context = aa_core::session::SessionContext {
                 messages: Vec::new(),
                 thinking_level: window.thinking_level.clone(),
                 service_tier: window.service_tier,
@@ -296,7 +296,7 @@ impl SessionFile {
             context
         } else {
             let entries = self.branch_file_entries();
-            pa_core::session::build_session_context(&entries, self.leaf_id())
+            aa_core::session::build_session_context(&entries, self.leaf_id())
         }
     }
 
@@ -695,7 +695,7 @@ impl SessionFile {
     /// The role a branch position shows under in the display transcript.
     pub(super) fn display_role(&self, position: usize) -> Option<&str> {
         let entry = &self.entries[position];
-        pa_core::session::window::display_role(
+        aa_core::session::window::display_role(
             &entry.type_,
             entry.fields.get("message").and_then(message_role),
         )
@@ -748,7 +748,7 @@ impl SessionFile {
     /// the re-cut pins the boundary the file read recognizes.
     pub fn durable_first_kept_entry_id(&self, keep_recent_tokens: u64) -> Option<String> {
         let branch = self.branch();
-        let entries: Vec<pa_types::session::FileEntry> = branch
+        let entries: Vec<aa_types::session::FileEntry> = branch
             .iter()
             .filter_map(|entry| serde_json::to_value(entry).ok())
             .filter_map(|value| serde_json::from_value(value).ok())
@@ -756,9 +756,9 @@ impl SessionFile {
         // The header is not a compact candidate (TS `prepareCompaction`).
         let start = usize::from(matches!(
             entries.first(),
-            Some(pa_types::session::FileEntry::Header { .. })
+            Some(aa_types::session::FileEntry::Header { .. })
         ));
-        let cut = pa_core::session_engine::compaction::find_cut_point(
+        let cut = aa_core::session_engine::compaction::find_cut_point(
             &entries,
             start,
             entries.len(),
@@ -879,7 +879,7 @@ fn prompt_timestamp_ms(message: &Value) -> Option<u64> {
                 .filter(|value| value.is_finite())
                 .map(|value| value.max(0.0) as u64)
         }),
-        Some(Value::String(iso)) => pa_types::incident::timestamp_to_ms(iso)
+        Some(Value::String(iso)) => aa_types::incident::timestamp_to_ms(iso)
             .filter(|ms| *ms > 0)
             .map(|ms| ms as u64),
         _ => None,

@@ -9,12 +9,12 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use anyhow::{Context, Result};
-use pa_types::daemon::update_flow::DaemonUpdateResume;
-use pa_types::daemon::update_flow::{
+use aa_types::daemon::update_flow::DaemonUpdateResume;
+use aa_types::daemon::update_flow::{
     legacy_update_restart_status, legacy_update_restarts_dir, socket_update_dir, UpdateRoster,
     UpdateRosterSession, UpdateStatusCounts, UpdateStatusFailure, UPDATE_ROSTER_ENV,
 };
-use pa_types::daemon::{DaemonCommand, UpdateId};
+use aa_types::daemon::{DaemonCommand, UpdateId};
 use serde_json::json;
 use tokio::sync::Notify;
 
@@ -26,7 +26,7 @@ use crate::supervisor::Supervisor;
 pub(crate) const UPDATE_RESTORE_CLIENT_ID: &str = "update-restore";
 
 /// TS `UPDATE_RESTART_CONTINUATION_PROMPT`, verbatim (spec §10.5).
-pub(crate) const UPDATE_RESTART_CONTINUATION_PROMPT: &str = "Prime Agent restarted after an update. Continue the interrupted task from the saved transcript and restored tool/kernel state. Inspect current state before retrying commands when needed.";
+pub(crate) const UPDATE_RESTART_CONTINUATION_PROMPT: &str = "Async Agent restarted after an update. Continue the interrupted task from the saved transcript and restored tool/kernel state. Inspect current state before retrying commands when needed.";
 
 /// How long a client attach queues behind an in-flight restore pass (spec §10.4).
 const RESTORE_ATTACH_WAIT_MS: u64 = 120_000;
@@ -312,7 +312,7 @@ pub(crate) fn boot_sweep(agent_dir: &Path, socket_path: &Path) {
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(error) => {
-                    eprintln!("pa-daemon: could not inspect legacy update scratch: {error}");
+                    eprintln!("aa-daemon: could not inspect legacy update scratch: {error}");
                     continue;
                 }
             };
@@ -376,7 +376,7 @@ pub(crate) fn boot_sweep(agent_dir: &Path, socket_path: &Path) {
 
 // Spec §6 step 2: consume the roster from the spawn env
 
-/// Read `PRIME_AGENT_UPDATE_ROSTER`: a coordinator-passed path, never
+/// Read `ASYNC_AGENT_UPDATE_ROSTER`: a coordinator-passed path, never
 /// discovered. `None` on a normal boot; a malformed roster never fails the boot (spec §9).
 pub(crate) fn consume_roster_env() -> Option<UpdateRoster> {
     let path = std::env::var(UPDATE_ROSTER_ENV).ok()?;
@@ -385,7 +385,7 @@ pub(crate) fn consume_roster_env() -> Option<UpdateRoster> {
         Ok(content) => content,
         Err(error) => {
             eprintln!(
-                "pa-daemon: could not read the update roster at {}: {error}",
+                "aa-daemon: could not read the update roster at {}: {error}",
                 path.display()
             );
             return None;
@@ -395,7 +395,7 @@ pub(crate) fn consume_roster_env() -> Option<UpdateRoster> {
         Ok(roster) => Some(roster),
         Err(error) => {
             eprintln!(
-                "pa-daemon: malformed update roster at {}: {error}",
+                "aa-daemon: malformed update roster at {}: {error}",
                 path.display()
             );
             None
@@ -411,7 +411,7 @@ fn sort_rows_bottom_up(rows: &mut [&UpdateRosterSession]) {
     rows.sort_by(|a, b| {
         b.rlm_depth.cmp(&a.rlm_depth).then_with(|| {
             let subagent = |row: &UpdateRosterSession| {
-                row.kind == pa_types::daemon::update_flow::UpdateRosterSessionKind::Subagent
+                row.kind == aa_types::daemon::update_flow::UpdateRosterSessionKind::Subagent
             };
             u8::from(subagent(b)).cmp(&u8::from(subagent(a)))
         })
@@ -582,8 +582,8 @@ where
         let mut commands = Vec::new();
         if origin == Some(row.active_session_id.as_str()) {
             commands.push(("append_custom_message", json!({ "message": {
-                "customType": "prime-agent.update_complete",
-                "content": format!("[update-complete]\n\nPrime Agent updated to v{version}. This daemon session was restored after the update."),
+                "customType": "async-agent.update_complete",
+                "content": format!("[update-complete]\n\nAsync Agent updated to v{version}. This daemon session was restored after the update."),
                 "display": true,
                 "details": { "version": version },
             }})));
@@ -654,11 +654,11 @@ where
             match route("abort", json!({})).await {
                 Ok(response) if response.success => {}
                 Ok(response) => eprintln!(
-                    "pa-daemon: legacy update abort after failed restore also failed: {}",
+                    "aa-daemon: legacy update abort after failed restore also failed: {}",
                     response.error.unwrap_or_default()
                 ),
                 Err(error) => eprintln!(
-                    "pa-daemon: legacy update abort after failed restore also failed: {error:#}"
+                    "aa-daemon: legacy update abort after failed restore also failed: {error:#}"
                 ),
             }
         }
@@ -690,7 +690,7 @@ async fn restore_session(
         .get("create")
         .cloned()
         .context("the roster row carries no create command")?;
-    let durable: pa_types::daemon::DurableDaemonCreateCommand =
+    let durable: aa_types::daemon::DurableDaemonCreateCommand =
         serde_json::from_value(durable).context("parse the roster row's create command")?;
     let mut payload = crate::descriptor::create_command_payload(&durable);
     if let Some(restored_ids) = restored_ids {
@@ -777,11 +777,11 @@ async fn report_dormant_scheduled_jobs(supervisor: &std::sync::Arc<Supervisor>) 
     let jobs = crate::update_roster::scan_scheduled_jobs(&supervisor.options.agent_dir);
     let now = crate::util::now_ms();
     let live = supervisor.live_session_files().await;
-    let dormant: Vec<&pa_core::cron::AgentCronJob> = jobs
+    let dormant: Vec<&aa_core::cron::AgentCronJob> = jobs
         .iter()
         .filter(|job| {
-            job.status == pa_core::cron::JobStatus::Active
-                && pa_core::cron::is_due_job(job, now)
+            job.status == aa_core::cron::JobStatus::Active
+                && aa_core::cron::is_due_job(job, now)
                 && !job.session_file.is_empty()
                 && !live.contains(
                     &crate::lease::canonical_session_path(std::path::Path::new(&job.session_file))
@@ -829,7 +829,7 @@ impl Supervisor {
             .map(|(session_file, message)| {
                 format!(
                     "Session {selector} failed to restore: {message}. The session file is at \
-                     {session_file} — run `prime-agent attach` to resume it manually."
+                     {session_file} — run `async-agent attach` to resume it manually."
                 )
             })
     }
@@ -855,7 +855,7 @@ impl Supervisor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::daemon::update_flow::UpdateStatusCounts;
+    use aa_types::daemon::update_flow::UpdateStatusCounts;
     use serde_json::Map;
 
     /// A two-row roster (update `u-1`): row `a-1`, and row `durable-b`
@@ -951,8 +951,8 @@ mod tests {
                     (
                         "append_custom_message",
                         json!({ "message": {
-                            "customType": "prime-agent.update_complete",
-                            "content": "[update-complete]\n\nPrime Agent updated to v1.0.0. This daemon session was restored after the update.",
+                            "customType": "async-agent.update_complete",
+                            "content": "[update-complete]\n\nAsync Agent updated to v1.0.0. This daemon session was restored after the update.",
                             "display": true, "details": { "version": "1.0.0" }
                         }})
                     ),
@@ -1474,19 +1474,19 @@ mod tests {
             session_file: format!("/sessions/{id}.jsonl"),
             name: None,
             kind: if subagent {
-                pa_types::daemon::update_flow::UpdateRosterSessionKind::Subagent
+                aa_types::daemon::update_flow::UpdateRosterSessionKind::Subagent
             } else {
-                pa_types::daemon::update_flow::UpdateRosterSessionKind::TopLevel
+                aa_types::daemon::update_flow::UpdateRosterSessionKind::TopLevel
             },
             parent_session_id: None,
             rlm_depth: depth,
             cwd: "/w".to_string(),
             runtime_config: serde_json::json!({}),
-            queue: pa_types::daemon::update_flow::UpdateRosterQueue {
+            queue: aa_types::daemon::update_flow::UpdateRosterQueue {
                 next_turn: Vec::new(),
                 actions: serde_json::json!({}),
             },
-            in_flight: pa_types::daemon::update_flow::UpdateRosterInFlight::default(),
+            in_flight: aa_types::daemon::update_flow::UpdateRosterInFlight::default(),
             should_resume: false,
             rest: Map::default(),
         };
@@ -1558,11 +1558,11 @@ mod tests {
         std::fs::create_dir_all(scratch.join("prepared/u-1")).unwrap();
         std::fs::create_dir_all(legacy_update_restarts_dir(&agent_dir)).unwrap();
         std::fs::write(legacy_update_restart_status(&agent_dir), "{}").unwrap();
-        let ts_record = pa_types::daemon::update_flow::update_restarts_dir(&agent_dir)
+        let ts_record = aa_types::daemon::update_flow::update_restarts_dir(&agent_dir)
             .join("3c5dcf39f81bbe22-4e3a8d9e-1f2b-4c5d-9a0b-c1d2e3f4a5b6.json");
         std::fs::write(&ts_record, "{}").unwrap();
         let other_socket_dir =
-            pa_types::daemon::update_flow::update_restarts_dir(&agent_dir).join("0f".repeat(32));
+            aa_types::daemon::update_flow::update_restarts_dir(&agent_dir).join("0f".repeat(32));
         std::fs::create_dir_all(other_socket_dir.join("prepared")).unwrap();
         boot_sweep(&agent_dir, &socket);
         assert!(!scratch.exists());

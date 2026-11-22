@@ -10,11 +10,11 @@
     clippy::cast_precision_loss
 )]
 
-//! pa-cli: the `prime-agent` binary. The argument surface, command routing,
+//! aa-cli: the `async-agent` binary. The argument surface, command routing,
 //! help output, and validation are faithful ports of the TypeScript product.
 
 // Internal ported modules are crate-private: the only public API is the
-// runtime boundary below (see crates/pa-cli/README.md).
+// runtime boundary below (see crates/aa-cli/README.md).
 pub(crate) mod args;
 pub(crate) mod client_settings;
 pub(crate) mod client_traces;
@@ -54,7 +54,7 @@ pub(crate) mod telemetry_notice;
 pub(crate) mod traces_login;
 
 /// The runtime boundary: everything a mode-runner crate implements to plug
-/// into the `prime-agent` binary, plus the entry point that drives it.
+/// into the `async-agent` binary, plus the entry point that drives it.
 pub use mode::{AppMode, MissingSubsystem, RunOptions, Runtime, UnavailableRuntime};
 pub(crate) mod piped_stdin;
 pub(crate) mod print_autonomous;
@@ -90,8 +90,8 @@ fn main_impl(args: &[String], runtime: &dyn mode::Runtime) -> Result<i32, String
 
     // Telemetry reports the version `--version` prints: the beta channel
     // restamps only the packaged manifest, never the compiled-in version.
-    pa_telemetry::set_version(crate::config::version());
-    pa_daemon::protocol::configure_app_version(crate::config::version())
+    aa_telemetry::set_version(crate::config::version());
+    aa_daemon::protocol::configure_app_version(crate::config::version())
         .map_err(|error| error.to_string())?;
 
     let offline_mode = args.iter().any(|arg| arg == "--offline")
@@ -102,9 +102,9 @@ fn main_impl(args: &[String], runtime: &dyn mode::Runtime) -> Result<i32, String
         std::env::set_var(crate::config::ENV_OFFLINE, "1");
     }
 
-    // Install-time kernel preparation: the installer invokes `--prime-agent-bootstrap`
+    // Install-time kernel preparation: the installer invokes `--async-agent-bootstrap`
     // after extracting a release, so the venv is ready before the first session.
-    if args.len() == 1 && args[0] == "--prime-agent-bootstrap" {
+    if args.len() == 1 && args[0] == "--async-agent-bootstrap" {
         crate::config::require_agent_dir()?;
         return run_runtime_bootstrap();
     }
@@ -140,11 +140,11 @@ fn main_impl(args: &[String], runtime: &dyn mode::Runtime) -> Result<i32, String
     let app_mode = mode::AppMode::resolve(&parsed, std::io::stdin().is_terminal());
     // The TUI owns the terminal: structured logs go to stderr only outside it.
     if app_mode != mode::AppMode::Interactive {
-        pa_ai::utils::log::install_stderr_log_sink();
+        aa_ai::utils::log::install_stderr_log_sink();
     }
 
     // Enable Windows VT processing before raw ANSI mode writes.
-    pa_types::platform::console_init();
+    aa_types::platform::console_init();
 
     if public_command.attach_agent.is_some() && app_mode != mode::AppMode::Interactive {
         return Err("attach requires an interactive terminal".to_string());
@@ -186,7 +186,7 @@ fn main_impl(args: &[String], runtime: &dyn mode::Runtime) -> Result<i32, String
     // strips an inherited one from every other invocation), so the routing
     // reads that subcommand alone.
     let is_worker_process =
-        std::env::var(pa_daemon::worker::WORKER_ROLE_ENV).unwrap_or_default() == "1";
+        std::env::var(aa_daemon::worker::WORKER_ROLE_ENV).unwrap_or_default() == "1";
     if is_worker_process && args.first().map(String::as_str) == Some("worker") {
         return run_worker_mode();
     }
@@ -245,7 +245,7 @@ fn main_impl(args: &[String], runtime: &dyn mode::Runtime) -> Result<i32, String
     // Telemetry opt-in resolution: env override, then settings; the
     // runtime config only carries the disabled case.
     let telemetry_disabled = crate::mode::telemetry_disabled(
-        &pa_core::settings::SettingsManager::create(&cwd, &agent_dir),
+        &aa_core::settings::SettingsManager::create(&cwd, &agent_dir),
     );
     let session_dir = parsed
         .session_dir
@@ -254,7 +254,7 @@ fn main_impl(args: &[String], runtime: &dyn mode::Runtime) -> Result<i32, String
         .or_else(crate::config::get_session_dir_env_override)
         // sessionDir resolution: the cwd-scoped settings manager is
         // consulted after the flag and env overrides, before the default.
-        .or_else(|| pa_core::settings::SettingsManager::create(&cwd, &agent_dir).get_session_dir());
+        .or_else(|| aa_core::settings::SettingsManager::create(&cwd, &agent_dir).get_session_dir());
 
     let mut cli_messages = parsed.messages.clone();
     // Startup branches read piped stdin for every mode but the stdio-protocol ones
@@ -274,7 +274,7 @@ fn main_impl(args: &[String], runtime: &dyn mode::Runtime) -> Result<i32, String
         (None, Vec::new())
     } else {
         let auto_resize =
-            pa_core::settings::SettingsManager::create(&cwd, &agent_dir).get_image_auto_resize();
+            aa_core::settings::SettingsManager::create(&cwd, &agent_dir).get_image_auto_resize();
         match file_processor::process_file_arguments(&parsed.file_args, &cwd, auto_resize) {
             Ok(processed) => (
                 Some(processed.text).filter(|text| !text.is_empty()),
@@ -336,8 +336,8 @@ fn run_runtime_bootstrap() -> Result<i32, String> {
         .enable_all()
         .build()
         .map_err(|error| error.to_string())?;
-    match runtime.block_on(pa_core::kernel::ensure_kernel_bun(
-        pa_core::kernel::EnsureKernelBunOptions::default(),
+    match runtime.block_on(aa_core::kernel::ensure_kernel_bun(
+        aa_core::kernel::EnsureKernelBunOptions::default(),
     )) {
         Ok(kernel) => {
             println!("kernel bun: {}", kernel.bun_path.display());
@@ -354,7 +354,7 @@ fn run_worker_mode() -> Result<i32, String> {
         .enable_all()
         .build()
         .map_err(|error| error.to_string())?;
-    match runtime.block_on(pa_daemon::worker::run_worker()) {
+    match runtime.block_on(aa_daemon::worker::run_worker()) {
         Ok(()) => Ok(0),
         Err(error) => Err(format!("{error:#}")),
     }

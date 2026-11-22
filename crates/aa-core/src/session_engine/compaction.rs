@@ -2,7 +2,7 @@
 //! points, summarization prompts. The LLM summarizer call and file-op
 //! details land with the provider integration slice.
 
-use pa_types::session::{AgentMessage, FileEntry};
+use aa_types::session::{AgentMessage, FileEntry};
 use std::fmt::Write as _;
 
 #[cfg(test)]
@@ -47,7 +47,7 @@ impl Default for CompactionSettings {
 /// Context tokens from usage: `totalTokens` when present, else the sum.
 /// Output counts: the response becomes part of the next prompt.
 #[must_use]
-pub fn calculate_context_tokens(usage: &pa_types::ai::Usage) -> u64 {
+pub fn calculate_context_tokens(usage: &aa_types::ai::Usage) -> u64 {
     if usage.total_tokens > 0 {
         usage.total_tokens
     } else {
@@ -55,19 +55,19 @@ pub fn calculate_context_tokens(usage: &pa_types::ai::Usage) -> u64 {
     }
 }
 
-fn assistant_usage(message: &AgentMessage) -> Option<pa_types::ai::Usage> {
+fn assistant_usage(message: &AgentMessage) -> Option<aa_types::ai::Usage> {
     let AgentMessage::Assistant(assistant) = message else {
         return None;
     };
     match assistant.stop_reason {
-        pa_types::ai::StopReason::Aborted | pa_types::ai::StopReason::Error => None,
+        aa_types::ai::StopReason::Aborted | aa_types::ai::StopReason::Error => None,
         _ => Some(assistant.usage),
     }
 }
 
 /// Last non-aborted assistant usage from session entries.
 #[must_use]
-pub fn get_last_assistant_usage(entries: &[FileEntry]) -> Option<pa_types::ai::Usage> {
+pub fn get_last_assistant_usage(entries: &[FileEntry]) -> Option<aa_types::ai::Usage> {
     for entry in entries.iter().rev() {
         if let FileEntry::Message { message, .. } = entry {
             if let Some(usage) = assistant_usage(message) {
@@ -84,12 +84,12 @@ pub fn estimate_tokens(message: &AgentMessage) -> u64 {
     let chars = |text: &str| text.chars().count() as u64;
     match message {
         AgentMessage::User(user) => match &user.content {
-            pa_types::ai::UserContent::Text(text) => div4(chars(text)),
-            pa_types::ai::UserContent::Blocks(blocks) => div4(
+            aa_types::ai::UserContent::Text(text) => div4(chars(text)),
+            aa_types::ai::UserContent::Blocks(blocks) => div4(
                 blocks
                     .iter()
                     .filter_map(|block| match block {
-                        pa_types::ai::UserContentBlock::Text(text) => Some(chars(&text.text)),
+                        aa_types::ai::UserContentBlock::Text(text) => Some(chars(&text.text)),
                         _ => None,
                     })
                     .sum(),
@@ -99,11 +99,11 @@ pub fn estimate_tokens(message: &AgentMessage) -> u64 {
             let mut total = 0u64;
             for block in &assistant.content {
                 match block {
-                    pa_types::ai::AssistantContentBlock::Text(text) => total += chars(&text.text),
-                    pa_types::ai::AssistantContentBlock::Thinking(thinking) => {
+                    aa_types::ai::AssistantContentBlock::Text(text) => total += chars(&text.text),
+                    aa_types::ai::AssistantContentBlock::Thinking(thinking) => {
                         total += chars(&thinking.thinking);
                     }
-                    pa_types::ai::AssistantContentBlock::ToolCall(call) => {
+                    aa_types::ai::AssistantContentBlock::ToolCall(call) => {
                         total += chars(&call.name)
                             + serde_json::to_string(&call.arguments)
                                 .map_or(0, |json| json.chars().count() as u64);
@@ -113,16 +113,16 @@ pub fn estimate_tokens(message: &AgentMessage) -> u64 {
             div4(total)
         }
         AgentMessage::Custom(custom) => match &custom.content {
-            pa_types::ai::UserContent::Text(text) => div4(chars(text)),
-            pa_types::ai::UserContent::Blocks(blocks) => div4(
+            aa_types::ai::UserContent::Text(text) => div4(chars(text)),
+            aa_types::ai::UserContent::Blocks(blocks) => div4(
                 blocks
                     .iter()
                     .map(|block| match block {
-                        pa_types::ai::UserContentBlock::Text(text) => chars(&text.text),
-                        pa_types::ai::UserContentBlock::Image(_) => 4_800, // ~1200 tokens
+                        aa_types::ai::UserContentBlock::Text(text) => chars(&text.text),
+                        aa_types::ai::UserContentBlock::Image(_) => 4_800, // ~1200 tokens
                         // Un-modeled blocks have no modeled size; TS sizes
                         // only typed blocks, so estimate zero.
-                        pa_types::ai::UserContentBlock::Raw(_) => 0,
+                        aa_types::ai::UserContentBlock::Raw(_) => 0,
                     })
                     .sum(),
             ),
@@ -132,9 +132,9 @@ pub fn estimate_tokens(message: &AgentMessage) -> u64 {
                 .content
                 .iter()
                 .map(|block| match block {
-                    pa_types::ai::UserContentBlock::Text(text) => chars(&text.text),
-                    pa_types::ai::UserContentBlock::Image(_) => 4_800,
-                    pa_types::ai::UserContentBlock::Raw(_) => 0,
+                    aa_types::ai::UserContentBlock::Text(text) => chars(&text.text),
+                    aa_types::ai::UserContentBlock::Image(_) => 4_800,
+                    aa_types::ai::UserContentBlock::Raw(_) => 0,
                 })
                 .sum(),
         ),
@@ -162,7 +162,7 @@ pub fn compaction_threshold(
     max_output_tokens: u64,
     settings: &CompactionSettings,
 ) -> u64 {
-    let percent = if pa_types::compaction::is_valid_threshold_percent(settings.threshold_percent) {
+    let percent = if aa_types::compaction::is_valid_threshold_percent(settings.threshold_percent) {
         settings.threshold_percent
     } else {
         DEFAULT_THRESHOLD_PERCENT
@@ -211,10 +211,10 @@ pub fn should_compact(
 /// overflow while the trigger still says "not due".
 #[must_use]
 pub fn request_output_budget(
-    model: &pa_types::ai::Model,
-    thinking: pa_types::ai::ModelThinkingLevel,
+    model: &aa_types::ai::Model,
+    thinking: aa_types::ai::ModelThinkingLevel,
 ) -> u64 {
-    pa_ai::effective_request_max_tokens(model, thinking)
+    aa_ai::effective_request_max_tokens(model, thinking)
 }
 
 /// The message-anchored context estimate: the last valid assistant usage
@@ -304,7 +304,7 @@ pub fn threshold_compaction_due(
         else {
             return false;
         };
-        if assistant.stop_reason == pa_types::ai::StopReason::Error {
+        if assistant.stop_reason == aa_types::ai::StopReason::Error {
             return false;
         }
         if compaction_timestamp.is_some_and(|timestamp| assistant.timestamp <= timestamp) {
@@ -495,7 +495,7 @@ pub fn build_summarization_prompt(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::session::EntryBase;
+    use aa_types::session::EntryBase;
 
     fn message_entry(id: &str, parent: &str, message: AgentMessage) -> FileEntry {
         FileEntry::Message {
@@ -513,8 +513,8 @@ mod tests {
         message_entry(
             id,
             parent,
-            AgentMessage::User(pa_types::ai::UserMessage {
-                content: pa_types::ai::UserContent::Text(text.to_string()),
+            AgentMessage::User(aa_types::ai::UserMessage {
+                content: aa_types::ai::UserContent::Text(text.to_string()),
                 timestamp: 0,
                 rest: serde_json::Map::default(),
             }),
@@ -525,9 +525,9 @@ mod tests {
         message_entry(
             id,
             parent,
-            AgentMessage::Assistant(pa_types::ai::AssistantMessage {
-                content: vec![pa_types::ai::AssistantContentBlock::Text(
-                    pa_types::ai::TextContent {
+            AgentMessage::Assistant(aa_types::ai::AssistantMessage {
+                content: vec![aa_types::ai::AssistantContentBlock::Text(
+                    aa_types::ai::TextContent {
                         text: "ok".to_string(),
                         text_signature: None,
                         rest: serde_json::Map::default(),
@@ -539,15 +539,15 @@ mod tests {
                 response_model: None,
                 response_id: None,
                 diagnostics: None,
-                usage: pa_types::ai::Usage {
+                usage: aa_types::ai::Usage {
                     input: 100,
                     output: 50,
                     cache_read: 0,
                     cache_write: 0,
                     total_tokens: 150,
-                    cost: pa_types::ai::UsageCost::default(),
+                    cost: aa_types::ai::UsageCost::default(),
                 },
-                stop_reason: pa_types::ai::StopReason::Stop,
+                stop_reason: aa_types::ai::StopReason::Stop,
                 stop_reason_raw: None,
                 error_message: None,
                 timestamp: 0,
@@ -557,17 +557,17 @@ mod tests {
     }
 
     fn user_message(text: &str, timestamp: u64) -> AgentMessage {
-        AgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text(text.to_string()),
+        AgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text(text.to_string()),
             timestamp,
             rest: serde_json::Map::default(),
         })
     }
 
     fn assistant_message(usage_total: u64, timestamp: u64) -> AgentMessage {
-        AgentMessage::Assistant(pa_types::ai::AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+        AgentMessage::Assistant(aa_types::ai::AssistantMessage {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: "ok".to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -579,15 +579,15 @@ mod tests {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage {
+            usage: aa_types::ai::Usage {
                 input: usage_total,
                 output: 0,
                 cache_read: 0,
                 cache_write: 0,
                 total_tokens: usage_total,
-                cost: pa_types::ai::UsageCost::default(),
+                cost: aa_types::ai::UsageCost::default(),
             },
-            stop_reason: pa_types::ai::StopReason::Stop,
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp,
@@ -596,7 +596,7 @@ mod tests {
     }
 
     fn compaction_summary(timestamp: u64) -> AgentMessage {
-        AgentMessage::CompactionSummary(pa_types::session::CompactionSummaryMessage {
+        AgentMessage::CompactionSummary(aa_types::session::CompactionSummaryMessage {
             summary: "the story so far".to_string(),
             tokens_before: 100,
             retained_message_count: None,
@@ -758,19 +758,19 @@ mod tests {
 
     #[test]
     fn token_estimation() {
-        let user = AgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text("12345678".to_string()), // 8 chars -> 2 tokens
+        let user = AgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text("12345678".to_string()), // 8 chars -> 2 tokens
             timestamp: 0,
             rest: serde_json::Map::default(),
         });
         assert_eq!(estimate_tokens(&user), 2);
-        let usage = pa_types::ai::Usage {
+        let usage = aa_types::ai::Usage {
             input: 10,
             output: 5,
             cache_read: 1,
             cache_write: 1,
             total_tokens: 100,
-            cost: pa_types::ai::UsageCost::default(),
+            cost: aa_types::ai::UsageCost::default(),
         };
         assert_eq!(calculate_context_tokens(&usage), 100);
     }
@@ -796,11 +796,11 @@ mod tests {
             message_entry(
                 "t1",
                 "a1",
-                AgentMessage::ToolResult(pa_types::ai::ToolResultMessage {
+                AgentMessage::ToolResult(aa_types::ai::ToolResultMessage {
                     tool_call_id: "c".to_string(),
                     tool_name: "bash".to_string(),
-                    content: vec![pa_types::ai::UserContentBlock::Text(
-                        pa_types::ai::TextContent {
+                    content: vec![aa_types::ai::UserContentBlock::Text(
+                        aa_types::ai::TextContent {
                             text: "result".to_string(),
                             text_signature: None,
                             rest: serde_json::Map::default(),
@@ -894,7 +894,7 @@ mod tests {
             message_entry(
                 "a2",
                 "a1",
-                AgentMessage::Assistant(pa_types::ai::AssistantMessage {
+                AgentMessage::Assistant(aa_types::ai::AssistantMessage {
                     content: vec![],
                     api: "openai-completions".to_string(),
                     provider: "p".to_string(),
@@ -902,15 +902,15 @@ mod tests {
                     response_model: None,
                     response_id: None,
                     diagnostics: None,
-                    usage: pa_types::ai::Usage {
+                    usage: aa_types::ai::Usage {
                         input: 1,
                         output: 1,
                         cache_read: 0,
                         cache_write: 0,
                         total_tokens: 2,
-                        cost: pa_types::ai::UsageCost::default(),
+                        cost: aa_types::ai::UsageCost::default(),
                     },
-                    stop_reason: pa_types::ai::StopReason::Aborted,
+                    stop_reason: aa_types::ai::StopReason::Aborted,
                     stop_reason_raw: None,
                     error_message: None,
                     timestamp: 0,

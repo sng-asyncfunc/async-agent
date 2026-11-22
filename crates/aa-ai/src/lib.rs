@@ -1,6 +1,6 @@
-//! Provider APIs and model registry for Prime Agent.
+//! Provider APIs and model registry for Async Agent.
 //!
-//! The wire/domain types live in `pa-types` (the only dependency, one-way) and are re-exported
+//! The wire/domain types live in `aa-types` (the only dependency, one-way) and are re-exported
 //! from [`types`]; per-provider internals are `pub(crate)`.
 //!
 //! Wire-shape enums mirror the TS tagged unions 1:1, so `large_enum_variant` and
@@ -33,7 +33,7 @@ pub use providers::simple_options::{default_request_max_tokens, effective_reques
 pub use registry::{Provider, ProviderRegistry};
 pub use stream::{complete, complete_simple, stream, stream_simple};
 
-// Cross-crate surface consumed by the agent layer (pa-ai owned).
+// Cross-crate surface consumed by the agent layer (aa-ai owned).
 pub mod utils {
     //! Overflow detection, stream-failure classification, JSON repair
     //! parsing, structured diagnostics, the structured logger, and the

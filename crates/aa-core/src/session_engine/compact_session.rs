@@ -1,8 +1,8 @@
 //! `/compact` execution: resolve the cut over session entries, run the
 //! summarizer, persist the compaction entry, and rebuild the agent context.
 
-use pa_types::ai::{TextContent, UserContent, UserContentBlock};
-use pa_types::session::{AgentMessage, FileEntry};
+use aa_types::ai::{TextContent, UserContent, UserContentBlock};
+use aa_types::session::{AgentMessage, FileEntry};
 
 use super::compaction::{estimate_context_tokens, find_cut_point, CutPointResult};
 use super::compaction_exec;
@@ -36,7 +36,7 @@ use super::{compaction, harness_digest, messages, session_message_to_loop};
 mod tests;
 
 pub struct CompactOptions<'a> {
-    pub model: pa_types::ai::Model,
+    pub model: aa_types::ai::Model,
     /// Resolved API key (None falls back to provider env resolution).
     pub api_key: Option<String>,
     /// `/compact <instructions>` guidance.
@@ -44,7 +44,7 @@ pub struct CompactOptions<'a> {
     pub settings: super::compaction::CompactionSettings,
     /// Checked before the summarizer request and again before the commit — a
     /// late abort never lands a committed compaction; `None` without a trigger.
-    pub abort: Option<&'a pa_agent::abort::AbortSignal>,
+    pub abort: Option<&'a aa_agent::abort::AbortSignal>,
     /// The snapshot rides the durable row as `harnessDigest`; the disk read
     /// happens at the commit, so mid-run state is a fresh read.
     pub harness_digest: Option<super::harness_digest::HarnessDigestInputs>,
@@ -74,7 +74,7 @@ fn message_from_entry(entry: &FileEntry) -> Option<AgentMessage> {
             {
                 return None;
             }
-            Some(AgentMessage::Custom(pa_types::session::CustomMessage {
+            Some(AgentMessage::Custom(aa_types::session::CustomMessage {
                 custom_type: payload.custom_type.clone(),
                 content: payload.content.clone(),
                 display: payload.display,
@@ -84,7 +84,7 @@ fn message_from_entry(entry: &FileEntry) -> Option<AgentMessage> {
             }))
         }
         FileEntry::BranchSummary { payload, .. } => Some(AgentMessage::BranchSummary(
-            pa_types::session::BranchSummaryMessage {
+            aa_types::session::BranchSummaryMessage {
                 summary: payload.summary.clone(),
                 from_id: payload.from_id.clone(),
                 timestamp: crate::session::timestamp_to_millis(entry.timestamp()),
@@ -108,13 +108,13 @@ fn context_tokens(entries: &[FileEntry], leaf_id: Option<&str>) -> u64 {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CompactRun {
     pub result: CompactionResult,
-    pub entry: pa_types::session::CompactionEntry,
+    pub entry: aa_types::session::CompactionEntry,
     /// The whole compaction's wall duration (the run's
     /// `compaction_duration_ms`).
     pub duration_ms: u64,
     /// The post-compaction `javascript_state` notice, when a kernel was running:
     /// the row is already durable and in the live context; surfaces broadcast it.
-    pub javascript_state: Option<pa_types::session::CustomMessage>,
+    pub javascript_state: Option<aa_types::session::CustomMessage>,
 }
 
 /// What `/compact` did. `Skipped` carries the skip message; the caller
@@ -143,7 +143,7 @@ pub(crate) struct CompactionAttempt {
 
 pub(crate) struct PreparedCompaction {
     pub(crate) result: CompactionResult,
-    pub(crate) entry: pa_types::session::CompactionEntry,
+    pub(crate) entry: aa_types::session::CompactionEntry,
 }
 
 /// The summarizer calls one attempt made so far, summed on the model that
@@ -152,7 +152,7 @@ pub(crate) struct PreparedCompaction {
 pub(crate) struct SummaryBill(std::sync::Mutex<Option<super::model_usage::ModelUsage>>);
 
 impl SummaryBill {
-    fn add(&self, model: &pa_types::ai::Model, usage: Option<&pa_types::ai::Usage>) {
+    fn add(&self, model: &aa_types::ai::Model, usage: Option<&aa_types::ai::Usage>) {
         let Some(usage) = usage else {
             return;
         };
@@ -273,7 +273,7 @@ async fn summary_call_with_retry(
     bill: &SummaryBill,
     compaction: Option<&super::semantic_edges::SemanticCompaction>,
     summary_headers: Option<std::collections::BTreeMap<String, String>>,
-    model: &pa_types::ai::Model,
+    model: &aa_types::ai::Model,
     session_id: &str,
     api_key: Option<String>,
     max_tokens: u64,
@@ -347,7 +347,7 @@ pub(crate) async fn summarize_attempt(
     bill: &SummaryBill,
 ) -> anyhow::Result<PreparedCompaction> {
     // A run aborted before the summarizer request never starts one.
-    pa_agent::abort::throw_if_aborted_signal(options.abort)?;
+    aa_agent::abort::throw_if_aborted_signal(options.abort)?;
 
     // A split-turn cut runs TWO summarizer calls concurrently — the history
     // summary and the turn-prefix summary; a non-split cut makes the single
@@ -488,9 +488,9 @@ pub(crate) async fn summarize_attempt(
     // is cancelled before it commits.
     if options
         .abort
-        .is_some_and(pa_agent::abort::AbortSignal::is_aborted)
+        .is_some_and(aa_agent::abort::AbortSignal::is_aborted)
     {
-        return Err(pa_agent::abort::aborted_error());
+        return Err(aa_agent::abort::aborted_error());
     }
 
     // The live block converges to the exact committed summary: the split marker
@@ -567,9 +567,9 @@ pub(crate) fn commit_attempt(
     session: &mut SessionManager,
     attempt: &mut CompactionAttempt,
     prepared: &PreparedCompaction,
-    abort: Option<&pa_agent::abort::AbortSignal>,
+    abort: Option<&aa_agent::abort::AbortSignal>,
 ) -> anyhow::Result<bool> {
-    pa_agent::abort::throw_if_aborted_signal(abort)?;
+    aa_agent::abort::throw_if_aborted_signal(abort)?;
     if !session.compaction_prefix_intact(attempt.prefix_leaf.as_deref()) {
         return Ok(false);
     }

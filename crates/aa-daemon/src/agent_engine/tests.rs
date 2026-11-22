@@ -180,7 +180,7 @@ pub(crate) fn outcome_row_in_entries(engine: &AgentSessionEngine) -> bool {
         .runtime
         .block_on(async { persistence.lock().await.get_entries() });
     entries.iter().any(|entry| {
-        matches!(entry, pa_types::session::FileEntry::CustomMessage { payload, .. }
+        matches!(entry, aa_types::session::FileEntry::CustomMessage { payload, .. }
             if payload.custom_type == "compaction_outcome")
     })
 }
@@ -214,7 +214,7 @@ pub(crate) fn compaction_entry_in_entries(engine: &AgentSessionEngine) -> bool {
     });
     entries
         .iter()
-        .any(|entry| matches!(entry, pa_types::session::FileEntry::Compaction { .. }))
+        .any(|entry| matches!(entry, aa_types::session::FileEntry::Compaction { .. }))
 }
 
 /// Admit one prompt on a parked thread, sharing its events; `started`

@@ -1,4 +1,4 @@
-//! A scripted loopback HTTP server (the pa-models `tests/common` pattern): answers from a queue of
+//! A scripted loopback HTTP server (the aa-models `tests/common` pattern): answers from a queue of
 //! raw responses and records every request head (headers included). Nothing leaves loopback.
 
 #![allow(dead_code)]

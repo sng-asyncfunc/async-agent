@@ -487,7 +487,7 @@ pub fn create_javascript_tool_definition(
         })
     };
     ToolDefinition {
-        name: pa_types::ai::JAVASCRIPT_TOOL_NAME.to_string(),
+        name: aa_types::ai::JAVASCRIPT_TOOL_NAME.to_string(),
         label: "Bun".to_string(),
         description: javascript_tool_description().to_string(),
         prompt_snippet:

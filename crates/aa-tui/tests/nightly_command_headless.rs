@@ -1,14 +1,14 @@
 //! Headless e2e for the `/nightly` command: the status arm resolves the
 //! effective channel from the running version when none is preferred, the
 //! usage error keeps the TS wording, and the off arm pins the channel
-//! through a stub settings seam (persisted form covered by the pa-cli test).
+//! through a stub settings seam (persisted form covered by the aa-cli test).
 #![cfg(unix)]
 #![warn(clippy::allow_attributes_without_reason)]
 
 mod support;
 
 use anyhow::Result;
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 
 use support::{
     attach_response, create_response, detach_response, options, run_headless, serve_connection,
@@ -46,7 +46,7 @@ struct StubSettings {
     update_channel: std::sync::Mutex<Option<String>>,
 }
 
-impl pa_tui::client_settings::ClientSettings for StubSettings {
+impl aa_tui::client_settings::ClientSettings for StubSettings {
     fn compaction_threshold_percent(&self) -> f64 {
         95.0
     }
@@ -241,7 +241,7 @@ fn nightly_status_and_usage_error_render_the_ts_wording() {
 }
 
 /// `/nightly on` (or bare) saves the nightly channel that `/update` and
-/// `prime-agent update` follow.
+/// `async-agent update` follow.
 #[test]
 fn nightly_on_saves_the_nightly_channel() {
     let steps = vec![

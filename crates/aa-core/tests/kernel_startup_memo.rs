@@ -42,13 +42,13 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use pa_core::kernel::provisioner::{
+use aa_core::kernel::provisioner::{
     JavaScriptKernelProvisioner, JavaScriptKernelProvisionerOptions,
 };
-use pa_core::kernel::shared::{ExecuteOptions, ExecuteStatus};
-use pa_core::kernel::state_snapshot::snapshot_path_in;
+use aa_core::kernel::shared::{ExecuteOptions, ExecuteStatus};
+use aa_core::kernel::state_snapshot::snapshot_path_in;
 
-/// The kernel Bun binary with `prime-agent-runtime` available; skipped with a note when absent.
+/// The kernel Bun binary with `async-agent-runtime` available; skipped with a note when absent.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) = std::env::var_os("PA_CORE_KERNEL_BUN") {
         let explicit = PathBuf::from(explicit);
@@ -59,20 +59,20 @@ fn kernel_bun() -> Option<PathBuf> {
         );
         return Some(explicit);
     }
-    let runtime_ready = pa_core::kernel::bootstrap::kernel_worker_entry(
-        &pa_core::kernel::bootstrap::kernel_bun_dir(),
+    let runtime_ready = aa_core::kernel::bootstrap::kernel_worker_entry(
+        &aa_core::kernel::bootstrap::kernel_bun_dir(),
     )
     .is_file()
         || std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(2)
-            .is_some_and(|root| root.join("prime-agent-runtime/src/repl.ts").is_file());
+            .is_some_and(|root| root.join("async-agent-runtime/src/repl.ts").is_file());
     if !runtime_ready {
-        eprintln!("prime-agent-runtime/src/repl.ts not found; skipping live startup-memo test");
+        eprintln!("async-agent-runtime/src/repl.ts not found; skipping live startup-memo test");
         return None;
     }
     for candidate in [
-        std::env::var_os("PRIME_AGENT_KERNEL_BUN").map(PathBuf::from),
+        std::env::var_os("ASYNC_AGENT_KERNEL_BUN").map(PathBuf::from),
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".bun/bin/bun")),
         Some(PathBuf::from("/usr/local/bin/bun")),
         Some(PathBuf::from("/usr/bin/bun")),
@@ -381,7 +381,7 @@ async fn kill_during_the_re_armed_boot_leaves_no_resident_kernel() {
     // F1's self-heal: a panicking progress callback kills the boot before
     // the interpreter spawns; the memo settles and the next ensure boots
     // fresh (the panic-cleanup ordering #3257 added).
-    let progress: pa_core::kernel::bootstrap::KernelBootstrapProgressHandler =
+    let progress: aa_core::kernel::bootstrap::KernelBootstrapProgressHandler =
         Arc::new(|_| panic!("progress callback panic"));
     let error = tokio::time::timeout(
         Duration::from_secs(5),
@@ -483,7 +483,7 @@ async fn doomed_settle_keeps_the_newer_boot_listener_state() {
     // A joiner of the doomed generation attaches its progress handler
     // first (replaying A's current stage) and parks on A's memo.
     let a_stages: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
-    let a_progress: pa_core::kernel::bootstrap::KernelBootstrapProgressHandler = {
+    let a_progress: aa_core::kernel::bootstrap::KernelBootstrapProgressHandler = {
         let a_stages = a_stages.clone();
         Arc::new(move |message| a_stages.lock().unwrap().push(message.to_string()))
     };
@@ -508,7 +508,7 @@ async fn doomed_settle_keeps_the_newer_boot_listener_state() {
     let (stage_tx, stage_rx) = tokio::sync::oneshot::channel();
     let stage_tx = Arc::new(Mutex::new(Some(stage_tx)));
     let b_stages: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
-    let progress_b: pa_core::kernel::bootstrap::KernelBootstrapProgressHandler = {
+    let progress_b: aa_core::kernel::bootstrap::KernelBootstrapProgressHandler = {
         let b_stages = b_stages.clone();
         Arc::new(move |message| {
             b_stages.lock().unwrap().push(message.to_string());
@@ -543,7 +543,7 @@ async fn doomed_settle_keeps_the_newer_boot_listener_state() {
     // fresh handler: the doomed settle must not have wiped it.
     let (replay_tx, replay_rx) = tokio::sync::oneshot::channel();
     let replay_tx = Arc::new(Mutex::new(Some(replay_tx)));
-    let progress_c: pa_core::kernel::bootstrap::KernelBootstrapProgressHandler =
+    let progress_c: aa_core::kernel::bootstrap::KernelBootstrapProgressHandler =
         Arc::new(move |message| {
             if let Some(tx) = replay_tx.lock().unwrap().take() {
                 let _ = tx.send(message.to_string());
@@ -725,21 +725,21 @@ async fn doomed_boot_does_not_report_unavailable_skills() {
     let gates = dir.path().join("gates");
     std::fs::create_dir_all(&gates).unwrap();
     let wrapped = counting_gated_kernel(dir.path(), &python, &count, &gates);
-    let reported: Arc<Mutex<Vec<pa_core::kernel::bootstrap::UnavailableJavaScriptSkills>>> =
+    let reported: Arc<Mutex<Vec<aa_core::kernel::bootstrap::UnavailableJavaScriptSkills>>> =
         Arc::new(Mutex::new(Vec::new()));
     let on_unavailable_skills = {
         let reported = Arc::clone(&reported);
         Arc::new(
-            move |errors: &pa_core::kernel::bootstrap::UnavailableJavaScriptSkills| {
+            move |errors: &aa_core::kernel::bootstrap::UnavailableJavaScriptSkills| {
                 reported.lock().unwrap().push(errors.clone());
             },
-        ) as pa_core::kernel::provisioner::UnavailableSkillsCallback
+        ) as aa_core::kernel::provisioner::UnavailableSkillsCallback
     };
     let provisioner = JavaScriptKernelProvisioner::new(
         dir.path(),
         JavaScriptKernelProvisionerOptions {
             bun: Some(wrapped),
-            javascript_skills: vec![pa_core::kernel::bootstrap::KernelJavaScriptSkill {
+            javascript_skills: vec![aa_core::kernel::bootstrap::KernelJavaScriptSkill {
                 name: "doomed-broken-skill".to_string(),
                 global_name: "doomedBrokenSkill".to_string(),
                 entry_path: PathBuf::from("/nonexistent/skill/src/index.ts"),

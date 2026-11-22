@@ -190,7 +190,7 @@ fn aggregate_survives_the_incident_notice_render_path() {
     mode.incident_notice_state.notice = Some(crate::incident_notices::IncidentNotice {
         kind: crate::incident_notices::IncidentNoticeKind::WorkerCrash,
         key: "worker-crash|w1".to_string(),
-        severity: pa_types::incident::IncidentSeverity::Error,
+        severity: aa_types::incident::IncidentSeverity::Error,
         subject: "w1".to_string(),
         time_ms: 1_000,
         text: "worker w1 crashed at 00:00".to_string(),

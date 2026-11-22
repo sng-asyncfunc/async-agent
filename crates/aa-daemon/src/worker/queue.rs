@@ -152,7 +152,7 @@ pub(crate) struct QueuedItem {
     pub(crate) admission_id: Option<String>,
     /// Images attached to the prompt (wire `images`: base64 plus mime
     /// type).
-    pub(crate) images: Vec<pa_agent::types::ImageContent>,
+    pub(crate) images: Vec<aa_agent::types::ImageContent>,
     pub(crate) done: Option<oneshot::Sender<TurnSettle>>,
     /// The item shows in the queue projection and projects the active-action
     /// phases; injected continuations and a direct prompt admission stay invisible.
@@ -167,7 +167,7 @@ pub(crate) struct QueuedItem {
 
 /// Parse the wire `images` array: entries without payload data or a
 /// mime type are dropped, not failed — the text still admits.
-pub(crate) fn parse_prompt_images(payload: &Value) -> Vec<pa_agent::types::ImageContent> {
+pub(crate) fn parse_prompt_images(payload: &Value) -> Vec<aa_agent::types::ImageContent> {
     let Some(images) = payload.get("images").and_then(Value::as_array) else {
         return Vec::new();
     };
@@ -179,7 +179,7 @@ pub(crate) fn parse_prompt_images(payload: &Value) -> Vec<pa_agent::types::Image
             }
             let data = image.get("data").and_then(Value::as_str)?;
             let mime_type = image.get("mimeType").and_then(Value::as_str)?;
-            Some(pa_agent::types::ImageContent {
+            Some(aa_agent::types::ImageContent {
                 data: data.to_string(),
                 mime_type: mime_type.to_string(),
             })
@@ -478,7 +478,7 @@ pub(crate) fn admit_goal_follow_up(
                 let _ = store.persist_entry(
                     "custom",
                     json!({
-                        "customType": pa_core::goals::GOAL_STATE_CUSTOM_TYPE,
+                        "customType": aa_core::goals::GOAL_STATE_CUSTOM_TYPE,
                         "data": goal,
                     }),
                 );
@@ -537,8 +537,8 @@ pub(crate) fn admit_kernel_notice(
 ) {
     let crate::engine::KernelNotice { row, preview_label } = notice;
     let content = match &row.content {
-        pa_types::ai::UserContent::Text(text) => text.clone(),
-        pa_types::ai::UserContent::Blocks(_) => String::new(),
+        aa_types::ai::UserContent::Text(text) => text.clone(),
+        aa_types::ai::UserContent::Blocks(_) => String::new(),
     };
     // The busy sample and the push share ONE critical section: a turn starting
     // between them would queue an invisible row for a busy session.
@@ -648,7 +648,7 @@ fn is_bash_completion_notice_for(
 /// bash work whose wake is still pending delivery.
 fn is_bash_completion_row(row: &Value) -> bool {
     row.get("customType").and_then(Value::as_str)
-        == Some(pa_core::session_engine::messages::ASYNC_BASH_COMPLETION_CUSTOM_TYPE)
+        == Some(aa_core::session_engine::messages::ASYNC_BASH_COMPLETION_CUSTOM_TYPE)
 }
 
 /// The `[bash-done]` notices still queued for delivery across the

@@ -1,4 +1,4 @@
-//! The real agent-session engine for daemon workers: a pa-core session
+//! The real agent-session engine for daemon workers: a aa-core session
 //! over the shared provider adapter, driven through the daemon's
 //! `SessionEngine` contract. Assistant updates forward to the emit
 //! callback as they arrive — never buffered until the turn settles.
@@ -10,20 +10,20 @@ use serde_json::{json, Value};
 use crate::agent_messaging::{LinkAgentMessageController, LinkAgentObserveController};
 use crate::model_allowlist::DaemonAllowlist;
 use crate::overflow_compaction::{OverflowArmRun, OverflowRecovery};
-use pa_agent::abort::AbortController;
-use pa_agent::types::StopReason;
-use pa_core::kernel::shared::HostRequestHandlers;
-use pa_core::session_engine::agent_messaging::{
+use aa_agent::abort::AbortController;
+use aa_agent::types::StopReason;
+use aa_core::kernel::shared::HostRequestHandlers;
+use aa_core::session_engine::agent_messaging::{
     register_agent_message_host_handlers, register_agent_observe_host_handlers,
 };
-use pa_core::session_engine::engine::{SessionEngine as CoreSessionEngine, SessionEngineConfig};
-use pa_core::session_engine::provider_adapter::{
+use aa_core::session_engine::engine::{SessionEngine as CoreSessionEngine, SessionEngineConfig};
+use aa_core::session_engine::provider_adapter::{
     json_round_trip, map_thinking_level, switchable_stream_fn_with_live_auth, ProviderTarget,
 };
-use pa_core::session_engine::session_commands::{
+use aa_core::session_engine::session_commands::{
     execute_session_command, SessionCommandExecution, SessionCommandParams,
 };
-use pa_types::ai::Model;
+use aa_types::ai::Model;
 
 use crate::auto_compaction::AutoCompactionRun;
 use crate::engine::{
@@ -112,7 +112,7 @@ enum PromptContextBoundary {
 pub(crate) type RefinementCompletionSink = std::sync::Arc<
     dyn Fn(
             tokio::task::JoinHandle<
-                anyhow::Result<pa_core::session_engine::refine::CommittedRefinement>,
+                anyhow::Result<aa_core::session_engine::refine::CommittedRefinement>,
             >,
         ) + Send
         + Sync,
@@ -123,11 +123,11 @@ pub struct AgentSessionEngine {
     pub(crate) runtime: crate::async_safe_runtime::AsyncSafeRuntime,
     pub(crate) config: AgentEngineConfig,
     /// The session-scoped ACP MCP store, shared with the core engine's prompt gating.
-    pub(crate) mcp: std::sync::Arc<std::sync::Mutex<pa_core::mcp::McpManager>>,
+    pub(crate) mcp: std::sync::Arc<std::sync::Mutex<aa_core::mcp::McpManager>>,
     /// Transfers refinement completion reporting to the worker sink.
     pub(crate) refinement_completion_sink: std::sync::Mutex<Option<RefinementCompletionSink>>,
     pub(crate) late_agent_message_sink:
-        std::sync::Mutex<Option<pa_core::LateSentAgentMessageHandler>>,
+        std::sync::Mutex<Option<aa_core::LateSentAgentMessageHandler>>,
     /// Whether this run's usage crossed the goal's token budget: the boundary
     /// mints the budget-limit wrap-up steer. Shared with the agent-loop
     /// subscription (a plain field cannot cross the 'static handler).
@@ -145,7 +145,7 @@ pub struct AgentSessionEngine {
     pub(crate) goal_backoff_wake_job_id: std::sync::Mutex<Option<String>>,
     /// The stale-row guard's DURABLE terminal row, deferred until after the
     /// context adoption; `Some` between the seed and the flush.
-    pub(crate) stale_goal_terminal_pending: std::sync::Mutex<Option<pa_core::goals::GoalState>>,
+    pub(crate) stale_goal_terminal_pending: std::sync::Mutex<Option<aa_core::goals::GoalState>>,
     /// The kernel-notice queue seams: `bash.completed` and `factory.progress`
     /// admit through the steering lane, `bash.consumed` withdraws a completion
     /// row. `None` outside a daemon worker.
@@ -179,8 +179,8 @@ pub struct AgentSessionEngine {
     initial_selection: std::sync::RwLock<EngineModelSelection>,
     /// The resolved effective thinking level, computed once at create so
     /// summary/state polls during a live turn stay side-effect-free.
-    effective_thinking: std::sync::RwLock<Option<pa_types::ai::ModelThinkingLevel>>,
-    pub(crate) service_tier: std::sync::RwLock<Option<pa_types::ai::ServiceTier>>,
+    effective_thinking: std::sync::RwLock<Option<aa_types::ai::ModelThinkingLevel>>,
+    pub(crate) service_tier: std::sync::RwLock<Option<aa_types::ai::ServiceTier>>,
     /// Built once on the first prompt, reused across prompts: long-running
     /// arms clone the Arc and release this mutex before their awaits, so
     /// every read seam answers while a turn streams.
@@ -193,7 +193,7 @@ pub struct AgentSessionEngine {
     pub(crate) session_build: tokio::sync::Mutex<()>,
     /// A branch move that landed before the first turn: consumed at build so
     /// the session starts on the moved branch.
-    pending_branch: std::sync::Mutex<Option<Vec<pa_types::session::FileEntry>>>,
+    pending_branch: std::sync::Mutex<Option<Vec<aa_types::session::FileEntry>>>,
     /// The worker's captured pre-admission boundary; None means unset.
     prompt_context_boundary: std::sync::Mutex<Option<PromptContextBoundary>>,
     /// The `goal_update` payload a branch rebuild's goal reload stashed,
@@ -202,22 +202,22 @@ pub struct AgentSessionEngine {
     /// The provider target the stream reads per call; `set_model` swaps the
     /// slot so the live session follows without a rebuild.
     pub(crate) provider_target: std::sync::Arc<
-        std::sync::RwLock<Option<pa_core::session_engine::provider_adapter::ProviderTarget>>,
+        std::sync::RwLock<Option<aa_core::session_engine::provider_adapter::ProviderTarget>>,
     >,
     /// The OAuth integration the request-auth resolution refreshes expired
     /// credentials through: production uses the built-in
-    /// [`pa_core::auth::ProviderOAuth`] (TS delegates to the oauth
+    /// [`aa_core::auth::ProviderOAuth`] (TS delegates to the oauth
     /// registry on every auth-storage instance), set once at
     /// construction; tests swap a scripted integration in before the
     /// engine is shared. Read once per resolution.
-    pub(crate) request_auth_oauth: std::sync::Arc<dyn pa_core::auth::OAuthIntegration>,
+    pub(crate) request_auth_oauth: std::sync::Arc<dyn aa_core::auth::OAuthIntegration>,
     /// The engine's long-lived request-auth registry and the store it owns
     /// (TS's single `ModelRegistry`/`AuthStorage` instance): built over a
     /// store from `request_auth_oauth`, rebuilt at the session build and a
     /// model switch, and reused for every provider call in between, so a
     /// failed `reload()` keeps the last read's data — a transiently-held
     /// document lock or a corrupt auth.json is not a logout.
-    pub(crate) request_auth_registry: std::sync::Mutex<Option<pa_core::models::ModelRegistry>>,
+    pub(crate) request_auth_registry: std::sync::Mutex<Option<aa_core::models::ModelRegistry>>,
     /// One shared supervisor-link client: agent messaging and RLM children
     /// multiplex the same connection.
     link: Arc<crate::supervisor_link::SupervisorLink>,
@@ -226,30 +226,30 @@ pub struct AgentSessionEngine {
     /// The worker-installed summary-delta sink, adopted onto every built
     /// session. `None` without a worker pump.
     compaction_summary_sink:
-        std::sync::Mutex<Option<pa_core::session_engine::compaction_exec::SummaryDeltaSink>>,
+        std::sync::Mutex<Option<aa_core::session_engine::compaction_exec::SummaryDeltaSink>>,
     /// The worker's accepted-note announcer, threaded into every session
     /// build; `None` without a worker pump.
     progress_note_emit:
-        std::sync::Mutex<Option<pa_core::session_engine::rlm_host::RlmProgressNoteEmit>>,
+        std::sync::Mutex<Option<aa_core::session_engine::rlm_host::RlmProgressNoteEmit>>,
     /// The attribution producer the children registry's sink last got:
     /// children outlive a rebuild, so their spawn registrations are adopted
     /// forward.
     usage_producer: std::sync::Mutex<
-        Option<std::sync::Arc<pa_core::session_engine::rlm_usage::RlmChildUsageAttributions>>,
+        Option<std::sync::Arc<aa_core::session_engine::rlm_usage::RlmChildUsageAttributions>>,
     >,
     rlm_usage_store: std::sync::Mutex<
-        Option<std::sync::Arc<dyn pa_core::session_engine::rlm_usage::RlmChildUsageStore>>,
+        Option<std::sync::Arc<dyn aa_core::session_engine::rlm_usage::RlmChildUsageStore>>,
     >,
     own_summary: std::sync::Arc<std::sync::Mutex<Option<Value>>>,
     pub(crate) create_resources: std::sync::RwLock<CreateSessionResources>,
     pub(crate) autonomous:
-        std::sync::Arc<tokio::sync::Mutex<pa_core::autonomous::AutonomousRuntimeState>>,
+        std::sync::Arc<tokio::sync::Mutex<aa_core::autonomous::AutonomousRuntimeState>>,
     /// The continuation policy the turn loop consults after every settled
     /// turn. Product default: the shell-gate driver in the session cwd;
     /// harnesses replace it via
     /// [`AgentSessionEngine::set_autonomous_driver`].
     pub(crate) autonomous_driver:
-        std::sync::RwLock<std::sync::Arc<dyn pa_core::autonomous::AutonomousDriver>>,
+        std::sync::RwLock<std::sync::Arc<dyn aa_core::autonomous::AutonomousDriver>>,
     /// Whether `autonomous_driver` still holds the product default: a cwd
     /// rebind swaps the default but must keep an injected one.
     autonomous_driver_default: std::sync::atomic::AtomicBool,
@@ -308,5 +308,5 @@ pub struct AgentSessionEngine {
     /// build, so every build's recorder reopens the same ledger and
     /// re-registration stays idempotent.
     pub(crate) semantic_identity:
-        std::sync::Mutex<Option<pa_core::session_engine::semantic_edges::SemanticEdgeIdentity>>,
+        std::sync::Mutex<Option<aa_core::session_engine::semantic_edges::SemanticEdgeIdentity>>,
 }

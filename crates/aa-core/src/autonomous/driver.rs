@@ -52,14 +52,14 @@ pub trait AutonomousDriver: Send + Sync {
     fn account_message(
         &self,
         state: &mut AutonomousRuntimeState,
-        message: &pa_types::ai::AssistantMessage,
+        message: &aa_types::ai::AssistantMessage,
     );
 
     /// Decide the follow-up for one settled turn.
     fn after_turn<'a>(
         &'a self,
         state: &'a mut AutonomousRuntimeState,
-        message: &'a pa_types::ai::AssistantMessage,
+        message: &'a aa_types::ai::AssistantMessage,
     ) -> AutonomousFollowUpFuture<'a>;
 }
 
@@ -89,9 +89,9 @@ impl<R: GateCommandRunner> AutonomousDriver for ShellAutonomousDriver<R> {
     fn account_message(
         &self,
         state: &mut AutonomousRuntimeState,
-        message: &pa_types::ai::AssistantMessage,
+        message: &aa_types::ai::AssistantMessage,
     ) {
-        if message.stop_reason != pa_types::ai::StopReason::Error {
+        if message.stop_reason != aa_types::ai::StopReason::Error {
             add_autonomous_usage(state, Some(&message.usage));
         }
     }
@@ -99,10 +99,10 @@ impl<R: GateCommandRunner> AutonomousDriver for ShellAutonomousDriver<R> {
     fn after_turn<'a>(
         &'a self,
         state: &'a mut AutonomousRuntimeState,
-        message: &'a pa_types::ai::AssistantMessage,
+        message: &'a aa_types::ai::AssistantMessage,
     ) -> AutonomousFollowUpFuture<'a> {
         Box::pin(async move {
-            use pa_types::ai::StopReason;
+            use aa_types::ai::StopReason;
             if !state.enabled
                 || message.stop_reason == StopReason::Error
                 || message.stop_reason == StopReason::Aborted
@@ -167,7 +167,7 @@ mod tests {
         create_autonomous_runtime_state, AgentAutonomousConfig, AgentAutonomousGateConfig,
         GitWorktreeSnapshot,
     };
-    use pa_types::ai::{AssistantContentBlock, AssistantMessage, StopReason, TextContent, Usage};
+    use aa_types::ai::{AssistantContentBlock, AssistantMessage, StopReason, TextContent, Usage};
     use std::pin::pin;
 
     fn message(stop_reason: StopReason, usage: Usage) -> AssistantMessage {

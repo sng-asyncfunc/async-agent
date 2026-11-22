@@ -1,6 +1,6 @@
 //! The incident timeline report.
 
-use pa_types::incident::{
+use aa_types::incident::{
     collect_incident_events, collect_worker_pid_map, compute_incident_anomalies,
     format_incident_duration, IncidentCategory, IncidentEvent, IncidentLogEntry, IncidentSeverity,
 };
@@ -199,7 +199,7 @@ pub(crate) fn build_incident_report(
         sections.push(vec![title.to_string()].into_iter().chain(lines).collect());
     }
 
-    let mut header = vec!["Prime Agent incident timeline".to_string()];
+    let mut header = vec!["Async Agent incident timeline".to_string()];
     header.push(format!(
         "Window: {} → {} UTC ({})",
         format_incident_time(options.since_ms),

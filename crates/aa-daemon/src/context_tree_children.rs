@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
-use pa_core::models::ModelRegistry;
+use aa_core::models::ModelRegistry;
 
 use crate::session_stats::store_context_usage;
 use crate::session_store::SessionFile;
@@ -443,8 +443,8 @@ mod tests {
 
     fn registry() -> ModelRegistry {
         let root = dir();
-        pa_core::models::ModelRegistry::create(
-            pa_core::auth::AuthStorage::create(&root),
+        aa_core::models::ModelRegistry::create(
+            aa_core::auth::AuthStorage::create(&root),
             root.join("models.json"),
         )
     }

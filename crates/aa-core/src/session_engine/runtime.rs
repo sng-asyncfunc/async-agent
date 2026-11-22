@@ -284,11 +284,11 @@ mod tests {
         assert_eq!(response["goal"]["status"], "active");
         assert_eq!(response["goal"]["objective"], "finish the port");
         let persisted = session.lock().await;
-        let goal_entries: Vec<&pa_types::session::FileEntry> = persisted
+        let goal_entries: Vec<&aa_types::session::FileEntry> = persisted
             .get_all_entries()
             .iter()
             .filter(|entry| {
-                matches!(entry, pa_types::session::FileEntry::Custom { payload, .. }
+                matches!(entry, aa_types::session::FileEntry::Custom { payload, .. }
                 if payload.custom_type == crate::goals::GOAL_STATE_CUSTOM_TYPE)
             })
             .collect();

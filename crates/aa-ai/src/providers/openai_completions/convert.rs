@@ -528,7 +528,7 @@ pub(crate) fn map_stop_reason(reason: &str) -> (StopReason, Option<String>) {
 mod tests {
     use super::*;
     use crate::types::{ModelCost, ModelInput};
-    use pa_types::JsNumber;
+    use aa_types::JsNumber;
 
     fn model(provider: &str, input: f64, output: f64) -> Model {
         Model {

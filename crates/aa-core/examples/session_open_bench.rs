@@ -2,7 +2,7 @@
 use std::path::Path;
 use std::time::Instant;
 
-use pa_core::session::{
+use aa_core::session::{
     build_session_context, parse_session_entries, window::WindowedSessionStore,
 };
 

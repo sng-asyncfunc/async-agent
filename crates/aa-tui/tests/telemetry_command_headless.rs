@@ -3,7 +3,7 @@
 //! the report after the write (including the "stays off" answer when an
 //! environment variable forces telemetry off), and a bad argument gets the
 //! usage error. The report text and the settings round-trip are covered by
-//! the pa-core telemetry status tests over the real settings store.
+//! the aa-core telemetry status tests over the real settings store.
 #![cfg(unix)]
 // Pedantic-gate exceptions (every other pedantic warning in this crate is
 // fixed in place; each exception carries its one-line justification):
@@ -34,7 +34,7 @@ mod support;
 use std::sync::Arc;
 
 use anyhow::Result;
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 
 use support::{
     attach_response, create_response, detach_response, options, run_headless, serve_connection,
@@ -90,7 +90,7 @@ impl StubSettings {
     }
 }
 
-impl pa_tui::client_settings::ClientSettings for StubSettings {
+impl aa_tui::client_settings::ClientSettings for StubSettings {
     fn compaction_threshold_percent(&self) -> f64 {
         95.0
     }
@@ -326,7 +326,7 @@ fn the_first_run_telemetry_notice_renders_as_a_row() {
     });
     let all = run_plan(Arc::clone(&settings), submit("/telemetry status")).join("\n");
     assert!(
-        all.contains("Prime Agent sends pseudonymous usage"),
+        all.contains("Async Agent sends pseudonymous usage"),
         "the disclosure row rendered:\n{all}"
     );
     assert!(
@@ -344,7 +344,7 @@ fn the_first_run_telemetry_notice_renders_as_a_row() {
     // installation draws no second row.
     let again = run_plan(Arc::clone(&settings), submit("/telemetry status")).join("\n");
     assert!(
-        !again.contains("Prime Agent sends pseudonymous usage"),
+        !again.contains("Async Agent sends pseudonymous usage"),
         "no second disclosure row:\n{again}"
     );
 }
@@ -356,7 +356,7 @@ fn an_already_disclosed_installation_renders_no_notice_row() {
     let settings = Arc::new(StubSettings::default());
     let all = run_plan(Arc::clone(&settings), submit("/telemetry status")).join("\n");
     assert!(
-        !all.contains("Prime Agent sends pseudonymous usage"),
+        !all.contains("Async Agent sends pseudonymous usage"),
         "no disclosure row on an already-shown install:\n{all}"
     );
 }

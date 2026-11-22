@@ -1,24 +1,24 @@
 use std::sync::Arc;
 
-use pa_agent::agent::{Agent, AgentOptions};
-use pa_types::ai::UserContent;
-use pa_types::session::AgentMessage as SessionAgentMessage;
+use aa_agent::agent::{Agent, AgentOptions};
+use aa_types::ai::UserContent;
+use aa_types::session::AgentMessage as SessionAgentMessage;
 
 use super::compact_session::CompactOutcome;
 use super::{AgentSession, FileEntry, SessionManager};
 
 fn user_turn(text: &str) -> SessionAgentMessage {
-    SessionAgentMessage::User(pa_types::ai::UserMessage {
+    SessionAgentMessage::User(aa_types::ai::UserMessage {
         content: UserContent::Text(text.to_string()),
         timestamp: 0,
-        rest: pa_types::JsonMap::default(),
+        rest: aa_types::JsonMap::default(),
     })
 }
 
-fn faux_reply(text: &str) -> pa_types::ai::AssistantMessage {
-    pa_ai::faux::faux_assistant_text_message(
+fn faux_reply(text: &str) -> aa_types::ai::AssistantMessage {
+    aa_ai::faux::faux_assistant_text_message(
         text,
-        pa_ai::faux::FauxAssistantMessageOptions::default(),
+        aa_ai::faux::FauxAssistantMessageOptions::default(),
     )
 }
 
@@ -26,31 +26,31 @@ fn assistant_turn(text: &str) -> SessionAgentMessage {
     SessionAgentMessage::Assistant(faux_reply(text))
 }
 
-fn follow_up(text: &str) -> pa_ai::faux::FauxResponseStep {
-    pa_ai::faux::FauxResponseStep::Message(faux_reply(text))
+fn follow_up(text: &str) -> aa_ai::faux::FauxResponseStep {
+    aa_ai::faux::FauxResponseStep::Message(faux_reply(text))
 }
 
 /// A held summarizer: the first `holds` responses block until released
 /// (each call signals its start, then waits for one release); the
 /// follow-ups answer immediately.
 struct HeldSummarizer {
-    registration: pa_ai::faux::FauxProviderRegistration,
+    registration: aa_ai::faux::FauxProviderRegistration,
     started: tokio::sync::mpsc::UnboundedReceiver<()>,
     release: std::sync::mpsc::Sender<()>,
-    model: pa_types::ai::Model,
+    model: aa_types::ai::Model,
 }
 
-fn held_summarizer(holds: usize, follow_ups: Vec<pa_ai::faux::FauxResponseStep>) -> HeldSummarizer {
+fn held_summarizer(holds: usize, follow_ups: Vec<aa_ai::faux::FauxResponseStep>) -> HeldSummarizer {
     let (started, started_rx) = tokio::sync::mpsc::unbounded_channel();
     let (release, release_rx) = std::sync::mpsc::channel();
     let release_rx = Arc::new(std::sync::Mutex::new(release_rx));
     // The registration must be unique so concurrent tests never share a queue.
     let api = format!("faux-held-{:?}", std::time::SystemTime::now());
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             api: Some(api),
             provider: Some("faux-held".to_string()),
-            models: Some(vec![pa_ai::faux::FauxModelDefinition {
+            models: Some(vec![aa_ai::faux::FauxModelDefinition {
                 id: "held-m".to_string(),
                 ..Default::default()
             }]),
@@ -58,16 +58,16 @@ fn held_summarizer(holds: usize, follow_ups: Vec<pa_ai::faux::FauxResponseStep>)
         });
     let held = {
         let release_rx = Arc::clone(&release_rx);
-        move |_: &pa_types::ai::Context,
-              _: Option<&pa_ai::types::StreamOptions>,
+        move |_: &aa_types::ai::Context,
+              _: Option<&aa_ai::types::StreamOptions>,
               _: u64,
-              _: &pa_types::ai::Model| {
+              _: &aa_types::ai::Model| {
             let _ = started.send(());
             let _ = release_rx.lock().expect("release lock").recv();
             Ok(faux_reply("## Goal\nsummarized goal"))
         }
     };
-    let mut responses = vec![pa_ai::faux::FauxResponseStep::Factory(Arc::new(held)); holds];
+    let mut responses = vec![aa_ai::faux::FauxResponseStep::Factory(Arc::new(held)); holds];
     responses.extend(follow_ups);
     registration.set_responses(responses);
     let model = registration.get_model();
@@ -125,7 +125,7 @@ fn file_entries(path: &std::path::Path) -> Vec<FileEntry> {
 
 fn spawn_compact(
     engine: &Arc<AgentSession>,
-    model: &pa_types::ai::Model,
+    model: &aa_types::ai::Model,
 ) -> tokio::task::JoinHandle<anyhow::Result<CompactOutcome>> {
     let engine = Arc::clone(engine);
     let model = model.clone();

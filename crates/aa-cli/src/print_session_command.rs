@@ -1,18 +1,18 @@
 //! Print-mode session slash-command execution: `/compact`, `/refine`,
-//! `/goal`, and `/autonomous` run through the pa-core session-command
+//! `/goal`, and `/autonomous` run through the aa-core session-command
 //! executor and stream the TS print-json shapes; a failed command rejects
 //! the prompt wait (stderr, exit 1, never the later prompts).
 
 use std::sync::Arc;
 
-use pa_core::autonomous::AutonomousRuntimeState;
-use pa_core::session_engine::engine::SessionEngine;
-use pa_core::session_engine::session_commands::{
+use aa_core::autonomous::AutonomousRuntimeState;
+use aa_core::session_engine::engine::SessionEngine;
+use aa_core::session_engine::session_commands::{
     execute_session_command, session_command_echo_row, SessionCommandExecution,
     SessionCommandParams,
 };
-use pa_core::session_engine::slash_commands::SessionSlashCommand;
-use pa_types::ai::Model;
+use aa_core::session_engine::slash_commands::SessionSlashCommand;
+use aa_types::ai::Model;
 use serde_json::{json, Value};
 
 use crate::print_goal::PrintGoalSurface;
@@ -89,7 +89,7 @@ pub(crate) async fn execute_prompt_session_command(
     autonomous: &Arc<tokio::sync::Mutex<AutonomousRuntimeState>>,
     boundary: &mut crate::print_boundary::TurnBoundary,
     command: &SessionSlashCommand,
-    images: &[pa_agent::types::ImageContent],
+    images: &[aa_agent::types::ImageContent],
 ) -> SessionCommandExecution {
     // The `preparing`/`running` phase frames bookend the durable echo row, and
     // `/compact`'s `compaction_start` goes out before the summarizer runs.
@@ -173,7 +173,7 @@ mod tests {
     use super::*;
     use crate::print_boundary::TurnBoundary;
     use crate::print_goal::PrintGoalSurface;
-    use pa_core::session_engine::slash_commands::{parse_session_command, SlashCommandRegistry};
+    use aa_core::session_engine::slash_commands::{parse_session_command, SlashCommandRegistry};
     use serde_json::json;
 
     type Frames = std::sync::Arc<std::sync::Mutex<Vec<Value>>>;
@@ -248,11 +248,11 @@ mod tests {
             .await
             .into_iter()
             .filter_map(|entry| match entry {
-                pa_types::session::FileEntry::CustomMessage { payload, .. } => Some((
+                aa_types::session::FileEntry::CustomMessage { payload, .. } => Some((
                     payload.custom_type.clone(),
                     match &payload.content {
-                        pa_types::ai::UserContent::Text(text) => text.clone(),
-                        pa_types::ai::UserContent::Blocks(_) => String::new(),
+                        aa_types::ai::UserContent::Text(text) => text.clone(),
+                        aa_types::ai::UserContent::Blocks(_) => String::new(),
                     },
                 )),
                 _ => None,
@@ -283,9 +283,9 @@ mod tests {
         let agent_dir = dir.path().join("agent");
         std::fs::create_dir_all(&agent_dir).unwrap();
         std::fs::write(agent_dir.join("settings.json"), settings.to_string()).unwrap();
-        let parsed = pa_ai::faux::script::parse_faux_script(&script).unwrap();
+        let parsed = aa_ai::faux::script::parse_faux_script(&script).unwrap();
         let registration =
-            pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+            aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
                 models: Some(vec![parsed.model.clone()]),
                 ..Default::default()
             });
@@ -293,16 +293,16 @@ mod tests {
         registration.set_repeat_last_response(parsed.repeat_last_response);
         let model = registration.get_model();
         let stream_fn =
-            pa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
-        let agent_model: pa_agent::types::Model =
+            aa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
+        let agent_model: aa_agent::types::Model =
             serde_json::from_value(serde_json::to_value(&model).unwrap()).unwrap();
-        let session_manager = pa_core::session::manager::SessionManager::persisted(
+        let session_manager = aa_core::session::manager::SessionManager::persisted(
             dir.path(),
             &dir.path().join("sessions"),
         );
         let engine = Arc::new(
-            pa_core::session_engine::engine::create_session(
-                pa_core::session_engine::engine::SessionEngineConfig {
+            aa_core::session_engine::engine::create_session(
+                aa_core::session_engine::engine::SessionEngineConfig {
                     on_late_sent_agent_message: None,
                     semantic_edges: None,
                     cron_store: None,
@@ -457,12 +457,12 @@ mod tests {
         );
         // The live context carries the rows: the headless terminal selection sees the result.
         let state = test.engine.session.agent().state().await;
-        let messages: Vec<pa_types::session::AgentMessage> = state
+        let messages: Vec<aa_types::session::AgentMessage> = state
             .messages
             .iter()
-            .filter_map(pa_core::session_engine::provider_adapter::json_round_trip)
+            .filter_map(aa_core::session_engine::provider_adapter::json_round_trip)
             .collect();
-        let result = pa_core::session_engine::headless::select_headless_terminal_result(&messages);
+        let result = aa_core::session_engine::headless::select_headless_terminal_result(&messages);
         let primary = result.primary.expect("the result row is the primary");
         assert_eq!(primary.stdout_text().as_deref(), Some("No active goal."));
     }
@@ -583,7 +583,7 @@ mod tests {
             .session
             .prompt(
                 &long_seed,
-                pa_core::session_engine::PromptOptions::default(),
+                aa_core::session_engine::PromptOptions::default(),
             )
             .await
             .unwrap();
@@ -593,7 +593,7 @@ mod tests {
             .session
             .prompt(
                 &long_seed_two,
-                pa_core::session_engine::PromptOptions::default(),
+                aa_core::session_engine::PromptOptions::default(),
             )
             .await
             .unwrap();

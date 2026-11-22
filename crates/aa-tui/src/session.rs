@@ -1,10 +1,10 @@
 //! Headless session-message stream: the same UI renders history JSONL
-//! (captured sessions under `~/.prime/agent/sessions`) and live events.
+//! (captured sessions under `~/.async-agent/sessions`) and live events.
 //! `SessionStream` is the seam the interactive mode and the replay binary
-//! share; `JsonlSessionStream` implements it over pa-types session entries.
+//! share; `JsonlSessionStream` implements it over aa-types session entries.
 
 use anyhow::{Context, Result};
-use pa_types::session::{AgentMessage, FileEntry};
+use aa_types::session::{AgentMessage, FileEntry};
 use std::path::Path;
 
 /// A transcript item rendered by the agent view.
@@ -162,7 +162,7 @@ pub fn entry_to_items(entry: &FileEntry) -> Vec<TranscriptItem> {
 /// Rebuild the `role: "custom"` wire message shape from a persisted
 /// `custom_message` entry (the same rejoin the daemon session store and
 /// the TS session manager perform on load).
-fn custom_message_wire_value(payload: &pa_types::session::CustomMessageEntry) -> serde_json::Value {
+fn custom_message_wire_value(payload: &aa_types::session::CustomMessageEntry) -> serde_json::Value {
     let content = match serde_json::to_value(&payload.content) {
         Ok(value) => value,
         Err(_) => serde_json::Value::Null,
@@ -201,17 +201,17 @@ fn message_to_items(message: &AgentMessage) -> Vec<TranscriptItem> {
             let mut has_tool_calls = false;
             for block in &a.content {
                 match block {
-                    pa_types::ai::AssistantContentBlock::Text(t) => {
+                    aa_types::ai::AssistantContentBlock::Text(t) => {
                         if !t.text.trim().is_empty() {
                             blocks.push(crate::chat::MessageBlock::Text(t.text.clone()));
                         }
                     }
-                    pa_types::ai::AssistantContentBlock::Thinking(t) => {
+                    aa_types::ai::AssistantContentBlock::Thinking(t) => {
                         if !t.thinking.trim().is_empty() {
                             blocks.push(crate::chat::MessageBlock::Thinking(t.thinking.clone()));
                         }
                     }
-                    pa_types::ai::AssistantContentBlock::ToolCall(tc) => {
+                    aa_types::ai::AssistantContentBlock::ToolCall(tc) => {
                         has_tool_calls = true;
                         items.push(TranscriptItem::ToolCall {
                             id: tc.id.clone(),
@@ -261,12 +261,12 @@ fn message_to_items(message: &AgentMessage) -> Vec<TranscriptItem> {
 
 /// The concatenated text of a replayed tool result's text blocks (un-modeled blocks have no display
 /// text).
-fn tool_result_text(content: &[pa_types::ai::UserContentBlock]) -> String {
+fn tool_result_text(content: &[aa_types::ai::UserContentBlock]) -> String {
     content
         .iter()
         .map(|block| match block {
-            pa_types::ai::UserContentBlock::Text(text) => text.text.clone(),
-            pa_types::ai::UserContentBlock::Image(_) | pa_types::ai::UserContentBlock::Raw(_) => {
+            aa_types::ai::UserContentBlock::Text(text) => text.text.clone(),
+            aa_types::ai::UserContentBlock::Image(_) | aa_types::ai::UserContentBlock::Raw(_) => {
                 String::new()
             }
         })
@@ -276,14 +276,14 @@ fn tool_result_text(content: &[pa_types::ai::UserContentBlock]) -> String {
 
 /// The user-message display text: the text blocks joined, or the `[image]`
 /// placeholder when the message carries content but no text.
-fn user_display_text(content: &pa_types::ai::UserContent) -> String {
+fn user_display_text(content: &aa_types::ai::UserContent) -> String {
     let text = content.text();
     if !text.is_empty() {
         return text;
     }
     match content {
-        pa_types::ai::UserContent::Text(text) if !text.is_empty() => "[image]".to_string(),
-        pa_types::ai::UserContent::Blocks(blocks) if !blocks.is_empty() => "[image]".to_string(),
+        aa_types::ai::UserContent::Text(text) if !text.is_empty() => "[image]".to_string(),
+        aa_types::ai::UserContent::Blocks(blocks) if !blocks.is_empty() => "[image]".to_string(),
         _ => String::new(),
     }
 }
@@ -324,9 +324,9 @@ mod tests {
         // A non-display row renders nothing.
 
         let entry = |display: bool| FileEntry::CustomMessage {
-            payload: pa_types::session::CustomMessageEntry {
+            payload: aa_types::session::CustomMessageEntry {
                 custom_type: "agent_message".to_string(),
-                content: pa_types::ai::UserContent::Text(
+                content: aa_types::ai::UserContent::Text(
                     "[agent-message from child:lane]\n\nhi".to_string(),
                 ),
                 details: Some(serde_json::json!({
@@ -338,7 +338,7 @@ mod tests {
                 display,
                 rest: serde_json::Map::new(),
             },
-            base: pa_types::session::EntryBase {
+            base: aa_types::session::EntryBase {
                 id: Some("e1".to_string()),
                 parent_id: None,
                 timestamp: None,
@@ -364,15 +364,15 @@ mod tests {
         // A `<skill>` block parses out of the persisted user message: the replay renders the card
         // plus the trailing argument text as a user block, never the raw block text.
         let entry = FileEntry::Message {
-            message: AgentMessage::User(pa_types::ai::UserMessage {
-                content: pa_types::ai::UserContent::Text(
+            message: AgentMessage::User(aa_types::ai::UserMessage {
+                content: aa_types::ai::UserContent::Text(
                     "<skill name=\"websearch\" location=\"/s/SKILL.md\">\nRun one query.\n</skill>\n\nfind parity tuis"
                         .to_string(),
                 ),
                 timestamp: 1,
                 rest: serde_json::Map::new(),
             }),
-            base: pa_types::session::EntryBase {
+            base: aa_types::session::EntryBase {
                 id: Some("e1".to_string()),
                 parent_id: None,
                 timestamp: None,
@@ -445,7 +445,7 @@ mod tests {
             .content
             .iter()
             .find_map(|block| match block {
-                pa_types::ai::AssistantContentBlock::Thinking(t) => Some(t),
+                aa_types::ai::AssistantContentBlock::Thinking(t) => Some(t),
                 _ => None,
             })
             .expect("thinking block survives the round-trip");
@@ -461,7 +461,7 @@ mod tests {
 
     #[test]
     fn loads_real_session() {
-        let dir = std::path::Path::new("/home/ubuntu/.prime/agent/sessions");
+        let dir = std::path::Path::new("/home/ubuntu/.async-agent/sessions");
         if !dir.is_dir() {
             return; // sandbox without agent state
         }

@@ -66,11 +66,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
-use pa_core::session_engine::agent_messaging::{
+use aa_core::session_engine::agent_messaging::{
     AgentFamilyRelationship, AgentMessagePromptPayload, AGENT_MESSAGE_SOURCE,
     DEFAULT_AGENT_MESSAGE_MAX_PENDING_PER_SESSION,
 };
-use pa_types::platform::transport::{bind_transport, TransportStream};
+use aa_types::platform::transport::{bind_transport, TransportStream};
 use serde_json::{json, Value};
 use tokio::sync::{broadcast, oneshot, Notify};
 
@@ -169,7 +169,7 @@ pub struct Worker {
     exports: crate::session_export::ExportCommands,
     /// Session-scoped ACP MCP servers for engines without their own
     /// store; the real engine's manager serves the product path.
-    acp_mcp: std::sync::Arc<std::sync::Mutex<pa_core::mcp::McpManager>>,
+    acp_mcp: std::sync::Arc<std::sync::Mutex<aa_core::mcp::McpManager>>,
     /// The user-bash slot (`execute_bash` / `execute_bash_and_wait` /
     /// `abort_bash`): one command runs at a time, killed on abort.
     pub(crate) user_bash: std::sync::Arc<crate::user_bash::UserBash>,
@@ -217,8 +217,8 @@ pub struct Worker {
 /// store, durable binding, and mutation hook for `rlm_heartbeat.*`.
 fn kernel_cron_wiring(
     scheduled: &std::sync::Arc<crate::scheduled_jobs::ScheduledJobs>,
-) -> pa_core::session_engine::runtime_wiring::KernelCronWiring {
-    pa_core::session_engine::runtime_wiring::KernelCronWiring {
+) -> aa_core::session_engine::runtime_wiring::KernelCronWiring {
+    aa_core::session_engine::runtime_wiring::KernelCronWiring {
         store: std::sync::Arc::clone(scheduled.store()),
         binding: None,
         mutation_hook: Some(scheduled.mutation_hook()),
@@ -431,8 +431,8 @@ impl Worker {
                     match AgentSessionEngine::new(AgentEngineConfig {
                         cwd,
                         agent_dir: config.agent_dir.clone(),
-                        provider: std::env::var("PRIME_AGENT_MODEL_PROVIDER").ok(),
-                        model: std::env::var("PRIME_AGENT_MODEL").ok(),
+                        provider: std::env::var("ASYNC_AGENT_MODEL_PROVIDER").ok(),
+                        model: std::env::var("ASYNC_AGENT_MODEL").ok(),
                         api_key: None,
                         thinking: None,
                         session_dir: None,
@@ -568,7 +568,7 @@ impl Worker {
                 let late_events = Arc::clone(&events);
                 concrete.set_late_agent_message_sink(std::sync::Arc::new(
                     move |tool_call_id, message| {
-                        let wire = pa_core::sent_agent_message_json(&message);
+                        let wire = aa_core::sent_agent_message_json(&message);
                         crate::user_bash::emit_session_event_frame(
                             &late_core,
                             &late_events,
@@ -599,7 +599,7 @@ impl Worker {
                         job.active_session_id == active_session_id
                             && matches!(
                                 job.status,
-                                pa_core::cron::JobStatus::Active | pa_core::cron::JobStatus::Paused
+                                aa_core::cron::JobStatus::Active | aa_core::cron::JobStatus::Paused
                             )
                     })
                 }));
@@ -608,7 +608,7 @@ impl Worker {
                 // persisted, never a roster trigger).
                 let summary_core = Arc::clone(&core);
                 let summary_events = events.clone();
-                let summary_sink: pa_core::session_engine::compaction_exec::SummaryDeltaSink =
+                let summary_sink: aa_core::session_engine::compaction_exec::SummaryDeltaSink =
                     Arc::new(move |delta| {
                         emit_worker_event_with(
                             &summary_core,
@@ -663,7 +663,7 @@ impl Worker {
                 // The accepted note frames as a session event on the pump.
                 let note_core = Arc::clone(&core);
                 let note_events = events.clone();
-                let note_emit: pa_core::session_engine::rlm_host::RlmProgressNoteEmit =
+                let note_emit: aa_core::session_engine::rlm_host::RlmProgressNoteEmit =
                     Arc::new(move |message, timestamp| {
                         emit_worker_event_with(
                             &note_core,
@@ -749,8 +749,8 @@ impl Worker {
         // The session-scoped ACP MCP manager: auth storage construction is
         // blocking, so the builder runs off the async runtime.
         let agent_dir = config.agent_dir.clone();
-        let acp_mcp = pa_core::mcp::McpManager::new(pa_core::mcp::McpManagerOptions {
-            auth_storage: pa_core::auth::AuthStorage::create(&agent_dir),
+        let acp_mcp = aa_core::mcp::McpManager::new(aa_core::mcp::McpManagerOptions {
+            auth_storage: aa_core::auth::AuthStorage::create(&agent_dir),
             get_user_servers: Box::new(|| None),
             begin_login: None,
             agent_dir: Some(agent_dir),
@@ -871,7 +871,7 @@ impl Worker {
     /// identity. Retire with the graceful close, releasing the session lease.
     pub(crate) async fn exit_refused_registration(&self) {
         eprintln!(
-            "pa-daemon worker {}: registration refused (the supervisor no longer owns this identity); retiring",
+            "aa-daemon worker {}: registration refused (the supervisor no longer owns this identity); retiring",
             std::process::id()
         );
         let _ = self.handle_shutdown(&json!({})).await;
@@ -886,7 +886,7 @@ impl Worker {
 /// free-standing form of `Worker::emit_worker_event`, shared with the
 /// goal admission sink).
 pub(crate) fn refine_complete_event(
-    result: &pa_core::refinement::RefinementResult,
+    result: &aa_core::refinement::RefinementResult,
 ) -> serde_json::Value {
     json!({
         "type": "refine_complete",
@@ -980,7 +980,7 @@ pub(crate) fn emit_refinement_row_for_generation(
             return false;
         };
         if store.session_id() != review_session_id {
-            pa_core::session_engine::compaction_trace::trace(
+            aa_core::session_engine::compaction_trace::trace(
                 "autorefine.rows_dropped_session_moved",
                 &serde_json::Value::Null,
             );
@@ -1025,12 +1025,12 @@ fn assistant_message(entry: &crate::session_store::SessionEntry) -> Option<&Valu
     (crate::types::message_role(message) == Some("assistant")).then_some(message)
 }
 
-impl pa_core::session_engine::rlm_usage::RlmChildUsageStore for CoreUsageStore {
+impl aa_core::session_engine::rlm_usage::RlmChildUsageStore for CoreUsageStore {
     fn last_assistant(
         &self,
-    ) -> pa_core::session_engine::rlm_usage::RlmChildUsageFuture<
+    ) -> aa_core::session_engine::rlm_usage::RlmChildUsageFuture<
         '_,
-        Option<(String, pa_types::ai::Usage)>,
+        Option<(String, aa_types::ai::Usage)>,
     > {
         let core = Arc::clone(&self.0);
         Box::pin(async move {
@@ -1054,11 +1054,11 @@ impl pa_core::session_engine::rlm_usage::RlmChildUsageStore for CoreUsageStore {
         &self,
         row_id: &str,
         target_id: &str,
-        child_usage: pa_types::ai::Usage,
-        origin: Option<pa_types::session::ChildUsageOrigin>,
-    ) -> pa_core::session_engine::rlm_usage::RlmChildUsageFuture<
+        child_usage: aa_types::ai::Usage,
+        origin: Option<aa_types::session::ChildUsageOrigin>,
+    ) -> aa_core::session_engine::rlm_usage::RlmChildUsageFuture<
         '_,
-        std::io::Result<pa_core::session_engine::rlm_usage::ChildUsageAppendResult>,
+        std::io::Result<aa_core::session_engine::rlm_usage::ChildUsageAppendResult>,
     > {
         let core = Arc::clone(&self.0);
         let row_id = row_id.to_owned();
@@ -1080,8 +1080,8 @@ impl pa_core::session_engine::rlm_usage::RlmChildUsageStore for CoreUsageStore {
     fn append_model_usage(
         &self,
         session_id: String,
-        usage: pa_core::session_engine::model_usage::ModelUsage,
-    ) -> pa_core::session_engine::rlm_usage::RlmChildUsageFuture<'_, std::io::Result<()>> {
+        usage: aa_core::session_engine::model_usage::ModelUsage,
+    ) -> aa_core::session_engine::rlm_usage::RlmChildUsageFuture<'_, std::io::Result<()>> {
         let core = Arc::clone(&self.0);
         Box::pin(async move {
             let data = serde_json::to_value(&usage)?;
@@ -1101,7 +1101,7 @@ impl pa_core::session_engine::rlm_usage::RlmChildUsageStore for CoreUsageStore {
                 .persist_entry(
                     "custom",
                     json!({
-                        "customType": pa_core::session_engine::model_usage::MODEL_USAGE_CUSTOM_TYPE,
+                        "customType": aa_core::session_engine::model_usage::MODEL_USAGE_CUSTOM_TYPE,
                         "data": data,
                     }),
                 )
@@ -1114,8 +1114,8 @@ impl pa_core::session_engine::rlm_usage::RlmChildUsageStore for CoreUsageStore {
     /// a replacement retires the engine, so the rebuild re-observes.
     fn observe_billed_rows(
         &self,
-        sink: pa_core::session::billed_row::BilledRowSink,
-    ) -> pa_core::session_engine::rlm_usage::RlmChildUsageFuture<'_, ()> {
+        sink: aa_core::session::billed_row::BilledRowSink,
+    ) -> aa_core::session_engine::rlm_usage::RlmChildUsageFuture<'_, ()> {
         let core = Arc::clone(&self.0);
         Box::pin(async move {
             if let Some(store) = core.lock().unwrap().store.as_mut() {
@@ -1130,7 +1130,7 @@ impl pa_core::session_engine::rlm_usage::RlmChildUsageStore for CoreUsageStore {
 fn is_goal_context_item(item: &QueuedItem) -> bool {
     item.custom_message.as_ref().is_some_and(|row| {
         row.get("customType").and_then(Value::as_str)
-            == Some(pa_core::goals::GOAL_CONTEXT_CUSTOM_TYPE)
+            == Some(aa_core::goals::GOAL_CONTEXT_CUSTOM_TYPE)
     })
 }
 
@@ -1145,7 +1145,7 @@ pub async fn run_worker() -> Result<()> {
         return Err(anyhow!("worker mode requires {WORKER_ROLE_ENV}=1"));
     }
     // Structured logs land in the worker's captured stderr log.
-    pa_ai::utils::log::install_stderr_log_sink();
+    aa_ai::utils::log::install_stderr_log_sink();
     let config = WorkerConfig::from_env()?;
     // Self-registration: the supervisor's roster survives its own restarts
     // because workers re-present their identity (liveness watch + backoff).

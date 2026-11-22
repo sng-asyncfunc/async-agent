@@ -229,7 +229,7 @@ pub fn kernel_javascript_skills(skills: &[Skill]) -> Vec<KernelJavaScriptSkill> 
 
 /// Build the kernel provisioner for a session: host handlers for the goal/heartbeat bridge
 /// plus the pre-imported skills. The session's agent dir is propagated into the kernel env
-/// (`PRIME_AGENT_CODING_AGENT_DIR`): an embedding host whose ambient env differs must not
+/// (`ASYNC_AGENT_CODING_AGENT_DIR`): an embedding host whose ambient env differs must not
 /// leak its own paths into the kernel (#109). A persistent session's artifact dir is
 /// likewise propagated (`RLM_SESSION_DIR` + `RLM_HARNESS_STATE_DIR`), so kernel-side
 /// harness writes land in the session-local store. The artifact dir is keyed by the
@@ -258,7 +258,7 @@ pub fn kernel_provisioner(
 ) -> Arc<KernelProvisioner> {
     let mut env = HashMap::with_capacity(3);
     env.insert(
-        "PRIME_AGENT_CODING_AGENT_DIR".to_string(),
+        "ASYNC_AGENT_CODING_AGENT_DIR".to_string(),
         agent_dir.to_string_lossy().to_string(),
     );
     // Always set: an unsaved session blanks an inherited id (a run started inside another
@@ -309,7 +309,7 @@ pub fn kernel_provisioner(
 }
 
 /// The websearch skill's kernel env, only when a websearch skill is loaded:
-/// the selected provider (`PRIME_AGENT_WEBSEARCH_PROVIDER`, so the settings
+/// the selected provider (`ASYNC_AGENT_WEBSEARCH_PROVIDER`, so the settings
 /// choice stays host-side) and, per TS `_addWebsearchKeyEnv`
 /// (agent-session.ts:11137-11158), the provider's stored key under its env
 /// var when the ambient env does not already carry a nonblank one and the
@@ -327,7 +327,7 @@ pub(crate) fn websearch_env(
         return Vec::new();
     }
     let mut env = vec![(
-        "PRIME_AGENT_WEBSEARCH_PROVIDER".to_string(),
+        "ASYNC_AGENT_WEBSEARCH_PROVIDER".to_string(),
         provider.id().to_string(),
     )];
     if std::env::var(provider.api_key_env()).is_ok_and(|value| !value.trim().is_empty()) {

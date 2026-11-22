@@ -11,7 +11,7 @@ use super::{
     DeletedChild, Map, Mutex, Result, SupervisorChildSessionsInner, KILL_TIMEOUT_MS,
 };
 
-use pa_core::session_engine::semantic_edges::ChildCancelledReason;
+use aa_core::session_engine::semantic_edges::ChildCancelledReason;
 
 /// The already-gone marker inside a close failure: a close walking a
 /// child that died earlier must not fail (a missing child session is a completed no-op).
@@ -540,7 +540,7 @@ fn ledger_child_records(
     let edges = ledger
         .live_edges_of_parent(parent_file)
         .unwrap_or_else(|error| {
-            eprintln!("pa-daemon: RLM ledger reseed skipped: {error:#}");
+            eprintln!("aa-daemon: RLM ledger reseed skipped: {error:#}");
             Vec::new()
         });
     let mut records = Vec::new();

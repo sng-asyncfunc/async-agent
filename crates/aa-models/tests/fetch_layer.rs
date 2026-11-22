@@ -5,7 +5,7 @@
 mod common;
 
 use common::{not_modified, ok_json, redirect, status};
-use pa_models::fetch::{CatalogFetcher, FetchOutcome};
+use aa_models::fetch::{CatalogFetcher, FetchOutcome};
 use std::time::Duration;
 
 #[tokio::test]

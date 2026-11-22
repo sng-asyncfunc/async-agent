@@ -73,15 +73,15 @@ fn platform_alias(target: &str) -> &'static str {
 
 /// The staged payload binary name for one target
 /// (`assemble_artifacts.py` `binary_name_for_target`): the MSVC build
-/// ships `prime-agent.exe`.
+/// ships `async-agent.exe`.
 fn binary_name(target: &str) -> &'static str {
     match target {
-        "x86_64-pc-windows-msvc" => "prime-agent.exe",
-        _ => "prime-agent",
+        "x86_64-pc-windows-msvc" => "async-agent.exe",
+        _ => "async-agent",
     }
 }
 
-/// The repo root (crates/pa-cli -> crates -> root): the workflows live there.
+/// The repo root (crates/aa-cli -> crates -> root): the workflows live there.
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
@@ -226,22 +226,22 @@ fn write_fixture_tarball(
         (payload_name, version.as_bytes().to_vec()),
         (
             "package.json",
-            serde_json::to_vec(&serde_json::json!({"name": "prime-agent", "version": version}))
+            serde_json::to_vec(&serde_json::json!({"name": "async-agent", "version": version}))
                 .expect("serialize package metadata"),
         ),
     ];
-    if payload_name != "prime-agent.exe" {
+    if payload_name != "async-agent.exe" {
         members.extend([
             (
                 "install.sh",
-                fs::read(repo_root().join("install-rust.sh")).expect("read the repair installer"),
+                fs::read(repo_root().join("install.sh")).expect("read the repair installer"),
             ),
             (
-                "prime-agent-runtime/package.json",
-                b"{\"name\":\"prime-agent-runtime\",\"type\":\"module\"}\n".to_vec(),
+                "async-agent-runtime/package.json",
+                b"{\"name\":\"async-agent-runtime\",\"type\":\"module\"}\n".to_vec(),
             ),
             (
-                "prime-agent-runtime/src/repl.ts",
+                "async-agent-runtime/src/repl.ts",
                 b"// fixture runtime\n".to_vec(),
             ),
         ]);
@@ -303,7 +303,7 @@ fn write_artifact_with(dir: &Path, target: &str, omitted_members: &[&str]) -> se
     fs::create_dir_all(dir).expect("create the artifact directory");
     // The archive name the channel contract requires: the PLATFORM ALIAS,
     // never the target triple (the update reader drops a triple-named row).
-    let archive_name = format!("prime-agent-{VERSION}-{}.tar.gz", platform_alias(target));
+    let archive_name = format!("async-agent-{VERSION}-{}.tar.gz", platform_alias(target));
     write_fixture_tarball(
         &dir.join(&archive_name),
         binary_name(target),
@@ -343,7 +343,7 @@ fn write_artifact_version(dir: &Path, target: &str, version: &str) -> serde_json
     fs::create_dir_all(dir).expect("create the artifact directory");
     // The archive name the channel contract requires: the PLATFORM ALIAS,
     // never the target triple (the update reader drops a triple-named row).
-    let archive_name = format!("prime-agent-{version}-{}.tar.gz", platform_alias(target));
+    let archive_name = format!("async-agent-{version}-{}.tar.gz", platform_alias(target));
     write_fixture_tarball(&dir.join(&archive_name), binary_name(target), version, &[]);
     let sha256 = sha256_file(&dir.join(&archive_name));
     fs::write(
@@ -454,7 +454,7 @@ fn native_release_jobs_gate_fresh_and_legacy_installation() {
             .as_deref()
             .expect("fresh installation script");
         assert!(run.contains("scripts/release/test_channel_install.py"));
-        assert!(run.contains("--installer install-rust.sh"));
+        assert!(run.contains("--installer install.sh"));
         assert!(run.contains("--archive") && run.contains("channel-install.json"));
     }
 }
@@ -478,7 +478,7 @@ fn windows_build_job_contract() {
                 && step
                     .run
                     .as_deref()
-                    .is_some_and(|run| run.contains("release/prime-agent.exe"))
+                    .is_some_and(|run| run.contains("release/async-agent.exe"))
         }),
         "the Windows livecheck must name the .exe binary Cargo's MSVC linker emits"
     );
@@ -488,7 +488,7 @@ fn windows_build_job_contract() {
             .iter()
             .any(|step| step.run.as_deref().is_some_and(|run| {
                 run.contains("cargo build --release --locked --target")
-                    && !run.contains("dist/prime-agent")
+                    && !run.contains("dist/async-agent")
             })),
         "the Windows build compiles the MSVC target (the split-debug step is linux-only)"
     );
@@ -747,7 +747,7 @@ fn single_artifact_release_finds_the_downloaded_manifest() {
     );
     assert!(cwd
         .path()
-        .join("release-unpacked/x86_64-unknown-linux-gnu/prime-agent")
+        .join("release-unpacked/x86_64-unknown-linux-gnu/async-agent")
         .is_file());
 }
 
@@ -755,7 +755,7 @@ fn single_artifact_release_finds_the_downloaded_manifest() {
 /// artifact arrives in its own named directory, the merged manifest must
 /// carry all five binaries (the Windows row included), and every
 /// platform's payload unpacks under its target triple with the staged
-/// binary name (`prime-agent.exe` on the MSVC target).
+/// binary name (`async-agent.exe` on the MSVC target).
 #[test]
 fn five_target_release_finds_all_downloaded_manifests() {
     let Some(_python3) = python3_binary((3, 12)) else {
@@ -937,10 +937,10 @@ fn the_channel_manifest_carries_the_windows_row_on_both_channels() {
     )
     .expect("parse the emitted beta.json");
     assert_eq!(document["version"], "v0.9.9-beta.7");
-    assert_eq!(document["package"], "prime-agent");
+    assert_eq!(document["package"], "async-agent");
     assert_eq!(
         document["tarball"],
-        "releases/v0.9.9-beta.7/prime-agent-0.9.9-beta.7.tgz"
+        "releases/v0.9.9-beta.7/async-agent-0.9.9-beta.7.tgz"
     );
     let v2 = document["binaries_v2"]
         .as_array()
@@ -951,7 +951,7 @@ fn the_channel_manifest_carries_the_windows_row_on_both_channels() {
         .find(|row| row["platform"] == "win32-x64")
         .expect("the beta manifest carries the win32-x64 row");
     assert_eq!(
-        win_row["file"], "prime-agent-0.9.9-beta.7-win32-x64.tar.gz",
+        win_row["file"], "async-agent-0.9.9-beta.7-win32-x64.tar.gz",
         "the Windows row must use the channel naming contract"
     );
     let windows_row = rows
@@ -1011,10 +1011,10 @@ fn the_channel_manifest_carries_the_windows_row_on_both_channels() {
     )
     .expect("parse the emitted latest.json");
     assert_eq!(document["version"], stable_tag.as_str());
-    assert_eq!(document["package"], "prime-agent");
+    assert_eq!(document["package"], "async-agent");
     assert_eq!(
         document["tarball"],
-        format!("releases/v{VERSION}/prime-agent-{VERSION}.tgz")
+        format!("releases/v{VERSION}/async-agent-{VERSION}.tgz")
     );
     assert!(
         document["binaries_v2"]

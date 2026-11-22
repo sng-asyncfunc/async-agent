@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use pa_types::daemon::DaemonWorkerDescriptor;
+use aa_types::daemon::DaemonWorkerDescriptor;
 use serde_json::Value;
 use tokio::sync::MutexGuard;
 
@@ -229,7 +229,7 @@ impl Supervisor {
 mod tests {
     use std::sync::Arc;
 
-    use pa_types::daemon::DaemonWorkerDescriptor;
+    use aa_types::daemon::DaemonWorkerDescriptor;
     use serde_json::json;
 
     use crate::registry::ResidentWorker;

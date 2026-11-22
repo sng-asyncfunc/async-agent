@@ -5,7 +5,7 @@ use super::{json, ModelRegistry, Value};
 
 /// The worker's model registry (auth storage + `models.json`).
 pub(crate) fn worker_model_registry(agent_dir: &std::path::Path) -> ModelRegistry {
-    let auth = pa_core::auth::AuthStorage::create(agent_dir);
+    let auth = aa_core::auth::AuthStorage::create(agent_dir);
     ModelRegistry::create(auth, agent_dir.join("models.json"))
 }
 
@@ -28,7 +28,7 @@ pub(crate) fn empty_usage() -> Value {
 }
 
 /// A typed usage block in the wire shape the folds below add.
-fn usage_value(usage: &pa_types::ai::Usage) -> Value {
+fn usage_value(usage: &aa_types::ai::Usage) -> Value {
     serde_json::to_value(usage).unwrap_or_else(|_| empty_usage())
 }
 

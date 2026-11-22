@@ -6,9 +6,9 @@ use std::time::{Duration, SystemTime};
 use anyhow::{anyhow, Result};
 use sha2::{Digest, Sha256};
 
-pub const AGENT_DIR_ENV: &str = "PRIME_AGENT_CODING_AGENT_DIR";
-pub const SESSION_DIR_ENV: &str = "PRIME_AGENT_SESSION_DIR";
-pub const CONFIG_DIR_NAME: &str = ".prime/agent";
+pub const AGENT_DIR_ENV: &str = "ASYNC_AGENT_CODING_AGENT_DIR";
+pub const SESSION_DIR_ENV: &str = "ASYNC_AGENT_SESSION_DIR";
+pub const CONFIG_DIR_NAME: &str = ".async-agent";
 
 /// The home directory for state layout. Unresolvable home is an explicit
 /// error, not a degraded `/tmp` default: the daemon must refuse to start
@@ -18,7 +18,7 @@ pub const CONFIG_DIR_NAME: &str = ".prime/agent";
 ///
 /// Returns an error when the home directory cannot be resolved.
 pub fn home_dir() -> Result<PathBuf> {
-    pa_types::platform::home_dir()
+    aa_types::platform::home_dir()
         .ok_or_else(|| anyhow!("home directory not found: set HOME (or USERPROFILE on Windows)"))
 }
 
@@ -38,8 +38,8 @@ pub fn expand_tilde(path: &str) -> Result<PathBuf> {
     }
 }
 
-/// The agent state root: the `PRIME_AGENT_CODING_AGENT_DIR` override when
-/// set (tilde expanded), else `.prime/agent` under the home directory.
+/// The agent state root: the `ASYNC_AGENT_CODING_AGENT_DIR` override when
+/// set (tilde expanded), else `.async-agent` under the home directory.
 ///
 /// # Errors
 ///
@@ -52,7 +52,7 @@ pub fn agent_dir() -> Result<PathBuf> {
     }
 }
 
-/// The sessions root: the `PRIME_AGENT_SESSION_DIR` override when set
+/// The sessions root: the `ASYNC_AGENT_SESSION_DIR` override when set
 /// (tilde expanded), else `<agent-dir>/sessions`.
 ///
 /// # Errors
@@ -79,7 +79,7 @@ pub fn logs_dir(agent_dir: &Path) -> PathBuf {
 /// restriction is best effort.
 pub fn ensure_dir(path: &Path) -> Result<()> {
     std::fs::create_dir_all(path)?;
-    let _ = pa_core::platform::perms::restrict_dir(path);
+    let _ = aa_core::platform::perms::restrict_dir(path);
     Ok(())
 }
 
@@ -131,7 +131,7 @@ impl RotatingLog {
         }
         let mut options = std::fs::OpenOptions::new();
         options.create(true).append(true);
-        pa_core::platform::perms::set_private_mode(&mut options);
+        aa_core::platform::perms::set_private_mode(&mut options);
         let Ok(mut file) = options.open(&self.path) else {
             return;
         };
@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn log_path_hashes_socket() {
         let path = daemon_log_path(
-            Path::new("/tmp/prime-agent-1/daemon.sock"),
+            Path::new("/tmp/async-agent-1/daemon.sock"),
             Path::new("/ad"),
         );
         assert!(path.starts_with("/ad/logs"));
@@ -177,7 +177,7 @@ mod tests {
             .to_string_lossy()
             .contains("daemon.sock."));
         let other = daemon_log_path(
-            Path::new("/tmp/prime-agent-2/daemon.sock"),
+            Path::new("/tmp/async-agent-2/daemon.sock"),
             Path::new("/ad"),
         );
         assert_ne!(path, other);

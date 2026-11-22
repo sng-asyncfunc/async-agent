@@ -28,7 +28,7 @@ fn test_lock() -> MutexGuard<'static, ()> {
         .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
-/// The kernel Bun binary with `prime-agent-runtime` available; set
+/// The kernel Bun binary with `async-agent-runtime` available; set
 /// `PA_CORE_KERNEL_BUN` to point at an explicit executable instead.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) = std::env::var_os("PA_CORE_KERNEL_BUN") {
@@ -40,20 +40,20 @@ fn kernel_bun() -> Option<PathBuf> {
         );
         return Some(explicit);
     }
-    let runtime_ready = pa_core::kernel::bootstrap::kernel_worker_entry(
-        &pa_core::kernel::bootstrap::kernel_bun_dir(),
+    let runtime_ready = aa_core::kernel::bootstrap::kernel_worker_entry(
+        &aa_core::kernel::bootstrap::kernel_bun_dir(),
     )
     .is_file()
         || std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(2)
-            .is_some_and(|root| root.join("prime-agent-runtime/src/repl.ts").is_file());
+            .is_some_and(|root| root.join("async-agent-runtime/src/repl.ts").is_file());
     if !runtime_ready {
-        eprintln!("prime-agent-runtime/src/repl.ts not found; skipping live teardown test");
+        eprintln!("async-agent-runtime/src/repl.ts not found; skipping live teardown test");
         return None;
     }
     for candidate in [
-        std::env::var_os("PRIME_AGENT_KERNEL_BUN").map(PathBuf::from),
+        std::env::var_os("ASYNC_AGENT_KERNEL_BUN").map(PathBuf::from),
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".bun/bin/bun")),
         Some(PathBuf::from("/usr/local/bin/bun")),
         Some(PathBuf::from("/usr/bin/bun")),
@@ -139,47 +139,47 @@ fn own_kernel_processes() -> Vec<i32> {
 /// Start a manager and run the RLM bootstrap, mirroring the TS provisioner
 /// contract (start, then the bootstrap cell must be `ok`).
 async fn started_manager(
-    options: pa_core::kernel::shared::KernelManagerOptions,
-) -> pa_core::kernel::manager::ReplKernelManager {
+    options: aa_core::kernel::shared::KernelManagerOptions,
+) -> aa_core::kernel::manager::ReplKernelManager {
     let bootstrap = options
         .bootstrap_code
         .clone()
         .expect("tests always pass the RLM bootstrap");
-    let manager = pa_core::kernel::manager::ReplKernelManager::new(options);
+    let manager = aa_core::kernel::manager::ReplKernelManager::new(options);
     manager
-        .start(pa_core::kernel::manager::KernelStartOptions::default())
+        .start(aa_core::kernel::manager::KernelStartOptions::default())
         .await
         .expect("kernel must start");
     let result = manager
         .execute(
             &bootstrap,
-            pa_core::kernel::shared::ExecuteOptions::default(),
+            aa_core::kernel::shared::ExecuteOptions::default(),
         )
         .await
         .expect("bootstrap execute must not fail");
     assert_eq!(
         result.status,
-        pa_core::kernel::shared::ExecuteStatus::Ok,
+        aa_core::kernel::shared::ExecuteStatus::Ok,
         "rlm runtime bootstrap failed: {}",
         result.stderr
     );
     manager
 }
 
-fn test_options() -> Option<pa_core::kernel::shared::KernelManagerOptions> {
+fn test_options() -> Option<aa_core::kernel::shared::KernelManagerOptions> {
     let bun = kernel_bun()?;
-    Some(pa_core::kernel::shared::KernelManagerOptions {
+    Some(aa_core::kernel::shared::KernelManagerOptions {
         bun: Some(bun),
         worker_entry: None,
         kernel_dir: None,
         cwd: Some(std::env::temp_dir()),
         env: std::collections::HashMap::default(),
         session_id: Some("teardown-test".to_string()),
-        host_handlers: pa_core::kernel::shared::HostRequestHandlers::default(),
+        host_handlers: aa_core::kernel::shared::HostRequestHandlers::default(),
         javascript_skills: Vec::new(),
         on_background_work_settled: None,
         snapshot: None,
-        bootstrap_code: Some(pa_core::kernel::bootstrap::build_rlm_bootstrap_code(
+        bootstrap_code: Some(aa_core::kernel::bootstrap::build_rlm_bootstrap_code(
             &[],
             false,
         )),
@@ -207,12 +207,12 @@ async fn provisioner_drop_kills_the_kernel_process() {
     let Some(bun) = kernel_bun() else {
         return;
     };
-    let options = pa_core::kernel::provisioner::JavaScriptKernelProvisionerOptions {
+    let options = aa_core::kernel::provisioner::JavaScriptKernelProvisionerOptions {
         bun: Some(bun),
         ..Default::default()
     };
     let provisioner =
-        pa_core::kernel::provisioner::JavaScriptKernelProvisioner::new("/tmp", options);
+        aa_core::kernel::provisioner::JavaScriptKernelProvisioner::new("/tmp", options);
     let manager = provisioner
         .ensure(None, None)
         .await
@@ -241,12 +241,12 @@ async fn session_engine_drop_kills_the_prewarmed_kernel_process() {
     std::fs::create_dir_all(&cwd).expect("cwd");
 
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
-            models: Some(vec![pa_ai::faux::FauxModelDefinition {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
+            models: Some(vec![aa_ai::faux::FauxModelDefinition {
                 id: "faux-1".to_string(),
                 name: Some("Faux".to_string()),
                 reasoning: Some(false),
-                input: Some(vec![pa_types::ai::ModelInput::Text]),
+                input: Some(vec![aa_types::ai::ModelInput::Text]),
                 cost: None,
                 context_window: Some(100_000),
                 max_tokens: Some(4_096),
@@ -254,13 +254,13 @@ async fn session_engine_drop_kills_the_prewarmed_kernel_process() {
             ..Default::default()
         });
     let model = registration.get_model();
-    let stream_fn = pa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
-    let agent_model: pa_agent::types::Model =
-        pa_core::session_engine::provider_adapter::json_round_trip(&model)
+    let stream_fn = aa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
+    let agent_model: aa_agent::types::Model =
+        aa_core::session_engine::provider_adapter::json_round_trip(&model)
             .expect("model conversion");
 
-    let engine = pa_core::session_engine::engine::create_session(
-        pa_core::session_engine::engine::SessionEngineConfig {
+    let engine = aa_core::session_engine::engine::create_session(
+        aa_core::session_engine::engine::SessionEngineConfig {
             cron_store: None,
             steering_mode: None,
             follow_up_mode: None,
@@ -317,12 +317,12 @@ async fn engine_dispose_kernel_kills_the_prewarmed_kernel_process() {
     std::fs::create_dir_all(&cwd).expect("cwd");
 
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
-            models: Some(vec![pa_ai::faux::FauxModelDefinition {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
+            models: Some(vec![aa_ai::faux::FauxModelDefinition {
                 id: "faux-1".to_string(),
                 name: Some("Faux".to_string()),
                 reasoning: Some(false),
-                input: Some(vec![pa_types::ai::ModelInput::Text]),
+                input: Some(vec![aa_types::ai::ModelInput::Text]),
                 cost: None,
                 context_window: Some(100_000),
                 max_tokens: Some(4_096),
@@ -330,13 +330,13 @@ async fn engine_dispose_kernel_kills_the_prewarmed_kernel_process() {
             ..Default::default()
         });
     let model = registration.get_model();
-    let stream_fn = pa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
-    let agent_model: pa_agent::types::Model =
-        pa_core::session_engine::provider_adapter::json_round_trip(&model)
+    let stream_fn = aa_core::session_engine::provider_adapter::real_stream_fn(None, model.clone());
+    let agent_model: aa_agent::types::Model =
+        aa_core::session_engine::provider_adapter::json_round_trip(&model)
             .expect("model conversion");
 
-    let engine = pa_core::session_engine::engine::create_session(
-        pa_core::session_engine::engine::SessionEngineConfig {
+    let engine = aa_core::session_engine::engine::create_session(
+        aa_core::session_engine::engine::SessionEngineConfig {
             cron_store: None,
             steering_mode: None,
             follow_up_mode: None,

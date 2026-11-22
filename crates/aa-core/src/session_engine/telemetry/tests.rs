@@ -3,12 +3,12 @@
 //! surface.
 use std::time::Duration;
 
-use pa_agent::stream::AssistantMessageEvent;
-use pa_agent::types::{
+use aa_agent::stream::AssistantMessageEvent;
+use aa_agent::types::{
     AgentMessage, AssistantContent, Message as LoopMessage, StopReason, TextContent,
     ToolResultContent, Usage,
 };
-use pa_telemetry::{MockSink, TelemetryClient, TelemetryClientConfig};
+use aa_telemetry::{MockSink, TelemetryClient, TelemetryClientConfig};
 
 use super::*;
 
@@ -16,7 +16,7 @@ use super::*;
 /// cleared (the Cargo test config sets `DO_NOT_TRACK`); restore after.
 /// The env is process-wide, so these tests (and the packages env tests)
 /// serialize through the shared env lock while they hold it.
-const TELEMETRY_ENV_VARS: [&str; 3] = ["DO_NOT_TRACK", "PI_OFFLINE", "PRIME_AGENT_TELEMETRY"];
+const TELEMETRY_ENV_VARS: [&str; 3] = ["DO_NOT_TRACK", "PI_OFFLINE", "ASYNC_AGENT_TELEMETRY"];
 
 struct CleanTelemetryEnv {
     saved: Vec<(&'static str, Option<String>)>,
@@ -77,7 +77,7 @@ fn client_for(mock: &std::sync::Arc<MockSink>) -> TelemetryClient {
     // explicit flush round-trip.
     config.batch_size = 1;
     config.flush_interval = Duration::from_mins(10);
-    config.sinks = vec![mock.clone() as Arc<dyn pa_telemetry::TelemetrySink>];
+    config.sinks = vec![mock.clone() as Arc<dyn aa_telemetry::TelemetrySink>];
     TelemetryClient::spawn(config).expect("spawn client")
 }
 
@@ -141,7 +141,7 @@ fn assistant_message() -> AssistantMessage {
             cache_read: 50,
             cache_write: 0,
             total_tokens: 170,
-            cost: pa_agent::types::UsageCost::default(),
+            cost: aa_agent::types::UsageCost::default(),
         },
         stop_reason: StopReason::Stop,
         stop_reason_raw: None,
@@ -190,7 +190,7 @@ fn tool_execution_event(tool: &str, is_error: bool) -> (AgentEvent, AgentEvent) 
         AgentEvent::ToolExecutionEnd {
             tool_call_id: format!("{tool}-1"),
             tool_name: tool.to_string(),
-            result: pa_agent::types::AgentToolResult {
+            result: aa_agent::types::AgentToolResult {
                 content: vec![ToolResultContent::text("private tool output")],
                 details: serde_json::Value::Null,
                 terminate: None,
@@ -967,7 +967,7 @@ async fn legacy_events_reach_the_analytics_endpoint_in_the_ts_shape() {
 
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!(
-        "http://{}/api/v1/agent-analytics/events",
+        "http://{}/v1/telemetry/events",
         listener.local_addr().unwrap()
     );
     let (tx, rx) = std::sync::mpsc::channel::<serde_json::Value>();
@@ -1017,7 +1017,7 @@ async fn legacy_events_reach_the_analytics_endpoint_in_the_ts_shape() {
     let mut config = TelemetryClientConfig::new(install_id);
     config.flush_interval = Duration::from_mins(10);
     config.sinks = vec![
-        Arc::new(pa_telemetry::AnalyticsSink::new(url)) as Arc<dyn pa_telemetry::TelemetrySink>
+        Arc::new(aa_telemetry::AnalyticsSink::new(url)) as Arc<dyn aa_telemetry::TelemetrySink>
     ];
     let client = TelemetryClient::spawn(config).unwrap();
     let mut fixture = fixture();
@@ -1172,7 +1172,7 @@ async fn legacy_events_reach_the_analytics_endpoint_in_the_ts_shape() {
         .unwrap();
     assert_eq!(ended["properties"]["tool_call_count"], 1);
     std::fs::write(
-        std::env::temp_dir().join("pa-telemetry-e2e-bodies.json"),
+        std::env::temp_dir().join("aa-telemetry-e2e-bodies.json"),
         serde_json::to_string_pretty(&bodies).unwrap(),
     )
     .unwrap();

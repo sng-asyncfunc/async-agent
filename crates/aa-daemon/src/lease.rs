@@ -10,8 +10,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-pub const SESSION_LEASES_ENABLED_ENV: &str = "PRIME_AGENT_INTERNAL_SESSION_LEASES";
-pub const SESSION_LEASE_OWNER_ID_ENV: &str = "PRIME_AGENT_INTERNAL_SESSION_LEASE_OWNER_ID";
+pub const SESSION_LEASES_ENABLED_ENV: &str = "ASYNC_AGENT_INTERNAL_SESSION_LEASES";
+pub const SESSION_LEASE_OWNER_ID_ENV: &str = "ASYNC_AGENT_INTERNAL_SESSION_LEASE_OWNER_ID";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,8 +45,8 @@ impl SessionAlreadyActiveError {
     /// The typed wire info for the refusal (`session_already_active`,
     /// the TS `serializeDaemonError` shape).
     #[must_use]
-    pub fn error_info(&self) -> pa_types::daemon::DaemonErrorInfo {
-        pa_types::daemon::DaemonErrorInfo::SessionAlreadyActive {
+    pub fn error_info(&self) -> aa_types::daemon::DaemonErrorInfo {
+        aa_types::daemon::DaemonErrorInfo::SessionAlreadyActive {
             session_path: self.session_path.clone(),
             active_session_id: self.active_session_id.clone(),
         }
@@ -95,10 +95,10 @@ pub fn canonical_session_path(path: &Path) -> PathBuf {
 }
 
 /// `proc:<starttime>` start identity (TS `getProcessStartId`); shared with
-/// pa-core through `pa_types::platform`.
+/// aa-core through `aa_types::platform`.
 #[must_use]
 pub fn get_process_start_id(pid: u32) -> Option<String> {
-    pa_types::platform::process::process_start_id(pid)
+    aa_types::platform::process::process_start_id(pid)
 }
 
 /// True only for a process that is actually running: zombies do not count.
@@ -107,7 +107,7 @@ pub fn get_process_start_id(pid: u32) -> Option<String> {
 ///
 /// Returns an error when the platform cannot answer the liveness check.
 pub fn is_process_alive(pid: u32) -> anyhow::Result<bool> {
-    pa_types::platform::process::is_process_alive(pid)
+    aa_types::platform::process::is_process_alive(pid)
 }
 
 fn lease_directory(agent_dir: &Path, session_path: &Path) -> PathBuf {
@@ -354,7 +354,7 @@ impl SessionLease {
     /// more. `release` runs this before the reclaim; the orphan exit,
     /// which keeps its lease through process death, runs it alone.
     pub(crate) fn write_sidecars(&self) {
-        let _ = pa_core::session::window::flush_cache(&self.opened_path);
+        let _ = aa_core::session::window::flush_cache(&self.opened_path);
         let _ = crate::session_store::read_session_info(&self.opened_path);
         crate::session_store::persist_info_sidecar(&self.opened_path);
     }
@@ -440,10 +440,10 @@ impl SessionLease {
 
     pub(crate) fn append(&self, path: &Path, bytes: &[u8]) -> Result<()> {
         self.with_owned_mutation(path, || {
-            pa_core::session::window::append_cached(
+            aa_core::session::window::append_cached(
                 path,
                 bytes,
-                pa_core::session::window::AppendOwnership::SessionLeaseHeld,
+                aa_core::session::window::AppendOwnership::SessionLeaseHeld,
             )?;
             Ok(())
         })

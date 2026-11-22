@@ -1,10 +1,10 @@
 use super::*;
 use crate::protocol::{response_failure, response_success};
-use pa_core::session_engine::semantic_edges::{
+use aa_core::session_engine::semantic_edges::{
     ChildCancelledReason, SemanticEdgeIdentity, SemanticEdgeLedgerEvent, SemanticEdgeRecorder,
 };
-use pa_types::platform::transport::bind_transport;
-use pa_types::session::AgentMessage;
+use aa_types::platform::transport::bind_transport;
+use aa_types::session::AgentMessage;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
@@ -116,7 +116,7 @@ async fn spawn_fake_supervisor(
                 let mut reader = BufReader::new(reader);
                 writer
                     .write_all(
-                        b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"prime-agent.daemon\",\"version\":7}}\n",
+                        b"{\"type\":\"daemon_hello\",\"protocol\":{\"name\":\"async-agent.daemon\",\"version\":7}}\n",
                     )
                     .await
                     .unwrap();
@@ -183,7 +183,7 @@ async fn spawn_fake_supervisor(
                                 };
                                 let failed_call = assistant_row_ending(
                                     "",
-                                    pa_types::ai::StopReason::Error,
+                                    aa_types::ai::StopReason::Error,
                                     Some("429 Provider returned error"),
                                 );
                                 std::fs::write(
@@ -451,7 +451,7 @@ async fn a_factory_child_settles_without_a_parent_notice() {
             thinking: None,
             cwd: None,
             spawned_by_request_id: None,
-            factory: Some(pa_core::session_engine::rlm_host::RlmFactoryTag {
+            factory: Some(aa_core::session_engine::rlm_host::RlmFactoryTag {
                 run_id: "run".to_string(),
                 spec_id: "spec".to_string(),
                 state_id: "state".to_string(),

@@ -3,7 +3,7 @@
 //! provisioner's `on_restore` seam reports the outcome so the model is told BEFORE
 //! the first turn. The fresh kernel owns nothing, so this notice never prunes.
 
-use pa_types::session::CustomMessage;
+use aa_types::session::CustomMessage;
 
 use crate::kernel::state_snapshot::RestoreResult;
 
@@ -52,7 +52,7 @@ pub fn notice_content(result: &RestoreResult) -> String {
 pub fn notice_message(result: &RestoreResult) -> CustomMessage {
     CustomMessage {
         custom_type: JAVASCRIPT_STATE_RESTORED_CUSTOM_TYPE.to_string(),
-        content: pa_types::ai::UserContent::Text(notice_content(result)),
+        content: aa_types::ai::UserContent::Text(notice_content(result)),
         display: true,
         details: Some(serde_json::json!({
             "restored": !result.restored.is_empty(),
@@ -90,7 +90,7 @@ mod tests {
             message.details,
             Some(serde_json::json!({ "restored": true }))
         );
-        let pa_types::ai::UserContent::Text(content) = &message.content else {
+        let aa_types::ai::UserContent::Text(content) = &message.content else {
             panic!("text content");
         };
         assert_eq!(
@@ -106,7 +106,7 @@ mod tests {
             message.details,
             Some(serde_json::json!({ "restored": false }))
         );
-        let pa_types::ai::UserContent::Text(content) = &message.content else {
+        let aa_types::ai::UserContent::Text(content) = &message.content else {
             panic!("text content");
         };
         assert_eq!(
@@ -118,7 +118,7 @@ mod tests {
     #[test]
     fn failed_names_get_the_recreate_line() {
         let message = notice_message(&restore(vec!["data"], vec![("sock", "unserializable")]));
-        let pa_types::ai::UserContent::Text(content) = &message.content else {
+        let aa_types::ai::UserContent::Text(content) = &message.content else {
             panic!("text content");
         };
         assert!(

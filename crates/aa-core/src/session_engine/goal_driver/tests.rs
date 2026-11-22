@@ -3,7 +3,7 @@
 use super::*;
 use crate::goals::MAX_THREAD_GOAL_OBJECTIVE_CHARS;
 use crate::session::manager::SessionManager;
-use pa_types::ai::UserContent;
+use aa_types::ai::UserContent;
 use std::fmt::Write as _;
 
 /// The latest persisted goal state with the terminal row reverted:
@@ -31,22 +31,22 @@ fn persisted_session() -> SessionManager {
     session
 }
 
-/// A failed provider turn in the pa-agent wire shape, carrying the
+/// A failed provider turn in the aa-agent wire shape, carrying the
 /// `provider_stream_failure` diagnostic.
 fn test_error_turn(
     kind: &str,
     status: Option<u16>,
     error: &str,
     timestamp: i64,
-) -> pa_agent::types::AssistantMessage {
-    pa_agent::types::AssistantMessage {
+) -> aa_agent::types::AssistantMessage {
+    aa_agent::types::AssistantMessage {
         content: Vec::new(),
         api: String::new(),
         provider: "test".to_string(),
         model: "m".to_string(),
         response_model: None,
         response_id: None,
-        diagnostics: Some(vec![pa_agent::types::AssistantMessageDiagnostic {
+        diagnostics: Some(vec![aa_agent::types::AssistantMessageDiagnostic {
             kind: "provider_stream_failure".to_string(),
             timestamp: 0,
             error: None,
@@ -55,8 +55,8 @@ fn test_error_turn(
                 "status": status,
             })),
         }]),
-        usage: pa_agent::types::Usage::zero(),
-        stop_reason: pa_agent::types::StopReason::Error,
+        usage: aa_agent::types::Usage::zero(),
+        stop_reason: aa_agent::types::StopReason::Error,
         stop_reason_raw: None,
         error_message: Some(error.to_string()),
         timestamp,
@@ -64,8 +64,8 @@ fn test_error_turn(
 }
 
 /// A turn that settled without output and without a provider failure.
-fn test_empty_turn(timestamp: i64) -> pa_agent::types::AssistantMessage {
-    pa_agent::types::AssistantMessage {
+fn test_empty_turn(timestamp: i64) -> aa_agent::types::AssistantMessage {
+    aa_agent::types::AssistantMessage {
         content: Vec::new(),
         api: String::new(),
         provider: "test".to_string(),
@@ -73,18 +73,18 @@ fn test_empty_turn(timestamp: i64) -> pa_agent::types::AssistantMessage {
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_agent::types::Usage::zero(),
-        stop_reason: pa_agent::types::StopReason::Stop,
+        usage: aa_agent::types::Usage::zero(),
+        stop_reason: aa_agent::types::StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,
         timestamp,
     }
 }
 
-fn test_progress_turn(timestamp: i64) -> pa_agent::types::AssistantMessage {
-    pa_agent::types::AssistantMessage {
-        content: vec![pa_agent::types::AssistantContent::Text(
-            pa_agent::types::TextContent {
+fn test_progress_turn(timestamp: i64) -> aa_agent::types::AssistantMessage {
+    aa_agent::types::AssistantMessage {
+        content: vec![aa_agent::types::AssistantContent::Text(
+            aa_agent::types::TextContent {
                 text: "made progress".to_string(),
                 text_signature: None,
             },
@@ -95,8 +95,8 @@ fn test_progress_turn(timestamp: i64) -> pa_agent::types::AssistantMessage {
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_agent::types::Usage::zero(),
-        stop_reason: pa_agent::types::StopReason::Stop,
+        usage: aa_agent::types::Usage::zero(),
+        stop_reason: aa_agent::types::StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,
         timestamp,
@@ -110,15 +110,15 @@ fn wire_error_turn(
     status: Option<u16>,
     error: &str,
     timestamp: u64,
-) -> pa_types::ai::AssistantMessage {
-    pa_types::ai::AssistantMessage {
+) -> aa_types::ai::AssistantMessage {
+    aa_types::ai::AssistantMessage {
         content: Vec::new(),
         api: "openai-completions".to_string(),
         provider: "test".to_string(),
         model: "m".to_string(),
         response_model: None,
         response_id: None,
-        diagnostics: Some(vec![pa_types::ai::AssistantMessageDiagnostic {
+        diagnostics: Some(vec![aa_types::ai::AssistantMessageDiagnostic {
             type_: "provider_stream_failure".to_string(),
             timestamp: 0,
             error: None,
@@ -132,8 +132,8 @@ fn wire_error_turn(
                 .unwrap_or_default(),
             ),
         }]),
-        usage: pa_types::ai::Usage::default(),
-        stop_reason: pa_types::ai::StopReason::Error,
+        usage: aa_types::ai::Usage::default(),
+        stop_reason: aa_types::ai::StopReason::Error,
         stop_reason_raw: None,
         error_message: Some(error.to_string()),
         timestamp,
@@ -141,8 +141,8 @@ fn wire_error_turn(
     }
 }
 
-fn usage(input: u64, output: u64) -> pa_types::ai::Usage {
-    pa_types::ai::Usage {
+fn usage(input: u64, output: u64) -> aa_types::ai::Usage {
+    aa_types::ai::Usage {
         input,
         output,
         ..Default::default()
@@ -289,7 +289,7 @@ fn a_pause_keeps_the_calls_billed_while_the_goal_ran() {
 
 #[test]
 fn terminal_messages_fail_or_keep_the_goal() {
-    use pa_types::ai::StopReason;
+    use aa_types::ai::StopReason;
     let mut session = persisted_session();
     let mut driver = GoalDriver::new();
     driver.start(&mut session, "work", None).unwrap();
@@ -524,7 +524,7 @@ fn a_replacement_goal_starts_with_a_fresh_streak() {
     driver
         .finish_for_terminal_message(
             &mut session,
-            pa_types::ai::StopReason::Error,
+            aa_types::ai::StopReason::Error,
             Some("provider exploded"),
         )
         .unwrap();
@@ -575,8 +575,8 @@ fn rate_limit_and_empty_text_corpses_and_the_examined_gate() {
     // (2) The abort conversion's empty-text corpse counts as no-output
     // (the bare is_empty check would have mistaken it for progress).
     let mut empty_text = test_progress_turn(created_at as i64 + 10);
-    empty_text.content = vec![pa_agent::types::AssistantContent::Text(
-        pa_agent::types::TextContent {
+    empty_text.content = vec![aa_agent::types::AssistantContent::Text(
+        aa_agent::types::TextContent {
             text: String::new(),
             text_signature: None,
         },
@@ -844,7 +844,7 @@ fn load_persisted_adopts_the_stale_active_failure() {
         .next_continuation_message(&mut session, None)
         .unwrap();
     session
-        .append_message(pa_types::session::AgentMessage::Assistant(wire_error_turn(
+        .append_message(aa_types::session::AgentMessage::Assistant(wire_error_turn(
             "invalid_request",
             Some(402),
             "402 Insufficient balance",
@@ -866,7 +866,7 @@ fn load_persisted_adopts_the_stale_active_failure() {
         .next_continuation_message(&mut session, None)
         .unwrap();
     session
-        .append_message(pa_types::session::AgentMessage::Assistant(wire_error_turn(
+        .append_message(aa_types::session::AgentMessage::Assistant(wire_error_turn(
             "rate_limit",
             Some(429),
             "429 Too many requests",
@@ -884,7 +884,7 @@ fn load_persisted_adopts_the_stale_active_failure() {
     driver
         .finish_for_terminal_message(
             &mut session,
-            pa_types::ai::StopReason::Error,
+            aa_types::ai::StopReason::Error,
             Some("settled failure"),
         )
         .unwrap();
@@ -1048,8 +1048,8 @@ fn branch_seedable_rules() {
     assert!(!GoalDriver::is_branch_seedable(&session));
     let mut other = persisted_session();
     other
-        .append_message(pa_types::session::AgentMessage::User(
-            pa_types::ai::UserMessage {
+        .append_message(aa_types::session::AgentMessage::User(
+            aa_types::ai::UserMessage {
                 content: UserContent::Text("hi".to_string()),
                 timestamp: 0,
                 rest: serde_json::Map::default(),
@@ -1213,8 +1213,8 @@ fn reload_skips_invalid_rows() {
 
     let mut fresh = persisted_session();
     fresh
-        .append_message(pa_types::session::AgentMessage::User(
-            pa_types::ai::UserMessage {
+        .append_message(aa_types::session::AgentMessage::User(
+            aa_types::ai::UserMessage {
                 content: UserContent::Text("no goal here".to_string()),
                 timestamp: 0,
                 rest: serde_json::Map::default(),
@@ -1331,8 +1331,8 @@ fn rows_without_created_at_backfill_from_updated_at() {
     );
     let mut fresh = persisted_session();
     fresh
-        .append_message(pa_types::session::AgentMessage::User(
-            pa_types::ai::UserMessage {
+        .append_message(aa_types::session::AgentMessage::User(
+            aa_types::ai::UserMessage {
                 content: UserContent::Text("no goal".to_string()),
                 timestamp: 0,
                 rest: serde_json::Map::default(),

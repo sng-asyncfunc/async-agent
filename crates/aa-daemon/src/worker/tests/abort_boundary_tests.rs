@@ -678,21 +678,21 @@ async fn cancel_owned_admission_aborts_the_running_prompt() {
 /// serves. The provider takes the scripted step inside `stream`, so a
 /// signal means that request owns its step.
 struct RequestProbe {
-    inner: std::sync::Arc<dyn pa_ai::Provider>,
+    inner: std::sync::Arc<dyn aa_ai::Provider>,
     requested: std::sync::Arc<tokio::sync::Notify>,
 }
 
-impl pa_ai::Provider for RequestProbe {
+impl aa_ai::Provider for RequestProbe {
     fn api(&self) -> &str {
         self.inner.api()
     }
 
     fn stream(
         &self,
-        model: &pa_ai::types::Model,
-        context: &pa_ai::types::Context,
-        options: Option<&pa_ai::types::StreamOptions>,
-    ) -> pa_ai::AssistantMessageEventStream {
+        model: &aa_ai::types::Model,
+        context: &aa_ai::types::Context,
+        options: Option<&aa_ai::types::StreamOptions>,
+    ) -> aa_ai::AssistantMessageEventStream {
         let stream = self.inner.stream(model, context, options);
         self.requested.notify_one();
         stream
@@ -700,10 +700,10 @@ impl pa_ai::Provider for RequestProbe {
 
     fn stream_simple(
         &self,
-        model: &pa_ai::types::Model,
-        context: &pa_ai::types::Context,
-        options: Option<&pa_ai::types::SimpleStreamOptions>,
-    ) -> pa_ai::AssistantMessageEventStream {
+        model: &aa_ai::types::Model,
+        context: &aa_ai::types::Context,
+        options: Option<&aa_ai::types::SimpleStreamOptions>,
+    ) -> aa_ai::AssistantMessageEventStream {
         let stream = self.inner.stream_simple(model, context, options);
         self.requested.notify_one();
         stream
@@ -760,10 +760,10 @@ async fn held_turn_worker(
     let model = engine.resolve_model().expect("the script model");
     let requested = std::sync::Arc::new(tokio::sync::Notify::new());
     let probe = RequestProbe {
-        inner: pa_ai::registry::get_api_provider(&model.api).expect("the script provider"),
+        inner: aa_ai::registry::get_api_provider(&model.api).expect("the script provider"),
         requested: std::sync::Arc::clone(&requested),
     };
-    pa_ai::registry::register_api_provider(std::sync::Arc::new(probe), None);
+    aa_ai::registry::register_api_provider(std::sync::Arc::new(probe), None);
     (worker, dir, requested)
 }
 

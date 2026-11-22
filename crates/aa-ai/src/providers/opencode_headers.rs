@@ -6,7 +6,7 @@ pub(super) fn apply(headers: &mut Vec<(String, String)>, provider: &str, session
     }
     // TS `withOpenCodeHeaders`: a missing id is skipped; explicit caller headers win.
     for (name, value) in [
-        ("User-Agent", Some("prime-agent")),
+        ("User-Agent", Some("async-agent")),
         ("x-opencode-session", session_id),
     ] {
         let Some(value) = value else {

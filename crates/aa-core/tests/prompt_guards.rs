@@ -15,15 +15,15 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use pa_core::prompts::layers::{CORE_LAYER, OPINIONATED_LAYER, USAGE_LAYER};
-use pa_core::prompts::model_prompts::MODEL_PROMPTS_TOML;
-use pa_core::prompts::system_prompt::{
+use aa_core::prompts::layers::{CORE_LAYER, OPINIONATED_LAYER, USAGE_LAYER};
+use aa_core::prompts::model_prompts::MODEL_PROMPTS_TOML;
+use aa_core::prompts::system_prompt::{
     system_prompt_breakdown, BuildSystemPromptOptions, SegmentKind,
 };
-use pa_core::skills::load_skills_from_dir;
+use aa_core::skills::load_skills_from_dir;
 
 /// The workspace bundled skills directory (source-checkout layout):
-/// pa-core lives at `<root>/crates/pa-core`.
+/// aa-core lives at `<root>/crates/aa-core`.
 fn bundled_skills_dir() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
@@ -32,7 +32,7 @@ fn bundled_skills_dir() -> std::path::PathBuf {
         .join("skills")
 }
 
-fn sorted_bundled_skills() -> Vec<pa_core::skills::Skill> {
+fn sorted_bundled_skills() -> Vec<aa_core::skills::Skill> {
     let skills_dir = bundled_skills_dir();
     let mut loaded = load_skills_from_dir(&skills_dir, "package");
     loaded
@@ -193,7 +193,7 @@ fn prompt_token_for_host_request(request: &str) -> Option<String> {
     )
 }
 
-/// Kernel-side programmatic tools implemented by the vendored `prime-agent-runtime` package
+/// Kernel-side programmatic tools implemented by the vendored `async-agent-runtime` package
 /// (generic MCP calls and built-in REPL helpers). Update together with the runtime sidecar.
 const KERNEL_LOCAL_TOKENS: &[&str] = &[
     "bash",
@@ -248,7 +248,7 @@ fn is_request_type_literal(literal: &str) -> bool {
         && literal.contains('.')
 }
 
-/// Scan the pa-core sources for every host-request type the session engine
+/// Scan the aa-core sources for every host-request type the session engine
 /// registers: `handlers.register("<type>", ...)` literals plus
 /// `for request_type in [ "<type>", ... ]` loop tables.
 fn registered_host_requests() -> BTreeSet<String> {
@@ -325,10 +325,10 @@ fn all_string_literals(text: &str) -> Vec<String> {
     literals
 }
 
-/// Kernel-bound REPL globals installed by `prime-agent-runtime` and checked
+/// Kernel-bound REPL globals installed by `async-agent-runtime` and checked
 /// alongside `build_rlm_bootstrap_code`.
 fn kernel_bound_names() -> BTreeSet<String> {
-    let probe_skill = pa_core::kernel::bootstrap::PreparedJavaScriptSkill {
+    let probe_skill = aa_core::kernel::bootstrap::PreparedJavaScriptSkill {
         name: "edit".to_string(),
         global_name: "edit".to_string(),
         entry_path: std::path::PathBuf::from("/skills/edit/src/index.ts"),
@@ -336,13 +336,13 @@ fn kernel_bound_names() -> BTreeSet<String> {
         package_json_path: std::path::PathBuf::from("/skills/edit/package.json"),
         unavailable_reason: None,
     };
-    let code = pa_core::kernel::bootstrap::build_rlm_bootstrap_code(&[probe_skill], true);
+    let code = aa_core::kernel::bootstrap::build_rlm_bootstrap_code(&[probe_skill], true);
     assert!(
-        code.contains("__primeLoadSkills"),
-        "bootstrap code must invoke __primeLoadSkills"
+        code.contains("__asyncLoadSkills"),
+        "bootstrap code must invoke __asyncLoadSkills"
     );
     assert!(
-        code.contains("__primeSetCompletionNoticesWired"),
+        code.contains("__asyncSetCompletionNoticesWired"),
         "bootstrap code must wire completion notices"
     );
     ["rlm", "bash", "sh", "mcp", "installPackage"]
@@ -355,7 +355,7 @@ fn kernel_bound_names() -> BTreeSet<String> {
 /// user is not logged into the integration, so the prompt documents them only through the dynamic
 /// skills inventory (and its generic "additional skills may exist" note), not as API surface.
 fn auth_gated_bundled_skills() -> BTreeSet<String> {
-    pa_core::mcp::BUILTIN_MCP_CATALOG
+    aa_core::mcp::BUILTIN_MCP_CATALOG
         .iter()
         .map(|(server, _, _)| server.to_string())
         .collect()

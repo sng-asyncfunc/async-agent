@@ -1,4 +1,4 @@
-//! pa-core platform wall: every OS-specific behavior behind small traits in
+//! aa-core platform wall: every OS-specific behavior behind small traits in
 //! cfg-gated modules. Unix and Windows implementations live behind the same
 //! signatures; session-engine call sites never branch on `cfg` themselves.
 
@@ -17,8 +17,8 @@ pub use process::{
     set_no_window, termination_signal, Signal,
 };
 // The rename-onto-destination primitive (bounded win32 destination-busy
-// retry) lives in pa-telemetry — the bottom crate every persist owner
+// retry) lives in aa-telemetry — the bottom crate every persist owner
 // already depends on; re-exported so the platform wall stays the engine's
 // single platform entry.
-pub use pa_telemetry::rename_onto;
+pub use aa_telemetry::rename_onto;
 pub use shell::{get_shell_config, resolve_kernel_bash_shell, ShellConfig};

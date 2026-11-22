@@ -36,11 +36,11 @@ class DecoderManifest(unittest.TestCase):
             root = Path(tmp)
             repo = root / "repo"
             repo.mkdir()
-            for directory in ("prime-agent-runtime", "skills"):
+            for directory in ("async-agent-runtime", "skills"):
                 (repo / directory).mkdir()
-            (repo / "prime-agent-runtime/package.json").write_text('{"name":"prime-agent-runtime","version":"0.1.0"}\n')
-            (repo / "prime-agent-runtime/src").mkdir(parents=True)
-            (repo / "prime-agent-runtime/src/repl.ts").write_text("// fixture REPL\n")
+            (repo / "async-agent-runtime/package.json").write_text('{"name":"async-agent-runtime","version":"0.1.0"}\n')
+            (repo / "async-agent-runtime/src").mkdir(parents=True)
+            (repo / "async-agent-runtime/src/repl.ts").write_text("// fixture REPL\n")
             (repo / "LICENSE").write_text("fixture\n")
             (repo / "deny.toml").write_text('[licenses]\nallow = ["MIT"]\n')
             (repo / "README.md").write_text("fixture\n")
@@ -52,8 +52,8 @@ class DecoderManifest(unittest.TestCase):
                 source = root / f"{alias}.c"
                 source.write_text(f"int main(void) {{ return {len(alias)}; }}\n")
                 run("gcc", "-g", "-Wl,--build-id", "-o", str(binary), str(source))
-                shipped = root / alias / "prime-agent"
-                decoder = dist / f"prime-agent-0.1.0-{alias}.debug.gz"
+                shipped = root / alias / "async-agent"
+                decoder = dist / f"async-agent-0.1.0-{alias}.debug.gz"
                 run(sys.executable, str(SPLITTER), "--binary", str(binary),
                     "--shipped", str(shipped), "--out", str(dist),
                     "--version", "0.1.0", "--target", target)

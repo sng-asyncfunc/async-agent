@@ -1,4 +1,4 @@
-//! Process identity, shared by pa-core and pa-daemon (session leases, wire auth).
+//! Process identity, shared by aa-core and aa-daemon (session leases, wire auth).
 //!
 //! `process_start_id` is the pid-reuse identity: a match proves the pid still names the same
 //! process; `None` means owners trust liveness checks alone.
@@ -192,7 +192,7 @@ pub fn process_executable_path(_pid: u32) -> Option<std::path::PathBuf> {
     None
 }
 
-// Suspend-to-background signal control. Lives here because pa-tui depends on pa-types alone.
+// Suspend-to-background signal control. Lives here because aa-tui depends on aa-types alone.
 
 /// Stop the caller's whole process group with SIGTSTP; execution continues after SIGCONT.
 ///

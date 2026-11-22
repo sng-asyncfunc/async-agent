@@ -130,8 +130,8 @@ fn threshold_compaction_stays_on_the_session_provider_after_a_resolution_drift()
             {"text": "the drifted summary"},
         ],
     });
-    let parsed = pa_ai::faux::script::parse_faux_script(&script).expect("faux script parses");
-    let registration = pa_ai::faux::script::register_faux_provider_from_script(&parsed);
+    let parsed = aa_ai::faux::script::parse_faux_script(&script).expect("faux script parses");
+    let registration = aa_ai::faux::script::register_faux_provider_from_script(&parsed);
     // The registry catalog: the faux model, and the drift model — an
     // openai-completions endpoint nothing serves, so a request fails.
     std::fs::write(
@@ -310,8 +310,8 @@ fn retire_clears_the_provider_target_for_the_replacement_build() {
     let agent_dir = dir.path().join("agent");
     std::fs::create_dir_all(&agent_dir).unwrap();
     let script = json!({ "responses": [{"text": "seed reply"}] });
-    let parsed = pa_ai::faux::script::parse_faux_script(&script).expect("faux script parses");
-    let registration = pa_ai::faux::script::register_faux_provider_from_script(&parsed);
+    let parsed = aa_ai::faux::script::parse_faux_script(&script).expect("faux script parses");
+    let registration = aa_ai::faux::script::register_faux_provider_from_script(&parsed);
     std::fs::write(
         agent_dir.join("models.json"),
         json!({
@@ -572,7 +572,7 @@ fn manual_wire_compaction_counts_into_the_run_telemetry() {
         format!("turn two {}", "x".repeat(2_000)),
         &mut events,
     );
-    let controller = std::sync::Arc::new(pa_agent::abort::AbortController::new());
+    let controller = std::sync::Arc::new(aa_agent::abort::AbortController::new());
     let signal = controller.signal();
     let outcome = engine.run_compaction(
         crate::engine::CompactionRequest {
@@ -710,7 +710,7 @@ fn threshold_skip_records_the_durable_outcome_row() {
             .await
             .get_entries()
             .iter()
-            .any(|entry| matches!(entry, pa_types::session::FileEntry::Compaction { .. }))
+            .any(|entry| matches!(entry, aa_types::session::FileEntry::Compaction { .. }))
     });
     assert!(
         !has_compaction_entry,
@@ -1165,8 +1165,8 @@ fn failed_mid_run_compaction_resumes_without_retrying_each_tool_round() {
     let user_prompts: Vec<_> = entries
         .iter()
         .filter_map(|entry| match entry {
-            pa_types::session::FileEntry::Message {
-                message: pa_types::session::AgentMessage::User(user),
+            aa_types::session::FileEntry::Message {
+                message: aa_types::session::AgentMessage::User(user),
                 ..
             } => Some(user.content.text()),
             _ => None,
@@ -1278,13 +1278,13 @@ fn low_custom_percentage_compacts_real_history_once_and_then_makes_progress() {
 
     // The autonomous mirror shares the same live getter rather than a copied refresh.
     let mut settings =
-        pa_core::settings::SettingsManager::create(dir.path(), dir.path().join("agent"));
+        aa_core::settings::SettingsManager::create(dir.path(), dir.path().join("agent"));
     settings.set_compaction_threshold_percent(75.0).unwrap();
     let mirror = engine.live_handles().unwrap().autonomous_boundary.clone();
     let session = mirror.session.upgrade().unwrap();
     assert_eq!(
         session.session.compaction_settings(),
-        pa_core::session_engine::compaction::CompactionSettings {
+        aa_core::session_engine::compaction::CompactionSettings {
             threshold_percent: 75.0,
             reserve_tokens: 16_384,
             keep_recent_tokens: 9_000,

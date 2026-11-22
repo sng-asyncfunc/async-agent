@@ -31,7 +31,7 @@ impl Drop for Daemon {
 // immediately afterwards, reaping it.
 #[allow(clippy::zombie_processes)]
 fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pa-daemon"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_aa-daemon"));
     command
         .arg("supervisor")
         .arg("--socket")
@@ -41,10 +41,10 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path) -> Daemon {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "600000",
         );
-    let child = command.spawn().expect("spawn pa-daemon supervisor");
+    let child = command.spawn().expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {
         if UnixStream::connect(socket).is_ok() {
@@ -108,7 +108,7 @@ fn child_pids_of(ppid: u32) -> Vec<u32> {
 }
 
 fn daemon_log(socket: &Path, agent_dir: &Path) -> PathBuf {
-    pa_daemon::paths::daemon_log_path(socket, agent_dir)
+    aa_daemon::paths::daemon_log_path(socket, agent_dir)
 }
 
 fn log_contains(socket: &Path, agent_dir: &Path, needle: &str) -> bool {
@@ -168,7 +168,7 @@ impl Client {
         let mut line = serde_json::to_string(&json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }))
         .expect("serialize command");
@@ -266,7 +266,7 @@ fn create_session(
 }
 
 fn descriptor_path(agent_dir: &Path, socket: &Path, session_id: &str) -> PathBuf {
-    pa_daemon::descriptor::descriptor_dir(agent_dir, socket).join(format!("{session_id}.json"))
+    aa_daemon::descriptor::descriptor_dir(agent_dir, socket).join(format!("{session_id}.json"))
 }
 
 /// The create response's `id` is the ACTIVE session id; the file on disk
@@ -478,36 +478,36 @@ fn the_give_up_sweep_reaps_a_live_leftover_of_the_abandoned_id() {
     // A real product worker process whose active-session env names the
     // session's worker id; it fails registration (an unknown token) and
     // parks in the registration backoff - a process the supervisor lost track of.
-    let mut fake = Command::new(env!("CARGO_BIN_EXE_pa-daemon"))
+    let mut fake = Command::new(env!("CARGO_BIN_EXE_aa-daemon"))
         .arg("worker")
-        .env(pa_daemon::worker::WORKER_ROLE_ENV, "1")
-        .env(pa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV, &session_id)
+        .env(aa_daemon::worker::WORKER_ROLE_ENV, "1")
+        .env(aa_daemon::worker::WORKER_ACTIVE_SESSION_ID_ENV, &session_id)
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_SOCKET_ENV,
             socket.to_string_lossy().to_string(),
         )
         .env(
-            pa_daemon::worker::WORKER_SOCKET_ENV,
+            aa_daemon::worker::WORKER_SOCKET_ENV,
             dir.path()
                 .join("fake-worker.sock")
                 .to_string_lossy()
                 .to_string(),
         )
-        .env(pa_daemon::worker::WORKER_TOKEN_ENV, "not-the-real-token")
-        .env(pa_daemon::worker::WORKER_INSTANCE_ID_ENV, "fake-instance")
+        .env(aa_daemon::worker::WORKER_TOKEN_ENV, "not-the-real-token")
+        .env(aa_daemon::worker::WORKER_INSTANCE_ID_ENV, "fake-instance")
         .env(
-            pa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
+            aa_daemon::worker::WORKER_RECOVERY_JOURNAL_ENV,
             dir.path()
                 .join("fake-recovery.jsonl")
                 .to_string_lossy()
                 .to_string(),
         )
         .env(
-            pa_daemon::worker::WORKER_CWD_ENV,
+            aa_daemon::worker::WORKER_CWD_ENV,
             dir.path().to_string_lossy().to_string(),
         )
         .env(
-            pa_daemon::paths::AGENT_DIR_ENV,
+            aa_daemon::paths::AGENT_DIR_ENV,
             agent_dir.to_string_lossy().to_string(),
         )
         .stdout(Stdio::null())

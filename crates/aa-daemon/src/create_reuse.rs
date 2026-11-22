@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Result};
-use pa_types::daemon::{DaemonCommand, DaemonSessionLifecycle};
+use aa_types::daemon::{DaemonCommand, DaemonSessionLifecycle};
 use serde_json::{json, Value};
 
 use crate::backpressure::RouteAdmission;
@@ -364,7 +364,7 @@ mod tests {
         owner_client_id: Option<&str>,
         root_active_session_id: &str,
     ) -> Arc<ResidentWorker> {
-        let descriptor: pa_types::daemon::DaemonWorkerDescriptor =
+        let descriptor: aa_types::daemon::DaemonWorkerDescriptor =
             serde_json::from_value(serde_json::json!({
                 "version": 2,
                 "workerId": "w-1",

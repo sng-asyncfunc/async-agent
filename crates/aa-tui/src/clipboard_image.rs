@@ -160,7 +160,7 @@ fn clipboard_image_from_bytes(bytes: Vec<u8>) -> Option<ClipboardImage> {
 async fn read_via_powershell() -> Option<ClipboardImage> {
     let temp_dir = std::env::temp_dir();
     std::fs::create_dir_all(&temp_dir).ok()?;
-    let temp_path = temp_dir.join(format!("prime-agent-clip-{}.png", unique_suffix()));
+    let temp_path = temp_dir.join(format!("async-agent-clip-{}.png", unique_suffix()));
     let windows_path = String::from_utf8_lossy(
         &run_command(
             "wslpath",
@@ -219,7 +219,7 @@ fn unique_suffix() -> String {
 async fn read_via_osascript() -> Option<ClipboardImage> {
     let temp_dir = std::env::temp_dir();
     std::fs::create_dir_all(&temp_dir).ok()?;
-    let temp_path = temp_dir.join(format!("prime-agent-clip-{}.png", unique_suffix()));
+    let temp_path = temp_dir.join(format!("async-agent-clip-{}.png", unique_suffix()));
     let path_str = temp_path.to_str()?.to_string();
     let script = format!(
         r"ObjC.import('Cocoa');
@@ -257,7 +257,7 @@ pub async fn read_clipboard_image() -> Option<ClipboardImage> {
     // Verification seam (never set by the product): a harness without a display server
     // cannot drive the real clipboard readers, so a fixture file stands in for the
     // clipboard and travels the exact paste path from there.
-    if let Some(path) = std::env::var_os("PRIME_AGENT_TEST_CLIPBOARD_IMAGE") {
+    if let Some(path) = std::env::var_os("ASYNC_AGENT_TEST_CLIPBOARD_IMAGE") {
         return std::fs::read(path)
             .ok()
             .and_then(clipboard_image_from_bytes);

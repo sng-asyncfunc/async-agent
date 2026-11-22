@@ -8,12 +8,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use pa_agent::agent_loop::{ConvertToLlmFn, TransformContextFn};
-use pa_agent::stream::{
+use aa_agent::agent_loop::{ConvertToLlmFn, TransformContextFn};
+use aa_agent::stream::{
     AssistantMessageEvent, ModelStream, OnPayloadHook, OnResponseHook, StreamFn,
     StreamRequestOptions,
 };
-use pa_agent::types::StopReason;
+use aa_agent::types::StopReason;
 use serde_json::{json, Map, Value};
 
 use crate::session::manager::format_iso;
@@ -447,7 +447,7 @@ struct TimingStream {
 }
 
 impl ModelStream for TimingStream {
-    fn next_event(&mut self) -> pa_agent::BoxFut<'_, Option<AssistantMessageEvent>> {
+    fn next_event(&mut self) -> aa_agent::BoxFut<'_, Option<AssistantMessageEvent>> {
         let timing = Arc::clone(&self.timing);
         Box::pin(async move {
             let Some(event) = self.inner.next_event().await else {
@@ -503,7 +503,7 @@ impl ModelStream for TimingStream {
 
     fn result(
         &mut self,
-    ) -> pa_agent::BoxFut<'_, anyhow::Result<pa_agent::types::AssistantMessage>> {
+    ) -> aa_agent::BoxFut<'_, anyhow::Result<aa_agent::types::AssistantMessage>> {
         self.inner.result()
     }
 

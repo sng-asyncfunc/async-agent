@@ -3,13 +3,13 @@ use crate::session_engine::messages::{
     convert_to_llm, create_compaction_outcome_message, CompactionOutcomeKind,
     CompactionOutcomeReason,
 };
-use pa_agent::agent::{AgentInitialState, AgentOptions};
-use pa_agent::scripted::ScriptedProvider;
-use pa_agent::types::{AgentTool, AgentToolResult};
-use pa_types::ai::AssistantMessage;
+use aa_agent::agent::{AgentInitialState, AgentOptions};
+use aa_agent::scripted::ScriptedProvider;
+use aa_agent::types::{AgentTool, AgentToolResult};
+use aa_types::ai::AssistantMessage;
 use std::future::Future;
 
-fn test_model() -> pa_agent::types::Model {
+fn test_model() -> aa_agent::types::Model {
     serde_json::from_value(serde_json::json!({
         "id": "m", "name": "m", "api": "openai-completions", "provider": "test",
         "baseUrl": "http://localhost", "reasoning": false, "input": ["text"],
@@ -44,8 +44,8 @@ fn seeded_assistant() -> SessionAgentMessage {
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_types::ai::Usage::default(),
-        stop_reason: pa_types::ai::StopReason::Stop,
+        usage: aa_types::ai::Usage::default(),
+        stop_reason: aa_types::ai::StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,
         timestamp: 0,
@@ -236,7 +236,7 @@ async fn message_end_persist_failure_retains_the_row_and_swallows() {
     );
 }
 
-fn session_ai_model() -> pa_types::ai::Model {
+fn session_ai_model() -> aa_types::ai::Model {
     serde_json::from_value(serde_json::json!({
         "id": "m", "name": "m", "api": "openai-completions", "provider": "test",
         "baseUrl": "http://localhost", "reasoning": false, "input": ["text"],
@@ -247,9 +247,9 @@ fn session_ai_model() -> pa_types::ai::Model {
 }
 
 fn refine_assistant_row(error: bool) -> SessionAgentMessage {
-    SessionAgentMessage::Assistant(pa_types::ai::AssistantMessage {
-        content: vec![pa_types::ai::AssistantContentBlock::Text(
-            pa_types::ai::TextContent {
+    SessionAgentMessage::Assistant(aa_types::ai::AssistantMessage {
+        content: vec![aa_types::ai::AssistantContentBlock::Text(
+            aa_types::ai::TextContent {
                 text: if error {
                     "provider failed".to_string()
                 } else {
@@ -265,11 +265,11 @@ fn refine_assistant_row(error: bool) -> SessionAgentMessage {
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_types::ai::Usage::default(),
+        usage: aa_types::ai::Usage::default(),
         stop_reason: if error {
-            pa_types::ai::StopReason::Error
+            aa_types::ai::StopReason::Error
         } else {
-            pa_types::ai::StopReason::Stop
+            aa_types::ai::StopReason::Stop
         },
         stop_reason_raw: None,
         error_message: if error {
@@ -285,8 +285,8 @@ fn refine_assistant_row(error: bool) -> SessionAgentMessage {
 /// The refiner seam's reply: one assistant row carrying the plan text.
 fn plan_reply(plan: &str) -> AssistantMessage {
     AssistantMessage {
-        content: vec![pa_types::ai::AssistantContentBlock::Text(
-            pa_types::ai::TextContent {
+        content: vec![aa_types::ai::AssistantContentBlock::Text(
+            aa_types::ai::TextContent {
                 text: plan.to_string(),
                 text_signature: None,
                 rest: serde_json::Map::default(),
@@ -298,8 +298,8 @@ fn plan_reply(plan: &str) -> AssistantMessage {
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_types::ai::Usage::default(),
-        stop_reason: pa_types::ai::StopReason::Stop,
+        usage: aa_types::ai::Usage::default(),
+        stop_reason: aa_types::ai::StopReason::Stop,
         stop_reason_raw: None,
         error_message: None,
         timestamp: 0,
@@ -387,8 +387,8 @@ async fn refine_test_session_with(
     let mut manager = SessionManager::in_memory(tmp.path());
     manager.materialize_session_file(Some(session_dir));
     manager
-        .append_message(SessionAgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text("do a thing twice".to_string()),
+        .append_message(SessionAgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text("do a thing twice".to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
         }))
@@ -440,8 +440,8 @@ async fn daemon_shaped_local_refinement_writes_the_sessions_own_harness_store() 
     let mut manager = SessionManager::in_memory_in_session_dir(dir.path(), &sessions_root);
     let session_id = manager.get_session_id().to_string();
     manager
-        .append_message(SessionAgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text("do a thing twice".to_string()),
+        .append_message(SessionAgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text("do a thing twice".to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
         }))
@@ -595,8 +595,8 @@ async fn full_rebuild_reference(session: &AgentSession) -> Vec<AgentMessage> {
 fn is_error_assistant(message: &AgentMessage) -> bool {
     matches!(
         message,
-        AgentMessage::Standard(pa_agent::types::Message::Assistant(assistant))
-            if assistant.stop_reason == pa_agent::types::StopReason::Error
+        AgentMessage::Standard(aa_agent::types::Message::Assistant(assistant))
+            if assistant.stop_reason == aa_agent::types::StopReason::Error
     )
 }
 
@@ -641,7 +641,7 @@ async fn refine_pushed_live_context_matches_a_full_rebuild_byte_for_byte() {
     );
     assert!(custom_types(&candidate)
         .iter()
-        .all(|custom_type| custom_type != "prime-agent.refinement"));
+        .all(|custom_type| custom_type != "async-agent.refinement"));
 }
 
 #[tokio::test]
@@ -677,12 +677,12 @@ async fn refine_with_an_empty_plan_pushes_only_the_outcome_row() {
 #[tokio::test]
 async fn refine_records_the_planning_call_usage() {
     let (session, _tmp) = refine_test_session().await;
-    let usage = pa_types::ai::Usage {
+    let usage = aa_types::ai::Usage {
         input: 1_200,
         output: 80,
         total_tokens: 1_280,
-        cost: pa_types::ai::UsageCost {
-            total: pa_types::JsNumber(0.004),
+        cost: aa_types::ai::UsageCost {
+            total: aa_types::JsNumber(0.004),
             ..Default::default()
         },
         ..Default::default()
@@ -709,7 +709,7 @@ async fn refine_records_the_planning_call_usage() {
     let billed: Vec<serde_json::Value> = rows
         .iter()
         .filter_map(|entry| match entry {
-            pa_types::session::FileEntry::Custom { payload, .. } => payload.data.clone(),
+            aa_types::session::FileEntry::Custom { payload, .. } => payload.data.clone(),
             _ => None,
         })
         .filter_map(|data| data.get("usage").cloned())
@@ -892,14 +892,14 @@ async fn refinement_and_auto_review_send_the_session_request_identity() {
     );
     let expected = session.session_id().await;
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
             provider: Some("prime-inference".to_string()),
             ..Default::default()
         });
     let observed = Arc::new(std::sync::Mutex::new(Vec::new()));
     let step = |text: &'static str| {
         let observed = Arc::clone(&observed);
-        pa_ai::faux::FauxResponseStep::Factory(Arc::new(move |_, options, _, _| {
+        aa_ai::faux::FauxResponseStep::Factory(Arc::new(move |_, options, _, _| {
             observed.lock().unwrap().push((
                 options.and_then(|o| o.session_id.clone()),
                 options.and_then(|o| o.transport),
@@ -907,9 +907,9 @@ async fn refinement_and_auto_review_send_the_session_request_identity() {
                     .and_then(|o| o.headers.as_ref())
                     .and_then(|headers| headers.get("X-Prime-Team-ID").cloned()),
             ));
-            Ok(pa_ai::faux::faux_assistant_text_message(
+            Ok(aa_ai::faux::faux_assistant_text_message(
                 text,
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ))
         }))
     };
@@ -937,7 +937,7 @@ async fn refinement_and_auto_review_send_the_session_request_identity() {
         vec![
             (
                 Some(expected),
-                Some(pa_ai::types::Transport::Sse),
+                Some(aa_ai::types::Transport::Sse),
                 Some("team-1".to_string())
             );
             2
@@ -965,22 +965,22 @@ async fn the_compact_review_prompt_reads_the_sessions_local_store() {
     };
     seed_local_memory(&local_dir, "seed", "Seeded local tactic");
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions::default());
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions::default());
     let observed = Arc::new(std::sync::Mutex::new(Vec::new()));
     let step = |text: &'static str| {
         let observed = Arc::clone(&observed);
-        pa_ai::faux::FauxResponseStep::Factory(Arc::new(move |context, _, _, _| {
+        aa_ai::faux::FauxResponseStep::Factory(Arc::new(move |context, _, _, _| {
             let prompt = match context.messages.first() {
-                Some(pa_types::ai::Message::User(user)) => match &user.content {
-                    pa_types::ai::UserContent::Text(text) => text.clone(),
-                    pa_types::ai::UserContent::Blocks(_) => String::new(),
+                Some(aa_types::ai::Message::User(user)) => match &user.content {
+                    aa_types::ai::UserContent::Text(text) => text.clone(),
+                    aa_types::ai::UserContent::Blocks(_) => String::new(),
                 },
                 _ => String::new(),
             };
             observed.lock().unwrap().push(prompt);
-            Ok(pa_ai::faux::faux_assistant_text_message(
+            Ok(aa_ai::faux::faux_assistant_text_message(
                 text,
-                pa_ai::faux::FauxAssistantMessageOptions::default(),
+                aa_ai::faux::FauxAssistantMessageOptions::default(),
             ))
         }))
     };
@@ -1033,9 +1033,9 @@ impl AgentTool for HeldTool {
         self: Arc<Self>,
         _tool_call_id: String,
         _params: serde_json::Value,
-        _signal: pa_agent::abort::AbortSignal,
-        _on_update: pa_agent::types::AgentToolUpdateCallback,
-    ) -> pa_agent::BoxFut<'static, anyhow::Result<AgentToolResult>> {
+        _signal: aa_agent::abort::AbortSignal,
+        _on_update: aa_agent::types::AgentToolUpdateCallback,
+    ) -> aa_agent::BoxFut<'static, anyhow::Result<AgentToolResult>> {
         Box::pin(async move {
             let _ = self.started.send(());
             let _ = self.release.lock().await.recv().await;
@@ -1107,10 +1107,10 @@ async fn refine_plans_without_the_session_lock_and_commits_after_a_running_turn_
     let (_, write_error) = tokio::time::timeout(window, async {
         let persistence = engine.shared_persistence();
         let mut session = persistence.lock().await;
-        session.append_message_retained(SessionAgentMessage::User(pa_types::ai::UserMessage {
-            content: pa_types::ai::UserContent::Text("mid-request row".to_string()),
+        session.append_message_retained(SessionAgentMessage::User(aa_types::ai::UserMessage {
+            content: aa_types::ai::UserContent::Text("mid-request row".to_string()),
             timestamp: 0,
-            rest: pa_types::JsonMap::default(),
+            rest: aa_types::JsonMap::default(),
         }))
     })
     .await
@@ -1178,7 +1178,7 @@ async fn refine_plans_without_the_session_lock_and_commits_after_a_running_turn_
         .position(|message| {
             matches!(
                 message,
-                AgentMessage::Standard(pa_agent::types::Message::ToolResult(_))
+                AgentMessage::Standard(aa_agent::types::Message::ToolResult(_))
             )
         })
         .expect("the tool result message is in the live context");
@@ -1426,7 +1426,7 @@ async fn closing_session_cancels_background_planning_without_committing() {
         .unwrap()
         .unwrap()
         .unwrap_err();
-    assert!(pa_agent::abort::is_abort_error(&error));
+    assert!(aa_agent::abort::is_abort_error(&error));
     assert!(!crate::refinement::get_harness_state_path(&global_dir).exists());
 }
 
@@ -1508,7 +1508,7 @@ async fn prepared_refinement_cannot_change_harness_during_an_active_run() {
     )
     .await
     .unwrap();
-    let cancel = pa_agent::abort::AbortSignal::never();
+    let cancel = aa_agent::abort::AbortSignal::never();
     let mut commit = Box::pin(refine::commit_refinement(
         &session.session,
         session.agent(),
@@ -1568,7 +1568,7 @@ async fn contended_harness_lock_does_not_reserve_the_next_provider_run() {
     )
     .await
     .unwrap();
-    let cancel = pa_agent::abort::AbortSignal::never();
+    let cancel = aa_agent::abort::AbortSignal::never();
     let mut commit = Box::pin(refine::commit_refinement(
         &session.session,
         session.agent(),
@@ -1651,7 +1651,7 @@ async fn a_symlinked_store_shares_the_kernels_lock_dir() {
             refine::RefinementSource::User,
             None,
             Some(&session.compaction_flight),
-            &pa_agent::abort::AbortSignal::never(),
+            &aa_agent::abort::AbortSignal::never(),
         )
         .await
     };
@@ -1740,7 +1740,7 @@ async fn a_state_file_symlink_shares_the_kernels_lock_and_survives_the_commit() 
             refine::RefinementSource::User,
             None,
             Some(&session.compaction_flight),
-            &pa_agent::abort::AbortSignal::never(),
+            &aa_agent::abort::AbortSignal::never(),
         )
         .await
     };
@@ -1810,8 +1810,8 @@ async fn idle_reservation_excludes_both_direct_prompt_and_continue_admission() {
     session
         .agent()
         .append_messages(vec![AgentMessage::Standard(
-            pa_agent::types::Message::User(pa_agent::types::UserMessage {
-                content: pa_agent::types::UserContent::Text("continue".into()),
+            aa_agent::types::Message::User(aa_agent::types::UserMessage {
+                content: aa_agent::types::UserContent::Text("continue".into()),
                 timestamp: 1,
             }),
         )])
@@ -1870,7 +1870,7 @@ async fn branch_change_discards_prepared_plan_but_allows_new_refinements() {
     .await;
     session.discard_compact_auto_refine();
     let error = commit.await.unwrap_err();
-    assert!(pa_agent::abort::is_abort_error(&error));
+    assert!(aa_agent::abort::is_abort_error(&error));
     assert!(!crate::refinement::get_harness_state_path(&global_dir).exists());
     drop(guard);
     session

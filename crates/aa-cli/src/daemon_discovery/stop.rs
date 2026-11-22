@@ -9,7 +9,7 @@
 
 use std::path::Path;
 
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 use serde::Serialize;
 
 use super::format::{print_reap_report, print_shutdown_report};
@@ -160,7 +160,7 @@ pub(crate) fn run_shutdown_all(json: bool, force: bool, root: &DaemonStateRoot) 
                 .map(|daemon| {
                     (
                         daemon.socket_path.display().to_string(),
-                        r#"confirmation required; use "prime-agent shutdown --force --json""#
+                        r#"confirmation required; use "async-agent shutdown --force --json""#
                             .to_string(),
                     )
                 })
@@ -172,7 +172,7 @@ pub(crate) fn run_shutdown_all(json: bool, force: bool, root: &DaemonStateRoot) 
             // The public-command wrapper turns the throw into the standard `Error: …`
             // failure (stderr + exit 1); only reachable once there are daemons to stop.
             eprintln!(
-                "Error: Shutdown requires confirmation in an interactive terminal. Use \"prime-agent shutdown --force\"."
+                "Error: Shutdown requires confirmation in an interactive terminal. Use \"async-agent shutdown --force\"."
             );
             1
         }

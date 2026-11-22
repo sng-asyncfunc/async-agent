@@ -12,7 +12,7 @@ use std::io::{BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
-use pa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewUiMode};
+use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewUiMode};
 use serde_json::{json, Value};
 
 use support::{read_line, view_options, MockSupervisor};
@@ -35,7 +35,7 @@ impl MockSupervisor {
             &mut writer,
             &json!({
                 "type": "daemon_hello",
-                "protocol": { "name": "prime-agent.daemon", "version": 7 },
+                "protocol": { "name": "async-agent.daemon", "version": 7 },
                 "serverCapabilities": [],
             }),
         );
@@ -203,7 +203,7 @@ async fn the_row_renders_its_heartbeat_count_after_a_heartbeats_changed() {
         width: 120,
         height: 36,
     };
-    let outcome = pa_tui::agents_view::run_agents_view(
+    let outcome = aa_tui::agents_view::run_agents_view(
         view_options(&socket),
         AgentsViewUiMode::Headless(plan),
         None,

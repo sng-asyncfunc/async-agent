@@ -16,7 +16,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use pa_types::daemon::{
+use aa_types::daemon::{
     DaemonPeerTransportTicket, DaemonWorkerCommand, DaemonWorkerLifecycle, DaemonWorkerPeerGrant,
 };
 
@@ -164,7 +164,7 @@ impl Supervisor {
                 "Direct transport worker process identity is not current"
             ));
         }
-        let socket_identity = pa_types::platform::socket_identity(std::path::Path::new(
+        let socket_identity = aa_types::platform::socket_identity(std::path::Path::new(
             &socket_path,
         ))
         .ok_or_else(|| anyhow!("Direct transport requires an exact worker socket identity"))?;
@@ -301,7 +301,7 @@ mod tests {
     #[tokio::test]
     async fn worker_peer_ticket_auth_and_self_target() {
         use crate::registry::ResidentWorker;
-        use pa_types::daemon::{
+        use aa_types::daemon::{
             DaemonWorkerDescriptor, DaemonWorkerLifecycle, DurableDaemonCreateCommand,
         };
 

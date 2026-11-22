@@ -1,6 +1,6 @@
 //! Daemon socket lifecycle: endpoint naming and identity live in
 //! [`crate::platform`]; the bind/connect calls go through the shared transport
-//! traits in `pa_types::platform`, so Unix socket files today and named pipes later
+//! traits in `aa_types::platform`, so Unix socket files today and named pipes later
 //! differ only in the implementation module.
 
 use std::path::Path;
@@ -20,7 +20,7 @@ pub use crate::platform::{
 /// A peer refused as another user's still counts as live, so stale-socket
 /// cleanup never unlinks it.
 pub async fn can_connect(path: &Path, timeout: Duration) -> bool {
-    let connect = pa_types::platform::transport::connect_transport(path);
+    let connect = aa_types::platform::transport::connect_transport(path);
     match tokio::time::timeout(timeout, connect).await {
         Ok(Ok(stream)) => {
             drop(stream);
@@ -47,9 +47,9 @@ const LOCK_RETRIES: u32 = 600;
 /// `{path}.lock` directory): held for the whole probe/unlink sequence, so a
 /// competing startup worker cannot bind a live listener in between.
 #[cfg(unix)]
-async fn acquire_cleanup_lock(path: &Path) -> Result<pa_core::platform::LockDir> {
+async fn acquire_cleanup_lock(path: &Path) -> Result<aa_core::platform::LockDir> {
     for attempt in 0..=LOCK_RETRIES {
-        match pa_core::platform::LockDir::acquire(path, LOCK_STALE_AFTER) {
+        match aa_core::platform::LockDir::acquire(path, LOCK_STALE_AFTER) {
             Ok(lock) => return Ok(lock),
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
             Err(error) => return Err(anyhow!("Daemon socket cleanup lock: {error}")),
@@ -99,7 +99,7 @@ pub async fn prepare_socket_path(path: &Path) -> Result<()> {
     prepare_locked_socket_path(path).await
 }
 
-/// Create a socket directory prime-agent owns (the default one, or one it
+/// Create a socket directory async-agent owns (the default one, or one it
 /// creates for a custom socket) and refuse it unless it is a real directory
 /// owned by the current user: another user who pre-created or symlinked it
 /// could swap the socket. Then restrict it to the owner.
@@ -114,7 +114,7 @@ fn prepare_owned_socket_dir(dir: &Path) -> Result<()> {
             dir.display()
         ));
     }
-    let uid = pa_core::platform::process::current_user_id();
+    let uid = aa_core::platform::process::current_user_id();
     if metadata.uid() != uid {
         return Err(anyhow!(
             "Daemon socket directory {} is owned by uid {}, not the current user (uid {uid}); remove it or set TMPDIR",
@@ -122,7 +122,7 @@ fn prepare_owned_socket_dir(dir: &Path) -> Result<()> {
             metadata.uid()
         ));
     }
-    pa_core::platform::perms::restrict_dir(dir)?;
+    aa_core::platform::perms::restrict_dir(dir)?;
     Ok(())
 }
 
@@ -214,7 +214,7 @@ pub fn cleanup_socket_path(path: &Path, expected_identity: Option<SocketIdentity
         return;
     }
     #[cfg(unix)]
-    let Ok(_cleanup_lock) = pa_core::platform::LockDir::acquire(path, LOCK_STALE_AFTER) else {
+    let Ok(_cleanup_lock) = aa_core::platform::LockDir::acquire(path, LOCK_STALE_AFTER) else {
         return;
     };
     if let Some(expected) = expected_identity {
@@ -249,7 +249,7 @@ pub fn cleanup_socket_path(path: &Path, expected_identity: Option<SocketIdentity
 pub fn cleanup_socket_path_after_close(path: &Path, expected_identity: Option<SocketIdentity>) {
     if expected_identity.is_none()
         || !path.exists()
-        || !pa_types::platform::transport::unix_listener_definitely_closed(path)
+        || !aa_types::platform::transport::unix_listener_definitely_closed(path)
     {
         return;
     }
@@ -262,7 +262,7 @@ pub fn cleanup_socket_path_after_close(_path: &Path, _expected_identity: Option<
 /// Restrict the bound socket file to its owner (Unix mode 0o600; Windows
 /// named pipes use ACLs on the pipe object instead).
 pub fn restrict_socket_path(path: &Path) {
-    let _ = pa_core::platform::perms::restrict_file(path);
+    let _ = aa_core::platform::perms::restrict_file(path);
 }
 
 /// The bind-capture gap seam (the `PA_DAEMON_EVENT_LOG` seam family): a
@@ -288,7 +288,7 @@ pub async fn bind_capture_gap() {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    use pa_types::platform::transport::bind_transport;
+    use aa_types::platform::transport::bind_transport;
 
     /// Bind and drop the listener: the socket file outlives the fd with
     /// nobody listening - exactly a crashed worker's residue.
@@ -309,7 +309,7 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let real = dir.path().join("real");
         std::fs::create_dir(&real).unwrap();
-        let link = dir.path().join("prime-agent");
+        let link = dir.path().join("async-agent");
         std::os::unix::fs::symlink(&real, &link).unwrap();
         let error = prepare_owned_socket_dir(&link).unwrap_err();
         assert!(error.to_string().contains("symlink"), "{error}");

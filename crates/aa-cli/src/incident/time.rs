@@ -231,7 +231,7 @@ mod tests {
     const NOW: i64 = 1_789_597_800_000; // 2026-09-16T22:30:00Z
 
     fn date_ms(text: &str) -> i64 {
-        pa_types::incident::timestamp_to_ms(text).expect("the fixture date parses")
+        aa_types::incident::timestamp_to_ms(text).expect("the fixture date parses")
     }
 
     #[test]

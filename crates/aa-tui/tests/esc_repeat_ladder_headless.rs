@@ -10,7 +10,7 @@ mod support;
 
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep, InteractiveOptions};
 use serde_json::json;
 
 use support::{
@@ -102,7 +102,7 @@ impl MockSupervisor {
 /// without persistence.
 struct StubSettings;
 
-impl pa_tui::client_settings::ClientSettings for StubSettings {
+impl aa_tui::client_settings::ClientSettings for StubSettings {
     fn compaction_threshold_percent(&self) -> f64 {
         95.0
     }

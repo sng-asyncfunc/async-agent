@@ -204,7 +204,7 @@ fn read_supports_keyboard_enhancement_raw() -> io::Result<bool> {
     probe_terminal_raw(true, false).map(|probe| probe.keyboard_enhancement)
 }
 
-/// Prime Agent patch: the bounded terminal probe behind both the stock
+/// Async Agent patch: the bounded terminal probe behind both the stock
 /// keyboard check (`keyboard` only, upstream's bytes) and the app's combined
 /// probe (`program_status` adds the OSC 7501 detection query in front).
 #[cfg(feature = "events")]
@@ -254,7 +254,7 @@ pub(crate) fn probe_terminal_raw(
         stdout.flush()?;
     }
 
-    // Prime Agent v2: the same 250ms answer window, held in short slices
+    // Async Agent v2: the same 250ms answer window, held in short slices
     // instead of one blocking hold. Each slice parks the shared event-reader
     // lock for at most a slice, so the app reader interleaves and delivers
     // early typing at its own cadence while the probe listens; a slice

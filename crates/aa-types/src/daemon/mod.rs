@@ -9,7 +9,7 @@ use serde_json::Value;
 use crate::session::AgentMessage;
 use crate::JsonMap;
 
-pub const DAEMON_PROTOCOL_NAME: &str = "prime-agent.daemon";
+pub const DAEMON_PROTOCOL_NAME: &str = "async-agent.daemon";
 pub const DAEMON_PROTOCOL_VERSION: u64 = 7;
 /// Revision 31 moves the REPL runtime from Python/IPython (`python_repl`) to Bun JavaScript
 /// (`javascript`), renaming `ipython_sent_agent_message` to `javascript_sent_agent_message`.
@@ -156,7 +156,7 @@ mod tests {
     fn command_wire_bare_and_envelope() {
         rt::<DaemonCommandWire>(r#"{"type":"list","id":"c1","cwd":"/w","future":1}"#);
         rt::<DaemonCommandWire>(
-            r#"{"type":"command","id":"e1","protocol":{"name":"prime-agent.daemon","version":7},"clientId":"cl","command":{"type":"prompt","activeSessionId":"s1","message":"hi","queueIfBusy":true,"extra":"kept"}}"#,
+            r#"{"type":"command","id":"e1","protocol":{"name":"async-agent.daemon","version":7},"clientId":"cl","command":{"type":"prompt","activeSessionId":"s1","message":"hi","queueIfBusy":true,"extra":"kept"}}"#,
         );
     }
 
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn protocol_constants_match_ts() {
-        assert_eq!(DAEMON_PROTOCOL_NAME, "prime-agent.daemon");
+        assert_eq!(DAEMON_PROTOCOL_NAME, "async-agent.daemon");
         assert_eq!(DAEMON_PROTOCOL_VERSION, 7);
         assert_eq!(DAEMON_SCHEMA_REVISION, 31);
         assert_eq!(DAEMON_SCHEMA_ID, "protocol-7-schema-31-9c3d4f8a1b7e");

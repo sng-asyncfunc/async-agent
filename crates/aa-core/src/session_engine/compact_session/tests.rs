@@ -1,12 +1,12 @@
 //! Compact-session tests.
 use super::*;
-use pa_types::ai::{AssistantMessage, UserContent};
+use aa_types::ai::{AssistantMessage, UserContent};
 
 fn session_with_turns(cwd: &std::path::Path, turns: usize) -> SessionManager {
     let mut session = SessionManager::in_memory(cwd);
     for i in 0..turns {
         session
-            .append_message(AgentMessage::User(pa_types::ai::UserMessage {
+            .append_message(AgentMessage::User(aa_types::ai::UserMessage {
                 content: UserContent::Text(format!("turn {i} message with some words")),
                 timestamp: 0,
                 rest: serde_json::Map::default(),
@@ -14,8 +14,8 @@ fn session_with_turns(cwd: &std::path::Path, turns: usize) -> SessionManager {
             .unwrap();
         session
             .append_message(AgentMessage::Assistant(AssistantMessage {
-                content: vec![pa_types::ai::AssistantContentBlock::Text(
-                    pa_types::ai::TextContent {
+                content: vec![aa_types::ai::AssistantContentBlock::Text(
+                    aa_types::ai::TextContent {
                         text: format!("reply {i}"),
                         text_signature: None,
                         rest: serde_json::Map::default(),
@@ -27,15 +27,15 @@ fn session_with_turns(cwd: &std::path::Path, turns: usize) -> SessionManager {
                 response_model: None,
                 response_id: None,
                 diagnostics: None,
-                usage: pa_types::ai::Usage {
+                usage: aa_types::ai::Usage {
                     input: 100,
                     output: 20,
                     cache_read: 0,
                     cache_write: 0,
                     total_tokens: 120,
-                    cost: pa_types::ai::UsageCost::default(),
+                    cost: aa_types::ai::UsageCost::default(),
                 },
-                stop_reason: pa_types::ai::StopReason::Stop,
+                stop_reason: aa_types::ai::StopReason::Stop,
                 stop_reason_raw: None,
                 error_message: None,
                 timestamp: 0,
@@ -48,24 +48,24 @@ fn session_with_turns(cwd: &std::path::Path, turns: usize) -> SessionManager {
 
 /// The faux provider with one scripted summarizer response. The faux
 /// seam is process-global, so every registration unregisters on drop.
-fn faux_registration() -> pa_ai::faux::FauxProviderRegistration {
+fn faux_registration() -> aa_ai::faux::FauxProviderRegistration {
     let registration =
-        pa_ai::faux::register_faux_provider(pa_ai::faux::RegisterFauxProviderOptions {
-            models: Some(vec![pa_ai::faux::FauxModelDefinition {
+        aa_ai::faux::register_faux_provider(aa_ai::faux::RegisterFauxProviderOptions {
+            models: Some(vec![aa_ai::faux::FauxModelDefinition {
                 id: "compact-m".to_string(),
                 name: Some("Compact Model".to_string()),
                 reasoning: Some(false),
-                input: Some(vec![pa_types::ai::ModelInput::Text]),
+                input: Some(vec![aa_types::ai::ModelInput::Text]),
                 cost: None,
                 context_window: Some(1_000),
                 max_tokens: Some(256),
             }]),
             ..Default::default()
         });
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Message(
-        pa_ai::faux::faux_assistant_text_message(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Message(
+        aa_ai::faux::faux_assistant_text_message(
             "## Goal\nsummarized goal",
-            pa_ai::faux::FauxAssistantMessageOptions::default(),
+            aa_ai::faux::FauxAssistantMessageOptions::default(),
         ),
     )]);
     registration

@@ -1,20 +1,20 @@
-﻿# install.ps1 — the Windows-native installer for Prime Agent (Rust build).
+﻿# install.ps1 — the Windows-native installer for Async Agent (Rust build).
 #
 # THE ONE-LINER (the production endpoint serves the stable installer):
 #
-#   irm https://app.primeintellect.ai/prime-agent/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/sng-asyncfunc/async-agent/main/install.ps1 | iex
 #
 # The release pipeline's publish step renders this file to <base>/install.ps1
 # (the stable channel) and <base>/install-beta.ps1 (the beta channel), the
 # build's download base + channel stamped in.
 #
-# The Git Bash route is the same channel through install-rust.sh (the sh
+# The Git Bash route is the same channel through install.sh (the sh
 # one-liner `curl -fsSL .../install.sh | sh` under Git Bash/MSYS2/Cygwin);
 # this script is the PowerShell-native form. Both routes publish the SAME
-# layout — $PREFIX\share\prime-agent\ (the payload) and $PREFIX\bin\
+# layout — $PREFIX\share\async-agent\ (the payload) and $PREFIX\bin\
 # (the launcher pair) — so either route can update the other's install.
 #
-# THE CHANNEL (install-rust.sh parity): the channel pointer (<base>/stable
+# THE CHANNEL (install.sh parity): the channel pointer (<base>/stable
 # or <base>/beta) gives the version, the channel manifest (<base>/latest.json
 # or <base>/beta.json) gives this platform's artifact row, and the versioned
 # release prefix serves the tarball plus its SHA256SUMS; the checksum is
@@ -32,12 +32,12 @@
 # this product's own daemon for the swap (a Windows process holds its
 # binary open; the payload swap needs the daemon down first).
 #
-# Configuration (environment, install-rust.sh's own knobs):
-#   PRIME_AGENT_DOWNLOAD_BASE_URL  the R2-backed download base
-#   PRIME_AGENT_RELEASE_CHANNEL    stable | beta
-#   PRIME_AGENT_VERSION            pin an exact version
-#   PRIME_AGENT_RUST_PREFIX        install prefix (default: $HOME\.local)
-#   PRIME_AGENT_UV_BIN_DIR         uv install dir (default: $HOME\.local\bin)
+# Configuration (environment, install.sh's own knobs):
+#   ASYNC_AGENT_DOWNLOAD_BASE_URL  the R2-backed download base
+#   ASYNC_AGENT_RELEASE_CHANNEL    stable | beta
+#   ASYNC_AGENT_VERSION            pin an exact version
+#   ASYNC_AGENT_RUST_PREFIX        install prefix (default: $HOME\.local)
+#   ASYNC_AGENT_UV_BIN_DIR         uv install dir (default: $HOME\.local\bin)
 #
 # Prerequisites: Windows 10+ (tar.exe and Get-FileHash ship with the OS;
 # the kernel's Python runtime bootstraps through uv on first session — the
@@ -60,18 +60,18 @@ $ErrorActionPreference = 'Stop'
 # The publish-rendered defaults: the release pipeline copies this file to
 # <base>/install.ps1 with $DownloadBaseUrlDefault set to the R2 public base
 # and $ReleaseChannelDefault set to the channel; the repo-file default is
-# the same bucket-root base install-rust.sh carries, so the raw repo copy
+# the same bucket-root base install.sh carries, so the raw repo copy
 # installs out of the box too.
-$DownloadBaseUrlDefault = 'https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev'
+$DownloadBaseUrlDefault = 'https://github.com/sng-asyncfunc/async-agent/releases'
 $ReleaseChannelDefault = 'stable'
 
 # The installer-owned bookkeeping, initialized BEFORE any Fail can run
 # (under `irm | iex` the script scope is the caller's session: ambient
 # variables must never be read as this installer's state, so the names are
 # unique to this script and all start cleared - the bots' finding).
-$script:primeAgentInstallScratch = $null
-$script:primeAgentInstallStage = $null
-$script:primeAgentInstallLock = $null
+$script:asyncAgentInstallScratch = $null
+$script:asyncAgentInstallStage = $null
+$script:asyncAgentInstallLock = $null
 
 # Fail only throws: the catch at the bottom sweeps the installer's own
 # state on every failure path (a Fail and any other terminating error alike).
@@ -86,7 +86,7 @@ try {
     Fail "could not enable TLS 1.2: $($_.Exception.Message)"
 }
 
-# --- the install ledger (install-rust.sh's step_ok / step_fail lines, in
+# --- the install ledger (install.sh's step_ok / step_fail lines, in
 # --- the ASCII the console's default codepage renders cleanly) --------------
 function Step-Ok([string]$Text, [string]$Detail = '') {
     if ($Detail) { Write-Host "ok: $Text ($Detail)" } else { Write-Host "ok: $Text" }
@@ -107,7 +107,7 @@ function Test-PathEntry([string]$PathValue, [string]$Entry) {
     return $false
 }
 
-# --- the streaming download (install-rust.sh's fetch() discipline: three
+# --- the streaming download (install.sh's fetch() discipline: three
 # --- attempts, and the installer's own progress, never the web cmdlet's
 # --- transfer records - a HttpClient copy loop repaints one short line in
 # --- place with the file's name, the landed bytes, and the percent) ---------
@@ -183,21 +183,21 @@ function Save-Release {
 }
 
 # --- the knobs ----------------------------------------------------------------
-$baseUrl = if ($env:PRIME_AGENT_DOWNLOAD_BASE_URL) { $env:PRIME_AGENT_DOWNLOAD_BASE_URL } else { $DownloadBaseUrlDefault }
-$channelRequested = $env:PRIME_AGENT_RELEASE_CHANNEL
+$baseUrl = if ($env:ASYNC_AGENT_DOWNLOAD_BASE_URL) { $env:ASYNC_AGENT_DOWNLOAD_BASE_URL } else { $DownloadBaseUrlDefault }
+$channelRequested = $env:ASYNC_AGENT_RELEASE_CHANNEL
 $channel = if ($channelRequested) { $channelRequested } else { $ReleaseChannelDefault }
-$versionPin = $env:PRIME_AGENT_VERSION
-$prefix = if ($env:PRIME_AGENT_RUST_PREFIX) { $env:PRIME_AGENT_RUST_PREFIX } else { Join-Path $HOME '.local' }
+$versionPin = $env:ASYNC_AGENT_VERSION
+$prefix = if ($env:ASYNC_AGENT_RUST_PREFIX) { $env:ASYNC_AGENT_RUST_PREFIX } else { Join-Path $HOME '.local' }
 
 # THE HTTPS RULE: the channel is served over the R2-backed domain, and a
 # plaintext download base would let a network attacker swap the payload
 # the checksum then "verifies" into place. The one escape hatch is the
-# explicitly-named knob for local-channel/e2e use (install-rust.sh carries
+# explicitly-named knob for local-channel/e2e use (install.sh carries
 # the same rule + knob); it prints a loud warning when it is active.
-$allowHttp = $env:PRIME_AGENT_ALLOW_HTTP -eq '1'
+$allowHttp = $env:ASYNC_AGENT_ALLOW_HTTP -eq '1'
 if ($baseUrl -notmatch '^https://') {
     if ($allowHttp) {
-        Write-Warning "PRIME_AGENT_ALLOW_HTTP=1: the download base $baseUrl is NOT https - the download is plaintext; use this only for a local channel you control"
+        Write-Warning "ASYNC_AGENT_ALLOW_HTTP=1: the download base $baseUrl is NOT https - the download is plaintext; use this only for a local channel you control"
     } else {
         Fail "the download base URL must be an https URL: $baseUrl"
     }
@@ -218,11 +218,11 @@ if (Test-Path $prefix -PathType Leaf) { Fail "the install prefix names an existi
 # spellings like C:uv-bin or \uv-bin, which resolve against the CURRENT
 # directory in later shells - the exact break this check exists to
 # prevent.
-if ($env:PRIME_AGENT_UV_BIN_DIR -and (($env:PRIME_AGENT_UV_BIN_DIR -notmatch '^[a-zA-Z]:[\\/]') -and ($env:PRIME_AGENT_UV_BIN_DIR -notmatch '^\\\\[^\\\\]+\\[^\\\\]+'))) {
-    Fail "PRIME_AGENT_UV_BIN_DIR must be a fully qualified absolute path (a drive-based or UNC path): $($env:PRIME_AGENT_UV_BIN_DIR)"
+if ($env:ASYNC_AGENT_UV_BIN_DIR -and (($env:ASYNC_AGENT_UV_BIN_DIR -notmatch '^[a-zA-Z]:[\\/]') -and ($env:ASYNC_AGENT_UV_BIN_DIR -notmatch '^\\\\[^\\\\]+\\[^\\\\]+'))) {
+    Fail "ASYNC_AGENT_UV_BIN_DIR must be a fully qualified absolute path (a drive-based or UNC path): $($env:ASYNC_AGENT_UV_BIN_DIR)"
 }
-if ($env:PRIME_AGENT_UV_BIN_DIR -and $env:PRIME_AGENT_UV_BIN_DIR.Contains(';')) {
-    Fail "PRIME_AGENT_UV_BIN_DIR must not contain a semicolon (the Windows PATH separator): $($env:PRIME_AGENT_UV_BIN_DIR)"
+if ($env:ASYNC_AGENT_UV_BIN_DIR -and $env:ASYNC_AGENT_UV_BIN_DIR.Contains(';')) {
+    Fail "ASYNC_AGENT_UV_BIN_DIR must not contain a semicolon (the Windows PATH separator): $($env:ASYNC_AGENT_UV_BIN_DIR)"
 }
 
 # The channel files: the pointer (<base>/stable or <base>/beta) names the
@@ -230,7 +230,7 @@ if ($env:PRIME_AGENT_UV_BIN_DIR -and $env:PRIME_AGENT_UV_BIN_DIR.Contains(';')) 
 # the rows; the version resolution below reads the pair per channel.
 
 # The platform this script serves: the channel manifest's win32-x64 row
-# (the TS NATIVE_PLATFORMS spelling pa-core::update::install reads) — a
+# (the TS NATIVE_PLATFORMS spelling aa-core::update::install reads) — a
 # fixed target, checked here so an ARM64 Windows machine fails loudly
 # instead of downloading a payload it cannot start.
 $platform = 'win32-x64'
@@ -245,13 +245,13 @@ if ($effectiveArchitecture -ne 'AMD64') {
 
 # The channel naming contract gives the artifact row's file name: the row
 # the channel manifest must carry for this platform (the reader's own rule,
-# pa-core::update::release::parse_channel_manifest).
+# aa-core::update::release::parse_channel_manifest).
 function ExpectedFileName($version, $platform) {
-    return "prime-agent-$version-$platform.tar.gz"
+    return "async-agent-$version-$platform.tar.gz"
 }
 
 # --- resolve the version (the channel pointer, or the pinned version) --------
-# A PINNED version skips the channel manifest entirely (install-rust.sh
+# A PINNED version skips the channel manifest entirely (install.sh
 # parity): the manifest describes the channel's CURRENT release, and a
 # historical pin must install from its own versioned prefix — the row is
 # the channel naming contract, and the release prefix's SHA256SUMS verifies
@@ -259,7 +259,7 @@ function ExpectedFileName($version, $platform) {
 # PAIR, retrying once on a version mismatch (the publish writes the
 # manifest first and the pointer second: a read between the two writes sees
 # the old pointer with the new manifest — a transient window, not a broken
-# channel — install-rust.sh's consistency retry). Both explicitly selected
+# channel — install.sh's consistency retry). Both explicitly selected
 # channels use the same pair reader and retry discipline.
 function Read-ChannelPair($channelName) {
     $pairPointer = $channelName
@@ -301,7 +301,7 @@ function Read-ChannelPair($channelName) {
 
 # The manifest's row for this platform: the channel naming contract gives
 # the file name the row must carry (the reader's own rule,
-# pa-core::update::release::parse_channel_manifest).
+# aa-core::update::release::parse_channel_manifest).
 function Find-PlatformRow($rowManifest, $rowVersion) {
     $expected = ExpectedFileName $rowVersion $platform
     $found = $null
@@ -321,7 +321,7 @@ $manifest = $null
 $row = $null
 if ($versionPin) {
     $version = $versionPin.Trim().TrimStart('v')
-    Write-Host "installing prime-agent $version (pinned) from the $channel channel ($platform)"
+    Write-Host "installing async-agent $version (pinned) from the $channel channel ($platform)"
 } else {
     $pair = Read-ChannelPair $channel
     $version = $pair.Version
@@ -331,7 +331,7 @@ if ($versionPin) {
         Fail "no artifact row for platform $platform in the $channel manifest; the installer will not switch release channels automatically"
     }
     if ($row.sha256 -notmatch '^[0-9a-f]{64}$') { Fail "the channel manifest's sha256 for $(ExpectedFileName $version $platform) is malformed" }
-    Write-Host "installing prime-agent $version from the $channel channel ($platform)"
+    Write-Host "installing async-agent $version from the $channel channel ($platform)"
 }
 
 # --- the channel manifest row (unpinned) / the naming contract (pinned) ------
@@ -342,12 +342,12 @@ if ($versionPin) {
 
 # --- the tarball + SHA256SUMS from the versioned release prefix ----------------
 $releasePrefix = "releases/v$version"
-$download = Join-Path ([IO.Path]::GetTempPath()) ("prime-agent-download-{0}" -f [Guid]::NewGuid().ToString('N'))
+$download = Join-Path ([IO.Path]::GetTempPath()) ("async-agent-download-{0}" -f [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $download | Out-Null
-$script:primeAgentInstallScratch = $download
+$script:asyncAgentInstallScratch = $download
 # THE DOWNLOAD SWEEP: the scratch (the tarball + the sums) is removed when
 # this script exits - success below, a Fail or a terminating error in the
-# catch at the bottom (install-rust.sh's `rm -rf "$dl"` discipline; the
+# catch at the bottom (install.sh's `rm -rf "$dl"` discipline; the
 # bots' finding: accumulated release tarballs in the temp folder).
 $tarball = Join-Path $download $expectedFile
 $sumsPath = Join-Path $download 'SHA256SUMS'
@@ -390,42 +390,42 @@ Step-Ok 'checksum verified' "$expectedFile ($version, the $channel channel)"
 
 # --- extract to a staging dir inside the prefix (same volume: the final swap
 # --- is a rename, not a copy) -----------------------------------------------------
-$share = Join-Path $prefix 'share\prime-agent'
+$share = Join-Path $prefix 'share\async-agent'
 $bin = Join-Path $prefix 'bin'
 New-Item -ItemType Directory -Path (Join-Path $prefix 'share') -Force | Out-Null
 New-Item -ItemType Directory -Path $bin -Force | Out-Null
-$stage = Join-Path (Join-Path $prefix 'share') ("prime-agent.stage-{0}" -f [Guid]::NewGuid().ToString('N'))
+$stage = Join-Path (Join-Path $prefix 'share') ("async-agent.stage-{0}" -f [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $stage | Out-Null
 # The stage rides every exit path once created (the failure sweep at the bottom:
 # a failed extraction/validation must not leave the extracted payload
 # behind - the bots' finding).
-$script:primeAgentInstallStage = $stage
+$script:asyncAgentInstallStage = $stage
 & tar -xzf $tarball -C $stage
 if ($LASTEXITCODE -ne 0) { Fail "could not extract $expectedFile (tar exited $LASTEXITCODE)" }
-$payloadExe = Join-Path $stage 'prime-agent.exe'
-if (-not (Test-Path $payloadExe -PathType Leaf)) { Fail "the tarball did not contain a prime-agent.exe payload" }
+$payloadExe = Join-Path $stage 'async-agent.exe'
+if (-not (Test-Path $payloadExe -PathType Leaf)) { Fail "the tarball did not contain a async-agent.exe payload" }
 Step-Ok 'extracted' $expectedFile
 
-# The ownership marker (install-rust.sh's exact write shape — the update
+# The ownership marker (install.sh's exact write shape — the update
 # funnel's channel-stickiness read keys on it).
-$channelLine = "install-rust.sh channel $channel"
+$channelLine = "install.sh channel $channel"
 $marker = "$channelLine`nversion $version"
 # -Encoding Ascii keeps the marker byte-exact: Set-Content's default
 # encoding follows $PSDefaultParameterValues['*:Encoding'] (UTF-16 or a
 # BOM), and the update funnel's channel-stickiness read + the rollback's
 # marker validation grep the raw ASCII line.
-Set-Content -LiteralPath (Join-Path $stage '.prime-agent-install') -Value $marker -Encoding Ascii -NoNewline
+Set-Content -LiteralPath (Join-Path $stage '.async-agent-install') -Value $marker -Encoding Ascii -NoNewline
 
 # The launcher paths (the section below the publish writes both).
-$launcher = Join-Path $bin 'prime-agent.cmd'
-$shLauncher = Join-Path $bin 'prime-agent'
+$launcher = Join-Path $bin 'async-agent.cmd'
+$shLauncher = Join-Path $bin 'async-agent'
 
 # --- the publication lock (one writer): a lock DIRECTORY is the atomic
 # --- claim on Windows (mkdir wins exactly once); the holder's pid rides a
 # --- file inside, and a stale lock is never auto-stolen. THE LOCK COMES
 # --- FIRST: a failed lock claim must never have stopped a daemon (the
 # --- bots' finding - the stop-for-nothing downtime).
-$lockDir = Join-Path (Join-Path $prefix 'share') '.prime-agent-install.lock.d'
+$lockDir = Join-Path (Join-Path $prefix 'share') '.async-agent-install.lock.d'
 try {
     New-Item -ItemType Directory -Path $lockDir -ErrorAction Stop | Out-Null
 } catch {
@@ -444,7 +444,7 @@ try {
 }
 # The lock rides every exit path from here: Fail releases it, and the
 # publish's finally releases + clears it.
-$script:primeAgentInstallLock = $lockDir
+$script:asyncAgentInstallLock = $lockDir
 
 $published = $false
 $rollback = $null
@@ -453,14 +453,14 @@ $script:daemonStopped = $false
 # THE PREFLIGHT: every ownership refusal that can happen runs BEFORE the
 # daemon stop (a refused install must never have stopped a daemon - the
 # bots' finding: the stop-then-refuse order was the avoidable downtime).
-$rollback = Join-Path (Join-Path $prefix 'share') 'prime-agent.old'
+$rollback = Join-Path (Join-Path $prefix 'share') 'async-agent.old'
 if (Test-Path $share -PathType Container) {
-    $markerPath = Join-Path $share '.prime-agent-install'
+    $markerPath = Join-Path $share '.async-agent-install'
     if (-not (Test-Path $markerPath -PathType Leaf)) {
-        Fail "refusing to take ownership of ${share}: it is not a marked prime-agent payload tree (.prime-agent-install); move it aside and re-run"
+        Fail "refusing to take ownership of ${share}: it is not a marked async-agent payload tree (.async-agent-install); move it aside and re-run"
     }
     if (Test-Path $rollback) {
-        $rollbackMarker = Join-Path $rollback '.prime-agent-install'
+        $rollbackMarker = Join-Path $rollback '.async-agent-install'
         if (-not (Test-Path $rollbackMarker -PathType Leaf)) {
             Fail "refusing to delete the unmarked rollback directory: $rollback (move it aside and re-run)"
         }
@@ -471,20 +471,20 @@ try {
     # THE DAEMON STOP, inside the lock's try (a terminating error in the
     # stop must still release the lock - the bots' finding: the stale lock
     # otherwise left behind). THE TRUSTED STOP: the previous payload's own
-    # binary (the marked share tree's prime-agent.exe), never the launcher -
+    # binary (the marked share tree's async-agent.exe), never the launcher -
     # a launcher this installer has not verified is the unowned-execution
-    # shape (an attacker-placed bin\prime-agent.cmd would otherwise run
+    # shape (an attacker-placed bin\async-agent.cmd would otherwise run
     # with the installer's inherited environment); the share's ownership
     # marker gates the stop, and a fresh install (no marked payload yet)
     # has no daemon the stop could reach.
-    $payloadStopExe = Join-Path $share 'prime-agent.exe'
-    $shareMarker = Join-Path $share '.prime-agent-install'
+    $payloadStopExe = Join-Path $share 'async-agent.exe'
+    $shareMarker = Join-Path $share '.async-agent-install'
     if ((Test-Path $shareMarker -PathType Leaf) -and (Test-Path $payloadStopExe -PathType Leaf)) {
         Write-Host 'stopping the running Rust daemon before the publish (a Windows process holds its binary open)'
         # THE SCRIPTED FORM: the CLI's bare `shutdown` prompts for
         # confirmation in an interactive terminal and REFUSES a
         # non-interactive one ("Shutdown requires confirmation in an
-        # interactive terminal. Use prime-agent shutdown --force") - the
+        # interactive terminal. Use async-agent shutdown --force") - the
         # installer's context is the scripted one, so `--force` is the
         # documented non-interactive stop (the daemon's own forced
         # shutdown drains its workers with its internal budgets).
@@ -492,7 +492,7 @@ try {
         if ($LASTEXITCODE -eq 0) {
             $script:daemonStopped = $true
         } else {
-            Write-Warning "no daemon answered the shutdown request; if a daemon is running, stop it by hand (prime-agent shutdown --force) and re-run"
+            Write-Warning "no daemon answered the shutdown request; if a daemon is running, stop it by hand (async-agent shutdown --force) and re-run"
         }
     }
 
@@ -507,16 +507,16 @@ try {
         Write-Host "rollback: $rollback (the previous payload, one generation)"
     }
     [IO.Directory]::Move($stage, $share)
-    $script:primeAgentInstallStage = $null
+    $script:asyncAgentInstallStage = $null
     # The payload is live: no later launcher failure rolls it back (the new
-    # tree is valid; the restored launchers point at ../share/prime-agent/
-    # prime-agent.exe - the new payload - and keep working).
+    # tree is valid; the restored launchers point at ../share/async-agent/
+    # async-agent.exe - the new payload - and keep working).
     $published = $true
-    Step-Ok 'published' "prime-agent $version to $prefix"
+    Step-Ok 'published' "async-agent $version to $prefix"
 
     # --- the launcher pair: the cmd shim (cmd.exe + PowerShell) and the sh
     # --- launcher (Git Bash) - the same payload, both shells, the same
-    # --- content install-rust.sh writes. THE LOCK STAYS HELD through the
+    # --- content install.sh writes. THE LOCK STAYS HELD through the
     # --- launcher transaction (the bots' finding: a second installer must
     # --- not slip between the payload publish and the launcher write, or
     # --- its launcher would pair with this payload and a later failure of
@@ -558,17 +558,17 @@ try {
     try {
         $cmdShim = @'
 @echo off
-rem prime-agent - launcher written by install-rust.sh.
-if not defined PRIME_AGENT_CODING_AGENT_DIR set "PRIME_AGENT_CODING_AGENT_DIR=%USERPROFILE%\.prime\agent"
-"%~dp0..\share\prime-agent\prime-agent.exe" %*
+rem async-agent - launcher written by install.sh.
+if not defined ASYNC_AGENT_CODING_AGENT_DIR set "ASYNC_AGENT_CODING_AGENT_DIR=%USERPROFILE%\.async-agent"
+"%~dp0..\share\async-agent\async-agent.exe" %*
 '@
         Set-Content -LiteralPath $launcher -Value $cmdShim
 
         $shBody = @'
 #!/bin/sh
-# prime-agent — launcher written by install-rust.sh.
-export PRIME_AGENT_CODING_AGENT_DIR="${PRIME_AGENT_CODING_AGENT_DIR:-$HOME/.prime/agent}"
-exec "$(dirname "$0")/../share/prime-agent/prime-agent.exe" "$@"
+# async-agent — launcher written by install.sh.
+export ASYNC_AGENT_CODING_AGENT_DIR="${ASYNC_AGENT_CODING_AGENT_DIR:-$HOME/.async-agent}"
+exec "$(dirname "$0")/../share/async-agent/async-agent.exe" "$@"
 '@
         # LF endings + no BOM: the sh launcher must stay a POSIX file.
         [IO.File]::WriteAllText($shLauncher, $shBody.Replace("`r`n", "`n"))
@@ -616,7 +616,7 @@ exec "$(dirname "$0")/../share/prime-agent/prime-agent.exe" "$@"
             }
         }
         # A failed install sweeps its stage tree (the bots' finding: the
-        # accumulated prime-agent.stage-* directories).
+        # accumulated async-agent.stage-* directories).
         if ($stage -and (Test-Path $stage -PathType Container)) {
             Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
         }
@@ -625,26 +625,26 @@ exec "$(dirname "$0")/../share/prime-agent/prime-agent.exe" "$@"
         # the user never guesses - the next invocation boots the old
         # payload's daemon again.
         if ($script:daemonStopped) {
-            Write-Warning "the daemon stopped for this failed install stays down until the next prime-agent invocation boots it from the restored payload"
+            Write-Warning "the daemon stopped for this failed install stays down until the next async-agent invocation boots it from the restored payload"
         }
     }
     Remove-Item -Recurse -Force $lockDir -ErrorAction SilentlyContinue
-    $script:primeAgentInstallLock = $null
+    $script:asyncAgentInstallLock = $null
 }
 
-# --- the kernel pre-warm: uv + the Python venv (install-rust.sh
+# --- the kernel pre-warm: uv + the Python venv (install.sh
 # --- parity — the sh installer INSTALLS uv when it is missing and then
 # --- pre-warms the kernel; the ps1 mirrors the whole flow). THE SEPARATE
-# --- CHECKS (install-rust.sh's own discipline): the fetch and the script
+# --- CHECKS (install.sh's own discipline): the fetch and the script
 # --- run are verified one after the other, so a dead network cannot
 # --- masquerade as success — the astral script's own verdict is never
 # --- trusted, the uv.exe FILE decides. The destination rides the env
-# --- EXPLICITLY (UV_INSTALL_DIR, install-rust.sh's UV_INSTALL_DIR=
+# --- EXPLICITLY (UV_INSTALL_DIR, install.sh's UV_INSTALL_DIR=
 # --- "$uv_bin_dir"): the computed target wins over any inherited value,
 # --- and the caller's values come back. Offline the step degrades to the
-# --- honest note plus the exact manual command (install-rust.sh's
+# --- honest note plus the exact manual command (install.sh's
 # --- note/todo shape); the install itself still succeeds.
-# THE UV TARGET KNOB (install-rust.sh's own PRIME_AGENT_UV_BIN_DIR): an
+# THE UV TARGET KNOB (install.sh's own ASYNC_AGENT_UV_BIN_DIR): an
 # operator-set dir wins (a packaged install keeps uv inside its own tree,
 # the e2e harnesses point it at their scratch dir so a run never touches
 # the shared ~/.local/bin); without the knob the canonical ~/.local/bin is
@@ -652,7 +652,7 @@ exec "$(dirname "$0")/../share/prime-agent/prime-agent.exe" "$@"
 $uvInstallDir = Join-Path $HOME '.local\bin'
 # The knob's fully-qualified validation ran early with the other knobs
 # (before any side effect - see the validation block in the knobs section).
-if ($env:PRIME_AGENT_UV_BIN_DIR) { $uvInstallDir = $env:PRIME_AGENT_UV_BIN_DIR }
+if ($env:ASYNC_AGENT_UV_BIN_DIR) { $uvInstallDir = $env:ASYNC_AGENT_UV_BIN_DIR }
 $uvExe = Join-Path $uvInstallDir 'uv.exe'
 $uvDefaultExe = Join-Path (Join-Path $HOME '.local\bin') 'uv.exe'
 # THE THREE-WAY LOOKUP (the reviewer's finding): a usable uv is one on
@@ -680,7 +680,7 @@ if (-not $uvKnown) {
         if ((Test-Path $uvInstallerPath -PathType Leaf) -and ((Get-Item -LiteralPath $uvInstallerPath).Length -gt 0)) {
             $callerUvInstallDir = $env:UV_INSTALL_DIR
             $callerUvUnmanaged = $env:UV_UNMANAGED_INSTALL
-            $callerUvInstaller = $env:PRIME_AGENT_UV_INSTALLER
+            $callerUvInstaller = $env:ASYNC_AGENT_UV_INSTALLER
             try {
                 $env:UV_INSTALL_DIR = $uvInstallDir
                 $env:UV_UNMANAGED_INSTALL = $null
@@ -714,11 +714,11 @@ if (-not $uvKnown) {
                 # already runs UV_INSTALL_DIR through), and the child reads
                 # the variable - environment inheritance is OS semantics,
                 # no PowerShell parsing of the path happens at any version.
-                $env:PRIME_AGENT_UV_INSTALLER = $uvInstallerPath
+                $env:ASYNC_AGENT_UV_INSTALLER = $uvInstallerPath
                 $childScript = @"
 `$ProgressPreference = 'SilentlyContinue'
 `$VerbosePreference = 'SilentlyContinue'
-& `$env:PRIME_AGENT_UV_INSTALLER
+& `$env:ASYNC_AGENT_UV_INSTALLER
 "@
                 $childEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($childScript))
                 & $childShell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand $childEncoded *> $null
@@ -726,7 +726,7 @@ if (-not $uvKnown) {
             } finally {
                 $env:UV_INSTALL_DIR = $callerUvInstallDir
                 $env:UV_UNMANAGED_INSTALL = $callerUvUnmanaged
-                $env:PRIME_AGENT_UV_INSTALLER = $callerUvInstaller
+                $env:ASYNC_AGENT_UV_INSTALLER = $callerUvInstaller
             }
             if (-not (Test-Path $uvExe -PathType Leaf)) {
                 Step-Fail 'installing uv' "the uv installer exited $uvRunExit; uv.exe is missing"
@@ -750,9 +750,9 @@ if (-not $uvKnown) {
         Write-Host '  irm https://astral.sh/uv/install.ps1 | iex'
     }
 }
-# THE PRE-WARM'S PATH FIX (install-rust.sh's own): the product's ensure_uv
+# THE PRE-WARM'S PATH FIX (install.sh's own): the product's ensure_uv
 # searches PATH and ~/.local/bin/uv(.exe) - it does NOT know the
-# PRIME_AGENT_UV_BIN_DIR target - so the prepend serves the uv THIS RUN
+# ASYNC_AGENT_UV_BIN_DIR target - so the prepend serves the uv THIS RUN
 # installed or found at the target when nothing usable answers on PATH
 # (the reviewer's finding: a pre-warm whose uv is known but unfindable
 # fails). THE GUARD (the macroscope finding): a working PATH uv is never
@@ -767,7 +767,7 @@ if (-not $uvOnPath -and $uvAtTarget -and -not (Test-PathEntry $env:PATH $uvInsta
 }
 if ($uvKnown) {
     Write-Host 'kernel pre-warm: provisioning the Bun JavaScript kernel runtime'
-    & $launcher --prime-agent-bootstrap
+    & $launcher --async-agent-bootstrap
     if ($LASTEXITCODE -ne 0) {
         Step-Fail 'preparing the Bun kernel' 'the first session retries it online'
     } else {
@@ -779,14 +779,14 @@ if ($uvKnown) {
 
 # --- the PATH add (the operator's smoothness ask, 2026-10-06; the
 # --- windows-native shape of the sh installer's profile note) --------------------
-# Linux boxes usually carry ~/.local/bin on PATH already, so install-rust.sh
+# Linux boxes usually carry ~/.local/bin on PATH already, so install.sh
 # only PRINTS a profile note (it never edits a shell profile); a Windows
 # box has no %USERPROFILE%\.local\bin, and a printed-only note leaves the
 # fresh install unusable until the user edits their environment by hand.
 # Windows has a canonical user-PATH setting (the registry's User scope —
 # no admin needed), so the installer ADDS the launcher's bin dir there
 # itself: idempotent (appended only when the entry is absent, never
-# duplicated), mirrored into the CURRENT session so prime-agent works in
+# duplicated), mirrored into the CURRENT session so async-agent works in
 # this console immediately, and a new terminal picks it up (the
 # WM_SETTINGCHANGE broadcast tells the running shells the environment
 # changed, the same way setx does — best-effort; the registry write is
@@ -819,7 +819,7 @@ $pathAdded = $false
 foreach ($binDir in $pathDirs) {
     if (-not (Test-PathEntry $env:PATH $binDir)) {
         $env:PATH = "$env:PATH;$binDir"
-        Write-Host "PATH: added $binDir to this session - prime-agent works in this console now"
+        Write-Host "PATH: added $binDir to this session - async-agent works in this console now"
     }
     $envKey = $null
     try {
@@ -855,13 +855,13 @@ foreach ($binDir in $pathDirs) {
 }
 if ($pathAdded) {
     try {
-        if (-not ('prime_agent_install.Win32SendMessage' -as [type])) {
-            Add-Type -Namespace 'prime_agent_install' -Name 'Win32SendMessage' -MemberDefinition @'
+        if (-not ('async_agent_install.Win32SendMessage' -as [type])) {
+            Add-Type -Namespace 'async_agent_install' -Name 'Win32SendMessage' -MemberDefinition @'
 [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
 public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
 '@
         }
-        [prime_agent_install.Win32SendMessage]::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, 'Environment', 2, 5000, [ref]([UIntPtr]::Zero))
+        [async_agent_install.Win32SendMessage]::SendMessageTimeout([IntPtr]0xffff, 0x001A, [UIntPtr]::Zero, 'Environment', 2, 5000, [ref]([UIntPtr]::Zero))
     } catch {
         # The registry write stands; the broadcast is a courtesy (a re-login
         # reloads the environment too).
@@ -892,11 +892,11 @@ try {
 }
 Write-Host "launcher:  $launcher"
 Write-Host "payload:   $share"
-Write-Host "source:    the $channel channel at $baseUrl (prime-agent $version)"
+Write-Host "source:    the $channel channel at $baseUrl (async-agent $version)"
 Write-Host 'next steps: the README''s Install section ships inside the payload:'
 Write-Host "  $share\README.md"
 
-$script:primeAgentInstallScratch = $null
+$script:asyncAgentInstallScratch = $null
 $script:preservedLaunchers = @()
 $script:ownedLauncherBackups = @()
 if ($download) { Remove-Item -Recurse -Force $download -ErrorAction SilentlyContinue }
@@ -908,18 +908,18 @@ if ($download) { Remove-Item -Recurse -Force $download -ErrorAction SilentlyCont
     # lock; the publish's finally has already released it when the failure
     # came from there). The names were cleared at the top, so an ambient
     # caller's variables never enter the cleanup.
-    if ($script:primeAgentInstallScratch) {
-        Remove-Item -Recurse -Force $script:primeAgentInstallScratch -ErrorAction SilentlyContinue
+    if ($script:asyncAgentInstallScratch) {
+        Remove-Item -Recurse -Force $script:asyncAgentInstallScratch -ErrorAction SilentlyContinue
     }
-    if ($script:primeAgentInstallStage) {
-        Remove-Item -Recurse -Force $script:primeAgentInstallStage -ErrorAction SilentlyContinue
+    if ($script:asyncAgentInstallStage) {
+        Remove-Item -Recurse -Force $script:asyncAgentInstallStage -ErrorAction SilentlyContinue
     }
-    if ($script:primeAgentInstallLock) {
-        Remove-Item -Recurse -Force $script:primeAgentInstallLock -ErrorAction SilentlyContinue
+    if ($script:asyncAgentInstallLock) {
+        Remove-Item -Recurse -Force $script:asyncAgentInstallLock -ErrorAction SilentlyContinue
     }
-    $script:primeAgentInstallScratch = $null
-    $script:primeAgentInstallStage = $null
-    $script:primeAgentInstallLock = $null
+    $script:asyncAgentInstallScratch = $null
+    $script:asyncAgentInstallStage = $null
+    $script:asyncAgentInstallLock = $null
     if ($PSCommandPath) {
         $Host.UI.WriteErrorLine($_.Exception.Message)
         exit 1

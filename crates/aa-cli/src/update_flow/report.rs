@@ -1,7 +1,7 @@
 //! The terminal status report the invoking CLI prints from a terminal status: the
 //! `failures[]` detail, the restore counts, and the failure warning.
 
-use pa_types::daemon::update_flow::{UpdateState, UpdateStatus};
+use aa_types::daemon::update_flow::{UpdateState, UpdateStatus};
 
 /// The printed report: informational lines and warnings.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -24,7 +24,7 @@ impl UpdateReport {
             // TS #2515: the failed restart leaves the OLD daemon running (the update is
             // on disk but not live) - say what to do next.
             report.warnings.push(
-                "The daemon still runs the previous version; run `prime-agent shutdown`, then run `prime-agent` to restart and apply the update."
+                "The daemon still runs the previous version; run `async-agent shutdown`, then run `async-agent` to restart and apply the update."
                     .to_string(),
             );
         }
@@ -83,7 +83,7 @@ fn plural(count: u64) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::daemon::update_flow::{UpdateId, UpdateStatusCounts, UpdateStatusFailure};
+    use aa_types::daemon::update_flow::{UpdateId, UpdateStatusCounts, UpdateStatusFailure};
 
     fn status(state: UpdateState, counts: UpdateStatusCounts) -> UpdateStatus {
         UpdateStatus {
@@ -146,7 +146,7 @@ mod tests {
                 "Updated, but could not restart the daemon (boot timed out).",
                 // TS #2515: the second warning names the shutdown+restart hint (the old daemon is
                 // still running).
-                "The daemon still runs the previous version; run `prime-agent shutdown`, then run `prime-agent` to restart and apply the update.",
+                "The daemon still runs the previous version; run `async-agent shutdown`, then run `async-agent` to restart and apply the update.",
             ]
         );
         let running =

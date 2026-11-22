@@ -10,7 +10,7 @@ use std::os::unix::net::UnixListener;
 use std::path::Path;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::interactive::{HeadlessPlan, HeadlessStep};
+use aa_tui::interactive::{HeadlessPlan, HeadlessStep};
 
 use support::{
     attach_response, create_response, options, run_headless, serve_connection, write_json, Request,

@@ -16,7 +16,7 @@ fn resolve_provider(api: &str) -> Result<Arc<dyn crate::registry::Provider>, Pro
 
 /// Estimate a request's input tokens before it is sent: chars/4 over the text the provider will
 /// serialize, images at 1,200 tokens each (the session engine's compaction policy, restated:
-/// `pa-core` cannot be a dependency here).
+/// `aa-core` cannot be a dependency here).
 fn estimated_input_tokens(context: &Context) -> u64 {
     const TOOL_ENVELOPE_CHARS: u64 = 48;
     let mut chars = context

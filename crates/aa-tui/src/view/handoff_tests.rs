@@ -14,7 +14,7 @@ use crate::theme::{ColorMode, Theme};
 static HANDOFF_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 fn view() -> AgentView {
-    AgentView::new(Theme::builtin("prime", ColorMode::TrueColor))
+    AgentView::new(Theme::builtin("async", ColorMode::TrueColor))
 }
 
 /// A handful of settled one-row entries plus a wide tail entry (the

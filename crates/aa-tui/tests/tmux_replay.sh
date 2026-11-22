@@ -18,10 +18,10 @@
 #![allow(clippy::unnecessary_wraps)]
 
 #!/usr/bin/env bash
-# tmux verifier for the pa-tui lane.
+# tmux verifier for the aa-tui lane.
 #
-# Renders a captured real agent session (~/.prime/agent/sessions) in the
-# pa-tui agent view inside an 80x24 tmux session, captures the pane, and
+# Renders a captured real agent session (~/.async-agent/sessions) in the
+# aa-tui agent view inside an 80x24 tmux session, captures the pane, and
 # asserts the structural contract of the TS product's interactive view:
 #   - transcript content present (assistant markdown text, tool headers)
 #   - a full-width "─" separator above the editor (dynamic-border parity)
@@ -37,18 +37,18 @@
 # Usage: tests/tmux_replay.sh [path-to-session.jsonl]
 
 set -u
-BIN="${BIN:-$(dirname "$0")/../../../target/debug/pa-tui-replay}"
+BIN="${BIN:-$(dirname "$0")/../../../target/debug/aa-tui-replay}"
 SESSION="${1:-}"
 PANE_ROWS=24
 PANE_COLS=80
 
 if [ ! -x "$BIN" ]; then
-    echo "FAIL: binary not found at $BIN (run cargo build -p pa-tui)" >&2
+    echo "FAIL: binary not found at $BIN (run cargo build -p aa-tui)" >&2
     exit 1
 fi
 
 if [ -z "$SESSION" ]; then
-    SESSION=$(ls -t "$HOME"/.prime/agent/sessions/*.jsonl 2>/dev/null | head -1)
+    SESSION=$(ls -t "$HOME"/.async-agent/sessions/*.jsonl 2>/dev/null | head -1)
 fi
 if [ -z "${SESSION:-}" ] || [ ! -f "$SESSION" ]; then
     echo "FAIL: no session file to replay" >&2
@@ -139,7 +139,7 @@ tmux send-keys -t "$SESSION_NAME" C-c
 sleep 2
 CMD=$(tmux display-message -t "$SESSION_NAME" -p '#{pane_current_command}' 2>/dev/null || true)
 case "$CMD" in
-    pa-tui-replay|'' ) echo "FAIL: ctrl+c did not exit (pane: ${CMD:-gone})" >&2; fails=$((fails+1));;
+    aa-tui-replay|'' ) echo "FAIL: ctrl+c did not exit (pane: ${CMD:-gone})" >&2; fails=$((fails+1));;
     *) echo "ok: ctrl+c exited (pane now: $CMD)";;
 esac
 

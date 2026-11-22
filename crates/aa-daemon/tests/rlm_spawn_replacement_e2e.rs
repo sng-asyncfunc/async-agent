@@ -29,9 +29,9 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use pa_core::session_engine::rlm_host::{RlmSpawnRequest, RlmSubagentHost};
-use pa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
-use pa_daemon::supervisor_link::SupervisorLink;
+use aa_core::session_engine::rlm_host::{RlmSpawnRequest, RlmSubagentHost};
+use aa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
+use aa_daemon::supervisor_link::SupervisorLink;
 use serde_json::{json, Value};
 
 struct Daemon {
@@ -51,7 +51,7 @@ impl Drop for Daemon {
 // immediately afterwards, reaping it.
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
@@ -69,7 +69,7 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
         // into later test binaries: the worker's supervisor-lost exit runs
         // on this short window instead of the 5-minute default.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         // The worker-connect budget must survive parallel-load e2e runs
@@ -77,7 +77,7 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
         // under the spawn admission's 120s link budget.
         .env("PA_DAEMON_WORKER_CONNECT_TIMEOUT_MS", "90000")
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_mins(1);
     while Instant::now() < deadline {
         if UnixStream::connect(socket).is_ok() {
@@ -121,7 +121,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize command");
@@ -205,7 +205,7 @@ fn children(socket: &Path, agent_dir: &Path, script: &Path) -> SupervisorChildSe
         Arc::new(SupervisorLink::new(socket.to_path_buf())),
         agent_dir.to_path_buf(),
         "parent-active-id".to_string(),
-        std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+        std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
             agent_dir.to_path_buf(),
             /*telemetry_disabled*/ true,
         )),
@@ -258,7 +258,7 @@ fn child_session_file(agent_dir: &Path, child_id: &str) -> PathBuf {
 }
 
 fn worker_pid(agent_dir: &Path, socket: &Path, worker_id: &str) -> u32 {
-    let descriptor_dir = pa_daemon::descriptor::descriptor_dir(agent_dir, socket);
+    let descriptor_dir = aa_daemon::descriptor::descriptor_dir(agent_dir, socket);
     let path = descriptor_dir.join(format!("{worker_id}.json"));
     let content = std::fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("read worker descriptor {}: {error}", path.display()));

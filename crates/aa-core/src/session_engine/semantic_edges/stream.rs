@@ -4,10 +4,10 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use pa_agent::stream::{
+use aa_agent::stream::{
     AssistantMessageEvent, LlmContext, ModelStream, StreamFn, StreamRequestOptions,
 };
-use pa_agent::types::{AssistantMessage, Model, StopReason};
+use aa_agent::types::{AssistantMessage, Model, StopReason};
 use sha2::{Digest as _, Sha256};
 
 use super::{model_request_headers, SemanticEdgeRecorder};
@@ -117,11 +117,11 @@ impl SemanticStream {
 }
 
 impl ModelStream for SemanticStream {
-    fn next_event(&mut self) -> pa_agent::BoxFut<'_, Option<AssistantMessageEvent>> {
+    fn next_event(&mut self) -> aa_agent::BoxFut<'_, Option<AssistantMessageEvent>> {
         self.inner.next_event()
     }
 
-    fn result(&mut self) -> pa_agent::BoxFut<'_, anyhow::Result<AssistantMessage>> {
+    fn result(&mut self) -> aa_agent::BoxFut<'_, anyhow::Result<AssistantMessage>> {
         Box::pin(async move {
             let message = self.inner.result().await;
             match &message {

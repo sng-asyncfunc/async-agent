@@ -4,7 +4,7 @@
 //! without `type` tags — because the harness and the real engine both emit.
 
 use crate::chat::{AssistantMessage, ChatEntry, MessageBlock, ToolCallCard, ToolResultView};
-use pa_types::daemon::{DaemonEventCursor, DaemonReplayInfo};
+use aa_types::daemon::{DaemonEventCursor, DaemonReplayInfo};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -60,7 +60,7 @@ pub struct Reconstructed {
     pub event_generation: String,
     /// The session's goal state (`state.goal`), when the snapshot
     /// reports one.
-    pub goal: Option<pa_types::goal::GoalState>,
+    pub goal: Option<aa_types::goal::GoalState>,
     pub last_event_sequence: u64,
     /// Whether the attach supplied the resume cursor (sequence AND
     /// generation): the handoff refuses to key on the collapsed
@@ -367,7 +367,7 @@ pub fn reconstruct(attach: &AttachData) -> Reconstructed {
         && !session_id.is_empty();
     let goal = state
         .and_then(|state| state.get("goal"))
-        .and_then(|goal| serde_json::from_value::<pa_types::goal::GoalState>(goal.clone()).ok());
+        .and_then(|goal| serde_json::from_value::<aa_types::goal::GoalState>(goal.clone()).ok());
     let actions = state.and_then(|state| state.get("sessionActions")).cloned();
     let queued = crate::queued::QueuedMessages {
         steering: actions
@@ -449,7 +449,7 @@ fn message_timestamp_ms(message: &Value) -> Option<u64> {
                 .filter(|value| value.is_finite())
                 .map(|value| value.max(0.0) as u64)
         }),
-        Some(Value::String(iso)) => pa_types::incident::timestamp_to_ms(iso)
+        Some(Value::String(iso)) => aa_types::incident::timestamp_to_ms(iso)
             .filter(|ms| *ms > 0)
             .map(|ms| ms as u64),
         _ => None,

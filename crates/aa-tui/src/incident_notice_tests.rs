@@ -3,7 +3,7 @@
 
 use super::*;
 
-const DAEMON_SOCKET: &str = "/tmp/prime-agent-501/daemon.sock";
+const DAEMON_SOCKET: &str = "/tmp/async-agent-501/daemon.sock";
 
 fn log_line(fields: &[(&str, serde_json::Value)]) -> IncidentLogEntry {
     let mut record = serde_json::Map::new();
@@ -46,7 +46,7 @@ fn supervisor_start_line(base_ms: i64, minutes_ago: i64, generation: &str) -> In
         (
             "msg",
             serde_json::json!(format!(
-                "Prime Agent daemon supervisor {generation} listening on {DAEMON_SOCKET}"
+                "Async Agent daemon supervisor {generation} listening on {DAEMON_SOCKET}"
             )),
         ),
         ("socketPath", serde_json::json!(DAEMON_SOCKET)),
@@ -92,8 +92,8 @@ const BASE_MS: i64 = 1_789_597_800_000; // 2026-09-16T22:30:00Z
 fn anchors_each_subjects_timeout_burst_at_its_own_clusters_latest_timeout() {
     // Several daemon sockets, each with its own stall: the per-subject
     // cluster lookup must never leak or mis-anchor across subjects.
-    let other_socket = "/tmp/prime-agent-501/daemon-other.sock";
-    let spaced_socket = "/tmp/prime-agent-501/daemon-spaced.sock";
+    let other_socket = "/tmp/async-agent-501/daemon-other.sock";
+    let spaced_socket = "/tmp/async-agent-501/daemon-spaced.sock";
     let mut entries = Vec::new();
     for minutes in [200, 190, 180, 30, 29] {
         entries.push(command_timeout_line(BASE_MS, minutes, spaced_socket));
@@ -169,13 +169,13 @@ fn the_notice_time_formats_like_the_ts_label_style() {
         "22:28"
     );
     let yesterday =
-        pa_types::incident::timestamp_to_ms("2026-09-15T22:30:00.000Z").expect("the fixture date");
+        aa_types::incident::timestamp_to_ms("2026-09-15T22:30:00.000Z").expect("the fixture date");
     assert_eq!(
         format_incident_notice_time(yesterday, BASE_MS),
         "9/15 22:30"
     );
     let last_year =
-        pa_types::incident::timestamp_to_ms("2025-03-05T01:02:03.000Z").expect("the fixture date");
+        aa_types::incident::timestamp_to_ms("2025-03-05T01:02:03.000Z").expect("the fixture date");
     assert_eq!(
         format_incident_notice_time(last_year, BASE_MS),
         "25/3/5 01:02"
@@ -287,7 +287,7 @@ fn skips_the_old_bridge_when_a_rotation_makes_it_the_live_logs_own_generation() 
     let start = serde_json::json!({
         "ts": ts_ago(BASE_MS, 600 * 60_000),
         "component": "coding-agent.daemon-supervisor",
-        "msg": format!("Prime Agent daemon supervisor e14de15c listening on {DAEMON_SOCKET}"),
+        "msg": format!("Async Agent daemon supervisor e14de15c listening on {DAEMON_SOCKET}"),
         "socketPath": DAEMON_SOCKET,
         "pid": 15026,
     })

@@ -1,4 +1,4 @@
-//! The `prime-agent update` driver: the invoking CLI's phases (spec §4
+//! The `async-agent update` driver: the invoking CLI's phases (spec §4
 //! `Acquire`..`Staged`) plus the spawn of the detached coordinator and the
 //! status tail. The terminal status drives the printed report and the exit
 //! code.
@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use pa_types::daemon::update_flow::{UpdateState, UpdateStatus, UpdateTimeoutBudget};
+use aa_types::daemon::update_flow::{UpdateState, UpdateStatus, UpdateTimeoutBudget};
 
 use super::intent::{acquire, hand_over, release, status_path_for, AcquireOutcome};
 use super::plan::{plan, UpdatePlan};
@@ -26,7 +26,7 @@ const TAIL_POLL: std::time::Duration = std::time::Duration::from_millis(50);
 pub struct UpdateCommandOptions {
     pub force: bool,
     pub rollback: bool,
-    pub channel: Option<pa_core::update::version::UpdateChannel>,
+    pub channel: Option<aa_core::update::version::UpdateChannel>,
     /// The manual/direct install: stage this local payload (a release
     /// archive or a payload directory) instead of resolving the channel.
     pub archive: Option<std::path::PathBuf>,
@@ -35,7 +35,7 @@ pub struct UpdateCommandOptions {
     pub source: Option<String>,
 }
 
-/// `prime-agent update`: plan, stage, spawn the coordinator, and relay its
+/// `async-agent update`: plan, stage, spawn the coordinator, and relay its
 /// terminal status. Returns the process exit code.
 ///
 /// # Errors
@@ -43,13 +43,13 @@ pub struct UpdateCommandOptions {
 /// the lock, a status write, or the coordinator spawn fails.
 pub async fn run_update_command(options: &UpdateCommandOptions) -> Result<i32> {
     let agent_dir = crate::config::get_agent_dir();
-    let socket_path = pa_daemon::socket::default_daemon_socket_path();
+    let socket_path = aa_daemon::socket::default_daemon_socket_path();
     let install_root = super::activation_root().map_err(|_| {
         anyhow::anyhow!(
-            "This compiled application is not owned by the Prime Agent installer. Update it using its original installer."
+            "This compiled application is not owned by the Async Agent installer. Update it using its original installer."
         )
     })?;
-    let update_id = pa_types::daemon::update_flow::UpdateId::from(uuid::Uuid::now_v7().to_string());
+    let update_id = aa_types::daemon::update_flow::UpdateId::from(uuid::Uuid::now_v7().to_string());
     let status_path = status_path_for(&agent_dir, &socket_path.to_string_lossy());
 
     match acquire(
@@ -73,7 +73,7 @@ pub async fn run_update_command(options: &UpdateCommandOptions) -> Result<i32> {
     let mut phases = PhaseTelemetry::open();
     writer.set_state(UpdateState::Planning)?;
     let budget = UpdateTimeoutBudget::from_env();
-    let download_base = std::env::var("PRIME_AGENT_DOWNLOAD_BASE_URL").ok();
+    let download_base = std::env::var("ASYNC_AGENT_DOWNLOAD_BASE_URL").ok();
     let planned = if options.archive.is_some() {
         plan_direct(&install_root, options).await
     } else {
@@ -100,22 +100,22 @@ pub async fn run_update_command(options: &UpdateCommandOptions) -> Result<i32> {
             writer.set_state(UpdateState::Downloading)?;
             phases.phase(writer.current());
             let archive = agent_dir.join(format!("update-{update_id}.tar.gz"));
-            pa_core::update::download::download_archive(
+            aa_core::update::download::download_archive(
                 &archive_url,
                 &archive_sha256,
                 &archive,
-                pa_core::update::download::DownloadBudget {
+                aa_core::update::download::DownloadBudget {
                     total_ms: budget.download_ms,
                     attempts: budget.download_attempts,
                 },
-                &pa_core::update::release::update_user_agent(version.as_str()),
+                &aa_core::update::release::update_user_agent(version.as_str()),
             )
             .await
             .with_context(|| "the release download failed; the installed version was kept")?;
             // `Staged`: extract, validate, and probe the candidate.
             writer.set_state(UpdateState::Staged)?;
             phases.phase(writer.current());
-            let release_dir = pa_core::update::download::stage_archive(
+            let release_dir = aa_core::update::download::stage_archive(
                 &archive,
                 &archive_sha256,
                 &install_root,
@@ -123,8 +123,8 @@ pub async fn run_update_command(options: &UpdateCommandOptions) -> Result<i32> {
                 base_url.as_str(),
             )?;
             let _ = std::fs::remove_file(&archive);
-            super::swap::validate_candidate(&release_dir.join("prime-agent"), &version).await?;
-            (release_dir.join("prime-agent"), release_dir)
+            super::swap::validate_candidate(&release_dir.join("async-agent"), &version).await?;
+            (release_dir.join("async-agent"), release_dir)
         }
         Ok(UpdatePlan::Direct {
             version,
@@ -134,8 +134,8 @@ pub async fn run_update_command(options: &UpdateCommandOptions) -> Result<i32> {
             // the probe below re-checks the binary's `--version`.
             writer.set_state(UpdateState::Staged)?;
             phases.phase(writer.current());
-            super::swap::validate_candidate(&candidate_dir.join("prime-agent"), &version).await?;
-            (candidate_dir.join("prime-agent"), candidate_dir)
+            super::swap::validate_candidate(&candidate_dir.join("async-agent"), &version).await?;
+            (candidate_dir.join("async-agent"), candidate_dir)
         }
         Ok(UpdatePlan::Rollback {
             coordinator_exe,
@@ -189,9 +189,9 @@ pub async fn run_update_command(options: &UpdateCommandOptions) -> Result<i32> {
         .stderr(std::process::Stdio::null());
     // The coordinator must survive the CLI and its terminal closing.
     #[cfg(unix)]
-    pa_core::platform::process::set_new_session(&mut command);
+    aa_core::platform::process::set_new_session(&mut command);
     #[cfg(not(unix))]
-    pa_core::platform::process::set_new_process_group(&mut command);
+    aa_core::platform::process::set_new_process_group(&mut command);
     let mut child = command.spawn().with_context(|| {
         format!(
             "spawn the update coordinator at {}",
@@ -243,9 +243,9 @@ async fn plan_direct(
     }
     // The active launcher must name a valid release before anything is replaced: the coordinator
     // records it as the rollback target.
-    if pa_core::update::install::read_installation(
+    if aa_core::update::install::read_installation(
         install_root,
-        pa_core::update::install::CURRENT_LAUNCHER,
+        aa_core::update::install::CURRENT_LAUNCHER,
     )
     .is_err()
     {
@@ -254,7 +254,7 @@ async fn plan_direct(
         );
     }
     let (candidate_dir, version) =
-        pa_core::update::download::stage_local_payload(archive, install_root, source).await?;
+        aa_core::update::download::stage_local_payload(archive, install_root, source).await?;
     Ok(UpdatePlan::Direct {
         version,
         candidate_dir,
@@ -346,14 +346,14 @@ async fn tail_status_with(
 fn unreported(status_path: &std::path::Path, message: &str) -> UpdateStatus {
     let mut status = read_status(status_path).unwrap_or_else(|| UpdateStatus {
         version: 1,
-        update_id: pa_types::daemon::update_flow::UpdateId::from(String::new()),
+        update_id: aa_types::daemon::update_flow::UpdateId::from(String::new()),
         socket_path: String::new(),
         state: UpdateState::Failed,
         epoch: 0,
         coordinator: None,
         predecessor: None,
         successor: None,
-        counts: pa_types::daemon::update_flow::UpdateStatusCounts::default(),
+        counts: aa_types::daemon::update_flow::UpdateStatusCounts::default(),
         failures: Vec::new(),
         message: Some(message.to_string()),
         started_at: String::new(),
@@ -404,7 +404,7 @@ fn phase_status_line(state: UpdateState) -> Option<&'static str> {
 /// One `update_<phase>` telemetry event per status-file transition (spec §11: the
 /// invoker owns the emission). Primitives only.
 struct PhaseTelemetry {
-    client: Option<pa_telemetry::TelemetryClient>,
+    client: Option<aa_telemetry::TelemetryClient>,
     last_observed: Option<std::time::Instant>,
     /// States already emitted: the CLI emits Downloading/Staged directly, so
     /// the tail's first observation must not duplicate them.
@@ -419,11 +419,11 @@ impl PhaseTelemetry {
     fn open() -> Self {
         let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
         let agent_dir = crate::config::get_agent_dir();
-        let settings = pa_core::settings::SettingsManager::create(&cwd, &agent_dir);
+        let settings = aa_core::settings::SettingsManager::create(&cwd, &agent_dir);
         let client = if crate::mode::telemetry_disabled(&settings) {
             None
         } else {
-            Some(pa_core::session_engine::telemetry::build_client(
+            Some(aa_core::session_engine::telemetry::build_client(
                 &settings, &agent_dir,
             ))
         };
@@ -460,7 +460,7 @@ impl PhaseTelemetry {
         let Some(event) = v1_event else {
             return;
         };
-        let mut properties = pa_telemetry::base_properties("cli");
+        let mut properties = aa_telemetry::base_properties("cli");
         properties.set("phase", serde_json::Value::from(event));
         properties.set("duration_ms", serde_json::Value::from(duration_ms));
         if status.state.is_terminal() {
@@ -492,7 +492,7 @@ impl PhaseTelemetry {
         let Some((stage, outcome, reason)) = mapping else {
             return;
         };
-        let mut event = pa_telemetry::AgentInstallationStage {
+        let mut event = aa_telemetry::AgentInstallationStage {
             installation_attempt_id: status.update_id.to_string(),
             installation_action: "update",
             installation_source: "cli",
@@ -575,12 +575,12 @@ fn phase_event_name(state: UpdateState) -> Option<&'static str> {
 async fn track_update_completed(status: &UpdateStatus) {
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let agent_dir = crate::config::get_agent_dir();
-    let settings = pa_core::settings::SettingsManager::create(&cwd, &agent_dir);
+    let settings = aa_core::settings::SettingsManager::create(&cwd, &agent_dir);
     if crate::mode::telemetry_disabled(&settings) {
         return;
     }
-    let client = pa_core::session_engine::telemetry::build_client(&settings, &agent_dir);
-    let mut properties = pa_telemetry::base_properties("cli");
+    let client = aa_core::session_engine::telemetry::build_client(&settings, &agent_dir);
+    let mut properties = aa_telemetry::base_properties("cli");
     properties.set(
         "outcome",
         serde_json::Value::from(
@@ -621,7 +621,7 @@ pub async fn run_coordinator_mode(
     let agent_dir = crate::config::get_agent_dir();
     // TS parity: the status file belongs under the agent dir's `update-restarts/` - the coordinator
     // never writes status elsewhere.
-    let restarts_dir = pa_types::daemon::update_flow::update_restarts_dir(&agent_dir);
+    let restarts_dir = aa_types::daemon::update_flow::update_restarts_dir(&agent_dir);
     if !status_path.starts_with(&restarts_dir) {
         eprintln!("Invalid daemon update restart coordinator invocation.");
         return Ok(1);
@@ -660,7 +660,7 @@ mod tests {
     async fn an_exited_coordinator_fails_without_waiting_for_the_heartbeat_timeout() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("status.json");
-        let id = pa_types::daemon::update_flow::UpdateId::from("exited-child".to_string());
+        let id = aa_types::daemon::update_flow::UpdateId::from("exited-child".to_string());
         let mut writer = StatusWriter::new(&path, &id, "/tmp/unused-update.sock").unwrap();
         writer.set_state(UpdateState::Planning).unwrap();
         writer.set_state(UpdateState::Downloading).unwrap();

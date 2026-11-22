@@ -1,4 +1,4 @@
-//! Minimal structured logger shared by pa-ai and its consumers: entries go to an injectable sink;
+//! Minimal structured logger shared by aa-ai and its consumers: entries go to an injectable sink;
 //! the library never writes files and logging must never throw into the caller.
 
 use std::io::Write as _;

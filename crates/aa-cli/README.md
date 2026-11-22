@@ -1,18 +1,18 @@
-# pa-cli
+# aa-cli
 
-The `prime-agent` binary.
+The `async-agent` binary.
 
 ## Scope
-Argument parsing, mode selection (interactive/headless/json/daemon subcommands), binary wiring of crates into processes, exit codes and user-facing errors. The daemon-forensics CLI (`incident.rs`, TS `src/cli/incident.ts`): the `prime-agent incident` timeline command — log-source discovery (agent.jsonl plus its `.old` rotation, falling back to the newest per-daemon log), `--since`/`--until` window and `--session` filter parsing, and the report rendering; the shared classifier lives in pa-types (`pa_types::incident`) and the agents-view notice in pa-tui. Client-side MCP auth flows (`mcp_login.rs`): the `/mcp login`/`/mcp logout` hook the TUI calls — the TS interactive client's placement — resolving a server (settings `mcpServers` + the builtin catalog), running the pa-core OAuth login on the suspended terminal, and persisting through the shared auth store. The same placement serves the TUI's client-command hooks: provider auth (`provider_login.rs` — the `/login`/`/logout` catalog, the API-key store, the MCP device flow, the Prime Inference terminal login (`prime_inference_login.rs` — the API-key flow: prime-cli credential reuse, the paste prompt with the whoami access check, the numbered team selector); the subscription OAuth and the Prime browser challenge stay unported and report it), trace-sharing state (`client_traces.rs` — the settings flag writes and the credential resolution `/traces` shows; the upload subsystem stays unported), and the `/update` runner (`client_update.rs` — the out-of-band installer funnel with the output captured, the same body `prime-agent update` runs; `installer_update.rs` is that CLI command's own driver, `--check` included), plus the staged update flow (`update_flow/`, `self_update.rs` — the `package update` self target's body).
+Argument parsing, mode selection (interactive/headless/json/daemon subcommands), binary wiring of crates into processes, exit codes and user-facing errors. The daemon-forensics CLI (`incident.rs`, TS `src/cli/incident.ts`): the `async-agent incident` timeline command — log-source discovery (agent.jsonl plus its `.old` rotation, falling back to the newest per-daemon log), `--since`/`--until` window and `--session` filter parsing, and the report rendering; the shared classifier lives in aa-types (`aa_types::incident`) and the agents-view notice in aa-tui. Client-side MCP auth flows (`mcp_login.rs`): the `/mcp login`/`/mcp logout` hook the TUI calls — the TS interactive client's placement — resolving a server (settings `mcpServers` + the builtin catalog), running the aa-core OAuth login on the suspended terminal, and persisting through the shared auth store. The same placement serves the TUI's client-command hooks: provider auth (`provider_login.rs` — the `/login`/`/logout` catalog, the API-key store, the MCP device flow, the Prime Inference terminal login (`prime_inference_login.rs` — the API-key flow: prime-cli credential reuse, the paste prompt with the whoami access check, the numbered team selector); the subscription OAuth and the Prime browser challenge stay unported and report it), trace-sharing state (`client_traces.rs` — the settings flag writes and the credential resolution `/traces` shows; the upload subsystem stays unported), and the `/update` runner (`client_update.rs` — the out-of-band installer funnel with the output captured, the same body `async-agent update` runs; `installer_update.rs` is that CLI command's own driver, `--check` included), plus the staged update flow (`update_flow/`, `self_update.rs` — the `package update` self target's body).
 
 ## Non-goals
-No business logic; it composes pa-daemon, pa-core, pa-tui, pa-ai via their public APIs only.
+No business logic; it composes aa-daemon, aa-core, aa-tui, aa-ai via their public APIs only.
 
 ## Public API
-The `prime-agent` executable surface (flags, subcommands, exit codes). Internal lib types `pub(crate)`, plus the daemon wiring (`interactive_mode::{ensure_daemon_running, ensure_daemon_running_with, resolve_socket_path}`) exported for the integration verifier.
+The `async-agent` executable surface (flags, subcommands, exit codes). Internal lib types `pub(crate)`, plus the daemon wiring (`interactive_mode::{ensure_daemon_running, ensure_daemon_running_with, resolve_socket_path}`) exported for the integration verifier.
 
 ## Depends on
-pa-types, pa-ai, pa-agent, pa-core, pa-daemon, pa-tui (one-way, composition root).
+aa-types, aa-ai, aa-agent, aa-core, aa-daemon, aa-tui (one-way, composition root).
 
 ## Print runtime
 The headless print/json modes (`print_runtime.rs`) drive the in-process
@@ -22,7 +22,7 @@ model-requested compaction/refinement consumption, and the threshold arm,
 the TS `_checkCompaction` flow), the json event stream, and the headless
 terminal selection (stdout/stderr/exit code) mirroring modes/print-mode.ts.
 Autonomous continuation (print_autonomous.rs, the #254 follow-up): the
-composed in-run continuation hook (the pa-agent loop's
+composed in-run continuation hook (the aa-agent loop's
 `getContinuationMessages` seam) runs the natural continuations inside
 the one agent run (the TS shape: `turn_end` -> `turn_start` with the
 continuation user row between them, no run boundary); the goal arm runs
@@ -48,7 +48,7 @@ disposal (kernels snapshotted, drivers joined; no child outlives the
 process).
 Session slash commands (`print_session_command.rs`, the #253 residue): print
 prompts that are `/compact`, `/refine`, `/goal`, or `/autonomous` execute
-through the pa-core session-command executor (the daemon worker's seam — no
+through the aa-core session-command executor (the daemon worker's seam — no
 parallel implementation), streaming the TS shapes: the
 `session_action_update` phase frames around the durable echo row, the
 per-command events (`compaction_start`/`compaction_end` for `/compact`, the
@@ -71,7 +71,7 @@ frames of the goal loop, and the refinement rows with
 
 ## Daemon client
 The daemon-backed public commands (`list`, `stop`, `rename`, `send`, `schedule`) talk to the
-pa-daemon supervisor over its JSONL Unix socket through the crate-private client module
+aa-daemon supervisor over its JSONL Unix socket through the crate-private client module
 (`daemon_client.rs`). The client never spawns a daemon - the TS CLI only auto-starts one for
 the internal `daemon start`/`open` commands, which are not reachable from the public surface.
 
@@ -79,10 +79,10 @@ the internal `daemon start`/`open` commands, which are not reachable from the pu
 
 The release artifact is exe-adjacent (TS install.sh native layout): the binary
 plus `package.json` (the version manifest `--version` reads at runtime, with
-the compiled-in version as the fallback), `prime-agent-runtime/` (the kernel
+the compiled-in version as the fallback), `async-agent-runtime/` (the kernel
 sidecar), `skills/`, and `docs/`. `scripts/package_release.py` (`make package`)
 assembles, validates, version-pins, hashes, and tars it; the hidden
-`--prime-agent-bootstrap` flag is the installer handoff that pre-bootstraps the
+`--async-agent-bootstrap` flag is the installer handoff that pre-bootstraps the
 kernel venv. Verifier: `tests/packaged_layout_e2e.rs`.
 
 ## Daemon discovery
@@ -96,7 +96,7 @@ test-created fixture directories only.
 
 ## Update flow (staged activation)
 
-`prime-agent update` (the `update_flow` module): the invoking CLI plans, downloads, and
+`async-agent update` (the `update_flow` module): the invoking CLI plans, downloads, and
 stages the candidate (`Acquire`..`Staged`), then spawns the detached
 coordinator - the new binary running from its release dir - which adopts the
 status file and owns the FSM to a terminal state (`Preparing..Complete`,
@@ -105,8 +105,8 @@ live holder, dead-holder steal), the status file keeps the TS schema plus
 `updateId`/`state`/`epoch`, and the activation owns the bin-symlink swap
 (`bin/previous` rollback pointer, `.activation-state` recovery record).
 Mechanism support (version/channel policy, install-root layout, manifest
-fetch, archive staging) lives in pa-core's `update` module; the daemon-side
-prepare/commit/stop drivers and the boot restore pass are pa-daemon
+fetch, archive staging) lives in aa-core's `update` module; the daemon-side
+prepare/commit/stop drivers and the boot restore pass are aa-daemon
 (slices 2-3 and 5): the coordinator's `Restoring` phase polls the
 successor's `update_restore_status` RPC for the real per-session counts.
 The legacy restart adapter accepts the fresh status path supplied by shipped

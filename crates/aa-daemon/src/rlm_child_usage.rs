@@ -6,8 +6,8 @@
 //! non-message rows (compactions, side calls) take the origin of the turn they
 //! follow.
 
-use pa_types::ai::Usage;
-use pa_types::session::ChildUsageOrigin;
+use aa_types::ai::Usage;
+use aa_types::session::ChildUsageOrigin;
 
 use crate::session_store::SessionEntry;
 
@@ -37,7 +37,7 @@ fn child_usage_origin(entries: &[SessionEntry], assistant_index: usize) -> Child
             .fields
             .get("customType")
             .and_then(serde_json::Value::as_str)
-            == Some(pa_core::session_engine::agent_messaging::AGENT_MESSAGE_CUSTOM_TYPE);
+            == Some(aa_core::session_engine::agent_messaging::AGENT_MESSAGE_CUSTOM_TYPE);
         let message_id = entry
             .fields
             .get("details")
@@ -124,7 +124,7 @@ pub(crate) fn child_usage_batches(
         let origin = child_usage_origin(entries, origin_row);
         match batches.iter_mut().find(|(origin_, _)| *origin_ == origin) {
             Some((_, total)) => {
-                pa_core::session_engine::rlm_usage::add_assistant_usage(total, &usage);
+                aa_core::session_engine::rlm_usage::add_assistant_usage(total, &usage);
             }
             None => batches.push((origin, usage)),
         }

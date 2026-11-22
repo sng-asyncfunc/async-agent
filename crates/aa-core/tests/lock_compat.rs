@@ -17,14 +17,14 @@
 use std::path::Path;
 use std::time::Duration;
 
-use pa_core::auth::{AuthStorageBackend, FileAuthStorageBackend};
-use pa_core::settings::{FileSettingsStorage, SettingsScope, SettingsStorage};
+use aa_core::auth::{AuthStorageBackend, FileAuthStorageBackend};
+use aa_core::settings::{FileSettingsStorage, SettingsScope, SettingsStorage};
 
 /// Every staleness threshold in play is far below this.
 const STALE: Duration = Duration::from_secs(10);
 
 fn lock_path(file: &Path) -> std::path::PathBuf {
-    pa_core::platform::LockDir::path_for(file)
+    aa_core::platform::LockDir::path_for(file)
 }
 
 /// Set a path's mtime far in the past, the way a crashed holder's artifact looks after a while.
@@ -107,7 +107,7 @@ fn settings_write_reports_contention_on_a_live_lock_directory() {
     let dir = tempfile::tempdir().unwrap();
     let settings = dir.path().join("agent").join("settings.json");
     std::fs::create_dir_all(settings.parent().unwrap()).unwrap();
-    let guard = pa_core::platform::LockDir::acquire(&settings, STALE).unwrap();
+    let guard = aa_core::platform::LockDir::acquire(&settings, STALE).unwrap();
     let storage = FileSettingsStorage::new(dir.path().join("cwd"), dir.path().join("agent"));
     let error = storage
         .with_lock(SettingsScope::Global, &mut |_| Some("{}".to_string()))

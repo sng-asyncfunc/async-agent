@@ -75,7 +75,7 @@ impl SessionEngine for AgentSessionEngine {
             })
             .as_ref()
             .and_then(|goal| serde_json::to_value(goal).ok())
-            .or_else(|| serde_json::to_value(pa_core::goals::empty_goal_state()).ok())
+            .or_else(|| serde_json::to_value(aa_core::goals::empty_goal_state()).ok())
             .unwrap_or(Value::Null)
     }
 
@@ -98,9 +98,9 @@ impl SessionEngine for AgentSessionEngine {
             // carries the corpse's verdict).
             if last_turn
                 .as_ref()
-                .is_some_and(|turn: &pa_agent::types::AssistantMessage| {
-                    turn.stop_reason == pa_agent::types::StopReason::Error
-                        || pa_core::session_engine::goal_driver::turn_produced_no_output(turn)
+                .is_some_and(|turn: &aa_agent::types::AssistantMessage| {
+                    turn.stop_reason == aa_agent::types::StopReason::Error
+                        || aa_core::session_engine::goal_driver::turn_produced_no_output(turn)
                 })
             {
                 drop(driver);
@@ -115,7 +115,7 @@ impl SessionEngine for AgentSessionEngine {
             let message = match driver.take_owed_continuation(&mut session, last_turn.as_ref()) {
                 Ok(message) => message,
                 Err(error) => {
-                    eprintln!("pa-daemon: goal continuation mint persist failed: {error:#}");
+                    eprintln!("aa-daemon: goal continuation mint persist failed: {error:#}");
                     None
                 }
             };
@@ -177,7 +177,7 @@ impl SessionEngine for AgentSessionEngine {
         &self,
     ) -> std::pin::Pin<
         Box<
-            dyn std::future::Future<Output = Option<pa_core::autonomous::AgentAutonomousStatus>>
+            dyn std::future::Future<Output = Option<aa_core::autonomous::AgentAutonomousStatus>>
                 + Send
                 + '_,
         >,
@@ -187,7 +187,7 @@ impl SessionEngine for AgentSessionEngine {
         let autonomous = std::sync::Arc::clone(&self.autonomous);
         Box::pin(async move {
             let state = autonomous.lock().await;
-            Some(pa_core::autonomous::autonomous_status(&state))
+            Some(aa_core::autonomous::autonomous_status(&state))
         })
     }
 
@@ -237,7 +237,7 @@ impl SessionEngine for AgentSessionEngine {
 
     fn acp_mcp_manager(
         &self,
-    ) -> Option<std::sync::Arc<std::sync::Mutex<pa_core::mcp::McpManager>>> {
+    ) -> Option<std::sync::Arc<std::sync::Mutex<aa_core::mcp::McpManager>>> {
         Some(std::sync::Arc::clone(&self.mcp))
     }
 
@@ -263,7 +263,7 @@ impl SessionEngine for AgentSessionEngine {
             None => PromptContextBoundary::Empty,
         };
         if std::env::var_os("PA_COMPACTION_TRACE").is_some() {
-            pa_core::session_engine::compaction_trace::trace(
+            aa_core::session_engine::compaction_trace::trace(
                 "daemon.prompt_boundary",
                 &json!({
                     "kind": match &boundary {
@@ -317,7 +317,7 @@ impl SessionEngine for AgentSessionEngine {
     /// boundaries).
     fn consume_compact_auto_refine(
         &self,
-    ) -> anyhow::Result<Option<pa_core::refinement::RefinementResult>> {
+    ) -> anyhow::Result<Option<aa_core::refinement::RefinementResult>> {
         self.consume_compact_auto_refine_round()
     }
 
@@ -353,7 +353,7 @@ impl SessionEngine for AgentSessionEngine {
         }
     }
 
-    fn configure_service_tier(&self, tier: Option<pa_types::ai::ServiceTier>) {
+    fn configure_service_tier(&self, tier: Option<aa_types::ai::ServiceTier>) {
         *self.service_tier.write().expect("service tier lock") = tier;
         if let Some(target) = self
             .provider_target
@@ -474,14 +474,14 @@ impl SessionEngine for AgentSessionEngine {
     fn supported_thinking_levels(&self) -> Option<Vec<String>> {
         let model = self.resolve_model().ok()?;
         Some(
-            pa_ai::models::get_supported_thinking_levels(&model)
+            aa_ai::models::get_supported_thinking_levels(&model)
                 .into_iter()
                 .map(|level| level.wire_name().to_string())
                 .collect(),
         )
     }
 
-    fn switch_thinking_level(&self, level: pa_types::ai::ModelThinkingLevel) -> bool {
+    fn switch_thinking_level(&self, level: aa_types::ai::ModelThinkingLevel) -> bool {
         self.configure_model(EngineModelSelection {
             thinking: Some(level),
             ..Default::default()
@@ -519,7 +519,7 @@ impl SessionEngine for AgentSessionEngine {
             self.ensure_core_session_async(&model).await.ok()?;
             let session = self.session.try_lock().ok()?;
             let state = session.as_deref()?.session.agent().state().await;
-            Some(pa_core::export_html::tools_section(&state.tools))
+            Some(aa_core::export_html::tools_section(&state.tools))
         })
     }
 
@@ -537,13 +537,13 @@ impl SessionEngine for AgentSessionEngine {
             let renderer = crate::session_export::ExportToolRenderer {
                 tools: &state.tools,
             };
-            pa_core::export_html::pre_render_custom_tools(&entries, &renderer)
+            aa_core::export_html::pre_render_custom_tools(&entries, &renderer)
         })
     }
 
     fn configure_startup_scope(
         &self,
-        scoped_models: Vec<pa_core::models::ScopedModel>,
+        scoped_models: Vec<aa_core::models::ScopedModel>,
         patterns: Vec<String>,
         is_continuing: bool,
     ) {
@@ -586,7 +586,7 @@ impl SessionEngine for AgentSessionEngine {
             .is_some_and(|children| children.has_running_children())
     }
 
-    /// `compact` over the hosted pa-core session: the session summarizes
+    /// `compact` over the hosted aa-core session: the session summarizes
     /// its own branch, persists the entry on its in-memory store, and
     /// rebuilds the loop context; the worker persists the durable entry.
     /// The abort races the run: the summarizer call is cancelled by
@@ -612,7 +612,7 @@ impl SessionEngine for AgentSessionEngine {
     fn run_compaction(
         &self,
         request: CompactionRequest,
-        signal: &pa_agent::abort::AbortSignal,
+        signal: &aa_agent::abort::AbortSignal,
     ) -> CompactionOutcome {
         let model = match self.session_model() {
             Ok(model) => model,
@@ -651,13 +651,13 @@ impl SessionEngine for AgentSessionEngine {
         };
         let result = self
             .runtime
-            .block_on(pa_agent::abort::race_with_abort(run, signal));
+            .block_on(aa_agent::abort::race_with_abort(run, signal));
         let compaction = match result {
             Ok(Ok(outcome)) => outcome,
             Ok(Err(error)) => {
                 // Abort-marked errors and a lost race both surface as the
                 // TS "Compaction cancelled" outcome.
-                if pa_agent::abort::is_abort_error(&error) {
+                if aa_agent::abort::is_abort_error(&error) {
                     return CompactionOutcome::Aborted;
                 }
                 return CompactionOutcome::Failed {
@@ -667,12 +667,12 @@ impl SessionEngine for AgentSessionEngine {
             Err(_) => return CompactionOutcome::Aborted,
         };
         match compaction {
-            pa_core::session_engine::compact_session::CompactOutcome::Skipped(message) => {
+            aa_core::session_engine::compact_session::CompactOutcome::Skipped(message) => {
                 CompactionOutcome::Skipped {
                     message: message.to_string(),
                 }
             }
-            pa_core::session_engine::compact_session::CompactOutcome::Ran(run) => {
+            aa_core::session_engine::compact_session::CompactOutcome::Ran(run) => {
                 {
                     let guard = self.session.blocking_lock();
                     if let Some(telemetry) = guard
@@ -707,7 +707,7 @@ impl SessionEngine for AgentSessionEngine {
     fn run_branch_summary(
         &self,
         request: BranchSummaryRequest,
-        signal: &pa_agent::abort::AbortSignal,
+        signal: &aa_agent::abort::AbortSignal,
     ) -> BranchSummaryOutcome {
         let model = match self.session_model() {
             Ok(model) => model,
@@ -719,14 +719,14 @@ impl SessionEngine for AgentSessionEngine {
         };
         let (model, api_key) = self.resolve_request_target(model);
         let settings =
-            pa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
+            aa_core::settings::SettingsManager::create(self.cwd(), &self.config.agent_dir);
         let reserve_tokens = settings
             .settings()
             .branch_summary
             .as_ref()
             .and_then(|branch_summary| branch_summary.reserve_tokens)
             .unwrap_or(
-                pa_core::session_engine::branch_summarization::DEFAULT_BRANCH_RESERVE_TOKENS,
+                aa_core::session_engine::branch_summarization::DEFAULT_BRANCH_RESERVE_TOKENS,
             );
         let entries = request.entries;
         let custom_instructions = request.custom_instructions;
@@ -735,14 +735,14 @@ impl SessionEngine for AgentSessionEngine {
         // TS #2411: the branch summary resolves its model through the
         // `auxiliaryModel` setting, keeping its one-off prompt off the
         // prompt-cache prefix.
-        let auxiliary = pa_core::session_engine::auxiliary_model::AuxiliaryModelContext {
+        let auxiliary = aa_core::session_engine::auxiliary_model::AuxiliaryModelContext {
             cwd: self.cwd(),
             agent_dir: self.config.agent_dir.clone(),
         };
         let run = async {
-            pa_core::session_engine::branch_summarization::generate_branch_summary(
+            aa_core::session_engine::branch_summarization::generate_branch_summary(
                 &entries,
-                pa_core::session_engine::branch_summarization::GenerateBranchSummaryOptions {
+                aa_core::session_engine::branch_summarization::GenerateBranchSummaryOptions {
                     model: &model,
                     api_key,
                     custom_instructions: custom_instructions.as_deref(),
@@ -756,7 +756,7 @@ impl SessionEngine for AgentSessionEngine {
         };
         match self
             .runtime
-            .block_on(pa_agent::abort::race_with_abort(run, signal))
+            .block_on(aa_agent::abort::race_with_abort(run, signal))
         {
             Ok(result) => {
                 if result.aborted {
@@ -788,8 +788,8 @@ impl SessionEngine for AgentSessionEngine {
 
     fn rebuild_session_context(
         &self,
-        branch_entries: Vec<pa_types::session::FileEntry>,
-        goal_reload: pa_core::session_engine::goal_driver::GoalBranchReload,
+        branch_entries: Vec<aa_types::session::FileEntry>,
+        goal_reload: aa_core::session_engine::goal_driver::GoalBranchReload,
     ) -> anyhow::Result<()> {
         // The caller parks this call on a blocking thread, so `blocking_lock` is legal here.
         let built = self.session.blocking_lock().is_some();
@@ -856,8 +856,8 @@ impl SessionEngine for AgentSessionEngine {
                 .autonomous_driver
                 .write()
                 .expect("autonomous driver lock") =
-                std::sync::Arc::new(pa_core::autonomous::ShellAutonomousDriver::new(cwd))
-                    as std::sync::Arc<dyn pa_core::autonomous::AutonomousDriver>;
+                std::sync::Arc::new(aa_core::autonomous::ShellAutonomousDriver::new(cwd))
+                    as std::sync::Arc<dyn aa_core::autonomous::AutonomousDriver>;
         }
     }
 
@@ -871,12 +871,12 @@ impl SessionEngine for AgentSessionEngine {
         self.factory_child
             .store(identity.factory_child, std::sync::atomic::Ordering::Relaxed);
         if let Some(thinking) = &identity.thinking {
-            pa_ai::models::thinking_level_from_str(thinking)
+            aa_ai::models::thinking_level_from_str(thinking)
                 .ok_or_else(|| anyhow::anyhow!("unknown thinking level \"{thinking}\""))?;
         }
         // The depth bound's precedence: chat override > inherited > global
         // setting > env > default (the shared resolver).
-        let (max_depth, source) = pa_core::session_engine::rlm_host::resolve_rlm_max_depth(
+        let (max_depth, source) = aa_core::session_engine::rlm_host::resolve_rlm_max_depth(
             identity.session_file.as_deref(),
             identity.rlm_max_depth,
             &self.cwd(),
@@ -902,10 +902,10 @@ impl SessionEngine for AgentSessionEngine {
                 .session_file
                 .as_deref()
                 .map(std::path::Path::new)
-                .and_then(pa_core::session_engine::harness_digest::session_artifact_dir_for_log);
-            pa_core::session_engine::semantic_edges::SemanticEdgeIdentity {
+                .and_then(aa_core::session_engine::harness_digest::session_artifact_dir_for_log);
+            aa_core::session_engine::semantic_edges::SemanticEdgeIdentity {
                 session_id,
-                ledger_path: pa_core::session_engine::semantic_edges::semantic_edge_ledger_path(
+                ledger_path: aa_core::session_engine::semantic_edges::semantic_edge_ledger_path(
                     rlm_session_dir,
                     artifact_dir.as_deref(),
                 ),
@@ -982,8 +982,8 @@ impl SessionEngine for AgentSessionEngine {
     fn run_side_question(
         &self,
         request: SideQuestionRequest,
-        signal: &pa_agent::abort::AbortSignal,
-        sink: &pa_core::session_engine::side_question::SideQuestionSink,
+        signal: &aa_agent::abort::AbortSignal,
+        sink: &aa_core::session_engine::side_question::SideQuestionSink,
     ) -> SideQuestionOutcome {
         let model = match self.session_model() {
             Ok(model) => model,
@@ -1005,7 +1005,7 @@ impl SessionEngine for AgentSessionEngine {
         };
         let question = request.question.clone();
         let previous_turns = request.previous_turns;
-        let retry_policy = pa_core::session_engine::provider_retry::DEFAULT_PROVIDER_RETRY_POLICY;
+        let retry_policy = aa_core::session_engine::provider_retry::DEFAULT_PROVIDER_RETRY_POLICY;
         // TS `unwrapSemanticEdgeStreamFn`: the side call runs on the
         // session's pre-semantic stream fn, so it carries no request id
         // and the ledger records nothing. The engine build always wires
@@ -1025,7 +1025,7 @@ impl SessionEngine for AgentSessionEngine {
         };
         let result =
             self.runtime
-                .block_on(pa_core::session_engine::side_question::run_side_question(
+                .block_on(aa_core::session_engine::side_question::run_side_question(
                     &agent,
                     side_stream_fn,
                     &question,
@@ -1038,17 +1038,17 @@ impl SessionEngine for AgentSessionEngine {
         self.runtime
             .block_on(built.session.record_model_usage(result.usage.clone()));
         match result.status {
-            pa_core::session_engine::side_question::SideQuestionStatus::Complete => {
+            aa_core::session_engine::side_question::SideQuestionStatus::Complete => {
                 SideQuestionOutcome::Complete {
                     answer: result.answer,
                 }
             }
-            pa_core::session_engine::side_question::SideQuestionStatus::Cancelled => {
+            aa_core::session_engine::side_question::SideQuestionStatus::Cancelled => {
                 SideQuestionOutcome::Aborted {
                     answer: result.answer,
                 }
             }
-            pa_core::session_engine::side_question::SideQuestionStatus::Error => {
+            aa_core::session_engine::side_question::SideQuestionStatus::Error => {
                 SideQuestionOutcome::Failed {
                     answer: result.answer,
                     error: result
@@ -1238,7 +1238,7 @@ impl SessionEngine for AgentSessionEngine {
 
     fn run_refinement(
         &self,
-        options: pa_core::session_engine::refine::RefineOptions,
+        options: aa_core::session_engine::refine::RefineOptions,
     ) -> anyhow::Result<Value> {
         let model = self.resolve_model()?;
         self.ensure_core_session(&model)?;
@@ -1252,7 +1252,7 @@ impl SessionEngine for AgentSessionEngine {
         let committed = self.runtime.block_on(async {
             let pending = core.session.start_refinement(
                 options,
-                pa_core::session_engine::refine::RefinementSource::User,
+                aa_core::session_engine::refine::RefinementSource::User,
                 model,
                 api_key,
             );
@@ -1389,8 +1389,8 @@ impl SessionEngine for AgentSessionEngine {
                 // default at this parse, so the accepted row below can BE
                 // the parsed row: the frames and the model context carry
                 // one normalized representation.
-                match serde_json::from_value::<pa_types::session::AgentMessage>(custom.clone()) {
-                    Ok(pa_types::session::AgentMessage::Custom(parsed)) => Some(parsed),
+                match serde_json::from_value::<aa_types::session::AgentMessage>(custom.clone()) {
+                    Ok(aa_types::session::AgentMessage::Custom(parsed)) => Some(parsed),
                     Ok(_) => {
                         emit(EngineEvent::Done(Err(
                             "injected custom message must carry role \"custom\"".to_string(),
@@ -1567,7 +1567,7 @@ pub(crate) fn injected_custom_parse_failed_log_line(
     }
     let bytes = serde_json::to_vec(raw_payload).map_or(0, |payload| payload.len());
     format!(
-        "pa-daemon: injected custom message parse failed: {error}; source={source:?} \
+        "aa-daemon: injected custom message parse failed: {error}; source={source:?} \
          agent_message_id={agent_message_id:?} session_file={session_file:?} \
          customType={custom_type:?} keys={keys:?} bytes={bytes}"
     )

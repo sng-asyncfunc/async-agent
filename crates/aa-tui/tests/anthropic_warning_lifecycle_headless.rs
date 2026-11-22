@@ -8,7 +8,7 @@
 //! `warnings.anthropicExtraUsage` toggle stays first, and a FRESH auth
 //! landing (a completed subscription login) still re-warns — each landing
 //! is its own event. The daemon half (the marker row, the hydration, the
-//! idempotent handler) is covered by the pa-daemon suites; these runs
+//! idempotent handler) is covered by the aa-daemon suites; these runs
 //! verify the client gate over a scripted daemon socket.
 #![cfg(unix)]
 
@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, UiMode,
 };
 use serde_json::{json, Value};
@@ -156,7 +156,7 @@ fn attach_data(id: &str, session: &MockSession) -> Value {
         "command": "attach",
         "success": true,
         "data": {
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "activeSessionId": session.active,
             "snapshot": {
                 "activeSessionId": session.active,
@@ -190,7 +190,7 @@ struct StubSettings {
     anthropic_extra_usage: bool,
 }
 
-impl pa_tui::client_settings::ClientSettings for StubSettings {
+impl aa_tui::client_settings::ClientSettings for StubSettings {
     fn compaction_threshold_percent(&self) -> f64 {
         95.0
     }
@@ -340,51 +340,51 @@ impl pa_tui::client_settings::ClientSettings for StubSettings {
 /// login), and a subscription warning the detection arm resolves.
 struct SubscriptionAuth;
 
-impl pa_tui::provider_auth::ProviderAuthCommands for SubscriptionAuth {
-    fn login_options(&self) -> pa_tui::provider_auth::ProviderRowsFuture {
+impl aa_tui::provider_auth::ProviderAuthCommands for SubscriptionAuth {
+    fn login_options(&self) -> aa_tui::provider_auth::ProviderRowsFuture {
         Box::pin(async move {
-            vec![pa_tui::provider_auth::ProviderRow {
+            vec![aa_tui::provider_auth::ProviderRow {
                 id: "anthropic".to_string(),
                 name: "Anthropic".to_string(),
-                auth_type: pa_tui::provider_auth::AuthType::Oauth,
+                auth_type: aa_tui::provider_auth::AuthType::Oauth,
                 status: None,
-                flow: pa_tui::provider_auth::AuthFlow::TerminalFlow,
+                flow: aa_tui::provider_auth::AuthFlow::TerminalFlow,
                 configured: false,
                 available: true,
             }]
         })
     }
 
-    fn logout_options(&self) -> pa_tui::provider_auth::ProviderRowsFuture {
+    fn logout_options(&self) -> aa_tui::provider_auth::ProviderRowsFuture {
         Box::pin(async move { Vec::new() })
     }
 
     fn login(
         &self,
-        _provider: &pa_tui::provider_auth::ProviderRow,
+        _provider: &aa_tui::provider_auth::ProviderRow,
         _api_key: Option<&str>,
-    ) -> pa_tui::provider_auth::ProviderAuthFuture {
-        Box::pin(async move { pa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
+    ) -> aa_tui::provider_auth::ProviderAuthFuture {
+        Box::pin(async move { aa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
     }
 
     fn login_on_panel(
         &self,
-        _provider: &pa_tui::provider_auth::ProviderRow,
-        _panel: pa_tui::auth_panel::AuthPanelHandle,
-    ) -> pa_tui::provider_auth::ProviderAuthFuture {
+        _provider: &aa_tui::provider_auth::ProviderRow,
+        _panel: aa_tui::auth_panel::AuthPanelHandle,
+    ) -> aa_tui::provider_auth::ProviderAuthFuture {
         Box::pin(async move {
-            pa_tui::provider_auth::ProviderAuthOutcome::Status("Connected to Anthropic".to_string())
+            aa_tui::provider_auth::ProviderAuthOutcome::Status("Connected to Anthropic".to_string())
         })
     }
 
     fn logout(
         &self,
-        _provider: &pa_tui::provider_auth::ProviderRow,
-    ) -> pa_tui::provider_auth::ProviderAuthFuture {
-        Box::pin(async move { pa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
+        _provider: &aa_tui::provider_auth::ProviderRow,
+    ) -> aa_tui::provider_auth::ProviderAuthFuture {
+        Box::pin(async move { aa_tui::provider_auth::ProviderAuthOutcome::Cancelled })
     }
 
-    fn anthropic_subscription_warning(&self) -> pa_tui::provider_auth::ProviderWarningFuture {
+    fn anthropic_subscription_warning(&self) -> aa_tui::provider_auth::ProviderWarningFuture {
         Box::pin(async move { Some(DETECTION_WARNING) })
     }
 }
@@ -412,7 +412,7 @@ fn run_plan(
         width: 100,
         height: 30,
     };
-    let auth = Some(pa_tui::provider_auth::ProviderAuthCommandsHandle(Arc::new(
+    let auth = Some(aa_tui::provider_auth::ProviderAuthCommandsHandle(Arc::new(
         SubscriptionAuth,
     )));
     let outcome = runtime

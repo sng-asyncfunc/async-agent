@@ -23,8 +23,8 @@ impl Default for DaemonEventCounts {
     }
 }
 
-fn send_daemon_event_summary(client: &pa_telemetry::TelemetryClient, counts: &DaemonEventCounts) {
-    pa_core::session_engine::telemetry::track_daemon_event_summary(
+fn send_daemon_event_summary(client: &aa_telemetry::TelemetryClient, counts: &DaemonEventCounts) {
+    aa_core::session_engine::telemetry::track_daemon_event_summary(
         client,
         counts.window_started.elapsed().as_millis() as u64,
         &counts.counts,
@@ -41,7 +41,7 @@ impl Supervisor {
     /// re-enable.
     fn telemetry_recording_on(&self) -> bool {
         let cwd = std::env::current_dir().unwrap_or_default();
-        let switch = pa_core::session_engine::telemetry::telemetry_enabled_switch(
+        let switch = aa_core::session_engine::telemetry::telemetry_enabled_switch(
             &cwd,
             &self.options.agent_dir,
         );
@@ -58,7 +58,7 @@ impl Supervisor {
             return;
         }
         if let Some(client) = &*self.telemetry.lock().unwrap() {
-            pa_core::session_engine::telemetry::track_worker_children_closed(client, count);
+            aa_core::session_engine::telemetry::track_worker_children_closed(client, count);
         }
     }
 
@@ -69,7 +69,7 @@ impl Supervisor {
             return;
         }
         if let Some(client) = &*self.telemetry.lock().unwrap() {
-            pa_core::session_engine::telemetry::track_catalog_refresh(client, count);
+            aa_core::session_engine::telemetry::track_catalog_refresh(client, count);
         }
     }
 
@@ -80,7 +80,7 @@ impl Supervisor {
             return;
         }
         if let Some(client) = &*self.telemetry.lock().unwrap() {
-            pa_core::session_engine::telemetry::track_deleted_child_usage_captured(
+            aa_core::session_engine::telemetry::track_deleted_child_usage_captured(
                 client, source, count,
             );
         }
@@ -170,7 +170,7 @@ impl Supervisor {
             return;
         }
         if let Some(client) = &*self.telemetry.lock().unwrap() {
-            pa_core::session_engine::telemetry::track_compaction_abort_declared(client);
+            aa_core::session_engine::telemetry::track_compaction_abort_declared(client);
         }
     }
 

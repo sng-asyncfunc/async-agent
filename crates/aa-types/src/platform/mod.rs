@@ -1,4 +1,4 @@
-//! Cross-crate platform contracts: transport, process identity, and home-dir resolution. pa-types
+//! Cross-crate platform contracts: transport, process identity, and home-dir resolution. aa-types
 //! is
 //! the only crate every platform consumer can depend on, so the shared platform traits live here;
 //! implementations are cfg-gated per platform, and call sites never branch on `cfg` themselves.

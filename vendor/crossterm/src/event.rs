@@ -1209,7 +1209,7 @@ pub(crate) enum InternalEvent {
     /// Attributes and architectural class of the terminal.
     #[cfg(unix)]
     PrimaryDeviceAttributes,
-    /// Prime Agent patch: the OSC 7501 (Program Status Protocol)
+    /// Async Agent patch: the OSC 7501 (Program Status Protocol)
     /// feature-detection reply.
     #[cfg(unix)]
     ProgramStatusSupport(crate::terminal::ProgramStatusSupport),

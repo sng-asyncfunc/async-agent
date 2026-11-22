@@ -50,7 +50,7 @@ impl Drop for Daemon {
 
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let child = Command::new(binary)
         .arg("supervisor")
         .arg("--socket")
@@ -63,11 +63,11 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
         // into later test binaries: the worker's supervisor-lost exit runs
         // on this short window instead of the 5-minute default.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -251,7 +251,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize command");
@@ -356,7 +356,7 @@ fn write_synthetic_family(agent_dir: &Path, children: usize) -> (PathBuf, usize)
         records.push('\n');
         live += 1;
     }
-    let ledger_path = pa_daemon::rlm_ledger::rlm_ledger_path(agent_dir, &sessions_dir);
+    let ledger_path = aa_daemon::rlm_ledger::rlm_ledger_path(agent_dir, &sessions_dir);
     std::fs::create_dir_all(ledger_path.parent().expect("ledger dir")).expect("ledger dir");
     let payload = format!(
         "{{\"v\":1,\"op\":\"meta\",\"at\":\"2026-09-18T00:00:00.000Z\",\"sessionsDir\":\"{}\"}}\n{records}",
@@ -428,8 +428,8 @@ fn list_all_returns_the_full_synthetic_thousand_child_roster() {
 /// existing subscriber's push and in a fresh subscriber's snapshot.
 #[tokio::test]
 async fn subscribe_after_spawn_then_shutdown_seeds_the_passive_child() {
-    use pa_core::session_engine::rlm_host::{RlmSpawnRequest, RlmSubagentHost};
-    use pa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
+    use aa_core::session_engine::rlm_host::{RlmSpawnRequest, RlmSubagentHost};
+    use aa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
 
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("daemon.sock");
@@ -473,12 +473,12 @@ async fn subscribe_after_spawn_then_shutdown_seeds_the_passive_child() {
         .to_string();
 
     let children = SupervisorChildSessions::new(
-        std::sync::Arc::new(pa_daemon::supervisor_link::SupervisorLink::new(
+        std::sync::Arc::new(aa_daemon::supervisor_link::SupervisorLink::new(
             socket.clone(),
         )),
         agent_dir.clone(),
         parent_active_id.clone(),
-        std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+        std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
             agent_dir.clone(),
             /*telemetry_disabled*/ true,
         )),
@@ -549,7 +549,7 @@ async fn subscribe_after_spawn_then_shutdown_seeds_the_passive_child() {
     client.send(&json!({
         "type": "command",
         "id": "k1",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": { "type": "kill", "activeSessionId": child_active_id },
     }));
     let mut kill_ok = false;
@@ -727,7 +727,7 @@ fn a_disconnected_create_still_seeds_its_family_before_registration() {
     opener.send(&json!({
         "type": "command",
         "id": "disconnected-create",
-        "protocol": { "name": "prime-agent.daemon", "version": 7 },
+        "protocol": { "name": "async-agent.daemon", "version": 7 },
         "command": create,
     }));
     drop(opener);

@@ -2,10 +2,10 @@
 //! persistence contract. The worker's session file is the one durable
 //! store; the engine's in-memory branch is fresh on every build, so a
 //! recovery rebuild rehydrates from the file's latest entry.
-use pa_core::goals::{
+use aa_core::goals::{
     is_persisted_goal_state, normalize_goal_state, GoalState, GOAL_STATE_CUSTOM_TYPE,
 };
-use pa_types::session::FileEntry;
+use aa_types::session::FileEntry;
 use serde_json::Value;
 use std::path::Path;
 
@@ -18,7 +18,7 @@ use crate::session_store::SessionFile;
 #[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn persisted_goal_state(path: Option<&Path>) -> Option<GoalState> {
     let path = path?;
-    if let Ok(Some(window)) = pa_core::session::window::WindowedSessionStore::open(path) {
+    if let Ok(Some(window)) = aa_core::session::window::WindowedSessionStore::open(path) {
         return window.goal_state().cloned();
     }
     goal_state_in_session_file(&SessionFile::open(path).ok()?)
@@ -73,22 +73,22 @@ fn goal_state_from_value(data: &Value) -> Option<GoalState> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_core::goals::{empty_goal_state, GoalStatus};
-    use pa_types::session::SessionHeader;
+    use aa_core::goals::{empty_goal_state, GoalStatus};
+    use aa_types::session::SessionHeader;
     use serde_json::json;
 
     fn custom_goal_entry(data: Value) -> FileEntry {
         FileEntry::Custom {
-            payload: pa_types::session::CustomEntry {
+            payload: aa_types::session::CustomEntry {
                 custom_type: GOAL_STATE_CUSTOM_TYPE.to_string(),
                 data: Some(data),
-                rest: pa_types::JsonMap::new(),
+                rest: aa_types::JsonMap::new(),
             },
-            base: pa_types::session::EntryBase {
+            base: aa_types::session::EntryBase {
                 id: Some("g1".to_string()),
                 parent_id: None,
                 timestamp: None,
-                rest: pa_types::JsonMap::new(),
+                rest: aa_types::JsonMap::new(),
             },
         }
     }
@@ -293,7 +293,7 @@ mod tests {
                 parent_session: None,
                 rlm_depth: None,
                 git: None,
-                rest: pa_types::JsonMap::new(),
+                rest: aa_types::JsonMap::new(),
             },
         };
         assert_eq!(goal_state_in_branch(&[header_only]), None);

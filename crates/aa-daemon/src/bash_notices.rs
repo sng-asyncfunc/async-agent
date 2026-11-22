@@ -1,9 +1,9 @@
 //! The daemon worker's kernel-notice seams (bash completions and factory
 //! progress): the notice types, the validation, and the handler
-//! registration live in pa-core (`session_engine::bash_notices`); the
+//! registration live in aa-core (`session_engine::bash_notices`); the
 //! worker keeps its queue-lane sinks here.
 
-use pa_core::kernel::shared::HostRequestHandlers;
+use aa_core::kernel::shared::HostRequestHandlers;
 
 use crate::agent_engine::AgentSessionEngine;
 
@@ -50,7 +50,7 @@ impl AgentSessionEngine {
         else {
             return;
         };
-        pa_core::session_engine::bash_notices::register_kernel_notice_host_handlers(
+        aa_core::session_engine::bash_notices::register_kernel_notice_host_handlers(
             notice, consumed, handlers,
         );
     }

@@ -16,11 +16,11 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use pa_core::update::release::{
+use aa_core::update::release::{
     parse_channel_manifest, sha256_hex, LatestRelease, ReleaseArtifact,
 };
 
-/// The workspace root (crates/pa-core -> crates -> root): the workflow and
+/// The workspace root (crates/aa-core -> crates -> root): the workflow and
 /// the release scripts live there.
 fn workspace_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -147,7 +147,7 @@ fn stage_merged_manifest(dir: &Path, version: &str, lying_file: bool) -> PathBuf
     std::fs::create_dir_all(&out).expect("release-out");
     let mut rows = Vec::new();
     for platform in FIXTURE_PLATFORMS {
-        let file = format!("prime-agent-{version}-{platform}.tar.gz");
+        let file = format!("async-agent-{version}-{platform}.tar.gz");
         let payload = format!("fixture archive for {platform}");
         std::fs::write(out.join(&file), payload.as_bytes()).expect("fixture archive");
         rows.push(serde_json::json!({
@@ -155,7 +155,7 @@ fn stage_merged_manifest(dir: &Path, version: &str, lying_file: bool) -> PathBuf
             "platform": platform,
             "target": format!("triple-{platform}"),
             "file": if lying_file && *platform == "linux-x64" {
-                format!("prime-agent-{version}-x86_64-unknown-linux-gnu.tar.gz")
+                format!("async-agent-{version}-x86_64-unknown-linux-gnu.tar.gz")
             } else {
                 file
             },
@@ -252,7 +252,7 @@ fn the_workflow_wires_the_channel_manifest_producer() {
         .as_ref()
         .and_then(|with| with.files.as_deref())
         .expect("the attach step lists files");
-    assert!(files.contains("release-out/prime-agent-*.tar.gz"));
+    assert!(files.contains("release-out/async-agent-*.tar.gz"));
     assert!(files.contains("release-out/SHA256SUMS"));
     assert!(
         files.contains("release-out/*.json"),
@@ -349,7 +349,7 @@ fn the_rolling_nightly_refresh_is_a_serialized_job() {
     assert!(run.contains("release-out/*.json"), "{run}");
     assert!(run.contains("--clobber"), "{run}");
     assert!(run.contains("--prerelease"), "{run}");
-    assert!(run.contains("release-out/prime-agent-*.tar.gz"), "{run}");
+    assert!(run.contains("release-out/async-agent-*.tar.gz"), "{run}");
     // The newest-wins guard: re-runs of an older tag must never clobber a newer rolling beta.json;
     // gh release download's destination flag is --dir (Bugbot: --output-dir was discarded and never
     // wrote the guard file). The guard FAILS CLOSED: a release carrying an unreadable beta.json is
@@ -473,7 +473,7 @@ fn the_producer_refuses_rows_the_reader_rejects() {
         "the failure explains the contract: {stderr}"
     );
     assert!(
-        stderr.contains("prime-agent-1.2.3-linux-x64.tar.gz"),
+        stderr.contains("async-agent-1.2.3-linux-x64.tar.gz"),
         "the failure names the file the reader expects: {stderr}"
     );
     assert!(
@@ -541,7 +541,7 @@ fn assert_reader_artifacts_are_truthful(release: &LatestRelease, out: &Path) {
         assert_eq!(
             artifact.file,
             format!(
-                "prime-agent-{}-{}.tar.gz",
+                "async-agent-{}-{}.tar.gz",
                 release.version, artifact.platform
             )
         );
@@ -561,13 +561,13 @@ fn assembled_archives_carry_the_platform_alias_the_reader_demands() {
     // A minimal repo tree the assembler accepts (the same shape
     // scripts/release/test_catalog_assets.py stages).
     let repo = fixture.path().join("synrepo");
-    std::fs::create_dir_all(repo.join("prime-agent-runtime/src")).expect("runtime dir");
+    std::fs::create_dir_all(repo.join("async-agent-runtime/src")).expect("runtime dir");
     std::fs::write(
-        repo.join("prime-agent-runtime/package.json"),
-        "{\"name\":\"prime-agent-runtime\",\"type\":\"module\"}\n",
+        repo.join("async-agent-runtime/package.json"),
+        "{\"name\":\"async-agent-runtime\",\"type\":\"module\"}\n",
     )
     .expect("runtime manifest");
-    std::fs::write(repo.join("prime-agent-runtime/src/repl.ts"), "// fixture\n")
+    std::fs::write(repo.join("async-agent-runtime/src/repl.ts"), "// fixture\n")
         .expect("runtime repl");
     std::fs::create_dir_all(repo.join("skills")).expect("skills dir");
     std::fs::write(repo.join("LICENSE"), "fixture license\n").expect("LICENSE");
@@ -577,9 +577,9 @@ fn assembled_archives_carry_the_platform_alias_the_reader_demands() {
     // decoder from split_debug.py, so the fixture compiles a tiny real ELF
     // and splits it — the artifact shape the channel actually ships.
     let split = tempfile::tempdir().expect("split fixture dir");
-    let source = split.path().join("prime-agent.c");
+    let source = split.path().join("async-agent.c");
     std::fs::write(&source, "int main(void) { return 0; }\n").expect("fixture source");
-    let raw = split.path().join("cargo-prime-agent");
+    let raw = split.path().join("cargo-async-agent");
     let compiled = Command::new("gcc")
         .arg("-g")
         .arg("-Wl,--build-id")
@@ -594,7 +594,7 @@ fn assembled_archives_carry_the_platform_alias_the_reader_demands() {
         "fixture gcc failed: {}",
         String::from_utf8_lossy(&compiled.stderr)
     );
-    let binary = split.path().join("prime-agent");
+    let binary = split.path().join("async-agent");
     let split_run = python(
         &workspace_root()
             .join("scripts")
@@ -619,7 +619,7 @@ fn assembled_archives_carry_the_platform_alias_the_reader_demands() {
         "fixture split failed: {}",
         String::from_utf8_lossy(&split_run.stderr)
     );
-    let decoder = split.path().join("prime-agent-1.2.3-linux-x64.debug.gz");
+    let decoder = split.path().join("async-agent-1.2.3-linux-x64.debug.gz");
     assert!(binary.is_file(), "shipped fixture missing");
     assert!(decoder.is_file(), "decoder fixture missing");
 
@@ -668,11 +668,11 @@ fn assembled_archives_carry_the_platform_alias_the_reader_demands() {
 
     // The archive name is the platform alias the channel contract demands;
     // the target triple would be unreadable to the update flow.
-    let archive = dist.join("prime-agent-1.2.3-linux-x64.tar.gz");
+    let archive = dist.join("async-agent-1.2.3-linux-x64.tar.gz");
     assert!(archive.is_file(), "the alias-named archive exists");
     assert!(
         !dist
-            .join("prime-agent-1.2.3-x86_64-unknown-linux-gnu.tar.gz")
+            .join("async-agent-1.2.3-x86_64-unknown-linux-gnu.tar.gz")
             .exists(),
         "the triple-named archive must not be published"
     );
@@ -683,7 +683,7 @@ fn assembled_archives_carry_the_platform_alias_the_reader_demands() {
     let row = &manifest["binaries"][0];
     assert_eq!(row["platform"], "linux-x64");
     assert_eq!(row["target"], "x86_64-unknown-linux-gnu");
-    assert_eq!(row["file"], "prime-agent-1.2.3-linux-x64.tar.gz");
+    assert_eq!(row["file"], "async-agent-1.2.3-linux-x64.tar.gz");
     let archive_bytes = std::fs::read(&archive).expect("read the archive");
     assert_eq!(row["sha256"], sha256_hex(&archive_bytes));
 
@@ -692,7 +692,7 @@ fn assembled_archives_carry_the_platform_alias_the_reader_demands() {
     // gate refuses a manifest missing a known platform's row), then the
     // reader over the emitted manifest.
     let out = stage_merged_manifest(fixture.path(), "1.2.3", false);
-    std::fs::copy(&archive, out.join("prime-agent-1.2.3-linux-x64.tar.gz"))
+    std::fs::copy(&archive, out.join("async-agent-1.2.3-linux-x64.tar.gz"))
         .expect("stage the real archive over its fixture");
     let merged_path = out.join("manifest.json");
     let mut merged: serde_json::Value = serde_json::from_str(
@@ -730,6 +730,6 @@ fn assembled_archives_carry_the_platform_alias_the_reader_demands() {
         .iter()
         .find(|artifact| artifact.platform == "linux-x64")
         .expect("the assembled row survived the emission");
-    assert_eq!(artifact.file, "prime-agent-1.2.3-linux-x64.tar.gz");
+    assert_eq!(artifact.file, "async-agent-1.2.3-linux-x64.tar.gz");
     assert_eq!(artifact.sha256, sha256_hex(&archive_bytes));
 }

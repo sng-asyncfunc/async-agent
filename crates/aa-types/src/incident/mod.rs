@@ -1,7 +1,7 @@
-//! The daemon incident classifier, shared by the incident CLI (pa-cli) and the agents-view incident
-//! notices (pa-tui): reconstructs what the daemon did from its diagnostic logs (`agent.jsonl`,
+//! The daemon incident classifier, shared by the incident CLI (aa-cli) and the agents-view incident
+//! notices (aa-tui): reconstructs what the daemon did from its diagnostic logs (`agent.jsonl`,
 //! per-daemon logs as fallback); unknown lines fall through to a generic summary. Log discovery and
-//! rendering belong to pa-cli; notice polling to pa-tui.
+//! rendering belong to aa-cli; notice polling to aa-tui.
 
 mod anomaly;
 mod classify;

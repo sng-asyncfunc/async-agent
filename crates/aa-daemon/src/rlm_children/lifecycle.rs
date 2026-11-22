@@ -1,7 +1,7 @@
 //! The child-lifecycle concern: session creation (create/launch), the
 //! prompt/kill/close routing, settle watching with its notices, and the
 //! spawn-admission outbox types (`CreatedSessionIds`, `CreatedChild`).
-use pa_core::session_engine::semantic_edges::ChildCancelledReason;
+use aa_core::session_engine::semantic_edges::ChildCancelledReason;
 
 use super::run_state::{RunEvent, RunVerdict};
 use super::{
@@ -50,8 +50,8 @@ impl CreatedChild {
 /// prompt); `None` for non-text content shapes.
 fn custom_message_text(message: &CustomMessage) -> Option<String> {
     match &message.content {
-        pa_types::ai::UserContent::Text(text) => Some(text.clone()),
-        pa_types::ai::UserContent::Blocks(_) => None,
+        aa_types::ai::UserContent::Text(text) => Some(text.clone()),
+        aa_types::ai::UserContent::Blocks(_) => None,
     }
 }
 
@@ -594,7 +594,7 @@ impl SupervisorChildSessionsInner {
                     .await
                     .unwrap_or_else(|error| Err(anyhow!(error)))
                     {
-                        eprintln!("pa-daemon: RLM child display completion failed: {error:#}");
+                        eprintln!("aa-daemon: RLM child display completion failed: {error:#}");
                     }
                 }
                 self.deliver_settle_notice(record).await;
@@ -678,7 +678,7 @@ impl SupervisorChildSessionsInner {
         let Some(child_session_id) = child_session_id else {
             return;
         };
-        let ledger_path = pa_core::session_engine::semantic_edges::semantic_edge_ledger_path(
+        let ledger_path = aa_core::session_engine::semantic_edges::semantic_edge_ledger_path(
             Some(Path::new(&child_dir)),
             None,
         );
@@ -687,7 +687,7 @@ impl SupervisorChildSessionsInner {
         let last_committed = tokio::task::spawn_blocking(move || {
             ledger_path
                 .as_deref()
-                .and_then(pa_core::session_engine::semantic_edges::last_committed_request_id)
+                .and_then(aa_core::session_engine::semantic_edges::last_committed_request_id)
         })
         .await
         .ok()
@@ -865,10 +865,10 @@ impl SupervisorChildSessionsInner {
             return;
         }
         let Some(content) = custom_message_text(&message) else {
-            eprintln!("pa-daemon: RLM child notice carried no text content");
+            eprintln!("aa-daemon: RLM child notice carried no text content");
             return;
         };
-        let wire = serde_json::to_value(pa_types::session::AgentMessage::Custom(message))
+        let wire = serde_json::to_value(aa_types::session::AgentMessage::Custom(message))
             .unwrap_or(Value::Null);
         let nonce = crate::child_status_notices::mint();
         let command = DaemonCommand::FollowUp {
@@ -893,7 +893,7 @@ impl SupervisorChildSessionsInner {
         };
         if let Err(error) = self.command(&command, NOTICE_DELIVERY_TIMEOUT_MS).await {
             eprintln!(
-                "pa-daemon: RLM child terminal notice was not delivered to the parent session: {error:#}"
+                "aa-daemon: RLM child terminal notice was not delivered to the parent session: {error:#}"
             );
         }
     }
@@ -919,10 +919,10 @@ pub(super) fn should_mark_error(state: &ChildRecord) -> bool {
 pub(super) fn last_assistant_text_from_file(session_file: &str) -> Option<String> {
     let content = std::fs::read_to_string(session_file).ok()?;
     for line in content.lines().rev() {
-        let Ok(pa_types::session::FileEntry::Message {
-            message: pa_types::session::AgentMessage::Assistant(assistant),
+        let Ok(aa_types::session::FileEntry::Message {
+            message: aa_types::session::AgentMessage::Assistant(assistant),
             ..
-        }) = serde_json::from_str::<pa_types::session::FileEntry>(line.trim())
+        }) = serde_json::from_str::<aa_types::session::FileEntry>(line.trim())
         else {
             continue;
         };
@@ -930,7 +930,7 @@ pub(super) fn last_assistant_text_from_file(session_file: &str) -> Option<String
             .content
             .iter()
             .filter_map(|block| match block {
-                pa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
+                aa_types::ai::AssistantContentBlock::Text(text) => Some(text.text.clone()),
                 _ => None,
             })
             .collect::<String>();
@@ -952,7 +952,7 @@ pub(super) fn last_assistant_text_from_file(session_file: &str) -> Option<String
 /// `None`. Non-message entries and other custom rows (notices, a recovered
 /// retry's outcome) are skipped.
 pub(super) fn final_turn_error_from_file(session_file: &str) -> Option<String> {
-    use pa_types::session::{AgentMessage, FileEntry};
+    use aa_types::session::{AgentMessage, FileEntry};
     let content = std::fs::read_to_string(session_file).ok()?;
     for line in content.lines().rev() {
         let Ok(entry) = serde_json::from_str::<FileEntry>(line.trim()) else {
@@ -961,12 +961,12 @@ pub(super) fn final_turn_error_from_file(session_file: &str) -> Option<String> {
         match entry {
             FileEntry::CustomMessage { payload, .. } => {
                 if payload.custom_type
-                    == pa_core::session_engine::agent_messaging::AGENT_MESSAGE_CUSTOM_TYPE
+                    == aa_core::session_engine::agent_messaging::AGENT_MESSAGE_CUSTOM_TYPE
                 {
                     return None;
                 }
                 if payload.custom_type
-                    != pa_core::session_engine::messages::PROVIDER_RETRY_OUTCOME_CUSTOM_TYPE
+                    != aa_core::session_engine::messages::PROVIDER_RETRY_OUTCOME_CUSTOM_TYPE
                 {
                     continue;
                 }
@@ -980,7 +980,7 @@ pub(super) fn final_turn_error_from_file(session_file: &str) -> Option<String> {
                     continue;
                 }
                 // The outcome row always carries the exhausted-retry text.
-                if let pa_types::ai::UserContent::Text(text) = payload.content {
+                if let aa_types::ai::UserContent::Text(text) = payload.content {
                     return Some(text);
                 }
             }
@@ -988,7 +988,7 @@ pub(super) fn final_turn_error_from_file(session_file: &str) -> Option<String> {
                 message: AgentMessage::Assistant(assistant),
                 ..
             } => {
-                if assistant.stop_reason != pa_types::ai::StopReason::Error {
+                if assistant.stop_reason != aa_types::ai::StopReason::Error {
                     return None;
                 }
                 let error = assistant
@@ -1038,19 +1038,19 @@ pub(super) mod exit_capture_tests {
 
     /// One serialized assistant row with the given text.
     fn assistant_row(text: &str) -> String {
-        assistant_row_ending(text, pa_types::ai::StopReason::Stop, None)
+        assistant_row_ending(text, aa_types::ai::StopReason::Stop, None)
     }
 
     /// One serialized assistant row with the given text, stop reason and
     /// error message (a failed model call's row).
     pub(crate) fn assistant_row_ending(
         text: &str,
-        stop_reason: pa_types::ai::StopReason,
+        stop_reason: aa_types::ai::StopReason,
         error_message: Option<&str>,
     ) -> String {
-        let message = pa_types::session::AgentMessage::Assistant(pa_types::ai::AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+        let message = aa_types::session::AgentMessage::Assistant(aa_types::ai::AssistantMessage {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: text.to_string(),
                     text_signature: None,
                     rest: Map::default(),
@@ -1062,16 +1062,16 @@ pub(super) mod exit_capture_tests {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
+            usage: aa_types::ai::Usage::default(),
             stop_reason,
             stop_reason_raw: None,
             error_message: error_message.map(str::to_string),
             timestamp: 2,
             rest: Map::default(),
         });
-        let entry = pa_types::session::FileEntry::Message {
+        let entry = aa_types::session::FileEntry::Message {
             message,
-            base: pa_types::session::EntryBase {
+            base: aa_types::session::EntryBase {
                 id: Some("row-1".to_string()),
                 parent_id: None,
                 timestamp: None,
@@ -1116,12 +1116,12 @@ pub(super) mod exit_capture_tests {
 
     /// The retry episode's durable outcome row, as the worker persists it.
     pub(crate) fn retry_outcome_row(success: bool) -> String {
-        let outcome = pa_core::session_engine::messages::create_provider_retry_outcome_message(
+        let outcome = aa_core::session_engine::messages::create_provider_retry_outcome_message(
             success,
             3,
             "429 Provider returned error",
         );
-        let pa_types::ai::UserContent::Text(content) = outcome.content else {
+        let aa_types::ai::UserContent::Text(content) = outcome.content else {
             unreachable!("the outcome row carries text content");
         };
         json!({
@@ -1159,7 +1159,7 @@ pub(super) mod exit_capture_tests {
         stored_row(
             "custom_message",
             &json!({
-                "customType": pa_core::session_engine::agent_messaging::AGENT_MESSAGE_CUSTOM_TYPE,
+                "customType": aa_core::session_engine::agent_messaging::AGENT_MESSAGE_CUSTOM_TYPE,
                 "content": "the task",
                 "display": true,
                 "details": {},
@@ -1184,7 +1184,7 @@ pub(super) mod exit_capture_tests {
     /// a failure older than a later turn-bounding row does not stand.
     #[test]
     fn the_final_turn_reader_reports_how_the_run_ended() {
-        use pa_types::ai::StopReason;
+        use aa_types::ai::StopReason;
         let failed_call =
             assistant_row_ending("", StopReason::Error, Some("429 Provider returned error"));
         let failed_run = [failed_call.clone(), retry_outcome_row(false)];

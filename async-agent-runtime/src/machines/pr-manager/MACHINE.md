@@ -2,7 +2,7 @@
 name: pr-manager
 description: Drive a pull request through review and fix cycles, then keep a resident watcher on it.
 version: 1
-author: Prime Agent
+author: Async Agent
 ---
 
 # pr-manager

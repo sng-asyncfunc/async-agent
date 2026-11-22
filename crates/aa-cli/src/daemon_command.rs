@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Result};
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 use serde_json::{json, Value};
 
 use crate::daemon_client::DaemonClient;
@@ -114,7 +114,7 @@ fn normalize_socket_path(value: &str) -> PathBuf {
 }
 
 /// Surface the daemon's error text.
-fn require_success(response: pa_types::daemon::DaemonResponse) -> Result<Option<Value>> {
+fn require_success(response: aa_types::daemon::DaemonResponse) -> Result<Option<Value>> {
     if !response.success {
         return Err(anyhow!(response.error.unwrap_or_default()));
     }
@@ -179,7 +179,7 @@ fn list_command(all: bool) -> DaemonCommand {
     }
 }
 
-/// The same list RPC as `prime-agent list`, rendered as the
+/// The same list RPC as `async-agent list`, rendered as the
 /// one-line-per-agent operator table.
 fn run_sessions(client: &mut DaemonClient, args: &[String], json: bool) -> Result<()> {
     let mut all = false;
@@ -272,7 +272,7 @@ fn run_kill(client: &mut DaemonClient, args: &[String], json: bool) -> Result<()
 
 /// Pretty-print the response data (the whole response as JSON when
 /// there is none and `--json` was asked), else `ok`.
-fn print_response_data(response: &pa_types::daemon::DaemonResponse, json: bool) -> Result<()> {
+fn print_response_data(response: &aa_types::daemon::DaemonResponse, json: bool) -> Result<()> {
     let data = require_success(response.clone())?;
     if json || data.is_some() {
         let value = data.unwrap_or_else(|| response_value(response));
@@ -285,7 +285,7 @@ fn print_response_data(response: &pa_types::daemon::DaemonResponse, json: bool) 
 
 /// The response as the TS wire shape (`data ?? response` prints the frame the
 /// daemon sent, including the `type` tag the typed struct does not carry).
-fn response_value(response: &pa_types::daemon::DaemonResponse) -> Value {
+fn response_value(response: &aa_types::daemon::DaemonResponse) -> Value {
     let mut value = json!({
         "type": "response",
         "command": response.command,
@@ -308,7 +308,7 @@ fn run_rename(client: &mut DaemonClient, args: &[String], json: bool) -> Result<
     let active_session_id = require_active_session_id(args)?;
     let name = args[1..].join(" ").trim().to_string();
     if name.is_empty() {
-        bail!("Usage: prime-agent rename <agent> <name>");
+        bail!("Usage: async-agent rename <agent> <name>");
     }
     let response = client.request(DaemonCommand::Rename {
         id: None,
@@ -431,14 +431,14 @@ fn parse_send_args(args: &[String]) -> Result<DaemonCommand> {
         message_parts.push(arg.to_string());
     }
     if explicit_message.is_some() && !message_parts.is_empty() {
-        bail!("Usage: prime-agent send [--from <agent>] <agent> [--message <message>|<message>]");
+        bail!("Usage: async-agent send [--from <agent>] <agent> [--message <message>|<message>]");
     }
     let message = explicit_message
         .unwrap_or_else(|| message_parts.join(" "))
         .trim()
         .to_string();
     if target_active_session_id.is_none() || message.is_empty() {
-        bail!("Usage: prime-agent send [--from <agent>] <agent> [--message <message>|<message>]");
+        bail!("Usage: async-agent send [--from <agent>] <agent> [--message <message>|<message>]");
     }
     Ok(DaemonCommand::SendMessage {
         id: None,
@@ -497,7 +497,7 @@ fn run_cron_list(client: &mut DaemonClient, args: &[String], json: bool) -> Resu
 }
 
 fn run_cron_add(client: &mut DaemonClient, args: &[String], json: bool) -> Result<()> {
-    let usage = "Usage: prime-agent schedule add <agent> <schedule> -- <message>";
+    let usage = "Usage: async-agent schedule add <agent> <schedule> -- <message>";
     let separator = args
         .iter()
         .position(|arg| arg == "--")
@@ -535,7 +535,7 @@ fn run_cron_add(client: &mut DaemonClient, args: &[String], json: bool) -> Resul
 
 fn run_cron_cancel(client: &mut DaemonClient, args: &[String], json: bool) -> Result<()> {
     let Some(job_id) = args.get(1) else {
-        bail!("Usage: prime-agent schedule cancel <job-id>");
+        bail!("Usage: async-agent schedule cancel <job-id>");
     };
     let response = client.request(DaemonCommand::CronCancel {
         id: None,

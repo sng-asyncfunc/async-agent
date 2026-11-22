@@ -13,8 +13,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use pa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
-use pa_tui::interactive::SessionSelection;
+use aa_tui::agents_view::{AgentsHeadlessPlan, AgentsStep, AgentsViewOptions, AgentsViewUiMode};
+use aa_tui::interactive::SessionSelection;
 use serde_json::{json, Value};
 
 use support::{read_line, respond, respond_failure, write_json};
@@ -58,7 +58,7 @@ impl MockSupervisor {
         let mut reader = BufReader::new(stream);
         let hello = json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": [],
         });
         write_json(&mut writer, &hello);
@@ -205,7 +205,7 @@ async fn a_successful_load_settles_the_anchor_wait_when_the_row_is_missing() {
         width: 120,
         height: 36,
     };
-    let outcome = pa_tui::agents_view::run_agents_view(
+    let outcome = aa_tui::agents_view::run_agents_view(
         view_options(&socket, Some("ghost-01")),
         AgentsViewUiMode::Headless(plan),
         None,
@@ -264,7 +264,7 @@ async fn the_carried_catalog_paints_the_first_frame_and_skips_the_refetch() {
         width: 120,
         height: 36,
     };
-    let run = pa_tui::agents_view::run_agents_view(
+    let run = aa_tui::agents_view::run_agents_view(
         view_options(&socket, Some("s2")),
         AgentsViewUiMode::Headless(plan),
         None,
@@ -290,7 +290,7 @@ async fn the_carried_catalog_paints_the_first_frame_and_skips_the_refetch() {
         width: 120,
         height: 36,
     };
-    let run_two = pa_tui::agents_view::run_agents_view(
+    let run_two = aa_tui::agents_view::run_agents_view(
         view_options(&socket, None),
         AgentsViewUiMode::Headless(plan),
         Some(link),
@@ -338,7 +338,7 @@ async fn a_carried_catalog_settles_the_entry_anchor_at_open() {
         width: 120,
         height: 36,
     };
-    let run = pa_tui::agents_view::run_agents_view(
+    let run = aa_tui::agents_view::run_agents_view(
         view_options(&socket, Some("s2")),
         AgentsViewUiMode::Headless(plan),
         None,
@@ -358,7 +358,7 @@ async fn a_carried_catalog_settles_the_entry_anchor_at_open() {
         width: 120,
         height: 36,
     };
-    let run_two = pa_tui::agents_view::run_agents_view(
+    let run_two = aa_tui::agents_view::run_agents_view(
         view_options(&socket, Some("ghost-01")),
         AgentsViewUiMode::Headless(plan),
         Some(link),
@@ -408,7 +408,7 @@ async fn a_late_stream_frame_never_clobbers_the_settled_catalog() {
         width: 120,
         height: 36,
     };
-    let run = pa_tui::agents_view::run_agents_view(
+    let run = aa_tui::agents_view::run_agents_view(
         view_options(&socket, Some("s2")),
         AgentsViewUiMode::Headless(plan),
         None,
@@ -429,7 +429,7 @@ async fn a_late_stream_frame_never_clobbers_the_settled_catalog() {
         width: 120,
         height: 36,
     };
-    let run_two = pa_tui::agents_view::run_agents_view(
+    let run_two = aa_tui::agents_view::run_agents_view(
         view_options(&socket, None),
         AgentsViewUiMode::Headless(plan),
         Some(link),

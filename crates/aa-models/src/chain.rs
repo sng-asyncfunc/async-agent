@@ -226,7 +226,7 @@ impl ModelCatalog {
     }
 
     /// The hourly background refresh loop. One loop per catalog instance: the process-shared
-    /// catalog (pa-core's `catalog_chain`) serves the whole process, so the first caller arms it
+    /// catalog (aa-core's `catalog_chain`) serves the whole process, so the first caller arms it
     /// and later calls are no-ops.
     pub fn spawn_hourly_refresh(
         self: &Arc<Self>,

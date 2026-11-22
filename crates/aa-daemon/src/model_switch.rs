@@ -38,7 +38,7 @@ impl Worker {
             // (`errorInfo.modelProviderUnauthenticated`): the client offers
             // the sign-in flow and retries.
             Err(
-                refusal @ pa_core::models::SetModelSelectionError::ProviderUnauthenticated {
+                refusal @ aa_core::models::SetModelSelectionError::ProviderUnauthenticated {
                     ..
                 },
             ) => {
@@ -47,7 +47,7 @@ impl Worker {
                     "set_model",
                     &refusal.to_string(),
                     Some(
-                        pa_types::daemon::DaemonErrorInfo::ModelProviderUnauthenticated {
+                        aa_types::daemon::DaemonErrorInfo::ModelProviderUnauthenticated {
                             provider: refusal
                                 .unauthenticated_provider()
                                 .expect("the sign-in refusal names its provider")
@@ -72,7 +72,7 @@ impl Worker {
             // rule): a fail-closed unreadable-allowlist error is a
             // settings problem, not an allowlist refusal.
             if refusal
-                .downcast_ref::<pa_core::models::ModelAllowlistRefusal>()
+                .downcast_ref::<aa_core::models::ModelAllowlistRefusal>()
                 .is_some()
             {
                 if let Some(agent_engine) = &self.agent_engine {
@@ -109,7 +109,7 @@ impl Worker {
             };
             // TS `session.setModel` persists the default provider/model so
             // the next session starts on the switched model.
-            let mut settings = pa_core::settings::SettingsManager::create(&cwd, &agent_dir);
+            let mut settings = aa_core::settings::SettingsManager::create(&cwd, &agent_dir);
             let _ = settings.set_default_model_and_provider(&provider, &model_id);
             Some(())
         })
@@ -152,7 +152,7 @@ impl Worker {
                 None,
             );
         };
-        let Some(parsed) = pa_ai::models::thinking_level_from_str(level) else {
+        let Some(parsed) = aa_ai::models::thinking_level_from_str(level) else {
             return response_failure(
                 None,
                 "set_thinking_level",
@@ -201,11 +201,11 @@ impl Worker {
             // is a real reasoning request; the persisted value is the
             // clamped effective level, not the raw request.
             if reasoning || effective != "off" {
-                let effective_level = pa_ai::models::thinking_level_from_str(&effective)
+                let effective_level = aa_ai::models::thinking_level_from_str(&effective)
                     .expect("the engine reports a valid wire level");
-                let mut settings = pa_core::settings::SettingsManager::create(&cwd, &agent_dir);
+                let mut settings = aa_core::settings::SettingsManager::create(&cwd, &agent_dir);
                 let _ = settings.set_default_thinking_level(
-                    pa_core::settings::ThinkingLevelSetting::from_model_level(effective_level),
+                    aa_core::settings::ThinkingLevelSetting::from_model_level(effective_level),
                 );
             }
             Some(effective)
@@ -236,9 +236,9 @@ fn resolve_available_model(
     agent_dir: &std::path::Path,
     provider: &str,
     model_id: &str,
-) -> Result<pa_types::ai::Model, pa_core::models::SetModelSelectionError> {
-    let auth = pa_core::auth::AuthStorage::create(agent_dir);
-    pa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"))
+) -> Result<aa_types::ai::Model, aa_core::models::SetModelSelectionError> {
+    let auth = aa_core::auth::AuthStorage::create(agent_dir);
+    aa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"))
         .resolve_set_model_selection(provider, model_id)
         .cloned()
 }
@@ -384,7 +384,7 @@ mod tests {
         assert_eq!(
             response.error_info,
             Some(
-                pa_types::daemon::DaemonErrorInfo::ModelProviderUnauthenticated {
+                aa_types::daemon::DaemonErrorInfo::ModelProviderUnauthenticated {
                     provider: "anthropic".to_string(),
                 }
             )
@@ -414,11 +414,11 @@ mod tests {
         // `ThinkingLevel` vocabulary.
         for level in THINKING_LEVELS {
             assert!(
-                pa_ai::models::thinking_level_from_str(level).is_some(),
+                aa_ai::models::thinking_level_from_str(level).is_some(),
                 "{level} must parse"
             );
         }
-        assert!(pa_ai::models::thinking_level_from_str("sideways").is_none());
+        assert!(aa_ai::models::thinking_level_from_str("sideways").is_none());
     }
 
     #[test]
@@ -436,7 +436,7 @@ mod tests {
             .expect_err("an unsigned provider refuses with the sign-in class");
         assert_eq!(
             error,
-            pa_core::models::SetModelSelectionError::ProviderUnauthenticated {
+            aa_core::models::SetModelSelectionError::ProviderUnauthenticated {
                 provider: provider.clone()
             }
         );
@@ -450,7 +450,7 @@ mod tests {
             .expect_err("an unknown model fails with the TS message");
         assert_eq!(
             error,
-            pa_core::models::SetModelSelectionError::NotFound {
+            aa_core::models::SetModelSelectionError::NotFound {
                 provider: provider.clone(),
                 model_id: "no-such-model".to_string(),
             }
@@ -472,7 +472,7 @@ mod tests {
             .expect_err("the unauthorized private model refuses");
         assert_eq!(
             error,
-            pa_core::models::SetModelSelectionError::NotFound {
+            aa_core::models::SetModelSelectionError::NotFound {
                 provider: "prime-inference".to_string(),
                 model_id: "internal/glm-5.2-fast".to_string(),
             }
@@ -486,10 +486,10 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let agent_dir = dir.path().join("agent");
         std::fs::create_dir_all(&agent_dir).expect("agent dir");
-        let mut auth = pa_core::auth::AuthStorage::create(&agent_dir);
+        let mut auth = aa_core::auth::AuthStorage::create(&agent_dir);
         auth.set(
             "anthropic",
-            pa_core::auth::AuthCredential::ApiKey {
+            aa_core::auth::AuthCredential::ApiKey {
                 key: "sk-stale".to_string(),
                 prime_team: None,
             },
@@ -498,7 +498,7 @@ mod tests {
             auth.mark_auth_stale("anthropic"),
             "the stored credential marks stale"
         );
-        let registry = pa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
+        let registry = aa_core::models::ModelRegistry::create(auth, agent_dir.join("models.json"));
         let (provider, model_id) = first_built_in_anthropic_model();
         let model = registry
             .resolve_set_model_selection(&provider, &model_id)
@@ -509,7 +509,7 @@ mod tests {
     /// The first built-in Anthropic catalog model (a fixture-free
     /// unauthenticated provider).
     fn first_built_in_anthropic_model() -> (String, String) {
-        let model = pa_ai::models_generated::get_models("anthropic")
+        let model = aa_ai::models_generated::get_models("anthropic")
             .first()
             .copied()
             .expect("the generated catalog has anthropic models");

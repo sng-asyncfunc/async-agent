@@ -1,9 +1,9 @@
 //! Session-side slash-command handling: which commands execute in the
 //! session engine and how their arguments parse; the command table itself
-//! is shared vocabulary in `pa_types::slash_commands` (one table serves
+//! is shared vocabulary in `aa_types::slash_commands` (one table serves
 //! every surface).
 
-pub use pa_types::slash_commands::{
+pub use aa_types::slash_commands::{
     find_slash_command_suggestion, is_session_slash_command_name, parse_slash_command,
     BuiltinSlashCommand, ResolvedSlashCommand, SlashCommandExecution, SlashCommandRegistry,
     SESSION_SLASH_COMMAND_NAMES,

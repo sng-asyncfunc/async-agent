@@ -50,7 +50,7 @@ struct RawArtifact {
 #[must_use]
 pub fn update_user_agent(version: &str) -> String {
     format!(
-        "prime-agent/{version} ({}; rust/{}; {})",
+        "async-agent/{version} ({}; rust/{}; {})",
         std::env::consts::OS,
         env!("CARGO_PKG_VERSION"),
         std::env::consts::ARCH
@@ -80,7 +80,7 @@ pub async fn latest_release(
     let manifest_path =
         super::version::resolve_update_channel(current_version, channel).manifest_path();
     let url = format!("{}/{manifest_path}", base_url.trim_end_matches('/'));
-    let response = pa_ai::utils::tls::http_client_builder()
+    let response = aa_ai::utils::tls::http_client_builder()
         .build()
         .expect("release client")
         .get(&url)
@@ -128,7 +128,7 @@ pub fn parse_channel_manifest(body: &[u8]) -> Option<LatestRelease> {
         if !KNOWN_PLATFORMS.contains(&artifact.platform.as_str()) {
             continue;
         }
-        let file = format!("prime-agent-{version}-{}.tar.gz", artifact.platform);
+        let file = format!("async-agent-{version}-{}.tar.gz", artifact.platform);
         let sha_valid =
             artifact.sha256.len() == 64 && artifact.sha256.bytes().all(|b| b.is_ascii_hexdigit());
         if artifact.file != file || !sha_valid || !seen.insert(artifact.platform.clone()) {
@@ -179,7 +179,7 @@ mod tests {
             version: "1.2.3".into(),
             artifacts: vec![ReleaseArtifact {
                 platform: "linux-x64".into(),
-                file: "prime-agent-1.2.3-linux-x64.tar.gz".into(),
+                file: "async-agent-1.2.3-linux-x64.tar.gz".into(),
                 sha256: "a".repeat(64),
             }],
         };
@@ -203,7 +203,7 @@ mod tests {
         let row = |platform: &str| {
             serde_json::json!({
                 "platform": platform,
-                "file": format!("prime-agent-1.2.3-{platform}.tar.gz"),
+                "file": format!("async-agent-1.2.3-{platform}.tar.gz"),
                 "sha256": sha,
             })
         };
@@ -228,7 +228,7 @@ mod tests {
             "version": "v1.2.3",
             "binaries": [{
                 "platform": "linux-x64",
-                "file": "prime-agent-1.2.3-x86_64-unknown-linux-gnu.tar.gz",
+                "file": "async-agent-1.2.3-x86_64-unknown-linux-gnu.tar.gz",
                 "sha256": "b".repeat(64),
             }],
         });
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn user_agent_keeps_the_ts_shape() {
         let agent = update_user_agent("1.2.3");
-        assert!(agent.starts_with("prime-agent/1.2.3 ("));
+        assert!(agent.starts_with("async-agent/1.2.3 ("));
         assert!(agent.contains("; rust/"));
     }
 
@@ -293,7 +293,7 @@ mod tests {
             "version": "1.2.3",
             "binaries_v2": [{
                 "platform": "linux-x64",
-                "file": "prime-agent-1.2.3-linux-x64.tar.gz",
+                "file": "async-agent-1.2.3-linux-x64.tar.gz",
                 "sha256": "a".repeat(64),
             }],
         })

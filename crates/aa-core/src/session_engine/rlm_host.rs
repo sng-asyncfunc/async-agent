@@ -7,7 +7,7 @@
 //! Wire contract: the Python side (`rlm/__init__.py`) sends typed requests and
 //! parses strict `snake_case` replies. Pure normalization lives in
 //! `kernel/rlm_runtime`; this module owns payload validation and the split
-//! between what pa-core decides locally (shape checks, model search, note
+//! between what aa-core decides locally (shape checks, model search, note
 //! throttling) and what the child-session host owns (spawn, roster, collect).
 
 use std::future::Future;
@@ -173,8 +173,8 @@ pub struct RlmCreateSessionRequest {
     pub cwd: Option<String>,
 }
 
-/// One pending host call. Boxed (not RPITIT): the host crosses the pa-core/pa-daemon boundary
-/// as a dyn object — the daemon supplies the implementation, pa-core owns the contract.
+/// One pending host call. Boxed (not RPITIT): the host crosses the aa-core/aa-daemon boundary
+/// as a dyn object — the daemon supplies the implementation, aa-core owns the contract.
 pub type RlmHostFuture<T> = std::pin::Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send>>;
 
 /// The child-session machinery the daemon supplies. Sessions without a
@@ -332,7 +332,7 @@ pub fn rlm_child_session_dir(
             .join("session-artifacts")
             .join(session_id)
             .join(child_id),
-        None => std::env::temp_dir().join(format!("prime-agent-rlm-{child_id}")),
+        None => std::env::temp_dir().join(format!("async-agent-rlm-{child_id}")),
     };
     std::fs::create_dir_all(&base).map_err(|error| {
         anyhow::anyhow!("create RLM child session dir {}: {error}", base.display())
@@ -490,7 +490,7 @@ pub fn utf16_length(message: &str) -> usize {
 /// mid-turn `rlm.spawn` names. The bridge is built before the session's
 /// agent exists, so the engine sets this once the agent is built.
 pub(crate) struct SemanticSpawnAnchor {
-    pub(crate) agent: std::sync::Weak<pa_agent::agent::Agent>,
+    pub(crate) agent: std::sync::Weak<aa_agent::agent::Agent>,
     pub(crate) recorder: Arc<super::semantic_edges::SemanticEdgeRecorder>,
 }
 

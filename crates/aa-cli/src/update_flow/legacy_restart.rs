@@ -7,10 +7,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use pa_types::daemon::update_flow::{
+use aa_types::daemon::update_flow::{
     UpdateId, UpdateProcessIdentity, UpdateRoster, UpdateTimeoutBudget,
 };
-use pa_types::daemon::DaemonCommand;
+use aa_types::daemon::DaemonCommand;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
@@ -105,18 +105,18 @@ async fn restart(
 ) -> Result<()> {
     let budget = UpdateTimeoutBudget::from_env();
     let recovery_dir = agent_dir.join("legacy-update-recovery");
-    let socket_key = pa_daemon::paths::hash_key(&socket.to_string_lossy(), 64);
+    let socket_key = aa_daemon::paths::hash_key(&socket.to_string_lossy(), 64);
     let roster_path = recovery_dir.join(format!("{socket_key}.json"));
     let attempt_path = recovery_dir.join(format!("{socket_key}.attempt.json"));
     let source_path = agent_dir
         .join("daemon-update-restarts")
         .join(format!("{socket_key}.json"));
-    let connection = pa_tui::daemon_client::DaemonClient::connect(socket).await;
+    let connection = aa_tui::daemon_client::DaemonClient::connect(socket).await;
     let (client, _events) = match connection {
         Ok(connection) => connection,
         Err(error) => {
             // A reachable but incompatible daemon is not an absent daemon.
-            if pa_daemon::socket::can_connect(socket, Duration::from_secs(1)).await {
+            if aa_daemon::socket::can_connect(socket, Duration::from_secs(1)).await {
                 return Err(error).context("connect to the previous daemon");
             }
             match recover_prepared(&roster_path, &attempt_path, &source_path, socket, None)? {
@@ -180,7 +180,7 @@ async fn restart(
         // Write the owner binding before the RPC: TS commits and stops its
         // workers before replying, so a disconnected caller must recover disk.
         let previous = match std::fs::read_to_string(&source_path) {
-            Ok(text) => Some(pa_daemon::paths::hash_key(&text, 64)),
+            Ok(text) => Some(aa_daemon::paths::hash_key(&text, 64)),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
             Err(error) => return Err(error.into()),
         };
@@ -252,7 +252,7 @@ async fn restart(
     // A lost prepare reply can also close the connection. Reconnect before
     // shutdown and verify we still address the recorded predecessor.
     drop(client);
-    let (client, _events) = pa_tui::daemon_client::DaemonClient::connect(socket).await?;
+    let (client, _events) = aa_tui::daemon_client::DaemonClient::connect(socket).await?;
     anyhow::ensure!(
         identity_from_hello(client.hello()) == predecessor,
         "predecessor changed before shutdown"
@@ -337,7 +337,7 @@ fn recover_prepared(
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error.into()),
     };
-    if attempt["previousDigest"] == pa_daemon::paths::hash_key(&text, 64) {
+    if attempt["previousDigest"] == aa_daemon::paths::hash_key(&text, 64) {
         return Ok(None);
     }
     let modified = std::fs::metadata(source_path)?
@@ -402,7 +402,7 @@ async fn boot_roster(
         successor.pid == spawned_pid,
         "a different daemon won the socket during migration"
     );
-    let (replacement, _events) = pa_tui::daemon_client::DaemonClient::connect(socket).await?;
+    let (replacement, _events) = aa_tui::daemon_client::DaemonClient::connect(socket).await?;
     let replacement_hello = replacement.hello().clone();
     replacement.close();
     validate_successor(&replacement_hello, spawned_pid, crate::config::version())?;
@@ -438,7 +438,7 @@ fn validate_successor(hello: &Value, pid: u64, version: &str) -> Result<()> {
     anyhow::ensure!(
         hello.get("appVersion").and_then(Value::as_str) == Some(version)
             && hello.get("schemaId").and_then(Value::as_str)
-                == Some(pa_types::daemon::DAEMON_SCHEMA_ID)
+                == Some(aa_types::daemon::DAEMON_SCHEMA_ID)
             && hello.get("supervisorPid").and_then(Value::as_u64) == Some(pid),
         "replacement daemon does not match the spawned process and installed release"
     );
@@ -475,7 +475,7 @@ mod tests {
         let socket = directory.path().join("old.sock");
         let source = directory.path().join("daemon-update-restarts");
         std::fs::create_dir(&source).unwrap();
-        let key = pa_daemon::paths::hash_key(&socket.to_string_lossy(), 64);
+        let key = aa_daemon::paths::hash_key(&socket.to_string_lossy(), 64);
         let source = source.join(format!("{key}.json"));
         let checkpoint = directory
             .path()
@@ -492,7 +492,7 @@ mod tests {
         }]});
         let hello = json!({"type":"daemon_hello", "supervisorPid":std::process::id(),
             "supervisorProcessStartId":"fixed-start", "supervisorGeneration":"generation",
-            "appVersion":"0.6.0", "protocol":{"name":"prime-agent.daemon","version":7}});
+            "appVersion":"0.6.0", "protocol":{"name":"async-agent.daemon","version":7}});
         let owner = hello.clone();
         let server = tokio::spawn(async move {
             let mut prepare_key = None;
@@ -581,7 +581,7 @@ mod tests {
         let checkpoint = directory.path().join("roster.json");
         let manifest = json!({"formatVersion":1,"createdAt":"now","sessions":[]});
         persist(&source, &manifest).unwrap();
-        let digest = pa_daemon::paths::hash_key(&std::fs::read_to_string(&source).unwrap(), 64);
+        let digest = aa_daemon::paths::hash_key(&std::fs::read_to_string(&source).unwrap(), 64);
         persist(&attempt, &json!({"socket":socket,"version":crate::config::version(),
             "hello":{"supervisorPid":42,"supervisorProcessStartId":"start","supervisorGeneration":"generation"},
             "startedAt":0,"previousDigest":digest,"updateId":"old-attempt"})).unwrap();
@@ -595,7 +595,7 @@ mod tests {
 
     #[test]
     fn successor_must_be_the_spawned_process_with_the_expected_schema() {
-        let hello = json!({"appVersion":"1.0.0","schemaId":pa_types::daemon::DAEMON_SCHEMA_ID,"supervisorPid":42});
+        let hello = json!({"appVersion":"1.0.0","schemaId":aa_types::daemon::DAEMON_SCHEMA_ID,"supervisorPid":42});
         assert!(validate_successor(&hello, 42, "1.0.0").is_ok());
         assert!(validate_successor(&hello, 43, "1.0.0").is_err());
         assert!(validate_successor(&hello, 42, "1.0.1").is_err());
@@ -620,7 +620,7 @@ mod tests {
         .unwrap();
         assert!(validate_recovery(&roster, &socket, crate::config::version()).is_ok());
         roster.binary.to_version = "a-different-release".to_string();
-        let key = pa_daemon::paths::hash_key(&socket.to_string_lossy(), 64);
+        let key = aa_daemon::paths::hash_key(&socket.to_string_lossy(), 64);
         let checkpoint = recovery.join(format!("{key}.json"));
         persist(&checkpoint, &serde_json::to_value(&roster).unwrap()).unwrap();
         let status_path = directory.path().join("status.json");
@@ -653,7 +653,7 @@ mod tests {
         let status_path = directory.path().join("status.json");
         let source_dir = directory.path().join("daemon-update-restarts");
         std::fs::create_dir(&source_dir).unwrap();
-        let key = pa_daemon::paths::hash_key(&socket.to_string_lossy(), 64);
+        let key = aa_daemon::paths::hash_key(&socket.to_string_lossy(), 64);
         persist(
             &source_dir.join(format!("{key}.json")),
             &json!({"formatVersion":1,"createdAt":"old","sessions":[]}),
@@ -665,7 +665,7 @@ mod tests {
             let (read, mut write) = stream.into_split();
             let hello = json!({"type":"daemon_hello","supervisorPid":std::process::id(),
                 "supervisorProcessStartId":"start", "supervisorGeneration":"generation",
-                "protocol":{"name":"prime-agent.daemon","version":7}});
+                "protocol":{"name":"async-agent.daemon","version":7}});
             write
                 .write_all(format!("{hello}\n").as_bytes())
                 .await
@@ -703,7 +703,7 @@ mod tests {
             .unwrap();
         let status: Value = serde_json::from_slice(&std::fs::read(status_path).unwrap()).unwrap();
         assert_eq!(status["phase"], "failed");
-        let key = pa_daemon::paths::hash_key(&socket.to_string_lossy(), 64);
+        let key = aa_daemon::paths::hash_key(&socket.to_string_lossy(), 64);
         assert!(
             !directory
                 .path()

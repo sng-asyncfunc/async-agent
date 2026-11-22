@@ -14,7 +14,7 @@
 //! commands through it, so the forwarded env crosses no privilege
 //! boundary — but the daemon re-applies the same filter on receipt
 //! (the socket peer is untrusted), and the daemon-internal
-//! `PRIME_AGENT_INTERNAL_*` vars never ride the wire: a worker's
+//! `ASYNC_AGENT_INTERNAL_*` vars never ride the wire: a worker's
 //! identity is stamped by the supervisor at spawn, never inherited
 //! from a client, and a worker forwarding its own env to a spawned
 //! child (the TS in-process-parity path) must not leak its internal
@@ -22,10 +22,10 @@
 
 use std::collections::BTreeMap;
 
-/// The daemon-internal env prefix (`PRIME_AGENT_INTERNAL_*`): the
+/// The daemon-internal env prefix (`ASYNC_AGENT_INTERNAL_*`): the
 /// supervisor's worker identity and protocol vars. Neither side of the
 /// wire ever forwards them.
-pub const INTERNAL_ENV_PREFIX: &str = "PRIME_AGENT_INTERNAL_";
+pub const INTERNAL_ENV_PREFIX: &str = "ASYNC_AGENT_INTERNAL_";
 
 /// Collect the launch env from a process-env-like source: everything
 /// except the daemon-internal vars (the client side of the wire
@@ -67,15 +67,15 @@ mod tests {
             ("SSL_CERT_FILE".to_string(), "/certs/ca.pem".to_string()),
             ("PA_MARKER".to_string(), "a-1".to_string()),
             (
-                "PRIME_AGENT_INTERNAL_DAEMON_WORKER".to_string(),
+                "ASYNC_AGENT_INTERNAL_DAEMON_WORKER".to_string(),
                 "1".to_string(),
             ),
             (
-                "PRIME_AGENT_INTERNAL_DAEMON_WORKER_TOKEN".to_string(),
+                "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_TOKEN".to_string(),
                 "secret-token".to_string(),
             ),
             (
-                "PRIME_AGENT_INTERNAL_".to_string(),
+                "ASYNC_AGENT_INTERNAL_".to_string(),
                 "bare-prefix".to_string(),
             ),
         ]);

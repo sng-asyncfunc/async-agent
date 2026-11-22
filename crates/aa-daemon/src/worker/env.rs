@@ -46,26 +46,26 @@ impl KillCloseReason {
     }
 }
 /// TS-parity worker environment variables.
-pub const WORKER_ROLE_ENV: &str = "PRIME_AGENT_INTERNAL_DAEMON_WORKER";
-pub const WORKER_TOKEN_ENV: &str = "PRIME_AGENT_INTERNAL_DAEMON_WORKER_TOKEN";
-pub const WORKER_INSTANCE_ID_ENV: &str = "PRIME_AGENT_INTERNAL_DAEMON_WORKER_INSTANCE_ID";
+pub const WORKER_ROLE_ENV: &str = "ASYNC_AGENT_INTERNAL_DAEMON_WORKER";
+pub const WORKER_TOKEN_ENV: &str = "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_TOKEN";
+pub const WORKER_INSTANCE_ID_ENV: &str = "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_INSTANCE_ID";
 pub const WORKER_ACTIVE_SESSION_ID_ENV: &str =
-    "PRIME_AGENT_INTERNAL_DAEMON_WORKER_ACTIVE_SESSION_ID";
+    "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_ACTIVE_SESSION_ID";
 /// Worker process cwd (the create command's `cwd`).
-pub const WORKER_CWD_ENV: &str = "PRIME_AGENT_INTERNAL_DAEMON_WORKER_CWD";
-pub const WORKER_SUPERVISOR_SOCKET_ENV: &str = "PRIME_AGENT_INTERNAL_DAEMON_SUPERVISOR_SOCKET";
-pub const WORKER_RECOVERY_JOURNAL_ENV: &str = "PRIME_AGENT_INTERNAL_DAEMON_WORKER_RECOVERY_JOURNAL";
+pub const WORKER_CWD_ENV: &str = "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_CWD";
+pub const WORKER_SUPERVISOR_SOCKET_ENV: &str = "ASYNC_AGENT_INTERNAL_DAEMON_SUPERVISOR_SOCKET";
+pub const WORKER_RECOVERY_JOURNAL_ENV: &str = "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_RECOVERY_JOURNAL";
 /// Scripted-engine script file for faux sessions (integration harness).
-pub const WORKER_SCRIPT_ENV: &str = "PRIME_AGENT_INTERNAL_DAEMON_WORKER_SCRIPT";
+pub const WORKER_SCRIPT_ENV: &str = "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_SCRIPT";
 /// Worker socket path (supervisor passes it explicitly).
-pub const WORKER_SOCKET_ENV: &str = "PRIME_AGENT_INTERNAL_DAEMON_WORKER_SOCKET";
+pub const WORKER_SOCKET_ENV: &str = "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_SOCKET";
 /// Telemetry opt-out (supervisor passes the create's `telemetryDisabled`, TS parity).
 pub const WORKER_TELEMETRY_DISABLED_ENV: &str =
-    "PRIME_AGENT_INTERNAL_DAEMON_WORKER_TELEMETRY_DISABLED";
+    "ASYNC_AGENT_INTERNAL_DAEMON_WORKER_TELEMETRY_DISABLED";
 /// Supervisor-lost exit window (ms): a worker whose supervisor socket stays
 /// unreachable for this long exits instead of lingering orphaned.
 pub const WORKER_SUPERVISOR_LOST_EXIT_MS_ENV: &str =
-    "PRIME_AGENT_INTERNAL_WORKER_SUPERVISOR_LOST_EXIT_MS";
+    "ASYNC_AGENT_INTERNAL_WORKER_SUPERVISOR_LOST_EXIT_MS";
 
 /// The worker identity/handshake set the supervisor stamps on a worker
 /// spawn ([`crate::descriptor::worker_launch_env`]), minus the public
@@ -87,7 +87,7 @@ const INHERITED_WORKER_ENV: &[&str] = &[
     WORKER_SCRIPT_ENV,
     WORKER_TELEMETRY_DISABLED_ENV,
     crate::lease::SESSION_LEASE_OWNER_ID_ENV,
-    pa_core::kernel::orphan_journal::ORPHAN_PROCESS_JOURNAL_ENV,
+    aa_core::kernel::orphan_journal::ORPHAN_PROCESS_JOURNAL_ENV,
 ];
 
 /// Remove [`INHERITED_WORKER_ENV`] from this process's environment: a

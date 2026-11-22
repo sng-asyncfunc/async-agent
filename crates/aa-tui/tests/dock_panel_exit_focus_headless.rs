@@ -11,7 +11,7 @@ mod support;
 use std::os::unix::net::UnixListener;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, run_interactive_agents_view_open, HeadlessPlan, HeadlessStep,
     InteractiveOutcome, SessionPanel, UiMode,
 };

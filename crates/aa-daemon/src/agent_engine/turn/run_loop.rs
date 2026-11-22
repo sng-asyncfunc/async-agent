@@ -8,10 +8,10 @@ use super::{
 impl AgentSessionEngine {
     /// Map a wire/settings queue mode ("all"/"one-at-a-time") onto the
     /// agent's `QueueMode`; an unknown value keeps the default.
-    pub(in crate::agent_engine) fn queue_mode(mode: &str) -> Option<pa_agent::agent::QueueMode> {
+    pub(in crate::agent_engine) fn queue_mode(mode: &str) -> Option<aa_agent::agent::QueueMode> {
         match mode {
-            "all" => Some(pa_agent::agent::QueueMode::All),
-            "one-at-a-time" => Some(pa_agent::agent::QueueMode::OneAtATime),
+            "all" => Some(aa_agent::agent::QueueMode::All),
+            "one-at-a-time" => Some(aa_agent::agent::QueueMode::OneAtATime),
             _ => None,
         }
     }
@@ -75,7 +75,7 @@ impl AgentSessionEngine {
                     // interrupted task continues.
                     if self.is_quota_parked() {
                         let marker =
-                            pa_core::session_engine::provider_park::QUOTA_RESUME_MARKER_TEXT;
+                            aa_core::session_engine::provider_park::QUOTA_RESUME_MARKER_TEXT;
                         let wake_probe = match &prompt {
                             TurnPrompt::User { text, .. } => text == marker,
                             TurnPrompt::Injected(row) => row.content.text() == marker,
@@ -212,7 +212,7 @@ impl AgentSessionEngine {
     pub(in crate::agent_engine) fn session_agent(
         &self,
         model: &Model,
-    ) -> anyhow::Result<std::sync::Arc<pa_agent::agent::Agent>> {
+    ) -> anyhow::Result<std::sync::Arc<aa_agent::agent::Agent>> {
         // Build (once) through the shared gated funnel, so the turn-driven
         // build, the read-seam builds, and the replacement rebuild all adopt
         // the same pre-build state.

@@ -2,7 +2,7 @@
 //! label. Pure state and formatting; the session view owns the
 //! transcript rows.
 
-use pa_types::goal::{empty_goal_state, GoalState, GoalStatus};
+use aa_types::goal::{empty_goal_state, GoalState, GoalStatus};
 
 /// The announcement dedupe snapshot.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -461,7 +461,7 @@ mod tests {
     /// facts.
     #[test]
     fn the_goal_panel_renders_the_objective_and_facts() {
-        let theme = crate::theme::Theme::builtin("prime", crate::theme::ColorMode::TrueColor);
+        let theme = crate::theme::Theme::builtin("async", crate::theme::ColorMode::TrueColor);
         let kb = crate::keybindings::KeybindingsManager::new();
         let mut state = goal(GoalStatus::Active);
         state.objective = Some("ship the rust port\nwith all batteries green".to_string());

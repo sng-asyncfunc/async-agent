@@ -17,7 +17,7 @@ impl Filter for CursorPositionFilter {
     }
 }
 
-/// Prime Agent patch: the combined terminal probe's replies — the OSC 7501
+/// Async Agent patch: the combined terminal probe's replies — the OSC 7501
 /// detection reply, the keyboard enhancement flags, and the primary device
 /// attributes that conclude the probe.
 #[cfg(unix)]

@@ -58,7 +58,7 @@ async fn download_once(
     user_agent: &str,
 ) -> Result<()> {
     use futures::StreamExt;
-    let response = pa_ai::utils::tls::http_client_builder()
+    let response = aa_ai::utils::tls::http_client_builder()
         .build()
         .expect("download client")
         .get(url)
@@ -237,8 +237,8 @@ fn file_digest(path: &Path) -> Result<String> {
     Ok(hex(&digest.finalize()))
 }
 
-/// The manual/direct install (`prime-agent update --archive`): stage a
-/// The manual/direct install (`prime-agent update --archive`): stage a
+/// The manual/direct install (`async-agent update --archive`): stage a
+/// The manual/direct install (`async-agent update --archive`): stage a
 /// locally-built payload (directory or archive) into
 /// `releases/<version>-<platform>-<sha256>/`, its name the digest of the
 /// STAGED tree; a manual install can never write over a running binary.
@@ -323,9 +323,9 @@ async fn stage_payload_version(payload: &Path, staging: &Path) -> Result<String>
     } else {
         unpack_archive_into(payload, staging)?;
     }
-    let binary = staging.join("prime-agent");
+    let binary = staging.join("async-agent");
     if !binary.is_file() {
-        anyhow::bail!("the release payload is missing prime-agent");
+        anyhow::bail!("the release payload is missing async-agent");
     }
     make_executable(&binary)?;
     let version = binary_reported_version(&binary).await?;
@@ -420,7 +420,7 @@ fn finish_staging(
             anyhow::bail!("the staged release is missing {asset}");
         }
     }
-    let binary = staging.join("prime-agent");
+    let binary = staging.join("async-agent");
     make_executable(&binary)?;
     std::fs::write(staging.join(".archive-sha256"), archive_sha256)?;
     std::fs::write(staging.join(".install-source"), install_source)?;
@@ -563,20 +563,20 @@ mod tests {
     /// A fixture archive with the exact release payload, deterministically packed.
     fn fixture_archive(dir: &Path, name: &str) -> (PathBuf, String) {
         let staging = dir.join("staging");
-        std::fs::create_dir_all(staging.join("prime-agent-runtime")).unwrap();
+        std::fs::create_dir_all(staging.join("async-agent-runtime")).unwrap();
         std::fs::create_dir_all(staging.join("skills")).unwrap();
-        for file in ["prime-agent", "LICENSE", "README.md"] {
+        for file in ["async-agent", "LICENSE", "README.md"] {
             std::fs::write(staging.join(file), "payload").unwrap();
         }
         let archive = dir.join(name);
         let file = std::fs::File::create(&archive).unwrap();
         let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::default());
         let mut tar = tar::Builder::new(encoder);
-        for entry in ["prime-agent", "LICENSE", "README.md"] {
+        for entry in ["async-agent", "LICENSE", "README.md"] {
             tar.append_path_with_name(staging.join(entry), entry)
                 .unwrap();
         }
-        for dir_entry in ["prime-agent-runtime", "skills"] {
+        for dir_entry in ["async-agent-runtime", "skills"] {
             tar.append_dir_all(dir_entry, staging.join(dir_entry))
                 .unwrap();
         }
@@ -640,16 +640,16 @@ mod tests {
         assert!(stage_archive(&archive, &sha, &root, "0.2.0", "https://example.com").is_err());
     }
 
-    /// A payload directory whose `prime-agent` is a script binary reporting
+    /// A payload directory whose `async-agent` is a script binary reporting
     /// a fixed version — the probe path is the same as a real binary's.
     fn fixture_payload(dir: &Path, name: &str, version: &str) -> PathBuf {
         let payload = dir.join(name);
-        std::fs::create_dir_all(payload.join("prime-agent-runtime")).unwrap();
+        std::fs::create_dir_all(payload.join("async-agent-runtime")).unwrap();
         std::fs::create_dir_all(payload.join("skills")).unwrap();
         for file in ["LICENSE", "README.md"] {
             std::fs::write(payload.join(file), "payload").unwrap();
         }
-        let binary = payload.join("prime-agent");
+        let binary = payload.join("async-agent");
         std::fs::write(
             &binary,
             format!("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then echo {version}; fi\nexit 0\n"),
@@ -728,7 +728,7 @@ mod tests {
         assert_ne!(second, first);
     }
 
-    /// A release archive whose `prime-agent` is an executable script reporting a fixed
+    /// A release archive whose `async-agent` is an executable script reporting a fixed
     /// version. Unix only: its callers are the unix symlink/exec probe tests.
     #[cfg(unix)]
     fn fixture_versioned_archive(dir: &Path, name: &str, version: &str) -> (PathBuf, String) {
@@ -737,11 +737,11 @@ mod tests {
         let file = std::fs::File::create(&archive).unwrap();
         let encoder = flate2::write::GzEncoder::new(file, flate2::Compression::default());
         let mut tar = tar::Builder::new(encoder);
-        for entry in ["prime-agent", "LICENSE", "README.md"] {
+        for entry in ["async-agent", "LICENSE", "README.md"] {
             tar.append_path_with_name(payload.join(entry), entry)
                 .unwrap();
         }
-        for dir_entry in ["prime-agent-runtime", "skills"] {
+        for dir_entry in ["async-agent-runtime", "skills"] {
             tar.append_dir_all(dir_entry, payload.join(dir_entry))
                 .unwrap();
         }
@@ -861,11 +861,11 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let destination = dir.path().join(destination_name);
             download_archive(
-                &format!("{base_url}/prime-agent-1.2.3.tar.gz"),
+                &format!("{base_url}/async-agent-1.2.3.tar.gz"),
                 &sha,
                 &destination,
                 budget,
-                "prime-agent/1.2.2 (test)",
+                "async-agent/1.2.2 (test)",
             )
             .await
             .expect("the digest matches, the download completes");
@@ -876,7 +876,7 @@ mod tests {
             );
             let head = head_rx.await.expect("the head was captured").to_lowercase();
             assert!(
-                head.contains("user-agent: prime-agent/1.2.2 (test)"),
+                head.contains("user-agent: async-agent/1.2.2 (test)"),
                 "the request identifies the release updater: {head}"
             );
         }
@@ -885,11 +885,11 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let destination = dir.path().join(destination_name);
             let error = download_archive(
-                &format!("{base_url}/prime-agent-1.2.3.tar.gz"),
+                &format!("{base_url}/async-agent-1.2.3.tar.gz"),
                 &format!("{sha}ff"),
                 &destination,
                 budget,
-                "prime-agent/1.2.2 (test)",
+                "async-agent/1.2.2 (test)",
             )
             .await;
             assert!(error.is_err(), "a wrong digest is never installed");

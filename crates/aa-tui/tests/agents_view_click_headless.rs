@@ -9,8 +9,8 @@ mod support;
 use std::io::BufReader;
 use std::time::Duration;
 
-use pa_tui::agents_view::{run_agents_view, AgentsHeadlessPlan, AgentsStep, AgentsViewUiMode};
-use pa_tui::interactive::SessionSelection;
+use aa_tui::agents_view::{run_agents_view, AgentsHeadlessPlan, AgentsStep, AgentsViewUiMode};
+use aa_tui::interactive::SessionSelection;
 use serde_json::{json, Value};
 
 use support::{read_line, respond, respond_failure, view_options, write_json, MockSupervisor};
@@ -49,7 +49,7 @@ impl MockSupervisor {
         let mut reader = BufReader::new(stream);
         let hello = json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": [],
         });
         write_json(&mut writer, &hello);
@@ -105,7 +105,7 @@ impl MockSupervisor {
 
 /// Run one headless plan and return the outcome. Holds the run lock: the click dispatch gates on
 /// the process-global tracking state.
-async fn run_plan(steps: Vec<AgentsStep>) -> pa_tui::agents_view::AgentsViewOutcome {
+async fn run_plan(steps: Vec<AgentsStep>) -> aa_tui::agents_view::AgentsViewOutcome {
     let _guard = RUN_LOCK.lock().await;
     let dir = tempfile::TempDir::new().expect("temp dir");
     let socket = dir.path().join("agents-view.sock");

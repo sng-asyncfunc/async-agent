@@ -9,7 +9,7 @@ use crate::agent_engine::AgentSessionEngine;
 use crate::compaction::compaction_end_unsuccessful;
 use crate::engine::EngineEvent;
 use crate::session_commands::custom_message_value;
-use pa_core::session_engine::messages::{CompactionOutcomeKind, CompactionOutcomeReason};
+use aa_core::session_engine::messages::{CompactionOutcomeKind, CompactionOutcomeReason};
 
 impl AgentSessionEngine {
     /// Record and broadcast one unsuccessful-compaction outcome, then emit the
@@ -47,7 +47,7 @@ impl AgentSessionEngine {
                     }
                 }
                 Err(error) => {
-                    eprintln!("pa-daemon: compaction outcome persistence failed: {error:#}");
+                    eprintln!("aa-daemon: compaction outcome persistence failed: {error:#}");
                 }
             }
         }

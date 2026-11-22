@@ -7,10 +7,10 @@ use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use pa_core::autonomous::AutonomousRuntimeState;
-use pa_core::session_engine::provider_adapter::json_round_trip;
+use aa_core::autonomous::AutonomousRuntimeState;
+use aa_core::session_engine::provider_adapter::json_round_trip;
 
-use pa_types::goal::GoalState;
+use aa_types::goal::GoalState;
 
 use super::model_commands;
 use super::prompt_commands;
@@ -55,7 +55,7 @@ impl RpcState {
 
     /// The same publication over an already-held goal state:
     /// re-acquiring the handle there can starve behind a queued writer.
-    pub async fn publish_goal_update_for(&self, goal: &pa_core::goals::GoalState) {
+    pub async fn publish_goal_update_for(&self, goal: &aa_core::goals::GoalState) {
         let goal = goal.clone();
         let changed = {
             let mut last = self.last_goal.lock().await;
@@ -110,7 +110,7 @@ pub async fn restart_queue_pump(state: &Arc<RpcState>) {
 /// at a time; serialized behind the pump lane so kicks never double-deliver.
 pub fn kick_queue_pump(
     state: &Arc<RpcState>,
-    engine: &Arc<pa_core::session_engine::engine::SessionEngine>,
+    engine: &Arc<aa_core::session_engine::engine::SessionEngine>,
 ) {
     let state = Arc::clone(state);
     let engine = Arc::clone(engine);
@@ -343,8 +343,8 @@ async fn get_state(state: &Arc<RpcState>) -> Result<ResponseData, String> {
 /// The queued-action snapshot over the agent's queues: previews per
 /// queued batch, the total, and the running turn as the active action.
 fn session_actions_snapshot(
-    agent: &pa_agent::agent::Agent,
-    state: &pa_agent::agent::AgentStateSnapshot,
+    agent: &aa_agent::agent::Agent,
+    state: &aa_agent::agent::AgentStateSnapshot,
 ) -> Value {
     let steering = agent.steering_previews();
     let follow_ups = agent.follow_up_previews();
@@ -360,10 +360,10 @@ fn session_actions_snapshot(
 }
 
 /// The wire names of the agent queue modes.
-fn queue_mode_wire_name(mode: pa_agent::agent::QueueMode) -> &'static str {
+fn queue_mode_wire_name(mode: aa_agent::agent::QueueMode) -> &'static str {
     match mode {
-        pa_agent::agent::QueueMode::All => "all",
-        pa_agent::agent::QueueMode::OneAtATime => "one-at-a-time",
+        aa_agent::agent::QueueMode::All => "all",
+        aa_agent::agent::QueueMode::OneAtATime => "one-at-a-time",
     }
 }
 
@@ -428,7 +428,7 @@ async fn compact(state: &Arc<RpcState>, payload: &Value) -> Result<ResponseData,
         }
     };
     let outcome_value = match &outcome {
-        pa_core::session_engine::compact_session::CompactOutcome::Ran(run) => {
+        aa_core::session_engine::compact_session::CompactOutcome::Ran(run) => {
             let result = crate::compaction::compaction_result_value(&run.result, &run.entry);
             state
                 .session
@@ -440,7 +440,7 @@ async fn compact(state: &Arc<RpcState>, payload: &Value) -> Result<ResponseData,
                 .await;
             ResponseData::Present(result)
         }
-        pa_core::session_engine::compact_session::CompactOutcome::Skipped(message) => {
+        aa_core::session_engine::compact_session::CompactOutcome::Skipped(message) => {
             // TS `compaction_end` omits an undefined `result` (the skip
             // is observable, the result is not).
             state
@@ -485,7 +485,7 @@ pub fn compaction_frame(kind: &str, instructions: Option<&str>, result: Option<&
 
 /// `refine`: run the refinement and answer with the `RefinementResult`.
 async fn refine(state: &Arc<RpcState>, payload: &Value) -> Result<ResponseData, String> {
-    let options = pa_core::session_engine::refine::RefineOptions {
+    let options = aa_core::session_engine::refine::RefineOptions {
         global: payload
             .get("global")
             .and_then(Value::as_bool)
@@ -507,7 +507,7 @@ async fn refine(state: &Arc<RpcState>, payload: &Value) -> Result<ResponseData, 
     // waiting. Other prompts and session replacement must not await planning.
     let pending = engine.session.start_refinement(
         options,
-        pa_core::session_engine::refine::RefinementSource::User,
+        aa_core::session_engine::refine::RefinementSource::User,
         model,
         api_key,
     );
@@ -534,7 +534,7 @@ async fn set_auto_compaction(
     // Persist the settings default first: a settings failure must leave
     // the live toggle untouched.
     let mut settings =
-        pa_core::settings::SettingsManager::create(&state.settings_cwd().await, &state.agent_dir);
+        aa_core::settings::SettingsManager::create(&state.settings_cwd().await, &state.agent_dir);
     settings
         .set_compaction_enabled(enabled)
         .map_err(|error| error.to_string())?;
@@ -550,7 +550,7 @@ async fn set_auto_retry(state: &Arc<RpcState>, payload: &Value) -> Result<Respon
         .and_then(Value::as_bool)
         .ok_or_else(|| "set_auto_retry requires enabled".to_string())?;
     let mut settings =
-        pa_core::settings::SettingsManager::create(&state.settings_cwd().await, &state.agent_dir);
+        aa_core::settings::SettingsManager::create(&state.settings_cwd().await, &state.agent_dir);
     settings
         .set_retry_enabled(enabled)
         .map_err(|error| error.to_string())?;

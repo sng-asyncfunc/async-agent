@@ -3,10 +3,10 @@
 
 use super::agent_messaging::sanitize_message_header_value;
 use crate::cron::AgentCronJob;
-use pa_types::ai::{
+use aa_types::ai::{
     AssistantMessage, TextContent, ToolResultMessage, UserContent, UserContentBlock, UserMessage,
 };
-use pa_types::session::AgentMessage;
+use aa_types::session::AgentMessage;
 use std::fmt::Write as _;
 
 pub const COMPACTION_SUMMARY_PREFIX: &str = "[compaction-summary]\n\nThe conversation history before this point was compacted into the following summary.\nThe retained messages below are authoritative; this summary may lag behind them.\nBackground work may have progressed during compaction; treat resource statuses as last-observed and refresh them before relying on them.\n\n<summary>\n";
@@ -16,7 +16,7 @@ pub const BRANCH_SUMMARY_SUFFIX: &str = "\n</summary>";
 pub const HARNESS_DIGEST_PREFIX: &str = "[harness-digest]\n\nThe persistent memories produced across this session so far:\n\n<harness_state>\n";
 pub const HARNESS_DIGEST_SUFFIX: &str = "\n</harness_state>";
 
-pub use pa_types::slash_commands::{
+pub use aa_types::slash_commands::{
     SESSION_SLASH_COMMAND_CUSTOM_TYPE, SESSION_SLASH_COMMAND_RESULT_CUSTOM_TYPE,
 };
 pub const COMPACTION_OUTCOME_CUSTOM_TYPE: &str = "compaction_outcome";
@@ -126,13 +126,13 @@ pub fn create_provider_retry_outcome_message(
     success: bool,
     attempts: u32,
     error: &str,
-) -> pa_types::session::CustomMessage {
+) -> aa_types::session::CustomMessage {
     let content = if success {
         provider_retry_recovered_text(attempts, error)
     } else {
         provider_retry_exhausted_text(attempts, error)
     };
-    pa_types::session::CustomMessage {
+    aa_types::session::CustomMessage {
         custom_type: PROVIDER_RETRY_OUTCOME_CUSTOM_TYPE.to_string(),
         content: UserContent::Text(content),
         display: true,
@@ -154,8 +154,8 @@ pub fn create_compaction_outcome_message(
     content: &str,
     reason: CompactionOutcomeReason,
     outcome: CompactionOutcomeKind,
-) -> pa_types::session::CustomMessage {
-    pa_types::session::CustomMessage {
+) -> aa_types::session::CustomMessage {
+    aa_types::session::CustomMessage {
         custom_type: COMPACTION_OUTCOME_CUSTOM_TYPE.to_string(),
         content: UserContent::Text(content.to_string()),
         display: true,
@@ -174,7 +174,7 @@ pub fn create_compaction_outcome_message(
 pub fn create_heartbeat_prompt_message(
     job: &AgentCronJob,
     timestamp: u64,
-) -> pa_types::session::CustomMessage {
+) -> aa_types::session::CustomMessage {
     let schedule = sanitize_message_header_value(&job.schedule.expression);
     let content = format!(
         "[heartbeat: {schedule} run#{}]\n\n{}",
@@ -200,7 +200,7 @@ pub fn create_heartbeat_prompt_message(
     if let Some(last_run_at) = &job.last_run_at {
         details.insert("lastRunAt".to_string(), serde_json::json!(last_run_at));
     }
-    pa_types::session::CustomMessage {
+    aa_types::session::CustomMessage {
         custom_type: HEARTBEAT_PROMPT_CUSTOM_TYPE.to_string(),
         content: UserContent::Text(content),
         display: true,
@@ -219,11 +219,11 @@ pub fn create_async_bash_completion_message(
     command: &str,
     exit_code: i64,
     timestamp: u64,
-) -> pa_types::session::CustomMessage {
+) -> aa_types::session::CustomMessage {
     // TS `JSON.stringify(details.command)`: the quoted, escaped command.
     let encoded_command = serde_json::to_string(command).unwrap_or_default();
     let content = format!("[bash-done pid:{pid} exit:{exit_code}]\n\nCommand: {encoded_command}");
-    pa_types::session::CustomMessage {
+    aa_types::session::CustomMessage {
         custom_type: ASYNC_BASH_COMPLETION_CUSTOM_TYPE.to_string(),
         content: UserContent::Text(content),
         display: true,
@@ -247,14 +247,14 @@ pub fn create_factory_progress_message(
     node: Option<&str>,
     detail: &str,
     timestamp: u64,
-) -> pa_types::session::CustomMessage {
+) -> aa_types::session::CustomMessage {
     let header_run = sanitize_message_header_value(run_id);
     let header_kind = sanitize_message_header_value(&kind.replace('_', "-"));
     let mut details = serde_json::json!({ "runId": run_id, "kind": kind, "detail": detail });
     if let Some(node) = node {
         details["node"] = serde_json::json!(node);
     }
-    pa_types::session::CustomMessage {
+    aa_types::session::CustomMessage {
         custom_type: FACTORY_PROGRESS_NOTICE_CUSTOM_TYPE.to_string(),
         content: UserContent::Text(format!(
             "[factory-progress run:{header_run}] {header_kind}: {detail}"
@@ -316,7 +316,7 @@ fn bash_output_to_text(
 
 /// Bash execution as user-facing text for LLM context.
 #[must_use]
-pub fn bash_execution_to_text(message: &pa_types::session::BashExecutionMessage) -> String {
+pub fn bash_execution_to_text(message: &aa_types::session::BashExecutionMessage) -> String {
     format!(
         "Ran `{}`\n{}",
         message.command,
@@ -425,13 +425,13 @@ pub type LlmToolResultMessage = ToolResultMessage;
 /// rules apply (what lets the harness-digest row ride the loop to the provider).
 #[must_use]
 pub fn loop_convert_to_llm(
-    messages: Vec<pa_agent::types::AgentMessage>,
-) -> Vec<pa_agent::types::Message> {
+    messages: Vec<aa_agent::types::AgentMessage>,
+) -> Vec<aa_agent::types::Message> {
     let mut out = Vec::new();
     for message in messages {
         match message {
-            pa_agent::types::AgentMessage::Standard(message) => out.push(message),
-            pa_agent::types::AgentMessage::Custom(custom) => {
+            aa_agent::types::AgentMessage::Standard(message) => out.push(message),
+            aa_agent::types::AgentMessage::Custom(custom) => {
                 let Some(session_message) = custom_message_to_session(&custom) else {
                     continue;
                 };
@@ -448,22 +448,22 @@ pub fn loop_convert_to_llm(
 
 /// One loop custom row as its session wire shape, when it matches a known session
 /// role; unknown shapes read as unconvertible (TS drops them via the default arm).
-fn custom_message_to_session(custom: &pa_agent::types::CustomAgentMessage) -> Option<AgentMessage> {
+fn custom_message_to_session(custom: &aa_agent::types::CustomAgentMessage) -> Option<AgentMessage> {
     let wire = serde_json::to_value(custom).ok()?;
     serde_json::from_value(wire).ok()
 }
 
 /// One converted session row back into its loop wire shape (the shared camelCase wire
-/// form crosses the pa-core/pa-agent boundary by JSON round-trip).
-fn session_llm_row_to_loop(message: &AgentMessage) -> Option<pa_agent::types::Message> {
+/// form crosses the aa-core/aa-agent boundary by JSON round-trip).
+fn session_llm_row_to_loop(message: &AgentMessage) -> Option<aa_agent::types::Message> {
     serde_json::from_value(serde_json::to_value(message).ok()?).ok()
 }
 
-/// The `ConvertToLlmFn` handed to the pa-agent loop: infallible by contract
+/// The `ConvertToLlmFn` handed to the aa-agent loop: infallible by contract
 /// (a failed wire round-trip drops the row, mirroring the TS default arm).
 #[must_use]
-pub fn engine_convert_to_llm() -> pa_agent::agent_loop::ConvertToLlmFn {
-    std::sync::Arc::new(|messages: Vec<pa_agent::types::AgentMessage>| {
+pub fn engine_convert_to_llm() -> aa_agent::agent_loop::ConvertToLlmFn {
+    std::sync::Arc::new(|messages: Vec<aa_agent::types::AgentMessage>| {
         Box::pin(async move { Ok(loop_convert_to_llm(messages)) })
     })
 }
@@ -521,7 +521,7 @@ mod tests {
     #[test]
     fn mcp_connection_outcome_row_is_never_context() {
         // The literal is the on-disk value a TS-era session file carries.
-        let message = pa_types::session::CustomMessage {
+        let message = aa_types::session::CustomMessage {
             custom_type: "mcp_connection_outcome".to_string(),
             content: UserContent::Text("Connected acme (12 tools verified).".to_string()),
             display: true,
@@ -563,7 +563,7 @@ mod tests {
                 timestamp: 0,
                 rest: serde_json::Map::default(),
             }),
-            AgentMessage::Custom(pa_types::session::CustomMessage {
+            AgentMessage::Custom(aa_types::session::CustomMessage {
                 custom_type: SESSION_SLASH_COMMAND_CUSTOM_TYPE.to_string(),
                 content: UserContent::Text("/model".to_string()),
                 display: true,
@@ -571,7 +571,7 @@ mod tests {
                 timestamp: 0,
                 rest: serde_json::Map::default(),
             }),
-            AgentMessage::Custom(pa_types::session::CustomMessage {
+            AgentMessage::Custom(aa_types::session::CustomMessage {
                 custom_type: "arbitrary_note".to_string(),
                 content: UserContent::Text("a note".to_string()),
                 display: true,
@@ -579,12 +579,12 @@ mod tests {
                 timestamp: 0,
                 rest: serde_json::Map::default(),
             }),
-            AgentMessage::BranchSummary(pa_types::session::BranchSummaryMessage {
+            AgentMessage::BranchSummary(aa_types::session::BranchSummaryMessage {
                 summary: "the branch".to_string(),
                 from_id: "x".to_string(),
                 timestamp: 0,
             }),
-            AgentMessage::CompactionSummary(pa_types::session::CompactionSummaryMessage {
+            AgentMessage::CompactionSummary(aa_types::session::CompactionSummaryMessage {
                 summary: "the story".to_string(),
                 tokens_before: 1,
                 retained_message_count: None,
@@ -620,7 +620,7 @@ mod tests {
 
     #[test]
     fn loop_conversion_applies_session_rules_to_custom_rows() {
-        let digest_row: pa_agent::types::AgentMessage = serde_json::from_value(serde_json::json!({
+        let digest_row: aa_agent::types::AgentMessage = serde_json::from_value(serde_json::json!({
             "role": "custom",
             "customType": "harness_digest",
             "content": "[harness-digest]
@@ -633,7 +633,7 @@ state
             "timestamp": 5
         }))
         .unwrap();
-        let outcome_row: pa_agent::types::AgentMessage =
+        let outcome_row: aa_agent::types::AgentMessage =
             serde_json::from_value(serde_json::json!({
                 "role": "custom",
                 "customType": "compaction_outcome",
@@ -643,20 +643,20 @@ state
                 "timestamp": 6
             }))
             .unwrap();
-        let unknown_row: pa_agent::types::AgentMessage =
+        let unknown_row: aa_agent::types::AgentMessage =
             serde_json::from_value(serde_json::json!({ "role": "arbitrary", "payload": "x" }))
                 .unwrap();
-        let user = pa_agent::types::AgentMessage::user("keep");
+        let user = aa_agent::types::AgentMessage::user("keep");
         let converted = loop_convert_to_llm(vec![digest_row, user, outcome_row, unknown_row]);
         assert_eq!(converted.len(), 2);
         match &converted[0] {
-            pa_agent::types::Message::User(user) => {
+            aa_agent::types::Message::User(user) => {
                 // The digest row converts to a text-part array, not a
                 // bare string.
                 assert!(
-                    matches!(&user.content, pa_agent::types::UserContent::Parts(parts)
+                    matches!(&user.content, aa_agent::types::UserContent::Parts(parts)
                         if parts.iter().any(|part| matches!(part,
-                            pa_agent::types::UserPart::Text(text)
+                            aa_agent::types::UserPart::Text(text)
                                 if text.text.contains("[harness-digest]"))))
                 );
                 assert_eq!(user.timestamp, 5);
@@ -664,9 +664,9 @@ state
             _ => panic!("expected user message"),
         }
         match &converted[1] {
-            pa_agent::types::Message::User(user) => {
+            aa_agent::types::Message::User(user) => {
                 assert!(
-                    matches!(&user.content, pa_agent::types::UserContent::Text(text)
+                    matches!(&user.content, aa_agent::types::UserContent::Text(text)
                         if text == "keep")
                 );
             }
@@ -771,7 +771,7 @@ state
 
     #[test]
     fn bash_execution_becomes_user_text() {
-        let bash = AgentMessage::BashExecution(pa_types::session::BashExecutionMessage {
+        let bash = AgentMessage::BashExecution(aa_types::session::BashExecutionMessage {
             command: "cargo test".to_string(),
             output: "ok".to_string(),
             exit_code: Some(0),
@@ -789,7 +789,7 @@ state
             }
             _ => panic!("expected user"),
         }
-        let excluded = AgentMessage::BashExecution(pa_types::session::BashExecutionMessage {
+        let excluded = AgentMessage::BashExecution(aa_types::session::BashExecutionMessage {
             exclude_from_context: Some(true),
             command: "secret".to_string(),
             output: String::new(),

@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use crate::keybindings::KeybindingsManager;
 use crate::tree_display::{self, ToolCallInfo};
 use crate::tree_nodes::{TreeNode, TreeNodeData};
-use pa_types::session::FileEntry;
+use aa_types::session::FileEntry;
 
 mod render;
 
@@ -320,7 +320,7 @@ impl TreeList {
         let entry = &node.data.entry;
         let is_current_leaf = self.current_leaf_id.as_deref() == entry.id();
         if let FileEntry::Message {
-            message: pa_types::session::AgentMessage::Assistant(assistant),
+            message: aa_types::session::AgentMessage::Assistant(assistant),
             ..
         } = entry
         {
@@ -330,7 +330,7 @@ impl TreeList {
                 let has_text = tree_display::assistant_has_text(assistant);
                 let is_error_or_aborted = !matches!(
                     assistant.stop_reason,
-                    pa_types::ai::StopReason::Stop | pa_types::ai::StopReason::ToolUse
+                    aa_types::ai::StopReason::Stop | aa_types::ai::StopReason::ToolUse
                 );
                 if !has_text && !is_error_or_aborted {
                     return false;
@@ -352,7 +352,7 @@ impl TreeList {
                 matches!(
                     entry,
                     FileEntry::Message {
-                        message: pa_types::session::AgentMessage::User(_),
+                        message: aa_types::session::AgentMessage::User(_),
                         ..
                     }
                 )
@@ -362,7 +362,7 @@ impl TreeList {
                     && !matches!(
                         entry,
                         FileEntry::Message {
-                            message: pa_types::session::AgentMessage::ToolResult(_),
+                            message: aa_types::session::AgentMessage::ToolResult(_),
                             ..
                         }
                     )

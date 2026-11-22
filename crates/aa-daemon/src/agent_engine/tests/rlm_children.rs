@@ -1,6 +1,6 @@
 //! The rlm-children tests (the persisted max-depth scan, the settled-child release probe).
 use super::*;
-use pa_core::session_engine::rlm_host::persisted_rlm_max_depth;
+use aa_core::session_engine::rlm_host::persisted_rlm_max_depth;
 
 /// The reference reader the depth scan replaced, verbatim: the whole-file
 /// read plus a full `parse_session_entries` walk. The scan

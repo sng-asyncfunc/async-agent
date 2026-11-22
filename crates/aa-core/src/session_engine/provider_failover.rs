@@ -5,9 +5,9 @@
 
 use std::future::Future;
 
-use pa_agent::abort::AbortSignal;
-use pa_agent::types::{AssistantMessage, StopReason};
-use pa_types::ai::Model;
+use aa_agent::abort::AbortSignal;
+use aa_agent::types::{AssistantMessage, StopReason};
+use aa_types::ai::Model;
 
 use super::auto_retry::{
     end_turn_on_auth_rejection, run_turn_with_auto_retry, AuthRecoveryCallback, AutoRetryEvent,
@@ -366,7 +366,7 @@ fn with_stop_reason_aborted(mut message: AssistantMessage) -> AssistantMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_agent::types::{AssistantContent, AssistantMessageDiagnostic, TextContent, Usage};
+    use aa_agent::types::{AssistantContent, AssistantMessageDiagnostic, TextContent, Usage};
     use std::sync::Arc;
     use std::sync::Mutex;
 
@@ -584,7 +584,7 @@ mod tests {
     #[tokio::test]
     async fn cancellation_after_a_failed_attempt_is_reported_without_reading_error_text() {
         for switched in [false, true] {
-            let controller = pa_agent::abort::AbortController::new();
+            let controller = aa_agent::abort::AbortController::new();
             let events = Arc::new(Mutex::new(Vec::new()));
             let mut calls = 0;
             let cancel_call = if switched { 4 } else { 1 };

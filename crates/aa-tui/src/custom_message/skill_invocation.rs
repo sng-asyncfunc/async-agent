@@ -1,7 +1,7 @@
 //! The skill-invocation card: a user message whose text is one `<skill ...>` block (what a
 //! `/skill:<name>` submission expands into) renders the compact expandable card — the `[skill]`
 //! label and skill name header, the content markdown under the branch gutter when expanded; the
-//! block parse lives in `pa_types::skill_blocks`, shared with the session engine.
+//! block parse lives in `aa_types::skill_blocks`, shared with the session engine.
 
 use crate::chat::{ChatEntry, Detail};
 use crate::theme::{Theme, ThemeColor};
@@ -23,7 +23,7 @@ pub struct SkillInvocationRow {
 /// ordinary user prompt.
 #[must_use]
 pub fn skill_invocation_entries(text: &str) -> Option<Vec<ChatEntry>> {
-    let mut block = pa_types::skill_blocks::parse_skill_block(text)?;
+    let mut block = aa_types::skill_blocks::parse_skill_block(text)?;
     let mut entries = Vec::new();
     loop {
         entries.push(ChatEntry::SkillInvocation(Box::new(SkillInvocationRow {
@@ -33,7 +33,7 @@ pub fn skill_invocation_entries(text: &str) -> Option<Vec<ChatEntry>> {
         let Some(user_message) = block.user_message else {
             break;
         };
-        if let Some(next) = pa_types::skill_blocks::parse_skill_block(&user_message) {
+        if let Some(next) = aa_types::skill_blocks::parse_skill_block(&user_message) {
             block = next;
         } else {
             entries.push(ChatEntry::User { text: user_message });
@@ -109,7 +109,7 @@ mod tests {
     use crate::theme::ColorMode;
 
     fn theme() -> Theme {
-        Theme::builtin("prime", ColorMode::TrueColor)
+        Theme::builtin("async", ColorMode::TrueColor)
     }
 
     fn flat(row: &Line) -> String {

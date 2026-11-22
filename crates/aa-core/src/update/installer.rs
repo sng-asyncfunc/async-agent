@@ -1,10 +1,10 @@
-//! The installer-takeover update funnel: `prime-agent update` and the TUI's
+//! The installer-takeover update funnel: `async-agent update` and the TUI's
 //! `/update` download the update channel's installer and run it — the
 //! official domain endpoint for stable, the download base's
 //! `install-beta.sh` for nightly; never a GitHub raw or workflow URL. The
 //! script is the single source of truth for the whole move — it resolves
 //! and downloads the latest build, uninstalls the TypeScript version,
-//! publishes the payload, and never touches `~/.prime/agent` (the sessions
+//! publishes the payload, and never touches `~/.async-agent` (the sessions
 //! and configuration the products share). The command's contract is "fetch
 //! from the official source, run it". This module only fetches and execs
 //! the script, then reports what landed; every install/uninstall decision
@@ -19,41 +19,41 @@ use anyhow::{anyhow, Context, Result};
 
 use super::release::update_user_agent;
 
-/// `PRIME_AGENT_RUST_PREFIX`: the installer's own prefix knob (the launcher
+/// `ASYNC_AGENT_RUST_PREFIX`: the installer's own prefix knob (the launcher
 /// probe reads the same value the script installs under).
-pub const ENV_PREFIX: &str = "PRIME_AGENT_RUST_PREFIX";
-/// `PRIME_AGENT_RUST_INSTALLER_URL`: the installer script URL override —
+pub const ENV_PREFIX: &str = "ASYNC_AGENT_RUST_PREFIX";
+/// `ASYNC_AGENT_RUST_INSTALLER_URL`: the installer script URL override —
 /// tests serve their own script, a pinned install can point elsewhere.
-pub const ENV_INSTALLER_URL: &str = "PRIME_AGENT_RUST_INSTALLER_URL";
+pub const ENV_INSTALLER_URL: &str = "ASYNC_AGENT_RUST_INSTALLER_URL";
 /// The installer's release-channel knob (`stable` | `beta`): the funnel
 /// passes the requested channel, else the installed one.
-pub const ENV_RELEASE_CHANNEL: &str = "PRIME_AGENT_RELEASE_CHANNEL";
+pub const ENV_RELEASE_CHANNEL: &str = "ASYNC_AGENT_RELEASE_CHANNEL";
 /// The installer's download-base knob (the bucket holding the channel
 /// manifests and release archives).
-pub const ENV_DOWNLOAD_BASE_URL: &str = "PRIME_AGENT_DOWNLOAD_BASE_URL";
-/// `install-rust.sh`'s `DOWNLOAD_BASE_URL_DEFAULT`: where the channel
+pub const ENV_DOWNLOAD_BASE_URL: &str = "ASYNC_AGENT_DOWNLOAD_BASE_URL";
+/// `install.sh`'s `DOWNLOAD_BASE_URL_DEFAULT`: where the channel
 /// manifests (`latest.json`, `beta.json`) are published.
-pub const DEFAULT_DOWNLOAD_BASE_URL: &str = "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev";
+pub const DEFAULT_DOWNLOAD_BASE_URL: &str = "https://github.com/sng-asyncfunc/async-agent/releases";
 
-/// The official domain's install endpoint — the stable channel's installer
-/// source; never a GitHub raw or workflow URL (the override env var stays
-/// for tests and pinned installs).
-pub const OFFICIAL_INSTALLER_URL: &str = "https://app.primeintellect.ai/prime-agent/install.sh";
-/// The nightly installer's file under the download base (the domain only
-/// forwards `install.sh`, so nightly updates fetch it from the base).
+/// The official install endpoint — the stable channel's installer
+/// source (the override env var stays for tests and pinned installs).
+pub const OFFICIAL_INSTALLER_URL: &str =
+    "https://github.com/sng-asyncfunc/async-agent/releases/latest/download/install.sh";
+/// The nightly installer's file under the download base (nightly updates
+/// fetch it from the base).
 pub const BETA_INSTALLER_FILE: &str = "install-beta.sh";
 
-/// `install-rust.sh` as this build shipped it. The local operations
-/// (`prime-agent update --rollback` and `--archive`) run this copy: they
+/// `install.sh` as this build shipped it. The local operations
+/// (`async-agent update --rollback` and `--archive`) run this copy: they
 /// need no network, and the script matches the layout this build was
 /// installed with.
-const BUNDLED_INSTALLER: &str = include_str!("../../../../install-rust.sh");
+const BUNDLED_INSTALLER: &str = include_str!("../../../../install.sh");
 
-/// The payload binary's file name under `<prefix>/share/prime-agent`.
+/// The payload binary's file name under `<prefix>/share/async-agent`.
 const PAYLOAD_BINARY: &str = if cfg!(windows) {
-    "prime-agent.exe"
+    "async-agent.exe"
 } else {
-    "prime-agent"
+    "async-agent"
 };
 
 /// The small-file budget for the script download (the script is a few KB;
@@ -65,7 +65,7 @@ const LAUNCHER_PROBE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The installer script URL for an installer channel (`stable` | `beta`):
 /// `<download base>/install-beta.sh` for beta, the official domain's
-/// install endpoint otherwise. `PRIME_AGENT_RUST_INSTALLER_URL` overrides
+/// install endpoint otherwise. `ASYNC_AGENT_RUST_INSTALLER_URL` overrides
 /// both — tests serve their own script, a pinned install can point
 /// elsewhere.
 #[must_use]
@@ -94,7 +94,7 @@ pub fn download_base_url() -> String {
         .unwrap_or_else(|| DEFAULT_DOWNLOAD_BASE_URL.to_string())
 }
 
-/// The install prefix the launcher probe reads (`PRIME_AGENT_RUST_PREFIX`,
+/// The install prefix the launcher probe reads (`ASYNC_AGENT_RUST_PREFIX`,
 /// the installer's own `~/.local` default).
 #[must_use]
 pub fn install_prefix() -> PathBuf {
@@ -106,7 +106,7 @@ pub fn install_prefix() -> PathBuf {
     if let Some(prefix) = running_installer_prefix() {
         return prefix;
     }
-    pa_types::platform::home_dir()
+    aa_types::platform::home_dir()
         .unwrap_or_default()
         .join(".local")
 }
@@ -140,7 +140,7 @@ pub fn current_target() -> Result<&'static str> {
 
 /// The refusal `--check` prints for one platform pair: the machine plus the
 /// full published matrix, so an unsupported machine sees exactly what the
-/// channel builds (the same message install-rust.sh's uname arm dies with).
+/// channel builds (the same message install.sh's uname arm dies with).
 #[must_use]
 pub fn no_build_message(os: &str, arch: &str) -> String {
     format!(
@@ -205,9 +205,9 @@ pub async fn run_installer(
 /// Run the takeover update from one explicit script URL and install
 /// prefix: platform preflight, fetch the branch's installer script, and
 /// exec it with the environment passed through (the installer's own
-/// `PRIME_AGENT_RUST_*` knobs ride the process environment; the script
+/// `ASYNC_AGENT_RUST_*` knobs ride the process environment; the script
 /// owns download, the TypeScript uninstall, the publish, and the
-/// `~/.prime/agent` preserve). On success the
+/// `~/.async-agent` preserve). On success the
 /// launcher's `--version` answers the new version; on failure the
 /// previous install is kept (the script's own rollback covers a
 /// mid-publish crash).
@@ -233,7 +233,7 @@ pub async fn run_installer_from(
     Ok(Installed { version })
 }
 
-/// Run the bundled `install-rust.sh` with `args` (`--rollback`, or `--archive
+/// Run the bundled `install.sh` with `args` (`--rollback`, or `--archive
 /// <path>`) against the install under `prefix`. On success the version is
 /// the one the published payload's install marker records — except on the
 /// Windows payload handoff, where the caller IS the locked payload: the
@@ -257,7 +257,7 @@ pub async fn run_bundled_installer(
     #[cfg(windows)]
     if caller_owns_payload(prefix) {
         // THE HANDOFF (Windows rename rule): this process's image sits inside
-        // <prefix>/share/prime-agent and Windows refuses to rename a directory
+        // <prefix>/share/async-agent and Windows refuses to rename a directory
         // that contains a running image, so the script's publish step can only
         // succeed after this process exits. The child is spawned without
         // waiting and inherits the terminal, so the installer's own steps and
@@ -274,7 +274,7 @@ pub async fn run_bundled_installer(
         // (name, tar, payload, the version the packaged package.json
         // reports) are the script's staged run's own — no native mirror
         // can answer either faithfully, so the script itself answers, in
-        // its PRIME_AGENT_ROLLBACK_CHECK / PRIME_AGENT_ARCHIVE_CHECK
+        // its ASYNC_AGENT_ROLLBACK_CHECK / ASYNC_AGENT_ARCHIVE_CHECK
         // modes, synchronously. Neither mode claims the lock or renames
         // the live tree (the rollback check only reads; the archive
         // check's extraction rides a temporary stage swept on its own
@@ -321,7 +321,7 @@ pub async fn run_bundled_installer(
         // step touches the payload, so the release-before-publish
         // ordering is explicit instead of a spawn-timing coincidence.
         command.env(
-            "PRIME_AGENT_INSTALLER_PARENT_PID",
+            "ASYNC_AGENT_INSTALLER_PARENT_PID",
             std::process::id().to_string(),
         );
         let spawned = command.spawn();
@@ -340,7 +340,7 @@ pub async fn run_bundled_installer(
 }
 
 /// The install prefix of an installer-owned binary: `exe` is
-/// `<prefix>/share/prime-agent/prime-agent` (`prime-agent.exe` on Windows)
+/// `<prefix>/share/async-agent/async-agent` (`async-agent.exe` on Windows)
 /// and that payload carries the installer's marker. `None` for any other
 /// binary (a managed release, a development build).
 #[must_use]
@@ -348,14 +348,14 @@ fn installer_prefix_of(exe: &Path) -> Option<PathBuf> {
     let payload = exe.parent()?;
     let share = payload.parent()?;
     let owned = exe.file_name()? == PAYLOAD_BINARY
-        && payload.file_name()? == "prime-agent"
+        && payload.file_name()? == "async-agent"
         && share.file_name()? == "share";
     let prefix = share.parent()?;
     (owned && installed_channel(prefix).is_some()).then(|| prefix.to_path_buf())
 }
 
 /// The install prefix of the running binary when the installer owns it
-/// (`<prefix>/share/prime-agent/prime-agent` in a marked payload).
+/// (`<prefix>/share/async-agent/async-agent` in a marked payload).
 #[must_use]
 pub fn running_installer_prefix() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?;
@@ -368,7 +368,7 @@ pub fn running_installer_prefix() -> Option<PathBuf> {
 }
 
 /// True when this process's own image is the payload binary of `prefix`
-/// (`<prefix>/share/prime-agent/prime-agent.exe` with the install marker):
+/// (`<prefix>/share/async-agent/async-agent.exe` with the install marker):
 /// the Windows rename rule — a running image locks its directory, so an
 /// installer child can only publish this payload after this process exits.
 /// On unix a rename never fights a running image, so the answer is false.
@@ -389,8 +389,8 @@ pub fn caller_owns_payload(prefix: &Path) -> bool {
 }
 
 /// The synchronous local-mode pre-flight for the Windows handoff: run the
-/// bundled installer ITSELF in its check mode — `PRIME_AGENT_ROLLBACK_CHECK`
-/// or `PRIME_AGENT_ARCHIVE_CHECK` by the requested mode — and fail with the
+/// bundled installer ITSELF in its check mode — `ASYNC_AGENT_ROLLBACK_CHECK`
+/// or `ASYNC_AGENT_ARCHIVE_CHECK` by the requested mode — and fail with the
 /// script's own refusal when the operation cannot run. Neither mode ever
 /// claims the publication lock or renames the live tree — the rollback
 /// check only reads, and the archive check's extraction lives in a
@@ -419,9 +419,9 @@ async fn local_mode_preflight(
             },
         )?));
     if args.first().copied() == Some(std::ffi::OsStr::new("--rollback")) {
-        command.env("PRIME_AGENT_ROLLBACK_CHECK", "1");
+        command.env("ASYNC_AGENT_ROLLBACK_CHECK", "1");
     } else {
-        command.env("PRIME_AGENT_ARCHIVE_CHECK", "1");
+        command.env("ASYNC_AGENT_ARCHIVE_CHECK", "1");
     }
     let output = command.output().await.map_err(|error| UpdateFailure {
         message: format!("could not run the installer: {error}"),
@@ -462,7 +462,7 @@ fn normalize_marker_bytes(bytes: &[u8]) -> std::borrow::Cow<'_, [u8]> {
 /// [`installed_channel`]: a ps1-written marker can be UTF-16 or
 /// BOM-prefixed, and the version line of an encoded marker must read too.
 fn installed_version(prefix: &Path) -> Option<String> {
-    let bytes = std::fs::read(prefix.join("share/prime-agent/.prime-agent-install")).ok()?;
+    let bytes = std::fs::read(prefix.join("share/async-agent/.async-agent-install")).ok()?;
     let normalized = normalize_marker_bytes(&bytes).into_owned();
     let marker = String::from_utf8_lossy(&normalized);
     let version = marker.lines().nth(1)?.strip_prefix("version ")?.trim();
@@ -470,30 +470,30 @@ fn installed_version(prefix: &Path) -> Option<String> {
 }
 
 /// The installed payload's channel, read from the install marker (the
-/// installer's own `.prime-agent-install` under the prefix's share dir;
+/// installer's own `.async-agent-install` under the prefix's share dir;
 /// its first line is "channel <name>"). `None` when the marker is absent
 /// (a pre-marker install or a foreign tree) or carries no known channel —
 /// the update then rides the fetched script's own default.
 #[must_use]
 pub fn installed_channel(prefix: &Path) -> Option<&'static str> {
-    // The marker read mirrors install-rust.sh's marker_text: install.ps1's
+    // The marker read mirrors install.sh's marker_text: install.ps1's
     // Set-Content follows $PSDefaultParameterValues['*:Encoding'], so a
     // ps1-published live marker can be UTF-16 (NUL-interleaved, and its
     // BOM is not valid UTF-8, failing the whole read) or BOM-prefixed.
     // Flattening the NULs and stripping a leading BOM keeps the exact
     // prefix check working for this script's own ASCII writes and for the
     // ps1-written ones alike (a plain marker passes through untouched).
-    let bytes = std::fs::read(prefix.join("share/prime-agent/.prime-agent-install")).ok()?;
+    let bytes = std::fs::read(prefix.join("share/async-agent/.async-agent-install")).ok()?;
     let bytes = normalize_marker_bytes(&bytes);
     let marker = String::from_utf8_lossy(&bytes);
     // The marker's first line must be the installer's OWN write shape —
-    // "install-rust.sh channel <name>" — the exact prefix is the ownership
+    // "install.sh channel <name>" — the exact prefix is the ownership
     // proof, so a foreign marker never steers the update onto a channel.
     let channel = marker
         .lines()
         .next()?
         .trim()
-        .strip_prefix("install-rust.sh channel ")?
+        .strip_prefix("install.sh channel ")?
         .trim();
     match channel {
         "stable" => Some("stable"),
@@ -510,7 +510,7 @@ pub fn installed_channel(prefix: &Path) -> Option<&'static str> {
 /// Returns an error when the request fails, answers a non-success status,
 /// or the body cannot be read or written.
 async fn fetch_script(url: &str) -> Result<(PathBuf, std::fs::File)> {
-    let response = pa_ai::utils::tls::http_client_builder()
+    let response = aa_ai::utils::tls::http_client_builder()
         .build()
         .expect("installer client")
         .get(url)
@@ -546,7 +546,7 @@ async fn fetch_script(url: &str) -> Result<(PathBuf, std::fs::File)> {
 /// cleanup.
 fn write_script(bytes: &[u8]) -> Result<(PathBuf, std::fs::File)> {
     let script = std::env::temp_dir().join(format!(
-        "prime-agent-update-{}.sh",
+        "async-agent-update-{}.sh",
         uuid::Uuid::now_v7().simple()
     ));
     let mut options = std::fs::OpenOptions::new();
@@ -617,7 +617,7 @@ fn trusted_shell() -> std::result::Result<std::path::PathBuf, UpdateFailure> {
 /// ([`execute_script`]) and the Windows handoff spawn this same command:
 /// the install prefix riding the child's environment as the installer's
 /// own knob, so the script publishes exactly where the probe looks —
-/// every other `PRIME_AGENT_RUST_*` knob passes through untouched.
+/// every other `ASYNC_AGENT_RUST_*` knob passes through untouched.
 fn installer_child(
     shell: &Path,
     prefix: &Path,
@@ -629,8 +629,8 @@ fn installer_child(
     // either would make the real run validate and exit without
     // publishing, so the shared builder strips both (the pre-flight sets
     // its own back after this).
-    command.env_remove("PRIME_AGENT_ROLLBACK_CHECK");
-    command.env_remove("PRIME_AGENT_ARCHIVE_CHECK");
+    command.env_remove("ASYNC_AGENT_ROLLBACK_CHECK");
+    command.env_remove("ASYNC_AGENT_ARCHIVE_CHECK");
     // The requested channel wins; otherwise the update stays on the channel
     // the install marker records (the fetched script's own default is the
     // stable render, so a beta install would silently switch channels).
@@ -742,17 +742,17 @@ fn output_tail(captured: &std::process::Output) -> Option<String> {
     (!joined.is_empty()).then_some(joined)
 }
 
-/// The installed launcher's `--version` answer: the takeover layout's `bin/prime-agent` first, the
-/// pre-takeover `bin/prime-agent-rust` second, and only answers stamped `-continuous.<commit>`
+/// The installed launcher's `--version` answer: the takeover layout's `bin/async-agent` first, the
+/// pre-takeover `bin/async-agent-rust` second, and only answers stamped `-continuous.<commit>`
 /// count (the TS product's launcher never matches).
 async fn launcher_version(prefix: &Path) -> Option<String> {
     // The launcher names: the .cmd twin on Windows (the sh-script launcher
     // cannot be exec'd by CreateProcess; Rust runs .cmd through cmd.exe),
     // the sh launcher pair on unix (the pre-takeover name second).
     #[cfg(windows)]
-    const LAUNCHER_NAMES: [&str; 2] = ["prime-agent.cmd", "prime-agent"];
+    const LAUNCHER_NAMES: [&str; 2] = ["async-agent.cmd", "async-agent"];
     #[cfg(not(windows))]
-    const LAUNCHER_NAMES: [&str; 2] = ["prime-agent", "prime-agent-rust"];
+    const LAUNCHER_NAMES: [&str; 2] = ["async-agent", "async-agent-rust"];
     for name in LAUNCHER_NAMES {
         let launcher = prefix.join("bin").join(name);
         if !launcher.is_file() {
@@ -783,8 +783,8 @@ async fn launcher_version(prefix: &Path) -> Option<String> {
 mod tests {
     use super::*;
 
-    /// The platform map `prime-agent update --check` names on every
-    /// supported platform pair (the same set install-rust.sh's uname case
+    /// The platform map `async-agent update --check` names on every
+    /// supported platform pair (the same set install.sh's uname case
     /// resolves): the Windows pair ships the MSVC target, and the refusal
     /// covers every other pair with the full matrix in the message.
     #[test]
@@ -822,13 +822,13 @@ mod tests {
     fn installed_channel_reads_the_ps1_encoded_marker() {
         let dir = tempfile::TempDir::new().unwrap();
         let prefix = dir.path().join("prefix");
-        let payload = prefix.join("share/prime-agent");
+        let payload = prefix.join("share/async-agent");
         std::fs::create_dir_all(&payload).unwrap();
         let cases: [(&str, Vec<u8>, &str); 4] = [
             (
                 "utf-16le",
                 {
-                    let text: Vec<u16> = "install-rust.sh channel beta\nversion 1\n"
+                    let text: Vec<u16> = "install.sh channel beta\nversion 1\n"
                         .encode_utf16()
                         .collect();
                     let mut bytes = vec![0xFF, 0xFE];
@@ -843,7 +843,7 @@ mod tests {
                 "utf-8-bom",
                 {
                     let mut bytes = vec![0xEF, 0xBB, 0xBF];
-                    bytes.extend_from_slice(b"install-rust.sh channel stable\nversion 1\n");
+                    bytes.extend_from_slice(b"install.sh channel stable\nversion 1\n");
                     bytes
                 },
                 "stable",
@@ -851,7 +851,7 @@ mod tests {
             (
                 "utf-16be",
                 {
-                    let text: Vec<u16> = "install-rust.sh channel stable\nversion 1\n"
+                    let text: Vec<u16> = "install.sh channel stable\nversion 1\n"
                         .encode_utf16()
                         .collect();
                     let mut bytes = vec![0xFE, 0xFF];
@@ -864,12 +864,12 @@ mod tests {
             ),
             (
                 "ascii",
-                b"install-rust.sh channel stable\nversion 1\n".to_vec(),
+                b"install.sh channel stable\nversion 1\n".to_vec(),
                 "stable",
             ),
         ];
         for (name, bytes, expected) in cases {
-            std::fs::write(payload.join(".prime-agent-install"), &bytes).unwrap();
+            std::fs::write(payload.join(".async-agent-install"), &bytes).unwrap();
             assert_eq!(
                 installed_channel(&prefix),
                 Some(expected),
@@ -892,29 +892,29 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let prefix = dir.path().join("prefix");
         assert_eq!(installed_channel(&prefix), None);
-        let share = prefix.join("share/prime-agent");
+        let share = prefix.join("share/async-agent");
         std::fs::create_dir_all(&share).unwrap();
         std::fs::write(
-            share.join(".prime-agent-install"),
-            "install-rust.sh channel beta\nversion 0.10.0\n",
+            share.join(".async-agent-install"),
+            "install.sh channel beta\nversion 0.10.0\n",
         )
         .unwrap();
         assert_eq!(installed_channel(&prefix), Some("beta"));
         std::fs::write(
-            share.join(".prime-agent-install"),
-            "install-rust.sh channel stable\nversion 0.10.0\n",
+            share.join(".async-agent-install"),
+            "install.sh channel stable\nversion 0.10.0\n",
         )
         .unwrap();
         assert_eq!(installed_channel(&prefix), Some("stable"));
-        std::fs::write(share.join(".prime-agent-install"), "nightly\n").unwrap();
+        std::fs::write(share.join(".async-agent-install"), "nightly\n").unwrap();
         assert_eq!(installed_channel(&prefix), None);
         std::fs::write(
-            share.join(".prime-agent-install"),
+            share.join(".async-agent-install"),
             "other installer channel beta\n",
         )
         .unwrap();
         assert_eq!(installed_channel(&prefix), None);
-        std::fs::write(share.join(".prime-agent-install"), "channel beta\n").unwrap();
+        std::fs::write(share.join(".async-agent-install"), "channel beta\n").unwrap();
         assert_eq!(installed_channel(&prefix), None);
     }
 
@@ -925,13 +925,13 @@ mod tests {
     fn installer_prefix_of_needs_the_payload_path_and_the_marker() {
         let dir = tempfile::TempDir::new().unwrap();
         let prefix = dir.path().join("prefix");
-        let payload = prefix.join("share/prime-agent");
+        let payload = prefix.join("share/async-agent");
         std::fs::create_dir_all(&payload).unwrap();
         let exe = payload.join(PAYLOAD_BINARY);
         assert_eq!(installer_prefix_of(&exe), None, "no marker: not owned");
         std::fs::write(
-            payload.join(".prime-agent-install"),
-            "install-rust.sh channel beta\nversion 0.9.9-beta.10\n",
+            payload.join(".async-agent-install"),
+            "install.sh channel beta\nversion 0.9.9-beta.10\n",
         )
         .unwrap();
         assert_eq!(installer_prefix_of(&exe), Some(prefix.clone()));
@@ -939,7 +939,7 @@ mod tests {
         // A binary elsewhere in the tree, or a managed release, is not.
         assert_eq!(installer_prefix_of(&payload.join("other")), None);
         assert_eq!(
-            installer_prefix_of(&prefix.join("releases/0.9.8/prime-agent")),
+            installer_prefix_of(&prefix.join("releases/0.9.8/async-agent")),
             None
         );
     }
@@ -953,11 +953,11 @@ mod tests {
     fn caller_owns_payload_stays_false_for_a_staged_prefix_on_unix() {
         let dir = tempfile::TempDir::new().unwrap();
         let prefix = dir.path().join("prefix");
-        let payload = prefix.join("share/prime-agent");
+        let payload = prefix.join("share/async-agent");
         std::fs::create_dir_all(&payload).unwrap();
         std::fs::write(
-            payload.join(".prime-agent-install"),
-            "install-rust.sh channel beta\nversion 0.9.9-beta.10\n",
+            payload.join(".async-agent-install"),
+            "install.sh channel beta\nversion 0.9.9-beta.10\n",
         )
         .unwrap();
         assert!(
@@ -976,11 +976,11 @@ mod tests {
     fn caller_owns_payload_needs_the_running_image_on_windows() {
         let dir = tempfile::TempDir::new().unwrap();
         let prefix = dir.path().join("prefix");
-        let payload = prefix.join("share/prime-agent");
+        let payload = prefix.join("share/async-agent");
         std::fs::create_dir_all(&payload).unwrap();
         std::fs::write(
-            payload.join(".prime-agent-install"),
-            "install-rust.sh channel beta\nversion 0.9.9-beta.10\n",
+            payload.join(".async-agent-install"),
+            "install.sh channel beta\nversion 0.9.9-beta.10\n",
         )
         .unwrap();
         assert!(
@@ -1037,7 +1037,7 @@ mod tests {
         fn new(root: &Path) -> Self {
             let session_file = root
                 .join("home")
-                .join(".prime/agent/sessions/session.jsonl");
+                .join(".async-agent/sessions/session.jsonl");
             std::fs::create_dir_all(session_file.parent().expect("session dir"))
                 .expect("session dir");
             let bytes =
@@ -1069,21 +1069,21 @@ mod tests {
 set -eu
 # Fails only under a controlling terminal (a developer run or `script`); headless CI has none.
 if ( : <>/dev/tty ) 2>/dev/null || [ -t 0 ]; then echo "the captured installer reached the terminal" >&2; exit 9; fi
-mkdir -p "${PRIME_AGENT_RUST_PREFIX}/bin"
-printf '#!/bin/sh\necho "9.9.9-continuous.0123456789abcdef"\n' > "${PRIME_AGENT_RUST_PREFIX}/bin/prime-agent"
-chmod 0755 "${PRIME_AGENT_RUST_PREFIX}/bin/prime-agent"
-printf '%s' "${PRIME_AGENT_RELEASE_CHANNEL:-}" > "${PRIME_AGENT_RUST_PREFIX}/channel"
+mkdir -p "${ASYNC_AGENT_RUST_PREFIX}/bin"
+printf '#!/bin/sh\necho "9.9.9-continuous.0123456789abcdef"\n' > "${ASYNC_AGENT_RUST_PREFIX}/bin/async-agent"
+chmod 0755 "${ASYNC_AGENT_RUST_PREFIX}/bin/async-agent"
+printf '%s' "${ASYNC_AGENT_RELEASE_CHANNEL:-}" > "${ASYNC_AGENT_RUST_PREFIX}/channel"
 echo "installed: 9.9.9-continuous.0123456789abcdef"
 "#;
 
-    /// The pre-takeover installer: the launcher carries the legacy `prime-agent-rust`
+    /// The pre-takeover installer: the launcher carries the legacy `async-agent-rust`
     /// name the probe still accepts. Unix only: same sh-script class as [`MOCK_INSTALLER`].
     #[cfg(unix)]
     const LEGACY_INSTALLER: &str = r#"#!/bin/sh
 set -eu
-mkdir -p "${PRIME_AGENT_RUST_PREFIX}/bin"
-printf '#!/bin/sh\necho "9.9.8-continuous.fedcba9876543210"\n' > "${PRIME_AGENT_RUST_PREFIX}/bin/prime-agent-rust"
-chmod 0755 "${PRIME_AGENT_RUST_PREFIX}/bin/prime-agent-rust"
+mkdir -p "${ASYNC_AGENT_RUST_PREFIX}/bin"
+printf '#!/bin/sh\necho "9.9.8-continuous.fedcba9876543210"\n' > "${ASYNC_AGENT_RUST_PREFIX}/bin/async-agent-rust"
+chmod 0755 "${ASYNC_AGENT_RUST_PREFIX}/bin/async-agent-rust"
 echo "installed: 9.9.8-continuous.fedcba9876543210"
 "#;
 
@@ -1110,12 +1110,12 @@ echo "installed: 9.9.8-continuous.fedcba9876543210"
         std::env::remove_var(ENV_DOWNLOAD_BASE_URL);
         assert_eq!(
             installer_script_url(Some("stable")),
-            "https://app.primeintellect.ai/prime-agent/install.sh"
+            "https://github.com/sng-asyncfunc/async-agent/releases/latest/download/install.sh"
         );
         assert_eq!(installer_script_url(None), OFFICIAL_INSTALLER_URL);
         assert_eq!(
             installer_script_url(Some("beta")),
-            "https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev/install-beta.sh"
+            "https://github.com/sng-asyncfunc/async-agent/releases/install-beta.sh"
         );
         std::env::set_var(ENV_DOWNLOAD_BASE_URL, "https://mirror.example/");
         assert_eq!(
@@ -1198,11 +1198,11 @@ echo "installed: 9.9.8-continuous.fedcba9876543210"
     #[cfg(unix)]
     async fn the_requested_channel_wins_over_the_install_marker() {
         let (root, _preserve, prefix) = sandbox();
-        let share = prefix.join("share/prime-agent");
+        let share = prefix.join("share/async-agent");
         std::fs::create_dir_all(&share).unwrap();
         std::fs::write(
-            share.join(".prime-agent-install"),
-            "install-rust.sh channel beta\nversion 0.10.0\n",
+            share.join(".async-agent-install"),
+            "install.sh channel beta\nversion 0.10.0\n",
         )
         .unwrap();
         let url = serve(MOCK_INSTALLER);
@@ -1241,7 +1241,7 @@ echo "installed: 9.9.8-continuous.fedcba9876543210"
             Some("9.9.9-continuous.0123456789abcdef"),
             "the probe reads the launcher's own --version answer"
         );
-        let launcher = prefix.join("bin/prime-agent");
+        let launcher = prefix.join("bin/async-agent");
         assert!(launcher.is_file(), "the launcher landed");
         let mode = std::fs::metadata(&launcher).expect("launcher metadata");
         assert!(unix_mode_is_executable(&mode), "the launcher is executable");
@@ -1274,13 +1274,13 @@ echo "installed: 9.9.8-continuous.fedcba9876543210"
     async fn a_failed_installer_keeps_the_previous_install_and_reports_the_error() {
         let (root, preserve, prefix) = sandbox();
         std::fs::create_dir_all(prefix.join("bin")).expect("bin dir");
-        let previous = prefix.join("bin/prime-agent");
+        let previous = prefix.join("bin/async-agent");
         std::fs::write(&previous, "#!/bin/sh\necho 9.9.7-continuous.0000001\n")
             .expect("previous launcher");
         make_executable(&previous);
 
         let failure = run_installer_from(
-            &serve("#!/bin/sh\necho 'install-rust.sh: the artifact download failed' >&2\nexit 3\n"),
+            &serve("#!/bin/sh\necho 'install.sh: the artifact download failed' >&2\nexit 3\n"),
             &prefix,
             None,
             InstallerOutput::Capture,
@@ -1303,7 +1303,7 @@ echo "installed: 9.9.8-continuous.fedcba9876543210"
     async fn an_unfetchable_script_fails_without_installing() {
         let (_root, _preserve, prefix) = sandbox();
         let failure = run_installer_from(
-            "http://127.0.0.1:9/install-rust.sh",
+            "http://127.0.0.1:9/install.sh",
             &prefix,
             None,
             InstallerOutput::Capture,

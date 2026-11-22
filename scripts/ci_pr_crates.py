@@ -57,7 +57,7 @@ FILES_API_CEILING = 3000
 #               no-changelog label is the opt-out), so without the skip
 #               the narrowing could never narrow a shipped PR.
 #
-# Near misses stay fail-safe, not metadata: top-level *.md (pa-cli's
+# Near misses stay fail-safe, not metadata: top-level *.md (aa-cli's
 # packaged-layout e2e copies README.md into its staged layout, so
 # deleting or renaming it flips that unit red), docs/, skills/, vendor/,
 # install scripts, the runtime sidecar, workspace Cargo files, scripts/,
@@ -74,18 +74,18 @@ def is_guaranteed_metadata(path: str) -> bool:
 # Cargo.toml link. Over-selecting is safe; missing a dependent test is not.
 # The changes job must select without installing Rust or running Cargo.
 WORKSPACE_DEPS = {
-    "pa-types": set(),
-    "pa-telemetry": set(),
-    "pa-ai": {"pa-types"},
-    "pa-models": {"pa-ai", "pa-types"},
-    "pa-agent": {"pa-ai", "pa-types"},
-    "pa-core": {"pa-agent", "pa-ai", "pa-models", "pa-types", "pa-telemetry"},
-    "pa-daemon": {"pa-types", "pa-core", "pa-agent", "pa-ai", "pa-telemetry",
-                  "pa-models"},
-    "pa-tui": {"pa-types", "pa-core"},
-    "pa-cli": {"pa-types", "pa-telemetry", "pa-ai", "pa-models",
-               "pa-agent", "pa-core", "pa-daemon", "pa-tui"},
-    "pa-perf": {"pa-types", "pa-core", "pa-daemon"},
+    "aa-types": set(),
+    "aa-telemetry": set(),
+    "aa-ai": {"aa-types"},
+    "aa-models": {"aa-ai", "aa-types"},
+    "aa-agent": {"aa-ai", "aa-types"},
+    "aa-core": {"aa-agent", "aa-ai", "aa-models", "aa-types", "aa-telemetry"},
+    "aa-daemon": {"aa-types", "aa-core", "aa-agent", "aa-ai", "aa-telemetry",
+                  "aa-models"},
+    "aa-tui": {"aa-types", "aa-core"},
+    "aa-cli": {"aa-types", "aa-telemetry", "aa-ai", "aa-models",
+               "aa-agent", "aa-core", "aa-daemon", "aa-tui"},
+    "aa-perf": {"aa-types", "aa-core", "aa-daemon"},
 }
 
 
@@ -146,9 +146,9 @@ def select_crates(rows: list[tuple[str, str]]) -> list[str] | None:
     if not crates:
         print("no crate paths in the change list: the full selection runs")
         return None
-    # pa-types owns the shared wire vocabulary: run every workspace test for
-    # its changes, including the independent pa-telemetry leaf crate.
-    if "pa-types" in crates:
+    # aa-types owns the shared wire vocabulary: run every workspace test for
+    # its changes, including the independent aa-telemetry leaf crate.
+    if "aa-types" in crates:
         return sorted(WORKSPACE_DEPS)
     # Walk upward through the DAG until no dependent is left unselected.
     while True:

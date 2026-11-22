@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use pa_types::ai::Model;
+use aa_types::ai::Model;
 
 use super::registry::ModelRegistry;
 use super::resolver::{

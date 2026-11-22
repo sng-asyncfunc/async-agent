@@ -6,7 +6,7 @@ use super::{EngineEvent, Model, StopReason};
 pub(crate) enum TurnResult {
     /// The turn settled; the final assistant message (typed, boxed to
     /// keep the enum small).
-    Message(Box<pa_agent::types::AssistantMessage>),
+    Message(Box<aa_agent::types::AssistantMessage>),
     /// The turn was aborted before a settled message.
     Aborted,
     /// The turn failed before or during the model call; `assistant` is
@@ -14,7 +14,7 @@ pub(crate) enum TurnResult {
     /// resolution and session-build failures carry none).
     Error {
         error: String,
-        assistant: Option<Box<pa_agent::types::AssistantMessage>>,
+        assistant: Option<Box<aa_agent::types::AssistantMessage>>,
     },
 }
 
@@ -36,13 +36,13 @@ pub(crate) enum TurnPrompt {
     /// rows riding the same run after the primary.
     User {
         text: String,
-        images: Vec<pa_agent::types::ImageContent>,
+        images: Vec<aa_agent::types::ImageContent>,
         batch: Vec<crate::engine::PromptBatchRow>,
     },
     /// An injected custom row (goal continuations, RLM child terminal
     /// notices): the admission carries the row itself, so the transcript
     /// holds one representation.
-    Injected(pa_types::session::CustomMessage),
+    Injected(aa_types::session::CustomMessage),
 }
 
 /// What the turn-boundary consumption did to the run.
@@ -65,19 +65,19 @@ pub(crate) enum TurnOnce {
     None,
     /// The turn's final assistant message (retry classification).
     Message {
-        assistant: Box<pa_agent::types::AssistantMessage>,
+        assistant: Box<aa_agent::types::AssistantMessage>,
     },
 }
 
 /// Remove the trailing assistant message from the loop context, so a
 /// retried request does not re-send the failed turn's error message.
-pub(crate) async fn drop_trailing_assistant(agent: &std::sync::Arc<pa_agent::agent::Agent>) {
+pub(crate) async fn drop_trailing_assistant(agent: &std::sync::Arc<aa_agent::agent::Agent>) {
     let state = agent.state().await;
     let mut messages = state.messages;
     if matches!(
         messages.last(),
-        Some(pa_agent::types::AgentMessage::Standard(
-            pa_agent::types::Message::Assistant(_)
+        Some(aa_agent::types::AgentMessage::Standard(
+            aa_agent::types::Message::Assistant(_)
         ))
     ) {
         messages.pop();
@@ -87,10 +87,10 @@ pub(crate) async fn drop_trailing_assistant(agent: &std::sync::Arc<pa_agent::age
 
 /// The synthesized aborted assistant message (an abort racing the turn ends
 /// the loop without a provider failure).
-pub(crate) fn aborted_message(model: &Model) -> pa_agent::types::AssistantMessage {
-    pa_agent::types::AssistantMessage {
-        content: vec![pa_agent::types::AssistantContent::Text(
-            pa_agent::types::TextContent {
+pub(crate) fn aborted_message(model: &Model) -> aa_agent::types::AssistantMessage {
+    aa_agent::types::AssistantMessage {
+        content: vec![aa_agent::types::AssistantContent::Text(
+            aa_agent::types::TextContent {
                 text: String::new(),
                 text_signature: None,
             },
@@ -101,19 +101,19 @@ pub(crate) fn aborted_message(model: &Model) -> pa_agent::types::AssistantMessag
         response_model: None,
         response_id: None,
         diagnostics: None,
-        usage: pa_agent::types::Usage::zero(),
+        usage: aa_agent::types::Usage::zero(),
         stop_reason: StopReason::Aborted,
         stop_reason_raw: None,
         error_message: None,
-        timestamp: pa_agent::now_ms(),
+        timestamp: aa_agent::now_ms(),
     }
 }
 
 /// Translate one retry-loop event to the engine event vocabulary.
 pub(crate) fn retry_event_to_engine_event(
-    event: pa_core::session_engine::auto_retry::AutoRetryEvent,
+    event: aa_core::session_engine::auto_retry::AutoRetryEvent,
 ) -> EngineEvent {
-    use pa_core::session_engine::auto_retry::AutoRetryEvent;
+    use aa_core::session_engine::auto_retry::AutoRetryEvent;
     match event {
         AutoRetryEvent::Start {
             attempt,

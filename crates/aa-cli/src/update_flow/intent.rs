@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use pa_types::daemon::update_flow::{
+use aa_types::daemon::update_flow::{
     socket_update_dir, update_intent_path, update_status_path, UpdateId, UpdateIntent,
 };
 
@@ -21,7 +21,7 @@ pub enum AcquireOutcome {
 /// The per-socket update directory for one daemon socket path.
 #[must_use]
 pub fn socket_update_directory(agent_dir: &Path, socket_path: &str) -> PathBuf {
-    let hash = pa_daemon::paths::hash_key(socket_path, 64);
+    let hash = aa_daemon::paths::hash_key(socket_path, 64);
     socket_update_dir(agent_dir, &hash)
 }
 
@@ -127,7 +127,7 @@ fn intent_record(update_id: &UpdateId, pid: u64, status_path: &Path) -> UpdateIn
     UpdateIntent {
         update_id: update_id.clone(),
         pid,
-        process_start_id: pa_daemon::lease::get_process_start_id(pid as u32),
+        process_start_id: aa_daemon::lease::get_process_start_id(pid as u32),
         heartbeat_at: crate::util_time::now_iso8601(),
         rest,
     }
@@ -139,7 +139,7 @@ fn read_intent(path: &Path) -> Option<UpdateIntent> {
 }
 
 fn is_intent_holder_alive(intent: &UpdateIntent) -> bool {
-    let Ok(alive) = pa_daemon::lease::is_process_alive(intent.pid as u32) else {
+    let Ok(alive) = aa_daemon::lease::is_process_alive(intent.pid as u32) else {
         return false;
     };
     if !alive {
@@ -149,7 +149,7 @@ fn is_intent_holder_alive(intent: &UpdateIntent) -> bool {
         None => true,
         Some(expected) => {
             matches!(
-                pa_daemon::lease::get_process_start_id(intent.pid as u32),
+                aa_daemon::lease::get_process_start_id(intent.pid as u32),
                 Some(observed) if &observed == expected
             )
         }
@@ -221,7 +221,7 @@ mod tests {
         let dead = UpdateIntent {
             update_id: UpdateId::from("dead".to_string()),
             pid: 4_000_000,
-            process_start_id: pa_daemon::lease::get_process_start_id(1),
+            process_start_id: aa_daemon::lease::get_process_start_id(1),
             heartbeat_at: "t".to_string(),
             rest: serde_json::Map::default(),
         };

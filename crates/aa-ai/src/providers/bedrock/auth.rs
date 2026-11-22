@@ -114,7 +114,7 @@ pub async fn resolve_credentials(profile: Option<&str>) -> Option<AwsCredentials
         .map(std::string::ToString::to_string)
         .or_else(|| env("AWS_PROFILE"))
         .unwrap_or_else(|| "default".to_string());
-    let paths = aws_file_paths(env, pa_types::platform::home_dir().as_deref());
+    let paths = aws_file_paths(env, aa_types::platform::home_dir().as_deref());
     if let Some(credentials_path) = &paths.credentials {
         let shared = tokio::fs::read_to_string(credentials_path)
             .await
@@ -365,13 +365,13 @@ pub(crate) fn resolve_endpoint(model: &Model, options: &BedrockOptions) -> (Stri
                     &model.base_url,
                 )
             })
-            .or_else(|| env_region_or_profile(env, pa_types::platform::home_dir().as_deref()))
+            .or_else(|| env_region_or_profile(env, aa_types::platform::home_dir().as_deref()))
             .unwrap_or_else(|| "us-east-1".to_string());
         return (model.base_url.trim_end_matches('/').to_string(), region);
     }
 
     let region = configured_region
-        .or_else(|| env_region_or_profile(env, pa_types::platform::home_dir().as_deref()))
+        .or_else(|| env_region_or_profile(env, aa_types::platform::home_dir().as_deref()))
         .unwrap_or_else(|| "us-east-1".to_string());
     (
         format!("https://bedrock-runtime.{region}.amazonaws.com"),

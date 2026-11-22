@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use pa_types::session::CustomMessage;
+use aa_types::session::CustomMessage;
 
 use crate::autonomous::{
     autonomous_status, set_autonomous_enabled, set_autonomous_limits, AutonomousRuntimeState,
@@ -29,7 +29,7 @@ pub use crate::autonomous::AUTONOMOUS_STATUS_CUSTOM_TYPE;
 
 /// Inputs the host runtime supplies to one execution.
 pub struct SessionCommandParams<'a> {
-    pub model: &'a pa_types::ai::Model,
+    pub model: &'a aa_types::ai::Model,
     /// Resolved API key (None falls back to provider resolution).
     pub api_key: Option<String>,
     pub autonomous: &'a mut AutonomousRuntimeState,
@@ -39,7 +39,7 @@ pub struct SessionCommandParams<'a> {
 /// client-facing result.
 #[derive(Debug, Clone)]
 pub struct CompactionExecution {
-    pub entry: pa_types::session::CompactionEntry,
+    pub entry: aa_types::session::CompactionEntry,
     pub result: super::compaction_exec::CompactionResult,
     /// The post-compaction `javascript_state` notice row when a kernel was
     /// running (already durable; hosts broadcast its `message_start` /
@@ -90,7 +90,7 @@ fn now_millis() -> u64 {
 pub fn session_command_echo_row(command: &SessionSlashCommand) -> CustomMessage {
     CustomMessage {
         custom_type: SESSION_SLASH_COMMAND_CUSTOM_TYPE.to_string(),
-        content: pa_types::ai::UserContent::Text(command.text.clone()),
+        content: aa_types::ai::UserContent::Text(command.text.clone()),
         display: true,
         details: Some(command_details(command)),
         timestamp: now_millis(),
@@ -140,7 +140,7 @@ fn slash_command_result(
     }
     CustomMessage {
         custom_type: SESSION_SLASH_COMMAND_RESULT_CUSTOM_TYPE.to_string(),
-        content: pa_types::ai::UserContent::Text(content),
+        content: aa_types::ai::UserContent::Text(content),
         display,
         details: Some(details),
         timestamp: now_millis(),
@@ -164,7 +164,7 @@ pub async fn execute_session_command(
     engine: &SessionEngine,
     params: &mut SessionCommandParams<'_>,
     command: &SessionSlashCommand,
-    images: &[pa_agent::types::ImageContent],
+    images: &[aa_agent::types::ImageContent],
 ) -> SessionCommandExecution {
     let mut execution = SessionCommandExecution::default();
     // The echo row is recorded BEFORE the command runs, so the command's
@@ -179,7 +179,7 @@ pub async fn execute_session_command(
         // Append only the new bookkeeping row. Rebuilding from disk here could
         // resurrect retry-dropped messages and change the cached model prefix.
         if let Some(message) =
-            super::session_message_to_loop(&pa_types::session::AgentMessage::Custom(echo))
+            super::session_message_to_loop(&aa_types::session::AgentMessage::Custom(echo))
         {
             engine.session.agent().append_messages(vec![message]).await;
         }
@@ -212,7 +212,7 @@ pub async fn execute_session_command(
             .iter()
             .skip(1)
             .filter_map(|row| {
-                super::session_message_to_loop(&pa_types::session::AgentMessage::Custom(
+                super::session_message_to_loop(&aa_types::session::AgentMessage::Custom(
                     row.clone(),
                 ))
             })
@@ -235,7 +235,7 @@ async fn sync_live_context(engine: &SessionEngine) {
     };
     // The raw session messages (not the LLM view): custom rows keep their
     // wire identity in the live context, like TS's state push.
-    let loop_messages: Vec<pa_agent::types::AgentMessage> = rebuilt
+    let loop_messages: Vec<aa_agent::types::AgentMessage> = rebuilt
         .iter()
         .filter_map(super::session_message_to_loop)
         .collect();
@@ -300,7 +300,7 @@ fn execute_refine(
 async fn execute_goal(
     engine: &SessionEngine,
     command: &SessionSlashCommand,
-    images: &[pa_agent::types::ImageContent],
+    images: &[aa_agent::types::ImageContent],
     execution: &mut SessionCommandExecution,
 ) -> Result<(), String> {
     let goal = parse_goal_command(&command.args)?;
@@ -408,7 +408,7 @@ fn execute_autonomous(
     let status = autonomous_status(params.autonomous);
     execution.push_message(CustomMessage {
         custom_type: AUTONOMOUS_STATUS_CUSTOM_TYPE.to_string(),
-        content: pa_types::ai::UserContent::Text(format_autonomous_status(&status)),
+        content: aa_types::ai::UserContent::Text(format_autonomous_status(&status)),
         display: true,
         details: serde_json::to_value(&status).ok(),
         timestamp: now_millis(),
@@ -443,7 +443,7 @@ async fn persist_rows<'a>(
 mod tests {
     use super::*;
     use crate::goals::{empty_goal_state, GoalState, GoalStatus};
-    use pa_types::ai::UserContent;
+    use aa_types::ai::UserContent;
 
     fn command(name: &'static str, args: &str) -> SessionSlashCommand {
         let text = if args.is_empty() {
@@ -543,7 +543,7 @@ mod tests {
         assert!(matches!(status.content, UserContent::Text(_)));
     }
 
-    fn scripted_model() -> pa_types::ai::Model {
+    fn scripted_model() -> aa_types::ai::Model {
         serde_json::from_value(serde_json::json!({
             "id": "m", "name": "m", "api": "openai-completions", "provider": "test",
             "baseUrl": "http://localhost", "reasoning": false, "input": ["text"],

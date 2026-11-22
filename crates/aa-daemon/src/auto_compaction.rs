@@ -1,16 +1,16 @@
 //! The automatic threshold compaction at the daemon engine's turn boundaries: the TS
 //! `_checkCompaction` threshold arm, fired after every settled turn (`agent_end`) and
-//! before the next admitted prompt (`_runPreTurnCompaction`). The decision is pa-core's
+//! before the next admitted prompt (`_runPreTurnCompaction`). The decision is aa-core's
 //! [`AgentSession::auto_compaction_due`]; this module owns the threshold event pair and
 //! the persist-and-broadcast contract.
 
-use pa_agent::abort::AbortController;
+use aa_agent::abort::AbortController;
 use serde_json::Value;
 
 use crate::agent_engine::AgentSessionEngine;
 use crate::engine::EngineEvent;
-use pa_core::session_engine::compact_session::CompactOutcome;
-use pa_core::session_engine::messages::{CompactionOutcomeKind, CompactionOutcomeReason};
+use aa_core::session_engine::compact_session::CompactOutcome;
+use aa_core::session_engine::messages::{CompactionOutcomeKind, CompactionOutcomeReason};
 
 /// The outcome of one turn-boundary threshold check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -79,7 +79,7 @@ impl AgentSessionEngine {
         }) {
             return AutoCompactionRun::Cancelled;
         }
-        pa_core::session_engine::compaction_trace::trace(
+        aa_core::session_engine::compaction_trace::trace(
             "auto.threshold_start_emitted",
             &serde_json::Value::Null,
         );
@@ -111,11 +111,11 @@ impl AgentSessionEngine {
             };
             let outcome = self
                 .runtime
-                .block_on(pa_agent::abort::race_with_abort(compact, &signal));
+                .block_on(aa_agent::abort::race_with_abort(compact, &signal));
             self.clear_auto_compaction_abort(&controller);
             outcome
         };
-        pa_core::session_engine::compaction_trace::trace(
+        aa_core::session_engine::compaction_trace::trace(
             "auto.compact_returned",
             &(match &outcome {
                 Ok(Ok(CompactOutcome::Ran(_))) => {
@@ -126,7 +126,7 @@ impl AgentSessionEngine {
                 }
                 // The abort marker (from either layer) is checked before the
                 // generic failure, so a cancelled run traces "cancelled".
-                Ok(Err(error)) | Err(error) if pa_agent::abort::is_abort_error(error) => {
+                Ok(Err(error)) | Err(error) if aa_agent::abort::is_abort_error(error) => {
                     serde_json::json!({ "outcome": "cancelled" })
                 }
                 Ok(Err(_)) | Err(_) => {
@@ -145,7 +145,7 @@ impl AgentSessionEngine {
                     )) {
                         return AutoCompactionRun::Cancelled;
                     }
-                    pa_core::session_engine::compaction_trace::trace(
+                    aa_core::session_engine::compaction_trace::trace(
                         "auto.notice_emitted",
                         &serde_json::Value::Null,
                     );
@@ -172,7 +172,7 @@ impl AgentSessionEngine {
                 if !emit(EngineEvent::Compaction { entry, event }) {
                     return AutoCompactionRun::Cancelled;
                 }
-                pa_core::session_engine::compaction_trace::trace(
+                aa_core::session_engine::compaction_trace::trace(
                     "auto.end_emitted",
                     &serde_json::Value::Null,
                 );
@@ -193,7 +193,7 @@ impl AgentSessionEngine {
             // An abort from either layer — the race dropped the in-flight summarizer request,
             // or the pre-commit signal check fired (TS `_runAutoCompaction`'s aborted arm,
             // checked before the skip and failure arms).
-            Ok(Err(error)) | Err(error) if pa_agent::abort::is_abort_error(error) => {
+            Ok(Err(error)) | Err(error) if aa_agent::abort::is_abort_error(error) => {
                 if !self.emit_unsuccessful_compaction(
                     CompactionOutcomeReason::Threshold,
                     CompactionOutcomeKind::Cancelled,

@@ -1,15 +1,15 @@
 //! The corpus verification battery: every generated file loads through the
-//! PRODUCT's own readers (pa-daemon SessionFile, pa-core parse, the RLM
+//! PRODUCT's own readers (aa-daemon SessionFile, aa-core parse, the RLM
 //! ledger replay), the tree is seed-deterministic, and the marker discipline
 //! holds. Kept small and fast: tiny corpora in temp dirs only.
 
 use std::collections::HashSet;
 use std::path::Path;
 
-use pa_core::session::parse_session_entries;
-use pa_daemon::rlm_ledger::RlmSpawnLedger;
-use pa_daemon::session_store::SessionFile;
-use pa_perf::corpus::{generate, CacheMode, CorpusOptions, Profile};
+use aa_core::session::parse_session_entries;
+use aa_daemon::rlm_ledger::RlmSpawnLedger;
+use aa_daemon::session_store::SessionFile;
+use aa_perf::corpus::{generate, CacheMode, CorpusOptions, Profile};
 
 fn tiny(profile: Profile, out: &Path) -> CorpusOptions {
     CorpusOptions {
@@ -50,7 +50,7 @@ fn rows_never_degrade_to_unknown_entries() {
     assert!(
         entries
             .iter()
-            .all(|entry| !matches!(entry, pa_types::session::FileEntry::Unknown { .. })),
+            .all(|entry| !matches!(entry, aa_types::session::FileEntry::Unknown { .. })),
         "no unknown rows in the generated huge session"
     );
 }

@@ -5,7 +5,7 @@
 //! streamed response surfaces as `session_snapshot_failed`.
 
 use anyhow::{anyhow, Result};
-use pa_types::daemon::SnapshotPurpose;
+use aa_types::daemon::SnapshotPurpose;
 use serde_json::{json, Value};
 
 /// Byte budget for one chunk's serialized `messages` array. Mirrors the
@@ -89,10 +89,10 @@ pub(crate) fn elide_snapshot_image_payloads(messages: &mut [Value]) {
             ) {
                 (true, Some(data), Some(mime)) if !data.is_empty() => (
                     data.len(),
-                    pa_core::get_image_dimensions_prefix(
+                    aa_core::get_image_dimensions_prefix(
                         data,
                         mime,
-                        pa_core::IMAGE_DIMENSIONS_PREFIX_BYTES,
+                        aa_core::IMAGE_DIMENSIONS_PREFIX_BYTES,
                     ),
                 ),
                 _ => continue,
@@ -303,7 +303,7 @@ mod tests {
 
     fn attach_result(messages: &[Value]) -> Value {
         json!({
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "activeSessionId": "s1",
             "snapshot": {
                 "activeSessionId": "s1",

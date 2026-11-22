@@ -33,16 +33,16 @@ async fn compaction_auxiliary_selector_equal_to_the_session_model_runs_on_the_se
     let mut session = session_with_turns(tmp.path(), 3);
     let seen_models: std::sync::Arc<std::sync::Mutex<Vec<String>>> = std::sync::Arc::default();
     let recorder = seen_models.clone();
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Factory(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Factory(
         std::sync::Arc::new(
-            move |_context: &pa_types::ai::Context,
-                  _options: Option<&pa_ai::types::StreamOptions>,
+            move |_context: &aa_types::ai::Context,
+                  _options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  model: &pa_types::ai::Model| {
+                  model: &aa_types::ai::Model| {
                 recorder.lock().unwrap().push(model.id.clone());
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     "the summary",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ),
@@ -82,16 +82,16 @@ async fn compaction_auxiliary_selector_unusable_falls_back_to_the_session_model(
     let mut session = session_with_turns(tmp.path(), 3);
     let seen_models: std::sync::Arc<std::sync::Mutex<Vec<String>>> = std::sync::Arc::default();
     let recorder = seen_models.clone();
-    registration.set_responses(vec![pa_ai::faux::FauxResponseStep::Factory(
+    registration.set_responses(vec![aa_ai::faux::FauxResponseStep::Factory(
         std::sync::Arc::new(
-            move |_context: &pa_types::ai::Context,
-                  _options: Option<&pa_ai::types::StreamOptions>,
+            move |_context: &aa_types::ai::Context,
+                  _options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  model: &pa_types::ai::Model| {
+                  model: &aa_types::ai::Model| {
                 recorder.lock().unwrap().push(model.id.clone());
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     "the summary",
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ),

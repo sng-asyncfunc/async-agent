@@ -35,30 +35,30 @@ impl ThinkingLevelSetting {
     /// The reverse of [`ThinkingLevelSetting::model_level`]: a live switch (daemon
     /// `set_thinking_level`) persists a model-vocabulary level as the settings default.
     #[must_use]
-    pub fn from_model_level(level: pa_types::ai::ModelThinkingLevel) -> ThinkingLevelSetting {
+    pub fn from_model_level(level: aa_types::ai::ModelThinkingLevel) -> ThinkingLevelSetting {
         match level {
-            pa_types::ai::ModelThinkingLevel::Off => ThinkingLevelSetting::Off,
-            pa_types::ai::ModelThinkingLevel::Minimal => ThinkingLevelSetting::Minimal,
-            pa_types::ai::ModelThinkingLevel::Low => ThinkingLevelSetting::Low,
-            pa_types::ai::ModelThinkingLevel::Medium => ThinkingLevelSetting::Medium,
-            pa_types::ai::ModelThinkingLevel::High => ThinkingLevelSetting::High,
-            pa_types::ai::ModelThinkingLevel::Xhigh => ThinkingLevelSetting::Xhigh,
-            pa_types::ai::ModelThinkingLevel::Max => ThinkingLevelSetting::Max,
+            aa_types::ai::ModelThinkingLevel::Off => ThinkingLevelSetting::Off,
+            aa_types::ai::ModelThinkingLevel::Minimal => ThinkingLevelSetting::Minimal,
+            aa_types::ai::ModelThinkingLevel::Low => ThinkingLevelSetting::Low,
+            aa_types::ai::ModelThinkingLevel::Medium => ThinkingLevelSetting::Medium,
+            aa_types::ai::ModelThinkingLevel::High => ThinkingLevelSetting::High,
+            aa_types::ai::ModelThinkingLevel::Xhigh => ThinkingLevelSetting::Xhigh,
+            aa_types::ai::ModelThinkingLevel::Max => ThinkingLevelSetting::Max,
         }
     }
 
     /// The same level in the shared model vocabulary: the settings default
     /// feeds session thinking-level resolution.
     #[must_use]
-    pub fn model_level(self) -> pa_types::ai::ModelThinkingLevel {
+    pub fn model_level(self) -> aa_types::ai::ModelThinkingLevel {
         match self {
-            ThinkingLevelSetting::Off => pa_types::ai::ModelThinkingLevel::Off,
-            ThinkingLevelSetting::Minimal => pa_types::ai::ModelThinkingLevel::Minimal,
-            ThinkingLevelSetting::Low => pa_types::ai::ModelThinkingLevel::Low,
-            ThinkingLevelSetting::Medium => pa_types::ai::ModelThinkingLevel::Medium,
-            ThinkingLevelSetting::High => pa_types::ai::ModelThinkingLevel::High,
-            ThinkingLevelSetting::Xhigh => pa_types::ai::ModelThinkingLevel::Xhigh,
-            ThinkingLevelSetting::Max => pa_types::ai::ModelThinkingLevel::Max,
+            ThinkingLevelSetting::Off => aa_types::ai::ModelThinkingLevel::Off,
+            ThinkingLevelSetting::Minimal => aa_types::ai::ModelThinkingLevel::Minimal,
+            ThinkingLevelSetting::Low => aa_types::ai::ModelThinkingLevel::Low,
+            ThinkingLevelSetting::Medium => aa_types::ai::ModelThinkingLevel::Medium,
+            ThinkingLevelSetting::High => aa_types::ai::ModelThinkingLevel::High,
+            ThinkingLevelSetting::Xhigh => aa_types::ai::ModelThinkingLevel::Xhigh,
+            ThinkingLevelSetting::Max => aa_types::ai::ModelThinkingLevel::Max,
         }
     }
 }
@@ -87,7 +87,7 @@ fn deserialize_threshold_percent<'de, D: serde::Deserializer<'de>>(
     let value = serde_json::Value::deserialize(deserializer)?;
     Ok(value
         .as_f64()
-        .filter(|percent| pa_types::compaction::is_valid_threshold_percent(*percent)))
+        .filter(|percent| aa_types::compaction::is_valid_threshold_percent(*percent)))
 }
 
 /// `number | "unlimited"` autonomous limit.
@@ -234,7 +234,7 @@ pub enum WebSearchProvider {
 
 impl WebSearchProvider {
     /// The provider's id: its settings value, its auth-store slot, and the
-    /// kernel's `PRIME_AGENT_WEBSEARCH_PROVIDER` value.
+    /// kernel's `ASYNC_AGENT_WEBSEARCH_PROVIDER` value.
     #[must_use]
     pub fn id(self) -> &'static str {
         match self {

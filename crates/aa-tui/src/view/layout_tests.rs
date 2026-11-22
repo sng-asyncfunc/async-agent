@@ -3,7 +3,7 @@ use crate::chat::{AssistantMessage, Detail, MessageBlock, StatusKind};
 use crate::theme::{ColorMode, Theme};
 
 fn view() -> AgentView {
-    AgentView::new(Theme::builtin("prime", ColorMode::TrueColor))
+    AgentView::new(Theme::builtin("async", ColorMode::TrueColor))
 }
 
 #[test]

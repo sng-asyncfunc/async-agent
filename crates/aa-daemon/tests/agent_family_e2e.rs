@@ -1,7 +1,7 @@
 //! Agent-message family e2e: parent-to-child sends deliver, by every
 //! identifier form (name, RLM child id, persisted session id), and the
 //! child replies back to its parent.
-//! Linux-only e2e (`AF_UNIX` sockets), like the other pa-daemon verifiers.
+//! Linux-only e2e (`AF_UNIX` sockets), like the other aa-daemon verifiers.
 // Stack-resident futures by design on the daemon's hot paths.
 #![allow(clippy::large_futures)]
 // 64-bit-only targets; the narrowing casts sit at bounded OS boundaries.
@@ -29,15 +29,15 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use pa_core::kernel::shared::{HostRequestHandlers, HostRequestPayload};
-use pa_core::session_engine::agent_messaging::{
+use aa_core::kernel::shared::{HostRequestHandlers, HostRequestPayload};
+use aa_core::session_engine::agent_messaging::{
     register_agent_message_host_handlers, register_agent_observe_host_handlers,
     AgentFamilyRelationship, AgentMessageController,
 };
-use pa_core::session_engine::rlm_host::{RlmSpawnRequest, RlmSubagentHost};
-use pa_daemon::agent_messaging::{LinkAgentMessageController, LinkAgentObserveController};
-use pa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
-use pa_daemon::supervisor_link::SupervisorLink;
+use aa_core::session_engine::rlm_host::{RlmSpawnRequest, RlmSubagentHost};
+use aa_daemon::agent_messaging::{LinkAgentMessageController, LinkAgentObserveController};
+use aa_daemon::rlm_children::{ParentIdentity, SupervisorChildSessions};
+use aa_daemon::supervisor_link::SupervisorLink;
 use serde_json::{json, Value};
 
 struct Daemon {
@@ -79,7 +79,7 @@ fn parent_worker_token(agent_dir: &Path, active_session_id: &str) -> String {
 }
 
 fn spawn_supervisor(socket: &Path, agent_dir: &Path, kernel_bun: &Path) -> Daemon {
-    let binary = env!("CARGO_BIN_EXE_pa-daemon");
+    let binary = env!("CARGO_BIN_EXE_aa-daemon");
     let log_file = std::fs::File::create(socket.with_extension("daemon.log")).expect("log file");
     let log_err = log_file.try_clone().expect("clone log file");
     let child = Command::new(binary)
@@ -88,18 +88,18 @@ fn spawn_supervisor(socket: &Path, agent_dir: &Path, kernel_bun: &Path) -> Daemo
         .arg(socket)
         .arg("--agent-dir")
         .arg(agent_dir)
-        .env("PRIME_AGENT_KERNEL_BUN", kernel_bun)
+        .env("ASYNC_AGENT_KERNEL_BUN", kernel_bun)
         .stdout(Stdio::null())
         .stderr(Stdio::from(log_err))
         // A supervisor killed at teardown must not leak its session workers: the worker's
         // supervisor-lost exit (TS `exitIfSupervisorOrphanedForTooLong`) runs on this short
         // window, not the 5-minute default.
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         )
         .spawn()
-        .expect("spawn pa-daemon supervisor");
+        .expect("spawn aa-daemon supervisor");
     Daemon {
         child,
         socket: socket.to_path_buf(),
@@ -138,7 +138,7 @@ impl Client {
         let envelope = json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         });
         let mut line = serde_json::to_string(&envelope).expect("serialize command");
@@ -207,7 +207,7 @@ impl Client {
 /// note) without Bun installed.
 fn kernel_bun() -> Option<PathBuf> {
     if let Some(explicit) =
-        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("PRIME_AGENT_KERNEL_BUN"))
+        std::env::var_os("PA_E2E_KERNEL_BUN").or_else(|| std::env::var_os("ASYNC_AGENT_KERNEL_BUN"))
     {
         let explicit = PathBuf::from(explicit);
         assert!(
@@ -412,7 +412,7 @@ async fn parent_child_agent_message_round_trip_end_to_end() {
         Arc::clone(&link),
         agent_dir.clone(),
         parent_active_session_id.clone(),
-        std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+        std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
             agent_dir.clone(),
             /*telemetry_disabled*/ true,
         )),
@@ -743,7 +743,7 @@ async fn family_edges_never_cross_families_end_to_end() {
             Arc::clone(&link),
             agent_dir.clone(),
             active.clone(),
-            std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+            std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
                 agent_dir.clone(),
                 /*telemetry_disabled*/ true,
             )),
@@ -885,7 +885,7 @@ async fn family_edges_never_cross_families_end_to_end() {
         Arc::clone(&link),
         agent_dir.clone(),
         kid_a_active.clone(),
-        std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+        std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
             agent_dir.clone(),
             /*telemetry_disabled*/ true,
         )),
@@ -1205,7 +1205,7 @@ async fn parent_renames_a_child_end_to_end() {
         Arc::new(SupervisorLink::new(socket.clone())),
         agent_dir.clone(),
         parent_active_session_id.clone(),
-        std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+        std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
             agent_dir.clone(),
             /*telemetry_disabled*/ true,
         )),
@@ -1264,10 +1264,10 @@ async fn parent_renames_a_child_end_to_end() {
     // through the REAL `rlm.rename` handler, with the spawn handle's
     // child id as the selector.
     let children = Arc::new(children);
-    let wiring = pa_core::session_engine::runtime_wiring::wire_session_runtime(
-        pa_core::session::manager::SessionManager::in_memory(dir.path()),
+    let wiring = aa_core::session_engine::runtime_wiring::wire_session_runtime(
+        aa_core::session::manager::SessionManager::in_memory(dir.path()),
         dir.path(),
-        pa_core::session_engine::runtime_wiring::RlmWiring {
+        aa_core::session_engine::runtime_wiring::RlmWiring {
             model_registry: None,
             subagent_host: Some(Arc::clone(&children) as Arc<dyn RlmSubagentHost>),
             usage_store: None,
@@ -1304,7 +1304,7 @@ async fn parent_renames_a_child_end_to_end() {
 
     // The child's RLM ledger edge carries the new name (the passive roster
     // keeps it after passivation).
-    let ledger = pa_daemon::rlm_ledger::RlmSpawnLedger::new(&agent_dir, &sessions_dir, |_| {});
+    let ledger = aa_daemon::rlm_ledger::RlmSpawnLedger::new(&agent_dir, &sessions_dir, |_| {});
     let edges = ledger.edges(true).expect("ledger edges");
     let edge = edges
         .iter()
@@ -1597,7 +1597,7 @@ async fn passivated_child_recent_messages_reads_its_file_end_to_end() {
             .as_str()
             .expect("active id")
             .to_string(),
-        std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+        std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
             agent_dir.clone(),
             /*telemetry_disabled*/ true,
         )),
@@ -1766,7 +1766,7 @@ async fn family_members_read_each_others_transcripts_end_to_end() {
                 .as_str()
                 .expect("active id")
                 .to_string(),
-            std::sync::Arc::new(pa_daemon::model_allowlist::ModelRefusalTelemetry::new(
+            std::sync::Arc::new(aa_daemon::model_allowlist::ModelRefusalTelemetry::new(
                 agent_dir.clone(),
                 /*telemetry_disabled*/ true,
             )),

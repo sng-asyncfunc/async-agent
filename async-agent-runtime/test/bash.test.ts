@@ -19,7 +19,7 @@ const RUNTIME_DIR = path.resolve(import.meta.dir, "..");
 const REPL_ENTRY = path.join(RUNTIME_DIR, "src", "repl.ts");
 const tempDirs: string[] = [];
 
-function makeTempDir(prefix = "prime-bash-test-"): string {
+function makeTempDir(prefix = "async-bash-test-"): string {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 	tempDirs.push(dir);
 	return dir;
@@ -118,7 +118,7 @@ describe("bash() & sh()", () => {
 
 		try {
 			await waitFor((e) => e.event === "ready");
-			send({ type: "execute", id: "boot", code: "__primeSetCompletionNoticesWired(true);" });
+			send({ type: "execute", id: "boot", code: "__asyncSetCompletionNoticesWired(true);" });
 			await waitFor((e) => e.event === "done" && e.id === "boot");
 
 			// Start a 1.6s command: degrades after 1.0s into BashSnapshot
@@ -174,11 +174,11 @@ describe("bash() & sh()", () => {
 		}
 	});
 
-	test("persistent shell writes pa-daemon record format and cleans up after exit", async () => {
-		const agentDir = makeTempDir("prime-agent-dir-");
-		const prevAgent = process.env.PRIME_AGENT_CODING_AGENT_DIR;
+	test("persistent shell writes aa-daemon record format and cleans up after exit", async () => {
+		const agentDir = makeTempDir("async-agent-dir-");
+		const prevAgent = process.env.ASYNC_AGENT_CODING_AGENT_DIR;
 		const prevSess = process.env.RLM_SESSION_ID;
-		process.env.PRIME_AGENT_CODING_AGENT_DIR = agentDir;
+		process.env.ASYNC_AGENT_CODING_AGENT_DIR = agentDir;
 		process.env.RLM_SESSION_ID = "sess-test-123";
 		try {
 			const h = bash("echo persist-hi; sleep 0.2", { persistent: true });
@@ -197,20 +197,20 @@ describe("bash() & sh()", () => {
 			expect(result.exitCode).toBe(0);
 			expect(result.output).toContain("persist-hi");
 		} finally {
-			if (prevAgent === undefined) delete process.env.PRIME_AGENT_CODING_AGENT_DIR;
-			else process.env.PRIME_AGENT_CODING_AGENT_DIR = prevAgent;
+			if (prevAgent === undefined) delete process.env.ASYNC_AGENT_CODING_AGENT_DIR;
+			else process.env.ASYNC_AGENT_CODING_AGENT_DIR = prevAgent;
 			if (prevSess === undefined) delete process.env.RLM_SESSION_ID;
 			else process.env.RLM_SESSION_ID = prevSess;
 		}
 	});
 
 	test("enrolls pid into orphan journal when configured", async () => {
-		const dir = makeTempDir("prime-journal-");
+		const dir = makeTempDir("async-journal-");
 		const journalPath = path.join(dir, "journal.jsonl");
-		const prevJ = process.env.PRIME_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL;
-		const prevO = process.env.PRIME_AGENT_KERNEL_OWNER_PID;
-		process.env.PRIME_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL = journalPath;
-		process.env.PRIME_AGENT_KERNEL_OWNER_PID = String(process.pid);
+		const prevJ = process.env.ASYNC_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL;
+		const prevO = process.env.ASYNC_AGENT_KERNEL_OWNER_PID;
+		process.env.ASYNC_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL = journalPath;
+		process.env.ASYNC_AGENT_KERNEL_OWNER_PID = String(process.pid);
 		try {
 			const res = await bash("echo journaled");
 			expect(res.exitCode).toBe(0);
@@ -223,10 +223,10 @@ describe("bash() & sh()", () => {
 			expect(lines.some((l) => l.active === true && l.ownerPid === process.pid)).toBe(true);
 			expect(lines.some((l) => l.active === false && l.ownerPid === process.pid)).toBe(true);
 		} finally {
-			if (prevJ === undefined) delete process.env.PRIME_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL;
-			else process.env.PRIME_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL = prevJ;
-			if (prevO === undefined) delete process.env.PRIME_AGENT_KERNEL_OWNER_PID;
-			else process.env.PRIME_AGENT_KERNEL_OWNER_PID = prevO;
+			if (prevJ === undefined) delete process.env.ASYNC_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL;
+			else process.env.ASYNC_AGENT_INTERNAL_ORPHAN_PROCESS_JOURNAL = prevJ;
+			if (prevO === undefined) delete process.env.ASYNC_AGENT_KERNEL_OWNER_PID;
+			else process.env.ASYNC_AGENT_KERNEL_OWNER_PID = prevO;
 		}
 	});
 

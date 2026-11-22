@@ -1,5 +1,5 @@
-//! `prime-agent session export <file> [output]`: the HTML export of a saved
-//! session file (the export itself is pa-core's `export_from_file`).
+//! `async-agent session export <file> [output]`: the HTML export of a saved
+//! session file (the export itself is aa-core's `export_from_file`).
 
 use crate::args::Args;
 
@@ -10,7 +10,7 @@ pub fn run(parsed: &Args, agent_dir: &std::path::Path) -> Result<i32, String> {
         return Err("--export requires a value".to_string());
     };
     let output = parsed.messages.first().map(String::as_str);
-    match pa_core::export_html::export_from_file(std::path::Path::new(input), output, agent_dir) {
+    match aa_core::export_html::export_from_file(std::path::Path::new(input), output, agent_dir) {
         Ok(path) => {
             println!("Exported to: {path}");
             Ok(0)

@@ -1,5 +1,5 @@
-//! pa-daemon platform wall: per-OS endpoint naming and identity. The
-//! transport itself is the shared trait in `pa_types::platform` (daemon
+//! aa-daemon platform wall: per-OS endpoint naming and identity. The
+//! transport itself is the shared trait in `aa_types::platform` (daemon
 //! sockets bind/connect through it, so named pipes slot in without
 //! touching the supervisor or worker loops).
 

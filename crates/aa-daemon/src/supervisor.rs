@@ -68,12 +68,12 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use futures::future::join_all;
-use pa_types::daemon::{
+use aa_types::daemon::{
     DaemonCommand, DaemonErrorInfo, DaemonOutbound, DaemonSessionLifecycle, DaemonWorkerDescriptor,
     DaemonWorkerLifecycle, DurableDaemonCreateCommand, SnapshotPurpose, UpdateId,
     UpdatePreparedMarker, UpdateTimeoutBudget,
 };
-use pa_types::platform::transport::{bind_transport, connect_transport, TransportStream};
+use aa_types::platform::transport::{bind_transport, connect_transport, TransportStream};
 use serde_json::{json, Map, Value};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
@@ -143,7 +143,7 @@ pub struct Supervisor {
         std::sync::Mutex<std::collections::HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
     /// Daemon-lifecycle telemetry (`daemon event` schema v1), resolved at
     /// run start (None = opted out); never blocks supervision paths.
-    telemetry: std::sync::Mutex<Option<pa_telemetry::TelemetryClient>>,
+    telemetry: std::sync::Mutex<Option<aa_telemetry::TelemetryClient>>,
     /// The frequent supervision events (attach/detach, worker exits and
     /// restarts, overloads, saved-session listings), counted and sent as
     /// one `daemon event` summary per window instead of one event each.
@@ -199,7 +199,7 @@ pub struct Supervisor {
     update_prepare: PrepareCoordinator,
     /// In-flight mutating-command counter feeding the prepare transaction's `Draining` wait.
     mutation_drain: MutationDrainLatch,
-    /// Timeout budget of the update flow (`PRIME_AGENT_UPDATE_*_MS`
+    /// Timeout budget of the update flow (`ASYNC_AGENT_UPDATE_*_MS`
     /// overridable for CI).
     update_budget: UpdateTimeoutBudget,
     /// The boot-time restore pass (spec §6): sweep + roster restore + scheduled-work
@@ -305,41 +305,41 @@ impl Supervisor {
     pub async fn run(self: Arc<Self>) -> Result<()> {
         // Before any socket or worker exists: workers and their kernels
         // inherit the raised limit.
-        let open_file_limit = pa_core::platform::process::raise_open_file_limit();
+        let open_file_limit = aa_core::platform::process::raise_open_file_limit();
         // Daemon telemetry: same env/settings posture as the sessions
         // (the supervisor is the `daemon` execution mode). Only an
         // environment opt-out skips the client: a settings opt-out is the
         // client's live switch, so `/telemetry on` resumes without a
         // daemon restart.
         {
-            let settings = pa_core::settings::SettingsManager::create(
+            let settings = aa_core::settings::SettingsManager::create(
                 std::env::current_dir().unwrap_or_default(),
                 &self.options.agent_dir,
             );
             let env_forced_off = matches!(
-                pa_core::session_engine::telemetry::telemetry_switch(&settings),
-                pa_core::session_engine::telemetry::TelemetrySwitch::Env { enabled: false, .. }
+                aa_core::session_engine::telemetry::telemetry_switch(&settings),
+                aa_core::session_engine::telemetry::TelemetrySwitch::Env { enabled: false, .. }
             );
             *self.telemetry.lock().unwrap() = (!env_forced_off).then(|| {
-                pa_core::session_engine::telemetry::build_client(&settings, &self.options.agent_dir)
+                aa_core::session_engine::telemetry::build_client(&settings, &self.options.agent_dir)
             });
         }
         // Live model catalog (both fetch layers): the supervisor keeps the disk caches warm
         // for every worker it spawns — startup refresh plus the hourly loop, fire-and-forget.
-        let _ = pa_core::models::startup_refresh(&self.options.agent_dir);
-        pa_core::models::spawn_hourly_refresh(&self.options.agent_dir);
+        let _ = aa_core::models::startup_refresh(&self.options.agent_dir);
+        aa_core::models::spawn_hourly_refresh(&self.options.agent_dir);
         // The plugins service catalog's keep-warm (the `/mcp` view's remote catalog): same
         // cadence — startup refresh plus the hourly loop, failures keep the last-good cache.
-        pa_core::mcp::startup_plugins_refresh(&self.options.agent_dir);
-        pa_core::mcp::spawn_hourly_plugins_refresh(&self.options.agent_dir);
+        aa_core::mcp::startup_plugins_refresh(&self.options.agent_dir);
+        aa_core::mcp::spawn_hourly_plugins_refresh(&self.options.agent_dir);
         // Adoption telemetry: one `daemon event` (kind `catalog_refresh`) when the startup
         // refresh settles — the served model count, primitives only.
         {
             let supervisor = Arc::clone(&self);
             tokio::spawn(async move {
                 let agent_dir = &supervisor.options.agent_dir;
-                let catalog = pa_core::models::catalog_for(Some(&agent_dir.join("models.json")));
-                let credentials = pa_core::models::prime_credentials_for_dir(agent_dir);
+                let catalog = aa_core::models::catalog_for(Some(&agent_dir.join("models.json")));
+                let credentials = aa_core::models::prime_credentials_for_dir(agent_dir);
                 catalog
                     .refresh_with_credentials(false, credentials.as_ref())
                     .await;

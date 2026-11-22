@@ -1,5 +1,5 @@
-use pa_ai::types::{CacheRetention, SimpleStreamOptions, StreamOptions};
-use pa_types::ai::{Context, Model};
+use aa_ai::types::{CacheRetention, SimpleStreamOptions, StreamOptions};
+use aa_types::ai::{Context, Model};
 use serde_json::json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -57,7 +57,7 @@ async fn capture(
         messages: vec![],
         tools: None,
     };
-    let _ = pa_ai::complete_simple(&model, &context, Some(options))
+    let _ = aa_ai::complete_simple(&model, &context, Some(options))
         .await
         .unwrap();
     tokio::time::timeout(std::time::Duration::from_secs(10), server)
@@ -85,7 +85,7 @@ async fn opencode_session_identity_reaches_every_transport_without_cache_retenti
             "{api}"
         );
         assert!(
-            headers.contains(&("user-agent".into(), "prime-agent".into())),
+            headers.contains(&("user-agent".into(), "async-agent".into())),
             "{api}: {headers:?}"
         );
     }

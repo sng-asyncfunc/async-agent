@@ -27,7 +27,7 @@ pub(crate) fn write_factory_specs(harness_dir: &std::path::Path, ids: &[&str]) {
         .collect();
     std::fs::create_dir_all(harness_dir).unwrap();
     std::fs::write(
-        pa_core::refinement::get_harness_state_path(harness_dir),
+        aa_core::refinement::get_harness_state_path(harness_dir),
         serde_json::json!({
             "schema": 1,
             "entries": { "factory": factory, "memory": { "m": entry("m", "memory") } },
@@ -201,7 +201,7 @@ impl Drop for KernelEnvOverride {
 /// The kernel Bun binary for the live-kernel tests (skipped without one).
 #[cfg(test)]
 pub(crate) fn live_kernel_bun() -> Option<std::path::PathBuf> {
-    if let Ok(explicit) = std::env::var("PRIME_AGENT_KERNEL_BUN") {
+    if let Ok(explicit) = std::env::var("ASYNC_AGENT_KERNEL_BUN") {
         let candidate = std::path::PathBuf::from(explicit);
         if candidate.is_file() {
             return Some(candidate);

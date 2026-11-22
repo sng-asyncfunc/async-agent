@@ -111,7 +111,7 @@ pub struct ResolvedCompat {
     pub supports_long_cache_retention: bool,
     pub zai_tool_stream: bool,
     pub open_router_routing: Option<crate::types::OpenRouterRouting>,
-    pub vercel_gateway_routing: Option<pa_types::ai::VercelGatewayRouting>,
+    pub vercel_gateway_routing: Option<aa_types::ai::VercelGatewayRouting>,
 }
 
 /// Detect compatibility settings from provider and baseUrl for known providers.

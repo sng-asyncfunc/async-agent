@@ -22,7 +22,7 @@ verdict approves), joins, or one child per list item.
 joins, foreach, residents, budgets and policies, and the `rlm.factory`
 run/status/stop/resume/graph/watch calls with worked examples — call
 `rlm.factory.help()` in the kernel.** On builds without an inline guide,
-`prime-agent-runtime/src/factory.ts` is the source of truth.
+`async-agent-runtime/src/factory.ts` is the source of truth.
 
 ## The opt-in gate
 
@@ -45,10 +45,10 @@ user to run `/factory on` and restart the client.
 
 - The machine library: machines are `MACHINE.md` files, one directory
   per machine — the bundled seeds ship inside the runtime package
-  (`prime-agent-runtime/src/machines/<name>/MACHINE.md`;
-  `PRIME_AGENT_MACHINES_DIR` redirects that level at a team directory),
+  (`async-agent-runtime/src/machines/<name>/MACHINE.md`;
+  `ASYNC_AGENT_MACHINES_DIR` redirects that level at a team directory),
   and the personal library lives under the agent dir.
-  `prime-agent factory list | import | export` manages them. The seeds
+  `async-agent factory list | import | export` manages them. The seeds
   are `builder`, `pr-manager`, and `review-sweep`.
 - The TUI factory page: the activity dock's `⚙ N factory` group (Enter or
   click) opens one live diagram per run, newest run first. The up/down

@@ -5,8 +5,8 @@
 
 use std::future::Future;
 
-use pa_agent::abort::AbortSignal;
-use pa_agent::types::{AssistantMessage, StopReason};
+use aa_agent::abort::AbortSignal;
+use aa_agent::types::{AssistantMessage, StopReason};
 
 use super::provider_park::{is_quota_block_failure, ParkDecisionCallback};
 use super::provider_retry::{

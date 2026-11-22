@@ -85,10 +85,10 @@ pub struct ChildProcessResult {
 /// gates first (a pass stops the run), then the budget limits.
 pub async fn should_autonomously_continue(
     state: &mut AutonomousRuntimeState,
-    stop_reason: Option<pa_types::ai::StopReason>,
+    stop_reason: Option<aa_types::ai::StopReason>,
     gates: &dyn GateCommandRunner,
 ) -> AutonomousDecision {
-    use pa_types::ai::StopReason;
+    use aa_types::ai::StopReason;
     if !state.enabled
         || stop_reason == Some(StopReason::Error)
         || stop_reason == Some(StopReason::Aborted)
@@ -273,7 +273,7 @@ fn truncate_gate_output(output: &str, was_truncated: bool) -> String {
 const SNAPSHOT_EXCLUDES: [&str; 6] = [
     "verification",
     "target",
-    ".vf-prime-agent",
+    ".vf-async-agent",
     "Cargo.lock",
     "submission.tar.gz",
     "runner_args.log",
@@ -542,7 +542,7 @@ mod tests {
         create_autonomous_runtime_state, AgentAutonomousConfig, AgentAutonomousGateConfig,
         AutonomousDecisionReason,
     };
-    use pa_types::ai::StopReason;
+    use aa_types::ai::StopReason;
 
     fn config(enabled: bool) -> AgentAutonomousConfig {
         AgentAutonomousConfig {

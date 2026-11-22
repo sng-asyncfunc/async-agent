@@ -45,7 +45,7 @@ impl Drop for Daemon {
 // The timeout panic path cannot wait on the child; the test process exits and reaps it.
 #[allow(clippy::zombie_processes)]
 fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_pa-daemon"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_aa-daemon"));
     command
         .arg("supervisor")
         .arg("--socket")
@@ -55,10 +55,10 @@ fn spawn_daemon(socket: &Path, agent_dir: &Path) -> Daemon {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .env(
-            pa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
+            aa_daemon::worker::WORKER_SUPERVISOR_LOST_EXIT_MS_ENV,
             "15000",
         );
-    let child = command.spawn().expect("spawn pa-daemon supervisor");
+    let child = command.spawn().expect("spawn aa-daemon supervisor");
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
         if socket.exists() {
@@ -103,7 +103,7 @@ impl Client {
         let mut line = serde_json::to_string(&json!({
             "type": "command",
             "id": id,
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "command": command,
         }))
         .expect("serialize command");
@@ -220,12 +220,12 @@ fn a_foreign_lease_holder_rejects_the_create_with_the_hold_refusal() {
 
     // The foreign holder: THIS test process takes the runtime lease, naming a known
     // active session — the same record the TypeScript product's holder writes.
-    std::env::set_var(pa_daemon::lease::SESSION_LEASES_ENABLED_ENV, "1");
+    std::env::set_var(aa_daemon::lease::SESSION_LEASES_ENABLED_ENV, "1");
     std::env::set_var(
-        pa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV,
+        aa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV,
         "foreign01ab3c",
     );
-    let holder = pa_daemon::lease::acquire_session_lease(
+    let holder = aa_daemon::lease::acquire_session_lease(
         Some(std::path::Path::new(&session_file)),
         &agent_dir,
     )
@@ -255,7 +255,7 @@ fn a_foreign_lease_holder_rejects_the_create_with_the_hold_refusal() {
         "the rejection names the holder's active session: {error}"
     );
     assert!(
-        error.contains("prime-agent --daemon-socket <socket> --resume 'foreign01ab3c'"),
+        error.contains("async-agent --daemon-socket <socket> --resume 'foreign01ab3c'"),
         "the continue path is the exact attach command: {error}"
     );
     assert!(
@@ -269,7 +269,7 @@ fn a_foreign_lease_holder_rejects_the_create_with_the_hold_refusal() {
     // This test process runs a build of this product, so the holder classification
     // reads as another Rust build, never the TypeScript product.
     assert!(
-        error.starts_with("This session is currently open in another Rust build of Prime Agent"),
+        error.starts_with("This session is currently open in another Rust build of Async Agent"),
         "the holder is classified, not guessed: {error}"
     );
     assert!(
@@ -303,7 +303,7 @@ fn a_foreign_lease_holder_rejects_the_create_with_the_hold_refusal() {
 
     // The daemon logs the detected conflict itself in the rotating log beside its
     // socket.
-    let log_path = pa_daemon::paths::daemon_log_path(&socket, &agent_dir);
+    let log_path = aa_daemon::paths::daemon_log_path(&socket, &agent_dir);
     let log = std::fs::read_to_string(&log_path).unwrap_or_default();
     assert!(
         log.contains("create refused: session file"),
@@ -341,6 +341,6 @@ fn a_foreign_lease_holder_rejects_the_create_with_the_hold_refusal() {
     );
 
     holder.release();
-    std::env::remove_var(pa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV);
-    std::env::remove_var(pa_daemon::lease::SESSION_LEASES_ENABLED_ENV);
+    std::env::remove_var(aa_daemon::lease::SESSION_LEASE_OWNER_ID_ENV);
+    std::env::remove_var(aa_daemon::lease::SESSION_LEASES_ENABLED_ENV);
 }

@@ -15,11 +15,11 @@ use crate::engine::{
 };
 use crate::protocol::{response_failure, response_success, DaemonOutbound, DaemonResponse};
 use crate::worker::{EventPump, OutboundFrame};
-use pa_core::session_engine::side_question::{SideQuestionSink, SideQuestionTurn};
+use aa_core::session_engine::side_question::{SideQuestionSink, SideQuestionTurn};
 
 struct SideQuestionRun {
     client_id: String,
-    abort: pa_agent::abort::AbortController,
+    abort: aa_agent::abort::AbortController,
 }
 
 pub(crate) struct SideQuestionManager {
@@ -92,7 +92,7 @@ impl SideQuestionManager {
             })
             .unwrap_or_default();
 
-        let controller = pa_agent::abort::AbortController::new();
+        let controller = aa_agent::abort::AbortController::new();
         {
             let mut runs = self.runs.lock().unwrap();
             // The admission check rides the registry lock: `abort_all` sets
@@ -204,7 +204,7 @@ impl SideQuestionManager {
         side_question_id: String,
         question: String,
         previous_turns: Vec<SideQuestionTurn>,
-        controller: pa_agent::abort::AbortController,
+        controller: aa_agent::abort::AbortController,
     ) {
         let engine = Arc::clone(&self.engine);
         let runs = Arc::clone(&self.runs);
@@ -334,8 +334,8 @@ mod tests {
         fn run_side_question(
             &self,
             _request: SideQuestionRequest,
-            signal: &pa_agent::abort::AbortSignal,
-            _sink: &pa_core::session_engine::side_question::SideQuestionSink,
+            signal: &aa_agent::abort::AbortSignal,
+            _sink: &aa_core::session_engine::side_question::SideQuestionSink,
         ) -> SideQuestionOutcome {
             while !signal.is_aborted() {
                 std::thread::sleep(Duration::from_millis(5));
@@ -353,7 +353,7 @@ mod tests {
         fn run_compaction(
             &self,
             _request: CompactionRequest,
-            _signal: &pa_agent::abort::AbortSignal,
+            _signal: &aa_agent::abort::AbortSignal,
         ) -> CompactionOutcome {
             CompactionOutcome::Skipped {
                 message: "nothing to compact".to_string(),
@@ -363,7 +363,7 @@ mod tests {
         fn run_branch_summary(
             &self,
             _request: BranchSummaryRequest,
-            _signal: &pa_agent::abort::AbortSignal,
+            _signal: &aa_agent::abort::AbortSignal,
         ) -> BranchSummaryOutcome {
             BranchSummaryOutcome::Failed {
                 error: "unsupported".to_string(),
@@ -372,8 +372,8 @@ mod tests {
 
         fn rebuild_session_context(
             &self,
-            _branch_entries: Vec<pa_types::session::FileEntry>,
-            _goal_reload: pa_core::session_engine::goal_driver::GoalBranchReload,
+            _branch_entries: Vec<aa_types::session::FileEntry>,
+            _goal_reload: aa_core::session_engine::goal_driver::GoalBranchReload,
         ) -> anyhow::Result<()> {
             Ok(())
         }

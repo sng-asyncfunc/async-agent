@@ -9,7 +9,7 @@ use std::io::BufReader;
 use std::os::unix::net::UnixListener;
 use std::time::Duration;
 
-use pa_tui::agents_view::{
+use aa_tui::agents_view::{
     run_agents_view, AgentsHeadlessPlan, AgentsStep, AgentsViewOutcome, AgentsViewUiMode,
 };
 use serde_json::{json, Value};
@@ -39,7 +39,7 @@ fn serve(listener: &UnixListener) -> Vec<String> {
         &mut writer,
         &json!({
             "type": "daemon_hello",
-            "protocol": { "name": "prime-agent.daemon", "version": 7 },
+            "protocol": { "name": "async-agent.daemon", "version": 7 },
             "serverCapabilities": ["persistent_shells"],
         }),
     );

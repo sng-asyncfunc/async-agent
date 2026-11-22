@@ -11,7 +11,7 @@
 
 //! End-to-end verifier for the eval/verifiers composition over the headless
 //! session: the CLI autonomous flags drive a print/json session with a
-//! verifier gate command (the composition is the `prime-agent` binary
+//! verifier gate command (the composition is the `async-agent` binary
 //! itself). The gate outcome must surface as durable session rows and
 //! structured json events, and the exit code follows the TS print-mode
 //! contract.
@@ -26,18 +26,18 @@ fn isolated_home() -> tempfile::TempDir {
 }
 
 fn run(home: &Path, args: &[&str], script: &Value) -> (String, String, i32) {
-    let bin = env!("CARGO_BIN_EXE_prime-agent");
+    let bin = env!("CARGO_BIN_EXE_async-agent");
     let output = Command::new(bin)
         .args(args)
         .env("HOME", home)
-        .env("PRIME_AGENT_FAUX_SCRIPT", script.to_string())
+        .env("ASYNC_AGENT_FAUX_SCRIPT", script.to_string())
         // Keep the isolated HOME authoritative: ambient agent/session dir
         // overrides and daemon sockets from the test environment must not
         // leak in (fresh sessions never probe the daemon; keep it that way).
-        .env_remove("PRIME_AGENT_CODING_AGENT_DIR")
-        .env_remove("PRIME_AGENT_SESSION_DIR")
-        .env_remove("PRIME_AGENT_CODING_AGENT_SESSION_DIR")
-        .env_remove("PRIME_AGENT_DAEMON_SOCKET")
+        .env_remove("ASYNC_AGENT_CODING_AGENT_DIR")
+        .env_remove("ASYNC_AGENT_SESSION_DIR")
+        .env_remove("ASYNC_AGENT_CODING_AGENT_SESSION_DIR")
+        .env_remove("ASYNC_AGENT_DAEMON_SOCKET")
         .env_remove("PRIME_API_KEY")
         .current_dir(home)
         .output()
@@ -100,7 +100,7 @@ fn always_failing_verifier(home: &Path) -> PathBuf {
 }
 
 fn session_files(home: &Path) -> Vec<PathBuf> {
-    let dir = home.join(".prime/agent/sessions");
+    let dir = home.join(".async-agent/sessions");
     let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
         .map(|entries| {
             entries

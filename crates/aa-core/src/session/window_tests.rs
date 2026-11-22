@@ -225,7 +225,7 @@ async fn historical_refinement_is_read_only_on_trigger_not_in_hot_cache() {
         .collect();
     let position = rows.iter().position(|row| row["id"] == "u0").unwrap();
     let parent = rows[position]["parentId"].clone();
-    rows.insert(position, json!({"type":"custom","id":"audit","parentId":parent,"customType":"prime-agent.refinement","data":{"summary":marker}}));
+    rows.insert(position, json!({"type":"custom","id":"audit","parentId":parent,"customType":"async-agent.refinement","data":{"summary":marker}}));
     rows[position + 1]["parentId"] = json!("audit");
     let body: String = rows.into_iter().map(|row| row.to_string() + "\n").collect();
     std::fs::write(&path, &body).unwrap();
@@ -239,7 +239,7 @@ async fn historical_refinement_is_read_only_on_trigger_not_in_hot_cache() {
             .await
             .unwrap();
     let historical = manager.history_snapshot().await.unwrap();
-    assert!(historical.iter().any(|entry| matches!(entry, FileEntry::Custom { payload, .. } if payload.custom_type == "prime-agent.refinement" && payload.data.as_ref().is_some_and(|data| data["summary"] == marker))));
+    assert!(historical.iter().any(|entry| matches!(entry, FileEntry::Custom { payload, .. } if payload.custom_type == "async-agent.refinement" && payload.data.as_ref().is_some_and(|data| data["summary"] == marker))));
     assert_eq!(cold.context().messages, warm.context().messages);
 }
 
@@ -793,11 +793,11 @@ async fn adopted_manager_live_appends_match_full_reopen() {
             .unwrap();
     manager.append_model_change("live", "m2").unwrap();
     manager
-        .append_message(pa_types::session::AgentMessage::User(
-            pa_types::ai::UserMessage {
-                content: pa_types::ai::UserContent::Text("live prompt".to_owned()),
+        .append_message(aa_types::session::AgentMessage::User(
+            aa_types::ai::UserMessage {
+                content: aa_types::ai::UserContent::Text("live prompt".to_owned()),
                 timestamp: 5,
-                rest: pa_types::JsonMap::default(),
+                rest: aa_types::JsonMap::default(),
             },
         ))
         .unwrap();
@@ -807,21 +807,21 @@ async fn adopted_manager_live_appends_match_full_reopen() {
         .append_child_usage_attribution(
             "attr-1",
             "a1",
-            pa_types::ai::Usage {
+            aa_types::ai::Usage {
                 input: 5,
                 output: 1,
                 cache_read: 0,
                 cache_write: 0,
                 total_tokens: 6,
-                cost: pa_types::ai::UsageCost::default(),
+                cost: aa_types::ai::UsageCost::default(),
             },
-            pa_types::ai::Usage {
+            aa_types::ai::Usage {
                 input: 15,
                 output: 3,
                 cache_read: 0,
                 cache_write: 0,
                 total_tokens: 18,
-                cost: pa_types::ai::UsageCost::default(),
+                cost: aa_types::ai::UsageCost::default(),
             },
             None,
         )
@@ -850,7 +850,7 @@ async fn adopted_manager_live_appends_match_full_reopen() {
     // The folded aggregate is visible in both (assignment, not merge).
     assert!(
         live.messages.iter().any(|m| matches!(m,
-            pa_types::session::AgentMessage::Assistant(a)
+            aa_types::session::AgentMessage::Assistant(a)
                 if a.usage.input == 15 && a.usage.output == 3)),
         "the live attribution fold did not reach the served context"
     );
@@ -868,7 +868,7 @@ fn full_history_fixture() -> String {
         parent = Some(id);
     }
     // One refinement audit row (the class the refine transcript's audit scan reads).
-    rows.push(json!({"type":"custom","id":"audit","parentId":parent,"customType":"prime-agent.refinement","data":{"id":"refine_0","summary":"seed","rationale":"r","expectedOutcome":"o","appliedEdits":[]}}));
+    rows.push(json!({"type":"custom","id":"audit","parentId":parent,"customType":"async-agent.refinement","data":{"id":"refine_0","summary":"seed","rationale":"r","expectedOutcome":"o","appliedEdits":[]}}));
     rows.into_iter().map(|row| row.to_string() + "\n").collect()
 }
 

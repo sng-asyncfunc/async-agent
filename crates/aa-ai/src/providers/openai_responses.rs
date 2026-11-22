@@ -53,7 +53,7 @@ pub fn get_responses_compat(model: &Model) -> ResolvedResponsesCompat {
     // shared-key-only object still decodes — every field is optional and unknown keys are ignored,
     // so the responses view of any compat object is lossless for this API.
     let compat = model.compat.as_ref().and_then(|compat| {
-        serde_json::from_value::<pa_types::ai::OpenAiResponsesCompat>(compat.raw.clone().into())
+        serde_json::from_value::<aa_types::ai::OpenAiResponsesCompat>(compat.raw.clone().into())
             .ok()
     });
     ResolvedResponsesCompat {

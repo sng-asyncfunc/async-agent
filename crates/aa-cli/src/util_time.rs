@@ -15,5 +15,5 @@ pub fn now_ms() -> u64 {
 /// status file records).
 #[must_use]
 pub fn now_iso8601() -> String {
-    pa_daemon::util::iso_from_unix_ms(now_ms())
+    aa_daemon::util::iso_from_unix_ms(now_ms())
 }

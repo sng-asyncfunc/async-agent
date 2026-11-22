@@ -71,7 +71,7 @@ impl SessionUi {
         match outcome {
             Ok(version) => {
                 self.note(
-                    &format!("updated to {version} — restart prime-agent to run it"),
+                    &format!("updated to {version} — restart async-agent to run it"),
                     view,
                 );
             }
@@ -87,7 +87,7 @@ impl SessionUi {
     /// the full TS command family over the composition root's trace engine.
     pub(crate) async fn handle_traces_command(
         &mut self,
-        resolved: &pa_types::slash_commands::ResolvedSlashCommand,
+        resolved: &aa_types::slash_commands::ResolvedSlashCommand,
         view: &mut AgentView,
     ) -> Result<()> {
         let Some(traces) = self.traces.clone() else {
@@ -273,7 +273,7 @@ impl SessionUi {
         self.traces_login_gen += 1;
         let gen = self.traces_login_gen;
         let panel = crate::auth_panel::AuthPanelHandle::new(self.auth_panel_notes.clone());
-        let mut traces_dialog = crate::auth_panel::AuthPanel::new("Login to Prime Agent Traces");
+        let mut traces_dialog = crate::auth_panel::AuthPanel::new("Login to Async Agent Traces");
         traces_dialog.set_cancel_signal(panel.cancel_signal());
         view.auth_panel = Some(traces_dialog);
         tokio::spawn(async move {
@@ -443,7 +443,7 @@ impl SessionUi {
     /// current branch as a JSONL file — and report the written path.
     pub(crate) async fn handle_export_command(
         &mut self,
-        resolved: &pa_types::slash_commands::ResolvedSlashCommand,
+        resolved: &aa_types::slash_commands::ResolvedSlashCommand,
         view: &mut AgentView,
     ) -> Result<()> {
         let command_text = if resolved.args.is_empty() {

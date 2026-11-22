@@ -109,7 +109,7 @@ fn has_vertex_adc_credentials() -> bool {
 }
 
 fn default_adc_path() -> PathBuf {
-    let home = pa_types::platform::home_dir().unwrap_or_else(|| PathBuf::from("/"));
+    let home = aa_types::platform::home_dir().unwrap_or_else(|| PathBuf::from("/"));
     home.join(".config")
         .join("gcloud")
         .join("application_default_credentials.json")

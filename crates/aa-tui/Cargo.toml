@@ -3,7 +3,7 @@ name = "aa-tui"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Terminal UI for Prime Agent."
+description = "Terminal UI for Async Agent."
 
 [dependencies]
 aa-types = { path = "../aa-types" }

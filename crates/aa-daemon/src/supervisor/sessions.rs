@@ -293,7 +293,7 @@ impl Supervisor {
             };
         // The scan's parse trees folded and freed inside the blocking task; return their
         // arena high-water to the OS at the phase boundary (live cache untouched).
-        pa_types::memory_release::trim_freed_heap();
+        aa_types::memory_release::trim_freed_heap();
         let crate::session_scan::SessionPage {
             mut infos,
             remaining,
@@ -960,7 +960,7 @@ mod tests {
     use crate::backpressure::WORKER_INFLIGHT_CAPACITY;
     use crate::registry::{WorkerReply, WorkerRequest};
     use crate::supervisor::SupervisorOptions;
-    use pa_types::daemon::DaemonWorkerDescriptor;
+    use aa_types::daemon::DaemonWorkerDescriptor;
 
     fn resident(worker_id: &str, session_file: Option<&Path>) -> Arc<ResidentWorker> {
         let mut descriptor = json!({

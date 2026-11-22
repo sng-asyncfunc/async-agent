@@ -101,7 +101,7 @@ pub(crate) mod sys;
 #[cfg(feature = "events")]
 pub use sys::supports_keyboard_enhancement;
 
-/// Prime Agent patch: the OSC 7501 (Program Status Protocol) detection
+/// Async Agent patch: the OSC 7501 (Program Status Protocol) detection
 /// reply. `None` means the reply carried no such list: the protocol then
 /// fixes it to its base list.
 #[derive(Debug, PartialOrd, PartialEq, Hash, Clone, Eq)]
@@ -112,7 +112,7 @@ pub struct ProgramStatusSupport {
     pub kinds: Option<Vec<String>>,
 }
 
-/// Prime Agent patch: what one [`probe_terminal_checked_raw`] learned.
+/// Async Agent patch: what one [`probe_terminal_checked_raw`] learned.
 #[cfg(all(unix, feature = "events"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TerminalProbe {
@@ -123,7 +123,7 @@ pub struct TerminalProbe {
     pub program_status: Option<ProgramStatusSupport>,
 }
 
-/// Prime Agent patch: the raw-path terminal probe for a caller that
+/// Async Agent patch: the raw-path terminal probe for a caller that
 /// already holds the terminal in raw mode. One write carries the OSC 7501
 /// detection query, the kitty keyboard flags query when `keyboard` is set,
 /// and the primary device attributes query whose reply concludes both.

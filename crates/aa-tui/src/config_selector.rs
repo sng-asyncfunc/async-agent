@@ -48,7 +48,7 @@ const MAX_VISIBLE: usize = 15;
 /// filter, and selection behavior are shared).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectorKind {
-    /// The resource-configuration modal (`prime-agent config`): checkbox
+    /// The resource-configuration modal (`async-agent config`): checkbox
     /// semantics, Space toggles.
     ResourceConfig,
     /// The `/effort` picker: single-select semantics, Enter applies.
@@ -563,7 +563,7 @@ fn run_selector_surface(
     // must still hand the terminal back whole.
     let _surface_restore = crate::exit_restore::SurfaceRestore::armed();
     // Enable Windows VT processing before raw ANSI mode writes.
-    pa_types::platform::console_init();
+    aa_types::platform::console_init();
     // The raw-mode bracket's `cfmakeraw` write clears IXON, the kernel's
     // one trigger for lifting a pending Ctrl+S stop.
     terminal::enable_raw_mode()?;
@@ -643,7 +643,7 @@ mod tests {
     }
 
     fn theme() -> Theme {
-        Theme::builtin("prime", crate::theme::ColorMode::TrueColor)
+        Theme::builtin("async", crate::theme::ColorMode::TrueColor)
     }
 
     fn rows() -> Vec<SelectorRow> {
@@ -654,14 +654,14 @@ mod tests {
                 label: "Kernel".to_string(),
                 checked: true,
                 type_label: "tool".to_string(),
-                path: "pa-core/kernel".to_string(),
+                path: "aa-core/kernel".to_string(),
             },
             SelectorRow::Item {
                 key: "browser".to_string(),
                 label: "Browser".to_string(),
                 checked: false,
                 type_label: "tool".to_string(),
-                path: "pa-core/browser".to_string(),
+                path: "aa-core/browser".to_string(),
             },
         ]
     }

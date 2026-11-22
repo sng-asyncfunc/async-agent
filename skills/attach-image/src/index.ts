@@ -11,7 +11,7 @@ import {
 	sourceDigest,
 } from "./image-validation.ts";
 
-const ATTACHMENT_DISPLAY_MIME = "application/vnd.prime-agent.attachment+json";
+const ATTACHMENT_DISPLAY_MIME = "application/vnd.async-agent.attachment+json";
 const MAX_SOURCE_IMAGE_BYTES = 20_000_000;
 const MAX_ATTACHMENT_DATA_CHARS = 350_000;
 const MAX_ATTACHMENT_DIMENSION = 1200;

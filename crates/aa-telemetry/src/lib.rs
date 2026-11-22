@@ -1,4 +1,4 @@
-//! # pa-telemetry
+//! # aa-telemetry
 //!
 //! Modular telemetry over a primitive-only property schema: non-blocking
 //! [`TelemetryClient::track`], batched [`TelemetrySink`] delivery, and the
@@ -30,7 +30,7 @@ mod time;
 static VERSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
 /// Set the product version stamped on every event and on outgoing requests
-/// (`prime-agent/<version>`). The binary passes its runtime version: a
+/// (`async-agent/<version>`). The binary passes its runtime version: a
 /// release restamps the packaged manifest, not the compiled-in crate
 /// version. The first call wins.
 pub fn set_version(version: &str) {
@@ -67,7 +67,10 @@ pub use platform::{base_properties, SCHEMA_VERSION};
 pub use properties::Properties;
 pub use rename::rename_onto;
 pub use sink::{SinkOutcome, TelemetrySink};
-pub use sinks::{AnalyticsSink, FileSink, MockSink, NoopSink, RecordedBatch, ANALYTICS_ENDPOINT};
+pub use sinks::{
+    configured_endpoint, parse_endpoint, AnalyticsSink, FileSink, MockSink, NoopSink,
+    RecordedBatch, TELEMETRY_ENDPOINT_ENV,
+};
 
 #[cfg(test)]
 mod tests {

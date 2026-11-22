@@ -1,8 +1,8 @@
 {
-	"name": "@prime-agent/skill-compact",
+	"name": "@async-agent/skill-compact",
 	"private": true,
 	"type": "module",
-	"primeAgent": {
+	"asyncAgent": {
 		"entry": "src/index.ts",
 		"global": "compact"
 	}

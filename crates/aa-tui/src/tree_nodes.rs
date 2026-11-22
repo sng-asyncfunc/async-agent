@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use pa_types::session::FileEntry;
+use aa_types::session::FileEntry;
 use serde_json::Value;
 
 /// One wire flat node: the full entry plus its active label.
@@ -177,12 +177,12 @@ mod tests {
     fn node(id: &str, parent: Option<&str>, timestamp: &str) -> TreeNodeData {
         TreeNodeData {
             entry: FileEntry::Custom {
-                payload: pa_types::session::CustomEntry {
+                payload: aa_types::session::CustomEntry {
                     custom_type: "x".to_string(),
                     data: None,
                     rest: Map::default(),
                 },
-                base: pa_types::session::EntryBase {
+                base: aa_types::session::EntryBase {
                     id: Some(id.to_string()),
                     parent_id: parent.map(str::to_string),
                     timestamp: Some(timestamp.to_string()),

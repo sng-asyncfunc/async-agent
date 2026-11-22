@@ -3,8 +3,8 @@
 //! auto-retry loop and one-shot completion helpers; failures ride the assistant
 //! message as a `provider_stream_failure` diagnostic (kind, status, `retryAfterMs`).
 
-use pa_agent::abort::AbortSignal;
-use pa_agent::types::{AssistantContent, AssistantMessage, AssistantMessageDiagnostic, StopReason};
+use aa_agent::abort::AbortSignal;
+use aa_agent::types::{AssistantContent, AssistantMessage, AssistantMessageDiagnostic, StopReason};
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,11 +62,11 @@ pub fn is_context_overflow_failure(message: &AssistantMessage, context_window: u
     // a round-trip failure means no usage/error fields to inspect.
     let Some(wire) = serde_json::to_value(message)
         .ok()
-        .and_then(|value| serde_json::from_value::<pa_types::ai::AssistantMessage>(value).ok())
+        .and_then(|value| serde_json::from_value::<aa_types::ai::AssistantMessage>(value).ok())
     else {
         return false;
     };
-    pa_ai::is_context_overflow(&wire, (context_window > 0).then_some(context_window))
+    aa_ai::is_context_overflow(&wire, (context_window > 0).then_some(context_window))
 }
 
 /// The model router's tool-use rejection marker, matched case-insensitively but
@@ -326,7 +326,7 @@ fn with_stop_reason_aborted(mut message: AssistantMessage) -> AssistantMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_agent::types::{AssistantContent, AssistantMessageDiagnostic, TextContent, Usage};
+    use aa_agent::types::{AssistantContent, AssistantMessageDiagnostic, TextContent, Usage};
 
     fn error_message(
         kind: Option<&str>,
@@ -544,7 +544,7 @@ mod tests {
     }
 
     fn thinking(thinking: &str) -> AssistantContent {
-        AssistantContent::Thinking(pa_agent::types::ThinkingContent {
+        AssistantContent::Thinking(aa_agent::types::ThinkingContent {
             thinking: thinking.to_string(),
             thinking_signature: None,
             redacted: None,
@@ -552,7 +552,7 @@ mod tests {
     }
 
     fn tool_call() -> AssistantContent {
-        AssistantContent::ToolCall(pa_agent::types::ToolCall {
+        AssistantContent::ToolCall(aa_agent::types::ToolCall {
             id: "c".to_string(),
             name: "javascript".to_string(),
             arguments: serde_json::json!({}),
@@ -653,7 +653,7 @@ mod tests {
     #[tokio::test]
     async fn a_dropped_sse_stream_retries_and_completes_on_the_retry() {
         use crate::session_engine::provider_adapter::{json_round_trip, real_stream_fn};
-        use pa_agent::stream::{LlmContext, StreamRequestOptions};
+        use aa_agent::stream::{LlmContext, StreamRequestOptions};
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
         // The dropped body: a thinking delta, then the connection ends
@@ -677,7 +677,7 @@ mod tests {
             }
         });
 
-        let model: pa_types::ai::Model = serde_json::from_value(serde_json::json!({
+        let model: aa_types::ai::Model = serde_json::from_value(serde_json::json!({
             "id": "glm-test", "name": "GLM test", "api": "openai-completions",
             "provider": "prime-inference", "baseUrl": format!("http://{addr}"),
             "reasoning": true, "input": ["text"],
@@ -685,7 +685,7 @@ mod tests {
             "contextWindow": 131_072, "maxTokens": 8192,
         }))
         .unwrap();
-        let agent_model: pa_agent::types::Model = json_round_trip(&model).unwrap();
+        let agent_model: aa_agent::types::Model = json_round_trip(&model).unwrap();
         let stream_fn = real_stream_fn(Some("test".to_string()), model);
 
         let policy = ProviderRetryPolicy {
@@ -920,7 +920,7 @@ mod tests {
             max_retry_delay_ms: 50,
             max_delay_ms: UNBOUNDED_BACKOFF_MS,
         };
-        let controller = pa_agent::abort::AbortController::new();
+        let controller = aa_agent::abort::AbortController::new();
         controller.abort();
         let message = complete_with_provider_retry(
             &policy,
@@ -1000,11 +1000,11 @@ mod tests {
             max_retry_delay_ms: 50,
             max_delay_ms: UNBOUNDED_BACKOFF_MS,
         };
-        let registration = pa_ai::faux::register_faux_provider(
-            pa_ai::faux::RegisterFauxProviderOptions::default(),
+        let registration = aa_ai::faux::register_faux_provider(
+            aa_ai::faux::RegisterFauxProviderOptions::default(),
         );
         let model = registration.get_model();
-        let context = pa_types::ai::Context {
+        let context = aa_types::ai::Context {
             system_prompt: None,
             messages: Vec::new(),
             tools: None,
@@ -1016,7 +1016,7 @@ mod tests {
             |_| async { true },
             || {
                 attempts += 1;
-                let exhausted = pa_ai::complete(&model, &context, None);
+                let exhausted = aa_ai::complete(&model, &context, None);
                 async move {
                     let exhausted = exhausted.await?;
                     Ok(json_round_trip(&exhausted).expect("the faux reply crosses the boundary"))

@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use serde_json::{json, Value};
 
-use pa_types::daemon::{DaemonCommand, DaemonWorkerLifecycle};
+use aa_types::daemon::{DaemonCommand, DaemonWorkerLifecycle};
 
 use crate::backpressure::RouteAdmission;
 use crate::descriptor::persist_worker;
@@ -293,7 +293,7 @@ impl Supervisor {
 mod tests {
     use std::sync::Arc;
 
-    use pa_types::daemon::DaemonWorkerDescriptor;
+    use aa_types::daemon::DaemonWorkerDescriptor;
     use serde_json::json;
 
     use crate::registry::ResidentWorker;

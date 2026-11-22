@@ -53,7 +53,7 @@ fn next_spinner_deadline(started: Instant, now: Instant) -> Instant {
 /// daemon update restart (TS #2391) instead of failing the open hard.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum SessionOpenRoute {
-    /// The CLI's open (`prime-agent`, `--resume`, `--attach`): a single attempt.
+    /// The CLI's open (`async-agent`, `--resume`, `--attach`): a single attempt.
     Cli,
     /// The agents view's open: waits through the update-restart window and retries; `panel`
     /// mounts on open and its close returns to the agents view.
@@ -142,10 +142,10 @@ async fn settled_sequence(
     message: String,
     timeout_ms: u64,
 ) -> anyhow::Result<u64> {
-    let input = pa_types::daemon::PromptInput {
+    let input = aa_types::daemon::PromptInput {
         content: None,
         images: None,
-        streaming_behavior: Some(pa_types::daemon::StreamingBehavior::Steer),
+        streaming_behavior: Some(aa_types::daemon::StreamingBehavior::Steer),
         queue_if_busy: Some(true),
         expand_prompt_templates: None,
         source: None,
@@ -158,7 +158,7 @@ async fn settled_sequence(
     };
     let waited = client
         .request_with_timeout(
-            pa_types::daemon::DaemonCommand::PromptAndWait {
+            aa_types::daemon::DaemonCommand::PromptAndWait {
                 id: None,
                 active_session_id: active_session_id.clone(),
                 message,
@@ -171,7 +171,7 @@ async fn settled_sequence(
     anyhow::ensure!(waited.success, "prompt_and_wait failed: {:?}", waited.error);
     let children = client
         .request_with_timeout(
-            pa_types::daemon::DaemonCommand::GetRlmChildren {
+            aa_types::daemon::DaemonCommand::GetRlmChildren {
                 id: None,
                 active_session_id,
                 rest: serde_json::Map::default(),
@@ -1777,7 +1777,7 @@ async fn run_interactive_surface(
                     // transcript materializes its visible window, so return that freed heap right
                     // after the frame paints instead of keeping the resume's peak resident.
                     if session.take_trim_after_frame() {
-                        pa_types::memory_release::trim_freed_heap();
+                        aa_types::memory_release::trim_freed_heap();
                     }
                 } else {
                     render_deadline = Some(last_render_at.unwrap() + MIN_RENDER_INTERVAL);

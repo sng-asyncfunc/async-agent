@@ -6,7 +6,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use pa_types::daemon::update_flow::{
+use aa_types::daemon::update_flow::{
     prepared_marker_expiry, update_marker_path, PreparedMarkerExpiry, UpdateId, UpdateStatusCounts,
     UpdateStatusFailure, UpdateTimeoutBudget,
 };
@@ -20,7 +20,7 @@ const PHASE_POLL: Duration = Duration::from_millis(500);
 /// typed refusal is the spec's `Join` case: another update owns the
 /// transaction - the update aborts for a later retry.
 pub(super) async fn prepare_to_prepared(
-    client: &pa_tui::daemon_client::DaemonClient,
+    client: &aa_tui::daemon_client::DaemonClient,
     update_id: &UpdateId,
     budget: &UpdateTimeoutBudget,
 ) -> Result<()> {
@@ -28,7 +28,7 @@ pub(super) async fn prepare_to_prepared(
     loop {
         let response = client
             .request_with_timeout(
-                pa_types::daemon::DaemonCommand::PrepareUpdateRestart {
+                aa_types::daemon::DaemonCommand::PrepareUpdateRestart {
                     id: None,
                     update_id: Some(update_id.to_string()),
                     rest: serde_json::Map::default(),
@@ -48,7 +48,7 @@ pub(super) async fn prepare_to_prepared(
             }
         } else if matches!(
             response.error_info,
-            Some(pa_types::daemon::DaemonErrorInfo::UpdatePrepareRefused { .. })
+            Some(aa_types::daemon::DaemonErrorInfo::UpdatePrepareRefused { .. })
         ) {
             anyhow::bail!(
                 "another update is preparing on the daemon ({}); retry later",
@@ -65,13 +65,13 @@ pub(super) async fn prepare_to_prepared(
 /// Consume the prepared artifact: `commit_update_restart` (spec §5). The RPC
 /// budget spans the graceful stops (a stop that exceeds its budget refuses).
 pub(super) async fn commit_update(
-    client: &pa_tui::daemon_client::DaemonClient,
+    client: &aa_tui::daemon_client::DaemonClient,
     update_id: &UpdateId,
     budget: &UpdateTimeoutBudget,
 ) -> Result<()> {
     let response = client
         .request_with_timeout(
-            pa_types::daemon::DaemonCommand::CommitUpdateRestart {
+            aa_types::daemon::DaemonCommand::CommitUpdateRestart {
                 id: None,
                 update_id: Some(update_id.to_string()),
                 rest: serde_json::Map::default(),
@@ -95,7 +95,7 @@ pub(super) fn check_marker_fresh(prepared_dir: &Path) -> Result<()> {
     let marker_path = update_marker_path(prepared_dir);
     let content = std::fs::read_to_string(&marker_path)
         .with_context(|| format!("read the prepared marker at {}", marker_path.display()))?;
-    let marker: pa_types::daemon::update_flow::UpdatePreparedMarker =
+    let marker: aa_types::daemon::update_flow::UpdatePreparedMarker =
         serde_json::from_str(&content)?;
     match prepared_marker_expiry(&marker.expires_at, &crate::util_time::now_iso8601()) {
         PreparedMarkerExpiry::Active => Ok(()),
@@ -120,10 +120,10 @@ pub(super) async fn restore_report(
         tokio::time::Instant::now() + Duration::from_millis(budget.restore_overall_ms.max(1));
     loop {
         if let Ok((client, _events)) =
-            pa_tui::daemon_client::DaemonClient::connect(socket_path).await
+            aa_tui::daemon_client::DaemonClient::connect(socket_path).await
         {
             let response = client
-                .request_ok(pa_types::daemon::DaemonCommand::UpdateRestoreStatus {
+                .request_ok(aa_types::daemon::DaemonCommand::UpdateRestoreStatus {
                     id: None,
                     update_id: None,
                     rest: serde_json::Map::default(),

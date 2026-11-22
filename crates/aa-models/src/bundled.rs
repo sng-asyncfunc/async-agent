@@ -106,7 +106,7 @@ pub fn load_bundled_models(asset: &str, templates: &PinnedTemplates) -> Option<V
 /// The directory beside the binary's real file: a launcher symlink (the
 /// Homebrew formula's `bin` link) must resolve, or the assets shipped
 /// beside the real binary are invisible; a plain path stays untouched
-/// (pa-core's package-dir lookups resolve the same way).
+/// (aa-core's package-dir lookups resolve the same way).
 fn exe_dir_of(exe: &Path) -> Option<PathBuf> {
     let is_symlink =
         std::fs::symlink_metadata(exe).is_ok_and(|metadata| metadata.file_type().is_symlink());
@@ -133,11 +133,11 @@ mod tests {
         let bin = root_path.join("bin");
         std::fs::create_dir_all(&libexec).unwrap();
         std::fs::create_dir_all(&bin).unwrap();
-        std::fs::write(libexec.join("prime-agent"), b"binary").unwrap();
-        // The Homebrew formula layout: bin/prime-agent -> Cellar libexec.
-        let launcher = bin.join("prime-agent");
-        std::os::unix::fs::symlink(libexec.join("prime-agent"), &launcher).unwrap();
-        let real = libexec.join("prime-agent");
+        std::fs::write(libexec.join("async-agent"), b"binary").unwrap();
+        // The Homebrew formula layout: bin/async-agent -> Cellar libexec.
+        let launcher = bin.join("async-agent");
+        std::os::unix::fs::symlink(libexec.join("async-agent"), &launcher).unwrap();
+        let real = libexec.join("async-agent");
         assert_eq!(exe_dir_of(&launcher), Some(libexec.clone()));
         assert_eq!(exe_dir_of(&real), Some(libexec));
     }

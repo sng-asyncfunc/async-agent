@@ -7,7 +7,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use pa_types::daemon::update_flow::{UpdateProcessIdentity, UPDATE_ROSTER_ENV};
+use aa_types::daemon::update_flow::{UpdateProcessIdentity, UPDATE_ROSTER_ENV};
 use serde_json::Value;
 
 /// How often the boot wait retries the hello handshake.
@@ -60,9 +60,9 @@ pub fn spawn_supervisor(
         command.env(UPDATE_ROSTER_ENV, roster_path);
     }
     #[cfg(unix)]
-    pa_core::platform::process::set_new_session(&mut command);
+    aa_core::platform::process::set_new_session(&mut command);
     #[cfg(not(unix))]
-    pa_core::platform::process::set_new_process_group(&mut command);
+    aa_core::platform::process::set_new_process_group(&mut command);
     let child = command
         .spawn()
         .with_context(|| format!("spawn the successor supervisor from {}", exe.display()))?;
@@ -75,7 +75,7 @@ pub async fn wait_for_hello(socket_path: &Path, budget_ms: u64) -> Option<Update
     let deadline = Instant::now() + Duration::from_millis(budget_ms.max(1));
     loop {
         if let Ok((client, _events)) =
-            pa_tui::daemon_client::DaemonClient::connect(socket_path).await
+            aa_tui::daemon_client::DaemonClient::connect(socket_path).await
         {
             let identity = identity_from_hello(client.hello());
             client.close();
@@ -100,9 +100,9 @@ pub async fn wait_for_exit(identity: &UpdateProcessIdentity, budget_ms: u64) -> 
             return false;
         };
         if process_exit_observed(
-            pa_daemon::lease::is_process_alive(pid).ok(),
+            aa_daemon::lease::is_process_alive(pid).ok(),
             identity.process_start_id.as_deref(),
-            pa_daemon::lease::get_process_start_id(pid).as_deref(),
+            aa_daemon::lease::get_process_start_id(pid).as_deref(),
         ) {
             return true;
         }

@@ -24,21 +24,21 @@ enum DaemonProbe {
     Current,
     /// A supervisor answered with a different protocol/schema. The client rides
     /// boxed: its size is platform-dependent, so the box keeps the other arms small.
-    Stale(Box<pa_tui::daemon_client::DaemonClient>),
+    Stale(Box<aa_tui::daemon_client::DaemonClient>),
 }
 
 /// Probe the socket once: connect, read the hello, and classify it.
 async fn probe_daemon(socket_path: &Path) -> DaemonProbe {
-    let Ok((client, _events)) = pa_tui::daemon_client::DaemonClient::connect(socket_path).await
+    let Ok((client, _events)) = aa_tui::daemon_client::DaemonClient::connect(socket_path).await
     else {
         return DaemonProbe::Absent;
     };
     let hello = client.hello();
     let current = hello.get("protocol").and_then(|p| p.get("version"))
         == Some(&serde_json::json!(
-            pa_types::daemon::DAEMON_PROTOCOL_VERSION
+            aa_types::daemon::DAEMON_PROTOCOL_VERSION
         ))
-        && hello.get("schemaId") == Some(&serde_json::json!(pa_types::daemon::DAEMON_SCHEMA_ID));
+        && hello.get("schemaId") == Some(&serde_json::json!(aa_types::daemon::DAEMON_SCHEMA_ID));
     if current {
         client.close();
         DaemonProbe::Current
@@ -61,7 +61,7 @@ pub async fn ensure_daemon_running(socket_path: &Path, spawn_cwd: &Path) -> Resu
         DaemonProbe::Stale(client) => shutdown_stale_daemon(*client, socket_path).await?,
         DaemonProbe::Absent => {}
     }
-    let exe = std::env::current_exe().context("resolve the prime-agent executable")?;
+    let exe = std::env::current_exe().context("resolve the async-agent executable")?;
     ensure_daemon_running_with(&exe, socket_path, spawn_cwd).await
 }
 
@@ -99,7 +99,7 @@ pub async fn ensure_daemon_running_with(
         }
         if Instant::now() > deadline {
             return Err(anyhow!(
-                "Timed out waiting for the Prime Agent daemon to start on {}. Run: prime-agent shutdown --force, then retry the original command.",
+                "Timed out waiting for the Async Agent daemon to start on {}. Run: async-agent shutdown --force, then retry the original command.",
                 socket_path.display()
             ));
         }
@@ -110,11 +110,11 @@ pub async fn ensure_daemon_running_with(
 /// Shut a stale daemon down when no session is busy; a busy one refuses
 /// replacement.
 async fn shutdown_stale_daemon(
-    client: pa_tui::daemon_client::DaemonClient,
+    client: aa_tui::daemon_client::DaemonClient,
     socket_path: &Path,
 ) -> Result<()> {
     let sessions = client
-        .request_ok(pa_types::daemon::DaemonCommand::List {
+        .request_ok(aa_types::daemon::DaemonCommand::List {
             id: None,
             all: None,
             cwd: None,
@@ -134,13 +134,13 @@ async fn shutdown_stale_daemon(
     client.close();
     if busy {
         return Err(anyhow!(
-            "An incompatible Prime Agent daemon is running on {}.\n\nRun:\n  prime-agent shutdown --force\n\nThen retry the original command (the running daemon has active work).",
+            "An incompatible Async Agent daemon is running on {}.\n\nRun:\n  async-agent shutdown --force\n\nThen retry the original command (the running daemon has active work).",
             socket_path.display()
         ));
     }
-    if let Ok((client, _)) = pa_tui::daemon_client::DaemonClient::connect(socket_path).await {
+    if let Ok((client, _)) = aa_tui::daemon_client::DaemonClient::connect(socket_path).await {
         let _ = client
-            .request_ok(pa_types::daemon::DaemonCommand::Shutdown {
+            .request_ok(aa_types::daemon::DaemonCommand::Shutdown {
                 id: None,
                 force: None,
                 rest: serde_json::Map::default(),
@@ -156,7 +156,7 @@ async fn shutdown_stale_daemon(
 async fn wait_for_socket_gone(socket_path: &Path) -> bool {
     let deadline = Instant::now() + Duration::from_millis(DAEMON_SHUTDOWN_WAIT_MS);
     while Instant::now() < deadline {
-        if !pa_daemon::socket::can_connect(socket_path, Duration::from_millis(250)).await {
+        if !aa_daemon::socket::can_connect(socket_path, Duration::from_millis(250)).await {
             return true;
         }
         tokio::time::sleep(Duration::from_millis(25)).await;
@@ -181,11 +181,11 @@ fn spawn_supervisor_detached(socket_path: &Path, spawn_cwd: &Path, exe: &Path) -
     // cleanup could hang it up after the TUI exits; on Unix, setsid also
     // creates its own process group.
     #[cfg(unix)]
-    pa_core::platform::process::set_new_session(&mut command);
+    aa_core::platform::process::set_new_session(&mut command);
     #[cfg(not(unix))]
-    pa_core::platform::process::set_new_process_group(&mut command);
+    aa_core::platform::process::set_new_process_group(&mut command);
     command
         .spawn()
-        .with_context(|| format!("spawn the Prime Agent daemon on {}", socket_path.display()))?;
+        .with_context(|| format!("spawn the Async Agent daemon on {}", socket_path.display()))?;
     Ok(())
 }

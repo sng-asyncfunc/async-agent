@@ -113,7 +113,7 @@ mod tests {
     #[test]
     fn merge_prefers_overrides_and_merges_nested() {
         let base: Settings = serde_json::from_value(json!({
-            "theme": "prime", "compaction": { "enabled": true, "reserveTokens": 1024 }
+            "theme": "async", "compaction": { "enabled": true, "reserveTokens": 1024 }
         }))
         .unwrap();
         let overrides: Settings = serde_json::from_value(json!({
@@ -121,7 +121,7 @@ mod tests {
         }))
         .unwrap();
         let merged = deep_merge(&base, &overrides);
-        assert_eq!(merged.theme.as_deref(), Some("prime"));
+        assert_eq!(merged.theme.as_deref(), Some("async"));
         assert_eq!(merged.compaction.as_ref().unwrap().enabled, Some(true));
         assert_eq!(
             merged.compaction.as_ref().unwrap().reserve_tokens,

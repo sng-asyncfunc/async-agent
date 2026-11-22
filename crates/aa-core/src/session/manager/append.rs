@@ -52,7 +52,7 @@ impl SessionManager {
             }),
             parent_id: self.leaf_id.clone(),
             timestamp: Some(format_iso_now()),
-            rest: pa_types::JsonMap::new(),
+            rest: aa_types::JsonMap::new(),
         }
     }
 
@@ -143,7 +143,7 @@ impl SessionManager {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.append_entry(FileEntry::ThinkingLevelChange {
-            payload: pa_types::session::ThinkingLevelChangeEntry {
+            payload: aa_types::session::ThinkingLevelChangeEntry {
                 thinking_level: thinking_level.to_string(),
             },
             base,
@@ -156,12 +156,12 @@ impl SessionManager {
     /// Returns the underlying I/O error when the durable append fails.
     pub fn append_service_tier_change(
         &mut self,
-        service_tier: Option<pa_types::ai::ServiceTier>,
+        service_tier: Option<aa_types::ai::ServiceTier>,
     ) -> std::io::Result<String> {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.append_entry(FileEntry::ServiceTierChange {
-            payload: pa_types::session::ServiceTierChangeEntry { service_tier },
+            payload: aa_types::session::ServiceTierChangeEntry { service_tier },
             base,
         })?;
         Ok(id)
@@ -179,7 +179,7 @@ impl SessionManager {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.append_entry(FileEntry::ToolStarted {
-            payload: pa_types::session::ToolStartedEntry {
+            payload: aa_types::session::ToolStartedEntry {
                 tool_call_id: tool_call_id.to_string(),
                 tool_name: tool_name.to_string(),
                 args,
@@ -201,7 +201,7 @@ impl SessionManager {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.append_entry(FileEntry::ToolProgress {
-            payload: pa_types::session::ToolProgressEntry {
+            payload: aa_types::session::ToolProgressEntry {
                 tool_call_id: tool_call_id.to_string(),
                 tool_name: tool_name.to_string(),
                 elapsed_ms,
@@ -222,7 +222,7 @@ impl SessionManager {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.append_entry(FileEntry::ModelChange {
-            payload: pa_types::session::ModelChangeEntry {
+            payload: aa_types::session::ModelChangeEntry {
                 provider: provider.to_string(),
                 model_id: model_id.to_string(),
             },
@@ -240,7 +240,7 @@ impl SessionManager {
     /// Returns the underlying I/O error when the durable append fails.
     pub fn append_compaction(
         &mut self,
-        payload: pa_types::session::CompactionEntry,
+        payload: aa_types::session::CompactionEntry,
     ) -> std::io::Result<String> {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
@@ -259,7 +259,7 @@ impl SessionManager {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.append_entry(FileEntry::Custom {
-            payload: pa_types::session::CustomEntry {
+            payload: aa_types::session::CustomEntry {
                 custom_type: custom_type.to_string(),
                 data,
                 rest: serde_json::Map::default(),
@@ -280,7 +280,7 @@ impl SessionManager {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.file_entries.push(FileEntry::Custom {
-            payload: pa_types::session::CustomEntry {
+            payload: aa_types::session::CustomEntry {
                 custom_type: custom_type.to_string(),
                 data,
                 rest: serde_json::Map::default(),
@@ -308,14 +308,14 @@ impl SessionManager {
     pub fn append_custom_message(
         &mut self,
         custom_type: &str,
-        content: pa_types::ai::UserContent,
+        content: aa_types::ai::UserContent,
         display: bool,
         details: Option<serde_json::Value>,
     ) -> std::io::Result<String> {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.append_entry(FileEntry::CustomMessage {
-            payload: pa_types::session::CustomMessageEntry {
+            payload: aa_types::session::CustomMessageEntry {
                 custom_type: custom_type.to_string(),
                 content,
                 details,
@@ -334,14 +334,14 @@ impl SessionManager {
     pub fn append_custom_message_retained(
         &mut self,
         custom_type: &str,
-        content: pa_types::ai::UserContent,
+        content: aa_types::ai::UserContent,
         display: bool,
         details: Option<serde_json::Value>,
     ) -> (String, Option<std::io::Error>) {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.file_entries.push(FileEntry::CustomMessage {
-            payload: pa_types::session::CustomMessageEntry {
+            payload: aa_types::session::CustomMessageEntry {
                 custom_type: custom_type.to_string(),
                 content,
                 details,
@@ -374,8 +374,8 @@ impl SessionManager {
         &mut self,
         row_id: &str,
         target_id: &str,
-        child_usage: pa_types::ai::Usage,
-        aggregate_usage: pa_types::ai::Usage,
+        child_usage: aa_types::ai::Usage,
+        aggregate_usage: aa_types::ai::Usage,
         origin: Option<ChildUsageOrigin>,
     ) -> std::io::Result<String> {
         let target_index = self.by_id.get(target_id).copied().filter(|&index| {
@@ -399,7 +399,7 @@ impl SessionManager {
         base.id = Some(row_id.to_owned());
         let id = row_id.to_owned();
         self.append_entry(FileEntry::ChildUsageAttributed {
-            payload: pa_types::session::ChildUsageAttributionEntry {
+            payload: aa_types::session::ChildUsageAttributionEntry {
                 target_id: target_id.to_string(),
                 child_usage,
                 aggregate_usage,
@@ -428,7 +428,7 @@ impl SessionManager {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.append_entry(FileEntry::SessionInfo {
-            payload: pa_types::session::SessionInfoEntry {
+            payload: aa_types::session::SessionInfoEntry {
                 name: Some(name.trim().to_string()),
             },
             base,
@@ -473,7 +473,7 @@ impl SessionManager {
         let base = self.next_base();
         let id = base.id.clone().unwrap_or_default();
         self.append_entry(FileEntry::SessionState {
-            payload: pa_types::session::SessionStateEntry {
+            payload: aa_types::session::SessionStateEntry {
                 state: SessionState { status },
             },
             base,

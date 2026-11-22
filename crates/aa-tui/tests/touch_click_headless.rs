@@ -22,10 +22,10 @@ fn run_lock() -> MutexGuard<'static, ()> {
     }
 }
 
-use pa_tui::interactive::{
+use aa_tui::interactive::{
     run_interactive, HeadlessPlan, HeadlessStep, InteractiveOptions, UiMode,
 };
-use pa_types::ai::Model;
+use aa_types::ai::Model;
 use serde_json::{json, Value};
 
 use support::{

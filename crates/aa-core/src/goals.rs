@@ -9,8 +9,8 @@ pub const GOAL_CONTEXT_PREVIEW_LABEL: &str = "Goal context";
 pub const GOAL_SKILL_NAME: &str = "goal";
 pub const MAX_THREAD_GOAL_OBJECTIVE_CHARS: usize = 4000;
 
-// The wire vocabulary lives in pa-types (shared with the attached surfaces).
-pub use pa_types::goal::{empty_goal_state, GoalState, GoalStatus};
+// The wire vocabulary lives in aa-types (shared with the attached surfaces).
+pub use aa_types::goal::{empty_goal_state, GoalState, GoalStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -140,11 +140,11 @@ pub fn goal_token_delta_for_usage(input: i64, output: i64) -> u64 {
 /// The restore-resurrection guard: the newest `thread_goal_state` row is `active`, but a terminal
 /// provider failure settled after it. Returns the failure's error text for the caller to adopt as
 /// the goal's terminal state. Newest-first: no goal row means only the newest assistant row counts.
-pub fn stale_active_goal_failure(entries: &[pa_types::session::FileEntry]) -> Option<String> {
-    let mut newest_assistant: Option<&pa_types::ai::AssistantMessage> = None;
+pub fn stale_active_goal_failure(entries: &[aa_types::session::FileEntry]) -> Option<String> {
+    let mut newest_assistant: Option<&aa_types::ai::AssistantMessage> = None;
     for entry in entries.iter().rev() {
         match entry {
-            pa_types::session::FileEntry::Custom { payload, .. }
+            aa_types::session::FileEntry::Custom { payload, .. }
                 if payload.custom_type == GOAL_STATE_CUSTOM_TYPE =>
             {
                 let Some(data) = payload.data.as_ref() else {
@@ -161,8 +161,8 @@ pub fn stale_active_goal_failure(entries: &[pa_types::session::FileEntry]) -> Op
                 }
                 return newest_assistant.and_then(wire_terminal_provider_failure);
             }
-            pa_types::session::FileEntry::Message {
-                message: pa_types::session::AgentMessage::Assistant(assistant),
+            aa_types::session::FileEntry::Message {
+                message: aa_types::session::AgentMessage::Assistant(assistant),
                 ..
             } if newest_assistant.is_none() => {
                 newest_assistant = Some(assistant);
@@ -175,8 +175,8 @@ pub fn stale_active_goal_failure(entries: &[pa_types::session::FileEntry]) -> Op
 
 /// The wire form of terminal-provider-failure predicate: the failure text when the assistant row
 /// settled as terminal. The quota-park class keeps the goal.
-fn wire_terminal_provider_failure(message: &pa_types::ai::AssistantMessage) -> Option<String> {
-    if message.stop_reason != pa_types::ai::StopReason::Error {
+fn wire_terminal_provider_failure(message: &aa_types::ai::AssistantMessage) -> Option<String> {
+    if message.stop_reason != aa_types::ai::StopReason::Error {
         return None;
     }
     // The diagnostic only excludes the quota-park class: an error-stop row WITHOUT a provider
@@ -271,8 +271,8 @@ pub fn goal_host_response(goal: &GoalState, include_completion_report: bool) -> 
 pub fn create_goal_context_message(
     goal: &GoalState,
     kind: GoalContextKind,
-    images: &[pa_agent::types::ImageContent],
-) -> anyhow::Result<pa_types::session::CustomMessage> {
+    images: &[aa_agent::types::ImageContent],
+) -> anyhow::Result<aa_types::session::CustomMessage> {
     let Some(objective) = &goal.objective else {
         anyhow::bail!("Cannot create goal context without an objective.");
     };
@@ -281,27 +281,27 @@ pub fn create_goal_context_message(
     // TS parity (`createGoalContextMessage`): the images attach as content
     // blocks after the text — the row is the turn's only image carrier.
     let content = if images.is_empty() {
-        pa_types::ai::UserContent::Text(text)
+        aa_types::ai::UserContent::Text(text)
     } else {
-        let mut blocks = vec![pa_types::ai::UserContentBlock::Text(
-            pa_types::ai::TextContent {
+        let mut blocks = vec![aa_types::ai::UserContentBlock::Text(
+            aa_types::ai::TextContent {
                 text,
                 text_signature: None,
                 rest: serde_json::Map::default(),
             },
         )];
         for image in images {
-            blocks.push(pa_types::ai::UserContentBlock::Image(
-                pa_types::ai::ImageContent {
+            blocks.push(aa_types::ai::UserContentBlock::Image(
+                aa_types::ai::ImageContent {
                     data: image.data.clone(),
                     mime_type: image.mime_type.clone(),
                     rest: serde_json::Map::default(),
                 },
             ));
         }
-        pa_types::ai::UserContent::Blocks(blocks)
+        aa_types::ai::UserContent::Blocks(blocks)
     };
-    Ok(pa_types::session::CustomMessage {
+    Ok(aa_types::session::CustomMessage {
         custom_type: GOAL_CONTEXT_CUSTOM_TYPE.to_string(),
         content,
         display: true,
@@ -426,7 +426,7 @@ fn now_millis() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pa_types::ai::UserContent;
+    use aa_types::ai::UserContent;
 
     fn active_goal() -> GoalState {
         GoalState {
@@ -577,15 +577,15 @@ mod tests {
     }
 
     /// A persisted goal-state custom entry wrapping `state`.
-    fn goal_state_entry(state: &GoalState) -> pa_types::session::FileEntry {
+    fn goal_state_entry(state: &GoalState) -> aa_types::session::FileEntry {
         let data = serde_json::to_value(state).unwrap();
-        pa_types::session::FileEntry::Custom {
-            payload: pa_types::session::CustomEntry {
+        aa_types::session::FileEntry::Custom {
+            payload: aa_types::session::CustomEntry {
                 custom_type: GOAL_STATE_CUSTOM_TYPE.to_string(),
                 data: Some(data),
                 rest: serde_json::Map::default(),
             },
-            base: pa_types::session::EntryBase {
+            base: aa_types::session::EntryBase {
                 id: None,
                 parent_id: None,
                 timestamp: None,
@@ -599,16 +599,16 @@ mod tests {
         kind: &str,
         status: Option<u16>,
         error: &str,
-    ) -> pa_types::session::FileEntry {
-        pa_types::session::FileEntry::Message {
-            message: pa_types::session::AgentMessage::Assistant(pa_types::ai::AssistantMessage {
+    ) -> aa_types::session::FileEntry {
+        aa_types::session::FileEntry::Message {
+            message: aa_types::session::AgentMessage::Assistant(aa_types::ai::AssistantMessage {
                 content: Vec::new(),
                 api: "openai-completions".to_string(),
                 provider: "test".to_string(),
                 model: "m".to_string(),
                 response_model: None,
                 response_id: None,
-                diagnostics: Some(vec![pa_types::ai::AssistantMessageDiagnostic {
+                diagnostics: Some(vec![aa_types::ai::AssistantMessageDiagnostic {
                     type_: "provider_stream_failure".to_string(),
                     timestamp: 0,
                     error: None,
@@ -622,14 +622,14 @@ mod tests {
                         .unwrap_or_default(),
                     ),
                 }]),
-                usage: pa_types::ai::Usage::default(),
-                stop_reason: pa_types::ai::StopReason::Error,
+                usage: aa_types::ai::Usage::default(),
+                stop_reason: aa_types::ai::StopReason::Error,
                 stop_reason_raw: None,
                 error_message: Some(error.to_string()),
                 timestamp: 0,
                 rest: serde_json::Map::default(),
             }),
-            base: pa_types::session::EntryBase {
+            base: aa_types::session::EntryBase {
                 id: None,
                 parent_id: None,
                 timestamp: None,
@@ -661,10 +661,10 @@ mod tests {
             stale_active_goal_failure(&[active.clone(), rate_limited]),
             None
         );
-        let healthy = pa_types::session::FileEntry::Message {
-            message: pa_types::session::AgentMessage::Assistant(pa_types::ai::AssistantMessage {
-                content: vec![pa_types::ai::AssistantContentBlock::Text(
-                    pa_types::ai::TextContent {
+        let healthy = aa_types::session::FileEntry::Message {
+            message: aa_types::session::AgentMessage::Assistant(aa_types::ai::AssistantMessage {
+                content: vec![aa_types::ai::AssistantContentBlock::Text(
+                    aa_types::ai::TextContent {
                         text: "progress".to_string(),
                         text_signature: None,
                         rest: serde_json::Map::default(),
@@ -676,14 +676,14 @@ mod tests {
                 response_model: None,
                 response_id: None,
                 diagnostics: None,
-                usage: pa_types::ai::Usage::default(),
-                stop_reason: pa_types::ai::StopReason::Stop,
+                usage: aa_types::ai::Usage::default(),
+                stop_reason: aa_types::ai::StopReason::Stop,
                 stop_reason_raw: None,
                 error_message: None,
                 timestamp: 0,
                 rest: serde_json::Map::default(),
             }),
-            base: pa_types::session::EntryBase {
+            base: aa_types::session::EntryBase {
                 id: None,
                 parent_id: None,
                 timestamp: None,
@@ -700,8 +700,8 @@ mod tests {
         // A diagnostic-less error row is still terminal: the diagnostic
         // only excludes the quota-park class.
         let mut bare_failure = error_turn_entry("invalid_request", Some(402), "402 no diagnostic");
-        if let pa_types::session::FileEntry::Message {
-            message: pa_types::session::AgentMessage::Assistant(assistant),
+        if let aa_types::session::FileEntry::Message {
+            message: aa_types::session::AgentMessage::Assistant(assistant),
             ..
         } = &mut bare_failure
         {

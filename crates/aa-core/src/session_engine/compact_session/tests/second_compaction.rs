@@ -13,19 +13,19 @@ async fn second_compaction_updates_the_prior_summary_over_new_history() {
     let seen: std::sync::Arc<std::sync::Mutex<Vec<String>>> = std::sync::Arc::default();
     let make_step = |response: &'static str| {
         let seen = seen.clone();
-        pa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
-            move |context: &pa_types::ai::Context,
-                  _options: Option<&pa_ai::types::StreamOptions>,
+        aa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
+            move |context: &aa_types::ai::Context,
+                  _options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  _model: &pa_types::ai::Model| {
+                  _model: &aa_types::ai::Model| {
                 let text = match &context.messages[0] {
-                    pa_types::ai::Message::User(user) => user.content.text(),
+                    aa_types::ai::Message::User(user) => user.content.text(),
                     _ => panic!("expected a user request"),
                 };
                 seen.lock().unwrap().push(text);
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     response,
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ))
@@ -37,7 +37,7 @@ async fn second_compaction_updates_the_prior_summary_over_new_history() {
     let tmp = tempfile::tempdir().unwrap();
     let mut session = SessionManager::in_memory(tmp.path());
     let user = |text: &str| {
-        AgentMessage::User(pa_types::ai::UserMessage {
+        AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -144,19 +144,19 @@ async fn second_compaction_request_carries_the_anchor_and_strips_file_blocks() {
     let seen: std::sync::Arc<std::sync::Mutex<Vec<String>>> = std::sync::Arc::default();
     let make_step = |response: &'static str| {
         let seen = seen.clone();
-        pa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
-            move |context: &pa_types::ai::Context,
-                  _options: Option<&pa_ai::types::StreamOptions>,
+        aa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
+            move |context: &aa_types::ai::Context,
+                  _options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  _model: &pa_types::ai::Model| {
+                  _model: &aa_types::ai::Model| {
                 let text = match &context.messages[0] {
-                    pa_types::ai::Message::User(user) => user.content.text(),
+                    aa_types::ai::Message::User(user) => user.content.text(),
                     _ => panic!("expected a user request"),
                 };
                 seen.lock().unwrap().push(text);
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     response,
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ))
@@ -168,7 +168,7 @@ async fn second_compaction_request_carries_the_anchor_and_strips_file_blocks() {
     let tmp = tempfile::tempdir().unwrap();
     let mut session = SessionManager::in_memory(tmp.path());
     let user = |text: &str| {
-        AgentMessage::User(pa_types::ai::UserMessage {
+        AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -178,9 +178,9 @@ async fn second_compaction_request_carries_the_anchor_and_strips_file_blocks() {
     let mut edit_arguments = serde_json::Map::new();
     edit_arguments.insert("path".to_string(), serde_json::json!("a.rs"));
     session
-        .append_message(AgentMessage::Assistant(pa_types::ai::AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::ToolCall(
-                pa_types::ai::ToolCall {
+        .append_message(AgentMessage::Assistant(aa_types::ai::AssistantMessage {
+            content: vec![aa_types::ai::AssistantContentBlock::ToolCall(
+                aa_types::ai::ToolCall {
                     id: "tc1".to_string(),
                     name: "edit".to_string(),
                     arguments: edit_arguments,
@@ -194,8 +194,8 @@ async fn second_compaction_request_carries_the_anchor_and_strips_file_blocks() {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::ToolUse,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::ToolUse,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -241,9 +241,9 @@ async fn second_compaction_request_carries_the_anchor_and_strips_file_blocks() {
     // assistant reply in the kept tail.
     session.append_message(user("turn three")).unwrap();
     session
-        .append_message(AgentMessage::Assistant(pa_types::ai::AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+        .append_message(AgentMessage::Assistant(aa_types::ai::AssistantMessage {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: "the newest kept reply".to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -255,8 +255,8 @@ async fn second_compaction_request_carries_the_anchor_and_strips_file_blocks() {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
@@ -315,19 +315,19 @@ async fn second_compaction_split_turn_history_updates_prefix_does_not() {
     let seen: std::sync::Arc<std::sync::Mutex<Vec<String>>> = std::sync::Arc::default();
     let make_step = |response: &'static str| {
         let seen = seen.clone();
-        pa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
-            move |context: &pa_types::ai::Context,
-                  _options: Option<&pa_ai::types::StreamOptions>,
+        aa_ai::faux::FauxResponseStep::Factory(std::sync::Arc::new(
+            move |context: &aa_types::ai::Context,
+                  _options: Option<&aa_ai::types::StreamOptions>,
                   _call: u64,
-                  _model: &pa_types::ai::Model| {
+                  _model: &aa_types::ai::Model| {
                 let text = match &context.messages[0] {
-                    pa_types::ai::Message::User(user) => user.content.text(),
+                    aa_types::ai::Message::User(user) => user.content.text(),
                     _ => panic!("expected a user request"),
                 };
                 seen.lock().unwrap().push(text);
-                Ok(pa_ai::faux::faux_assistant_text_message(
+                Ok(aa_ai::faux::faux_assistant_text_message(
                     response,
-                    pa_ai::faux::FauxAssistantMessageOptions::default(),
+                    aa_ai::faux::FauxAssistantMessageOptions::default(),
                 ))
             },
         ))
@@ -340,7 +340,7 @@ async fn second_compaction_split_turn_history_updates_prefix_does_not() {
     let tmp = tempfile::tempdir().unwrap();
     let mut session = SessionManager::in_memory(tmp.path());
     let user = |text: &str| {
-        AgentMessage::User(pa_types::ai::UserMessage {
+        AgentMessage::User(aa_types::ai::UserMessage {
             content: UserContent::Text(text.to_string()),
             timestamp: 0,
             rest: serde_json::Map::default(),
@@ -348,8 +348,8 @@ async fn second_compaction_split_turn_history_updates_prefix_does_not() {
     };
     let reply = |text: &str| {
         AgentMessage::Assistant(AssistantMessage {
-            content: vec![pa_types::ai::AssistantContentBlock::Text(
-                pa_types::ai::TextContent {
+            content: vec![aa_types::ai::AssistantContentBlock::Text(
+                aa_types::ai::TextContent {
                     text: text.to_string(),
                     text_signature: None,
                     rest: serde_json::Map::default(),
@@ -361,8 +361,8 @@ async fn second_compaction_split_turn_history_updates_prefix_does_not() {
             response_model: None,
             response_id: None,
             diagnostics: None,
-            usage: pa_types::ai::Usage::default(),
-            stop_reason: pa_types::ai::StopReason::Stop,
+            usage: aa_types::ai::Usage::default(),
+            stop_reason: aa_types::ai::StopReason::Stop,
             stop_reason_raw: None,
             error_message: None,
             timestamp: 0,
