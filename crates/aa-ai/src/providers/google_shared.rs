@@ -14,7 +14,7 @@ pub use crate::providers::google_stream::GoogleStreamState;
 pub const API_GOOGLE_GENERATIVE_AI: &str = "google-generative-ai";
 pub const API_GOOGLE_VERTEX: &str = "google-vertex";
 
-/// Thinking level values accepted by Gemini 3 models (`GoogleThinkingLevel`).
+/// Thinking level values accepted by Gemini 3/4 models (`GoogleThinkingLevel`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(dead_code)] // full TS option surface; the UNSPECIFIED variant is accepted wire input
 pub enum GoogleThinkingLevel {
@@ -23,6 +23,7 @@ pub enum GoogleThinkingLevel {
     Low,
     Medium,
     High,
+    Xhigh,
 }
 
 impl GoogleThinkingLevel {
@@ -33,6 +34,7 @@ impl GoogleThinkingLevel {
             GoogleThinkingLevel::Low => "LOW",
             GoogleThinkingLevel::Medium => "MEDIUM",
             GoogleThinkingLevel::High => "HIGH",
+            GoogleThinkingLevel::Xhigh => "XHIGH",
         }
     }
 }
@@ -508,6 +510,7 @@ fn mapped_thinking_level(
         "LOW" => Some(GoogleThinkingLevel::Low),
         "MEDIUM" => Some(GoogleThinkingLevel::Medium),
         "HIGH" => Some(GoogleThinkingLevel::High),
+        "XHIGH" => Some(GoogleThinkingLevel::Xhigh),
         _ => None,
     }
 }
@@ -670,5 +673,47 @@ mod tests {
                 "{id}"
             );
         }
+    }
+
+    #[test]
+    fn gemini4_xhigh_maps_only_when_catalog_declares_xhigh() {
+        let neon = serde_json::from_value::<Model>(json!({
+            "id": "gemini-4-neon", "name": "Gemini 4 Neon",
+            "api": "google-generative-ai", "provider": "google",
+            "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+            "reasoning": true,
+            "thinkingLevelMap": {
+                "off": null, "minimal": null, "low": "low",
+                "medium": "medium", "high": "high", "xhigh": "xhigh", "max": null
+            },
+            "input": ["text", "image"],
+            "cost": { "input": 3.0, "output": 15.0, "cacheRead": 0.15, "cacheWrite": 0.0 },
+            "contextWindow": 1_048_576, "maxTokens": 65_536
+        }))
+        .unwrap();
+        assert_eq!(
+            get_thinking_level(crate::types::ModelThinkingLevel::Xhigh, &neon),
+            GoogleThinkingLevel::Xhigh
+        );
+        assert_eq!(GoogleThinkingLevel::Xhigh.as_str(), "XHIGH");
+
+        let carbon = serde_json::from_value::<Model>(json!({
+            "id": "gemini-4-carbon", "name": "Gemini 4 Carbon",
+            "api": "google-generative-ai", "provider": "google",
+            "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+            "reasoning": true,
+            "thinkingLevelMap": {
+                "off": null, "minimal": null, "low": "low",
+                "medium": "medium", "high": "high", "xhigh": null, "max": null
+            },
+            "input": ["text", "image"],
+            "cost": { "input": 2.0, "output": 10.0, "cacheRead": 0.1, "cacheWrite": 0.0 },
+            "contextWindow": 1_048_576, "maxTokens": 65_536
+        }))
+        .unwrap();
+        assert_eq!(
+            get_thinking_level(crate::types::ModelThinkingLevel::Xhigh, &carbon),
+            GoogleThinkingLevel::High
+        );
     }
 }
