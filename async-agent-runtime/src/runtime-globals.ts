@@ -114,8 +114,28 @@ export function resolveBunBinary(): string {
 	return process.execPath || "bun";
 }
 
+function isRelativeModuleSpecifier(specifier: string): boolean {
+	return (
+		specifier.startsWith("./") ||
+		specifier.startsWith("../") ||
+		specifier === "." ||
+		specifier === ".."
+	);
+}
+
 export function createKernelRequire(kernelDir = resolveKernelDirectory()): NodeJS.Require {
-	return createRequire(join(kernelDir, "package.json"));
+	const kernelReq = createRequire(join(kernelDir, "package.json"));
+	const cwdReq = () => createRequire(join(process.cwd(), "package.json"));
+	const wrapped = ((id: string) => (isRelativeModuleSpecifier(id) ? cwdReq()(id) : kernelReq(id))) as NodeJS.Require;
+	wrapped.resolve = Object.assign(
+		(id: string, options?: { paths?: string[] }) =>
+			isRelativeModuleSpecifier(id) ? cwdReq().resolve(id, options) : kernelReq.resolve(id, options),
+		{ paths: (request: string) => kernelReq.resolve.paths(request) },
+	);
+	wrapped.cache = kernelReq.cache;
+	wrapped.extensions = kernelReq.extensions;
+	wrapped.main = kernelReq.main;
+	return wrapped;
 }
 
 export function installPackage(...names: string[]): Promise<InstallPackageResult> {

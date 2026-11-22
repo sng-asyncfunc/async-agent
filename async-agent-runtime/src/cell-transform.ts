@@ -107,11 +107,22 @@ function literalModuleRecipes(declaration: VariableDeclaration): Record<string, 
 	for (const declarator of declaration.declarations) {
 		const initializer = declarator.init;
 		if (!initializer) continue;
-		if (initializer.type === "AwaitExpression" && initializer.argument.type === "ImportExpression") {
-			const specifier =
-				initializer.argument.source.type === "Literal"
-					? literalString(initializer.argument.source.value)
-					: undefined;
+		if (initializer.type === "AwaitExpression") {
+			let specifier: string | undefined;
+			if (initializer.argument.type === "ImportExpression") {
+				specifier =
+					initializer.argument.source.type === "Literal"
+						? literalString(initializer.argument.source.value)
+						: undefined;
+			} else if (
+				initializer.argument.type === "CallExpression" &&
+				initializer.argument.callee.type === "Identifier" &&
+				initializer.argument.callee.name === "__asyncImportModule" &&
+				initializer.argument.arguments.length >= 1 &&
+				initializer.argument.arguments[0]?.type === "Literal"
+			) {
+				specifier = literalString(initializer.argument.arguments[0].value);
+			}
 			if (!specifier) continue;
 			if (declarator.id.type === "Identifier") {
 				recipes[declarator.id.name] = { loader: "import", specifier, type: "module" };
@@ -159,10 +170,10 @@ function lowerImportDeclaration(
 		throw new SyntaxError("Static import attributes are not supported in Bun cells.");
 	}
 	if (declaration.specifiers.length === 0) {
-		return { code: `await import(${JSON.stringify(specifier)});`, bindings: [] };
+		return { code: `await __asyncImportModule(${JSON.stringify(specifier)});`, bindings: [] };
 	}
 
-	const lines = [`const ${namespace} = await import(${JSON.stringify(specifier)});`];
+	const lines = [`const ${namespace} = await __asyncImportModule(${JSON.stringify(specifier)});`];
 	const bindings: BindingPersistence[] = [];
 	for (const importSpecifier of declaration.specifiers) {
 		const name = importSpecifier.local.name;
@@ -346,8 +357,43 @@ if (${didReturn}) {${persistenceSource(bindings)}
 	};
 }
 
-export function transformJavaScriptCell(source: string): TransformedJavaScriptCell {
-	const program = parseCell(source);
+function collectDynamicImportEdits(node: unknown, source: string, edits: SourceEdit[]): void {
+	if (!node || typeof node !== "object") return;
+	if (Array.isArray(node)) {
+		for (const item of node) collectDynamicImportEdits(item, source, edits);
+		return;
+	}
+	const record = node as Record<string, unknown>;
+	if (record.type === "ImportExpression" && typeof record.start === "number" && record.source) {
+		const srcNode = record.source as { start: number };
+		const prefix = source.slice(record.start, srcNode.start);
+		const importIdx = prefix.indexOf("import");
+		if (importIdx >= 0) {
+			edits.push({
+				start: record.start + importIdx,
+				end: record.start + importIdx + "import".length,
+				text: "__asyncImportModule",
+			});
+		}
+	}
+	for (const key of Object.keys(record)) {
+		if (key === "type" || key === "start" || key === "end" || key === "loc" || key === "range") continue;
+		const child = record[key];
+		if (child && typeof child === "object") collectDynamicImportEdits(child, source, edits);
+	}
+}
+
+export function transformJavaScriptCell(rawSource: string): TransformedJavaScriptCell {
+	let source = rawSource;
+	let program = parseCell(source);
+	if (source.includes("import")) {
+		const dynamicImportEdits: SourceEdit[] = [];
+		collectDynamicImportEdits(program, source, dynamicImportEdits);
+		if (dynamicImportEdits.length > 0) {
+			source = applyEdits(source, dynamicImportEdits);
+			program = parseCell(source);
+		}
+	}
 	const edits: SourceEdit[] = [];
 	const bindingNames: string[] = [];
 	const bindingRecipes: Record<string, ModuleBindingRecipe> = {};

@@ -7,6 +7,7 @@ import { type FileHandle, mkdir, open, readFile, rename, rm, stat, writeFile } f
 import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { Writable } from "node:stream";
+import { pathToFileURL } from "node:url";
 import {
 	activityRequest,
 	bash,
@@ -29,6 +30,7 @@ import {
 import { type ModuleBindingRecipe, transformJavaScriptCell } from "./cell-transform.ts";
 import { ACTIVITY_ACTIONS, ACTIVITY_TIMEOUT_MS_CAP, scheduleFactoryActivity } from "./factory.ts";
 import { close as closeMcp, mcpNamespace, status as mcpStatus } from "./mcp.ts";
+import { formatSpilledResultSummary, resolveResultSpillChars } from "./result-spill.ts";
 import { rlm } from "./rlm.ts";
 import {
 	$,
@@ -132,6 +134,37 @@ const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor a
 ) => AsyncExecutable;
 const restoreFunctionValue = new AsyncFunction("__asyncSource", 'return (0, eval)("(" + __asyncSource + "\\n)");');
 const restoreImportedValue = new AsyncFunction("__asyncSpecifier", "return import(__asyncSpecifier);");
+
+function resolveImportSpecifier(specifier: string): string {
+	if (
+		specifier.startsWith("./") ||
+		specifier.startsWith("../") ||
+		specifier === "." ||
+		specifier === ".."
+	) {
+		return pathToFileURL(resolve(process.cwd(), specifier)).href;
+	}
+	return specifier;
+}
+
+async function importFromCell(specifier: string, options?: ImportCallOptions): Promise<unknown> {
+	const resolved = typeof specifier === "string" ? resolveImportSpecifier(specifier) : specifier;
+	if (options !== undefined) {
+		return import(resolved, options);
+	}
+	return restoreImportedValue(resolved);
+}
+
+let spillCounter = 0;
+
+function allocateSpillName(): string {
+	let candidate: string;
+	do {
+		spillCounter += 1;
+		candidate = `$out_${spillCounter}`;
+	} while (Object.hasOwn(globalThis, candidate));
+	return candidate;
+}
 
 const cellContext = new AsyncLocalStorage<ActiveCell>();
 const bindings = new Set<string>();
@@ -659,7 +692,7 @@ function parseModuleBindingRecipe(data: Uint8Array): ModuleBindingRecipe {
 
 async function restoreModuleBinding(recipe: ModuleBindingRecipe): Promise<unknown> {
 	const loaded =
-		recipe.loader === "require" ? requireModule(recipe.specifier) : await restoreImportedValue(recipe.specifier);
+		recipe.loader === "require" ? requireModule(recipe.specifier) : await importFromCell(recipe.specifier);
 	if (recipe.exportName === undefined) return loaded;
 	if (
 		((typeof loaded !== "object" || loaded === null) && typeof loaded !== "function") ||
@@ -944,7 +977,7 @@ async function performRestore(opts: {
 				persistBinding(entry.name, value);
 			} else if (entry.kind === "import") {
 				if (!source) throw new Error("import recipe has an empty specifier");
-				const value = await restoreImportedValue(source);
+				const value = await importFromCell(source);
 				persistBinding(entry.name, value, { loader: "import", specifier: source, type: "module" });
 			} else {
 				const recipe = parseModuleBindingRecipe(entry.data);
@@ -1038,7 +1071,7 @@ async function handleExecute(req: Record<string, unknown>): Promise<void> {
 		if (conflict) {
 			throw new SyntaxError(`${conflict} conflicts with a runtime global and cannot be redeclared`);
 		}
-		const executor = new AsyncFunction("__asyncPersist", transformed.code);
+		const executor = new AsyncFunction("__asyncPersist", "__asyncImportModule", transformed.code);
 
 		const abortPromise = new Promise<never>((_res, reject) => {
 			if (cell.abortController.signal.aborted) {
@@ -1048,7 +1081,7 @@ async function handleExecute(req: Record<string, unknown>): Promise<void> {
 			cell.abortController.signal.addEventListener("abort", () => reject(new InterruptError()), { once: true });
 		});
 
-		const execPromise = cellContext.run(cell, () => executor(persistBinding));
+		const execPromise = cellContext.run(cell, () => executor(persistBinding, importFromCell));
 		// Prevent unhandled rejection if abortPromise wins and execPromise rejects later.
 		execPromise.catch(() => undefined);
 
@@ -1063,7 +1096,18 @@ async function handleExecute(req: Record<string, unknown>): Promise<void> {
 				value,
 				writable: true,
 			});
-			resultText = boundedInspect(value, RESULT_TEXT_CAP);
+			const inspected = boundedInspect(value, RESULT_TEXT_CAP);
+			const spillLimit = resolveResultSpillChars();
+			const shouldSpill =
+				spillLimit > 0 &&
+				(inspected.length > spillLimit || (Array.isArray(value) && value.length > MAX_RESULT_PROJECTION_ENTRIES));
+			if (shouldSpill) {
+				const spillName = allocateSpillName();
+				persistBinding(spillName, value);
+				resultText = capText(formatSpilledResultSummary(spillName, value, inspected.length));
+			} else {
+				resultText = inspected;
+			}
 		}
 	} catch (error) {
 		status = "error";

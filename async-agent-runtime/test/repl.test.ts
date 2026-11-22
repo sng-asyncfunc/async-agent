@@ -473,4 +473,79 @@ describe("Protocol v3 REPL E2E", () => {
 		expect(parsed?.name).toBe("sample-machine");
 		expect(parsed?.spec).toEqual({ states: [] });
 	});
+
+	test("auto-spills oversized return values to $out_<n> with structural summary and schema-drift detection", async () => {
+		const { client } = await startRepl({ ASYNC_AGENT_REPL_SPILL_CHARS: "1200" });
+
+		// Oversized batch array with schema drift on 2 rows
+		const ev1 = await client.exec(
+			"spill-arr",
+			`Array.from({ length: 40 }, (_, i) => i === 7 ? { id: i, contact: { email: "drift@example.com" }, pad: "x".repeat(60) } : { id: i, primary_email: "u" + i + "@example.com", pad: "x".repeat(60) })`,
+		);
+		const text1 = String(ev1.find((e) => e.event === "result")?.text ?? "");
+		expect(text1).toContain("[Result spilled to $out_1: Array(40)");
+		expect(text1).toContain("Common keys");
+		expect(text1).toContain("Partial/drift keys");
+		expect(text1).toContain("contact (1/40)");
+		expect(text1.length).toBeLessThan(2500);
+
+		// Full array is live in $out_1 for on-demand filtering
+		const ev2 = await client.exec("spill-query", "$out_1.filter((r) => 'contact' in r).map((r) => r.id)");
+		expect(ev2.find((e) => e.event === "result")?.text).toContain("7");
+
+		// Oversized string spills to $out_2
+		const ev3 = await client.exec("spill-str", '"HEAD:" + "a".repeat(2500) + ":TAIL"');
+		const text3 = String(ev3.find((e) => e.event === "result")?.text ?? "");
+		expect(text3).toContain("[Result spilled to $out_2: string(");
+		expect(text3).toContain("HEAD:");
+		expect(text3).toContain(":TAIL");
+		const ev4 = await client.exec("spill-str-len", "$out_2.length");
+		expect(ev4.find((e) => e.event === "result")?.text).toBe("2510");
+
+		// Small values do not spill
+		const ev5 = await client.exec("small-val", "({ ok: true })");
+		expect(String(ev5.find((e) => e.event === "result")?.text ?? "")).not.toContain("Result spilled");
+	});
+
+	test("resolves relative static import, dynamic import, require, and snapshot restore against process.cwd()", async () => {
+		const dir = makeTempDir("repl-rel-import-");
+		fs.writeFileSync(path.join(dir, "helper.mjs"), 'export function greet(n) { return "hi " + n; }\nexport const TAG = "cwd-esm";\n');
+		fs.writeFileSync(path.join(dir, "cjs_helper.cjs"), 'module.exports = { answer: 77 };\n');
+		const snapPath = path.join(dir, "rel-state.bin");
+		const manifestPath = path.join(dir, "rel-state.json");
+
+		const { client: c1 } = await startRepl();
+		await c1.exec("chdir1", `process.chdir(${JSON.stringify(dir)});`);
+
+		// Static relative import
+		const ev1 = await c1.exec("rel-static", 'import { greet, TAG } from "./helper.mjs";\ngreet(TAG)');
+		expect(ev1.find((e) => e.event === "done")?.status).toBe("ok");
+		expect(String(ev1.find((e) => e.event === "result")?.text ?? "")).toContain("hi cwd-esm");
+
+		// Dynamic relative import
+		const ev2 = await c1.exec("rel-dyn", 'const dyn = await import("./helper.mjs");\ndyn.greet("dyn")');
+		expect(ev2.find((e) => e.event === "done")?.status).toBe("ok");
+		expect(String(ev2.find((e) => e.event === "result")?.text ?? "")).toContain("hi dyn");
+
+		// Relative require
+		const ev3 = await c1.exec("rel-cjs", 'const cjs = require("./cjs_helper.cjs");\ncjs.answer');
+		expect(ev3.find((e) => e.event === "done")?.status).toBe("ok");
+		expect(ev3.find((e) => e.event === "result")?.text).toBe("77");
+
+		// Snapshot & restore into a fresh REPL (which starts in RUNTIME_DIR, not dir!)
+		c1.send({ type: "snapshot", id: "snap-rel", path: snapPath, manifest_path: manifestPath });
+		const snapDone = await c1.waitForEvent((e) => e.event === "done" && e.id === "snap-rel");
+		expect(snapDone.status).toBe("ok");
+		await c1.close();
+
+		const { client: c2 } = await startRepl();
+		c2.send({ type: "restore", id: "rest-rel", path: snapPath });
+		const restDone = await c2.waitForEvent((e) => e.event === "done" && e.id === "rest-rel");
+		expect(restDone.status).toBe("ok");
+		expect(restDone.failed).toEqual([]);
+		const ev4 = await c2.exec("rel-after", '({ g: greet("restored"), a: cjs.answer })');
+		const text4 = String(ev4.find((e) => e.event === "result")?.text ?? "");
+		expect(text4).toContain("hi restored");
+		expect(text4).toContain("a: 77");
+	});
 });
