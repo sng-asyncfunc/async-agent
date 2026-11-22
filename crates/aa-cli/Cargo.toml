@@ -1,18 +1,18 @@
 [package]
-name = "pa-cli"
+name = "aa-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "The prime-agent binary."
+description = "The async-agent binary."
 
 [dependencies]
-pa-types = { path = "../pa-types" }
-pa-core = { path = "../pa-core" }
-pa-ai = { path = "../pa-ai" }
-pa-agent = { path = "../pa-agent" }
-pa-daemon = { path = "../pa-daemon" }
-pa-tui = { path = "../pa-tui" }
-pa-telemetry = { path = "../pa-telemetry" }
+aa-types = { path = "../aa-types" }
+aa-core = { path = "../aa-core" }
+aa-ai = { path = "../aa-ai" }
+aa-agent = { path = "../aa-agent" }
+aa-daemon = { path = "../aa-daemon" }
+aa-tui = { path = "../aa-tui" }
+aa-telemetry = { path = "../aa-telemetry" }
 uuid = { version = "1", features = ["v4", "v7"] }
 tokio = { workspace = true }
 anyhow = { workspace = true }
@@ -20,7 +20,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [[bin]]
-name = "prime-agent"
+name = "async-agent"
 path = "src/main.rs"
 
 [dev-dependencies]
@@ -28,7 +28,7 @@ tempfile = "3"
 base64 = "0.22"
 # The release-workflow test parses the CI workflow YAML and builds fixture
 # tarballs/manifests for the promote-job layout gates (the same versions the
-# workspace already resolves for pa-core's update/release seam).
+# workspace already resolves for aa-core's update/release seam).
 serde_yaml = { package = "yaml_serde", version = "0.10.7" }
 tar = "0.4"
 flate2 = "1"
@@ -46,7 +46,7 @@ url = "2"
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints.clippy]
-# pa-cli keeps its OWN lints table (not `workspace = true`): the
+# aa-cli keeps its OWN lints table (not `workspace = true`): the
 # workspace's `rust.unsafe_code = "forbid"` would outlaw the e2e
 # tests' process-kill/cleanup unsafe blocks. The clippy rows mirror
 # the workspace table, and the pedantic class rides here so CI's

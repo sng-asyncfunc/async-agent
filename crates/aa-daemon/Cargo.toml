@@ -1,16 +1,16 @@
 [package]
-name = "pa-daemon"
+name = "aa-daemon"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Session supervisor, worker processes, and wire protocol."
 
 [dependencies]
-pa-types = { path = "../pa-types" }
-pa-core = { path = "../pa-core" }
-pa-agent = { path = "../pa-agent" }
-pa-ai = { path = "../pa-ai" }
-pa-telemetry = { path = "../pa-telemetry" }
+aa-types = { path = "../aa-types" }
+aa-core = { path = "../aa-core" }
+aa-agent = { path = "../aa-agent" }
+aa-ai = { path = "../aa-ai" }
+aa-telemetry = { path = "../aa-telemetry" }
 anyhow = { workspace = true }
 futures = { workspace = true }
 globset = "0.4"
@@ -33,11 +33,11 @@ socket2 = "0.6"
 proptest = { workspace = true }
 # Test-only: `ModelCatalog::with_urls` + the compiled offline Prime
 # Inference entries build the loopback catalog the session-model restore
-# tests script (the pa-core tests/common pattern, in-crate), and the
+# tests script (the aa-core tests/common pattern, in-crate), and the
 # catalog-repo child-resolution regression writes the layer-A disk cache
-# in the pa-models snapshot shape; the crate's runtime surface goes
-# through pa-core.
-pa-models = { path = "../pa-models" }
+# in the aa-models snapshot shape; the crate's runtime surface goes
+# through aa-core.
+aa-models = { path = "../aa-models" }
 url = "2"
 # The MCP catalog e2e seeds the fetch lane's snapshot envelope: the real
 # catalog url/scope constants keep the seeded cache byte-honest.
@@ -46,7 +46,7 @@ url = "2"
 tokio = { workspace = true, features = ["test-util"] }
 
 [[bin]]
-name = "pa-daemon"
+name = "aa-daemon"
 path = "src/main.rs"
 
 [lints]

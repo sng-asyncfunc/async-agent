@@ -1,31 +1,58 @@
 [package]
-name = "pa-types"
+name = "aa-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Shared domain and wire types for Prime Agent."
+description = "Session engine: tools, skills, prompts, kernel, subagents, settings."
 
 [dependencies]
-serde = { workspace = true }
-serde_json = { workspace = true }
-thiserror = { workspace = true }
-anyhow = { workspace = true }
-tokio = { workspace = true }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+futures.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+aa-types.workspace = true
+aa-ai.workspace = true
+aa-models = { path = "../aa-models" }
+aa-agent.workspace = true
+aa-telemetry.workspace = true
+base64 = "0.22"
+fancy-regex = "0.14"
+# The traces browser login's auth challenge (RSA-2048 keypair, OAEP-SHA256
+# result decrypt; sha2 matches the workspace's version, pem for the SPKI
+# wire form).
+rsa = { version = "0.9", features = ["sha2", "pem"] }
 libc = "0.2"
-socket2 = "0.6"
-# The incident classifier's log-message patterns are the TS regexes
-# (src/cli/incident.ts); the `regex` crate keeps their semantics 1:1.
-regex = "1"
+nix = { version = "0.29", features = ["signal", "process", "user", "fs", "dir"] }
+tokio-util = "0.7"
+uuid = { version = "1", features = ["v4", "v7"] }
+sha2 = "0.10"
+getrandom = "0.3"
+url = "2"
+globset = "0.4"
+toml.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "rustls-tls-webpki-roots", "json", "stream"] }
+tar = "0.4"
+flate2 = "1"
+unicode-normalization = "0.1"
+serde_yaml = { package = "yaml_serde", version = "0.10.7" }
+ignore = "0.4"
 
 [dev-dependencies]
 tempfile = "3"
+proptest = { workspace = true }
+# The traces rate-gate test runs on paused tokio time (the 12s platform
+# interval auto-advances).
+tokio = { workspace = true, features = ["test-util"] }
 
 [lints.clippy]
-# pa-types keeps its OWN lints table (not `workspace = true`): the
+# aa-core keeps its OWN lints table (not `workspace = true`): the
 # workspace's `rust.unsafe_code = "forbid"` would outlaw the platform
-# bindings' legitimate unsafe blocks. The clippy rows mirror the
-# workspace table, and the pedantic class rides here so CI's
-# -D warnings bar enforces it on this crate too.
+# bindings' legitimate unsafe blocks (process/termios/lock-dir). The
+# clippy rows mirror the workspace table, and the pedantic class rides
+# here so CI's -D warnings bar enforces it on this crate too.
 pedantic = "warn"
 redundant_clone = "warn"
 clone_on_copy = "warn"

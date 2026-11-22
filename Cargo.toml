@@ -1,16 +1,16 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/pa-telemetry",
-    "crates/pa-types",
-    "crates/pa-ai",
-    "crates/pa-models",
-    "crates/pa-agent",
-    "crates/pa-core",
-    "crates/pa-daemon",
-    "crates/pa-tui",
-    "crates/pa-cli",
-    "crates/pa-perf",
+    "crates/aa-telemetry",
+    "crates/aa-types",
+    "crates/aa-ai",
+    "crates/aa-models",
+    "crates/aa-agent",
+    "crates/aa-core",
+    "crates/aa-daemon",
+    "crates/aa-tui",
+    "crates/aa-cli",
+    "crates/aa-perf",
 ]
 
 # Crossterm 0.28.1's kitty support check holds the process-wide event reader
@@ -31,18 +31,18 @@ serde = { version = "1", features = ["derive"] }
 # model the TS daemon and session files byte-emit. Without it the Map is a
 # BTreeMap and every Value-built frame re-sorts its keys alphabetically,
 # diverging from the TS byte stream (e.g. compaction `details` order).
-# raw_value: pa-daemon needs it, so release builds already have it. Listing
+# raw_value: aa-daemon needs it, so release builds already have it. Listing
 # it here gives every crate the same serde_json features, so
-# `cargo test -p pa-core` and `cargo test -p pa-daemon` share one build.
+# `cargo test -p aa-core` and `cargo test -p aa-daemon` share one build.
 serde_json = { version = "1", features = ["preserve_order", "raw_value"] }
 anyhow = "1"
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
 tracing = { version = "0.1", features = ["attributes"] }
-pa-telemetry = { path = "crates/pa-telemetry" }
-pa-types = { path = "crates/pa-types" }
-pa-ai = { path = "crates/pa-ai" }
-pa-agent = { path = "crates/pa-agent" }
+aa-telemetry = { path = "crates/aa-telemetry" }
+aa-types = { path = "crates/aa-types" }
+aa-ai = { path = "crates/aa-ai" }
+aa-agent = { path = "crates/aa-agent" }
 thiserror = "2"
 futures = "0.3"
 toml = "0.9"
@@ -53,8 +53,8 @@ proptest = { version = "1.11", default-features = false, features = ["std"] }
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
-# The pedantic gate the five clippy campaigns earned (pa-daemon #3029,
-# pa-cli #3050, pa-core #3093, the small crates #3110, pa-tui #3134):
+# The pedantic gate the five clippy campaigns earned (aa-daemon #3029,
+# aa-cli #3050, aa-core #3093, the small crates #3110, aa-tui #3134):
 # every workspace member is pedantic-clean; CI's -D warnings bar turns
 # this warn class into errors, and the per-crate #![allow] exceptions
 # (the design-choice classes, each with its in-code justification) keep
