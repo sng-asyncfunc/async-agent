@@ -8,15 +8,15 @@ use serde_json::Value;
 
 use crate::theme::{Theme, ThemeBg, ThemeColor};
 
-/// The compact 7-row Async Agent monogram.
+/// The compact 7-row `AsyncFunc` split-A mark.
 pub const ASYNC_AGENT_LOGO: &str = concat!(
-    " \u{2597}\u{2584}\u{2584}\u{2584}\u{2584}\u{2596}    \u{2597}\u{2584}\u{2584}\u{2584}\u{2584}\u{2596}\n",
-    "\u{259f}\u{2588}\u{259b}\u{2580}\u{2580}\u{259c}\u{2588}\u{2599}  \u{259f}\u{2588}\u{259b}\u{2580}\u{2580}\u{259c}\u{2588}\u{2599}\n",
-    "\u{2588}\u{2588}\u{258c}  \u{2590}\u{2588}\u{2588}  \u{2588}\u{2588}\u{258c}  \u{2590}\u{2588}\u{2588}\n",
-    "\u{2588}\u{2588}\u{2588}\u{2584}\u{2584}\u{2588}\u{2588}\u{2588}  \u{2588}\u{2588}\u{2588}\u{2584}\u{2584}\u{2588}\u{2588}\u{2588}\n",
-    "\u{2588}\u{2588}\u{2588}\u{2580}\u{2580}\u{2588}\u{2588}\u{2588}  \u{2588}\u{2588}\u{2588}\u{2580}\u{2580}\u{2588}\u{2588}\u{2588}\n",
-    "\u{2588}\u{2588}\u{258c}  \u{2590}\u{2588}\u{2588}  \u{2588}\u{2588}\u{258c}  \u{2590}\u{2588}\u{2588}\n",
-    "\u{2580}\u{2580}\u{2580}  \u{2580}\u{2580}\u{2580}  \u{2580}\u{2580}\u{2580}  \u{2580}\u{2580}\u{2580}",
+    "      ████▖    \n",
+    "    ▄ ▝████▖   \n",
+    "   ▟█▙ ▜███▙   \n",
+    "  ▐███▌ ████▌  \n",
+    " ▗███▛  ▝████▖ \n",
+    "▗████▄▄▖ ▐████ \n",
+    "▟███████▖ ▜███▙",
 );
 
 /// Truncate a plain string to a visible width (cut on grapheme
@@ -353,8 +353,8 @@ pub fn render_top_bar(state: &ChromeState, theme: &Theme, width: usize) -> Line 
     line
 }
 
-/// The brand splash: AA monogram beside the version/model/cwd metadata
-/// (TS `BrandSplashHeader`, `topPadding` always on).
+/// The brand splash: `AsyncFunc` split-A mark beside the version/model/cwd
+/// metadata (TS `BrandSplashHeader`, `topPadding` always on).
 #[must_use]
 pub fn render_splash(state: &ChromeState, theme: &Theme, width: usize) -> Vec<Line> {
     let safe_width = width.max(1);

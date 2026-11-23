@@ -71,15 +71,15 @@ pub(crate) fn team_question_config() -> OnboardingChoiceOptions {
 }
 
 const LOGO_LINES: [&str; 7] = [
-    " ▗▄▄▄▄▖    ▗▄▄▄▄▖",
-    "▟█▛▀▀▜█▙  ▟█▛▀▀▜█▙",
-    "██▌  ▐██  ██▌  ▐██",
-    "███▄▄███  ███▄▄███",
-    "███▀▀███  ███▀▀███",
-    "██▌  ▐██  ██▌  ▐██",
-    "▀▀▀  ▀▀▀  ▀▀▀  ▀▀▀",
+    "      ████▖    ",
+    "    ▄ ▝████▖   ",
+    "   ▟█▙ ▜███▙   ",
+    "  ▐███▌ ████▌  ",
+    " ▗███▛  ▝████▖ ",
+    "▗████▄▄▖ ▐████ ",
+    "▟███████▖ ▜███▙",
 ];
-const LOGO_WIDTH: usize = 18;
+const LOGO_WIDTH: usize = 15;
 const LOGO_INDENT: usize = 5;
 const HIGHLIGHT_LIFT: f64 = 0.08;
 
@@ -568,7 +568,7 @@ mod tests {
         Theme::from_json(&json, mode)
     }
 
-    /// The trace-question pane at 80x24: verifies the AA monogram rows, the
+    /// The trace-question pane at 80x24: verifies the `AsyncFunc` mark rows, the
     /// Async Agent brand line, the trace question copy, and the highlighted
     /// choice rows.
     #[test]

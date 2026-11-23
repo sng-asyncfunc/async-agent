@@ -1463,8 +1463,8 @@ mod tests {
 
     #[test]
     fn roster_settled_accounts_for_unloaded_pages() {
-        let large = " ▗▄▄▄▄▖    ▗▄▄▄▄▖          async agent v0.10.0
-▟█▛▀▀▜█▙  ▟█▛▀▀▜█▙         agents 0 running, 0 idle, 200 inactive
+        let large = "      ████▖               async agent v0.10.0
+    ▄ ▝████▖              agents 0 running, 0 idle, 200 inactive
 
  >   Search sessions
 
