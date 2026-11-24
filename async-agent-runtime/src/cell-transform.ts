@@ -35,6 +35,36 @@ interface SourceEdit {
 	text: string;
 }
 
+const tsStripper = new Bun.Transpiler({ deadCodeElimination: false, loader: "ts", target: "bun" });
+const replTranspiler = new Bun.Transpiler({
+	deadCodeElimination: false,
+	loader: "js",
+	replMode: true,
+	target: "bun",
+});
+const BUN_REQUIRE_SHIM = "var {require}=import.meta;";
+
+function stripBunRequireShim(code: string): string {
+	return code.startsWith(BUN_REQUIRE_SHIM) ? code.slice(BUN_REQUIRE_SHIM.length) : code;
+}
+
+function stripTypeScriptForCell(rawSource: string): string {
+	// Bare object literals like `{ a: 1 }`, `{ a: 1, b: 2 }`, `{ prompt, self, x }`,
+	// or `{ a: 1 as number, b: 2 }` would otherwise be parsed as BlockStatements
+	// (labeled/comma statements) or syntax errors at module statement position.
+	// Try parenthesizing first; real blocks like `{ const y = 1; y; }` fail to
+	// parse as parenthesized expressions and fall through cleanly.
+	const trimmed = rawSource.trim();
+	if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+		try {
+			return stripBunRequireShim(tsStripper.transformSync(`(${trimmed})`));
+		} catch {
+			// Not an object literal; fall through to standard TS stripping.
+		}
+	}
+	return stripBunRequireShim(tsStripper.transformSync(rawSource));
+}
+
 function collectPatternBindings(pattern: Pattern, names: string[]): void {
 	switch (pattern.type) {
 		case "Identifier":
@@ -173,7 +203,8 @@ function lowerImportDeclaration(
 		return { code: `await __asyncImportModule(${JSON.stringify(specifier)});`, bindings: [] };
 	}
 
-	const lines = [`const ${namespace} = await __asyncImportModule(${JSON.stringify(specifier)});`];
+	const declNames: string[] = [];
+	const assignments: string[] = [];
 	const bindings: BindingPersistence[] = [];
 	for (const importSpecifier of declaration.specifiers) {
 		const name = importSpecifier.local.name;
@@ -198,12 +229,24 @@ function lowerImportDeclaration(
 			specifier,
 			type: "module",
 		};
-		lines.push(
-			`const ${name} = ${exportName ? importedBindingExpression(namespace, exportName, specifier) : namespace};`,
+		declNames.push(name);
+		assignments.push(
+			`${name} = ${exportName ? importedBindingExpression(namespace, exportName, specifier) : namespace};`,
 		);
 		bindings.push({ name, recipe });
 	}
-	return { code: lines.join("\n"), bindings };
+
+	// Keep the temporary module namespace block-scoped inside `{ ... }` so
+	// Bun's `replMode` only hoists the user's declared import bindings onto
+	// `globalThis` and never leaks temporary namespace variables.
+	const code = [
+		`let ${declNames.join(", ")};`,
+		"{",
+		`const ${namespace} = await __asyncImportModule(${JSON.stringify(specifier)});`,
+		...assignments,
+		"}",
+	].join("\n");
+	return { code, bindings };
 }
 
 function privateImportNamespace(
@@ -218,16 +261,6 @@ function privateImportNamespace(
 	}
 	generatedNames.add(name);
 	return name;
-}
-
-function persistenceSource(bindings: readonly BindingPersistence[]): string {
-	let out = "";
-	for (let i = 0; i < bindings.length; i += 1) {
-		const { name, recipe } = bindings[i]!;
-		const serializedRecipe = recipe ? `, ${JSON.stringify(recipe)}` : "";
-		out += `\n__asyncPersist(${JSON.stringify(name)}, ${name}${serializedRecipe});`;
-	}
-	return out;
 }
 
 function applyEdits(source: string, edits: SourceEdit[]): string {
@@ -298,63 +331,9 @@ function collectNotebookReturnStatements(statement: Statement | ModuleDeclaratio
 			if (statement.handler) collectNotebookReturnStatements(statement.handler.body, returns);
 			if (statement.finalizer) collectNotebookReturnStatements(statement.finalizer, returns);
 			return;
-		case "ExpressionStatement":
-		case "EmptyStatement":
-		case "DebuggerStatement":
-		case "BreakStatement":
-		case "ContinueStatement":
-		case "ThrowStatement":
-		case "VariableDeclaration":
-		case "FunctionDeclaration":
-		case "ClassDeclaration":
-		case "ImportDeclaration":
-		case "ExportNamedDeclaration":
-		case "ExportDefaultDeclaration":
-		case "ExportAllDeclaration":
+		default:
 			return;
 	}
-}
-
-function returnPersistenceEdit(
-	source: string,
-	statement: Statement | ModuleDeclaration,
-	returns: readonly ReturnStatement[],
-	bindings: readonly BindingPersistence[],
-	index: number,
-): SourceEdit {
-	let namespace = `__asyncReturn${index}`;
-	while (source.includes(namespace)) namespace += "_";
-	const didReturn = `${namespace}DidReturn`;
-	const returnValue = `${namespace}Value`;
-	const caughtError = `${namespace}Error`;
-	const statementSource = source.slice(statement.start, statement.end);
-	const returnEdits = returns.map((returnStatement): SourceEdit => {
-		const argument = returnStatement.argument;
-		return {
-			start: returnStatement.start - statement.start,
-			end: returnStatement.end - statement.start,
-			text: argument
-				? `return (${returnValue} = (${source.slice(argument.start, argument.end)}), ${didReturn} = true, ${returnValue});`
-				: `return (${didReturn} = true, undefined);`,
-		};
-	});
-	const transformedStatement = applyEdits(statementSource, returnEdits);
-	return {
-		start: statement.start,
-		end: statement.end,
-		text: `let ${didReturn} = false;
-let ${returnValue};
-try {
-${transformedStatement}
-${didReturn} = false;
-} catch (${caughtError}) {
-${didReturn} = false;
-throw ${caughtError};
-} finally {
-if (${didReturn}) {${persistenceSource(bindings)}
-}
-}`,
-	};
 }
 
 function collectDynamicImportEdits(node: unknown, source: string, edits: SourceEdit[]): void {
@@ -384,8 +363,12 @@ function collectDynamicImportEdits(node: unknown, source: string, edits: SourceE
 }
 
 export function transformJavaScriptCell(rawSource: string): TransformedJavaScriptCell {
-	let source = rawSource;
+	let source = stripTypeScriptForCell(rawSource);
 	let program = parseCell(source);
+	if (program.body.length === 0) {
+		return { code: "", bindingNames: [], bindingRecipes: {} };
+	}
+
 	if (source.includes("import")) {
 		const dynamicImportEdits: SourceEdit[] = [];
 		collectDynamicImportEdits(program, source, dynamicImportEdits);
@@ -394,22 +377,20 @@ export function transformJavaScriptCell(rawSource: string): TransformedJavaScrip
 			program = parseCell(source);
 		}
 	}
+
 	const edits: SourceEdit[] = [];
 	const bindingNames: string[] = [];
 	const bindingRecipes: Record<string, ModuleBindingRecipe> = {};
-	const persistedBindings: BindingPersistence[] = [];
 	const generatedImportNames = new Set<string>();
 	const checkImportCollision = source.includes("__asyncImport");
 	let importIndex = 0;
+	let returnLabelPrefix = "__asyncRet";
+	while (source.includes(returnLabelPrefix)) returnLabelPrefix += "_";
 	let returnIndex = 0;
+	const topLevelReturns: ReturnStatement[] = [];
 
 	for (const statement of program.body) {
-		const returns: ReturnStatement[] = [];
-		collectNotebookReturnStatements(statement, returns);
-		if (returns.length > 0 && persistedBindings.length > 0) {
-			edits.push(returnPersistenceEdit(source, statement, returns, persistedBindings, returnIndex));
-			returnIndex += 1;
-		}
+		collectNotebookReturnStatements(statement, topLevelReturns);
 		switch (statement.type) {
 			case "ImportDeclaration": {
 				const namespace = privateImportNamespace(source, importIndex, generatedImportNames, checkImportCollision);
@@ -419,11 +400,10 @@ export function transformJavaScriptCell(rawSource: string): TransformedJavaScrip
 				for (const binding of lowered.bindings) {
 					if (binding.recipe) bindingRecipes[binding.name] = binding.recipe;
 				}
-				persistedBindings.push(...lowered.bindings);
 				edits.push({
 					start: statement.start,
 					end: statement.end,
-					text: `${lowered.code}${persistenceSource(lowered.bindings)}`,
+					text: lowered.code,
 				});
 				break;
 			}
@@ -431,38 +411,67 @@ export function transformJavaScriptCell(rawSource: string): TransformedJavaScrip
 			case "ExportDefaultDeclaration":
 			case "ExportAllDeclaration":
 				throw new SyntaxError("Exports are not supported in Bun cells.");
-			case "VariableDeclaration":
+			case "VariableDeclaration": {
+				const names = declarationBindings(statement);
+				const recipes = literalModuleRecipes(statement);
+				bindingNames.push(...names);
+				Object.assign(bindingRecipes, recipes);
+				// Ensure uninitialized `let x;` / `var x;` still assigns `undefined`
+				// on `globalThis` once the leading `var` hoist preamble is stripped.
+				for (const declarator of statement.declarations) {
+					if (!declarator.init && declarator.id.type === "Identifier") {
+						edits.push({ start: declarator.id.end, end: declarator.id.end, text: " = void 0" });
+					}
+				}
+				break;
+			}
 			case "FunctionDeclaration":
 			case "ClassDeclaration": {
 				const names = declarationBindings(statement);
-				const recipes = statement.type === "VariableDeclaration" ? literalModuleRecipes(statement) : {};
 				bindingNames.push(...names);
-				Object.assign(bindingRecipes, recipes);
-				const statementBindings = names.map((name) => ({ name, recipe: recipes[name] }));
-				persistedBindings.push(...statementBindings);
-				edits.push({ start: statement.end, end: statement.end, text: persistenceSource(statementBindings) });
 				break;
 			}
 		}
 	}
 
-	const finalStatement = program.body.at(-1);
-	if (finalStatement?.type === "ExpressionStatement") {
-		const expression = source.slice(finalStatement.expression.start, finalStatement.expression.end);
-		const finalPersistence = persistenceSource(persistedBindings);
+	// Bun's `replMode` rejects top-level `return` when the same cell also uses
+	// top-level `await` (treating the cell as an ES module). Rewrite top-level
+	// `return` statements to unique labeled statements before `replMode`, then
+	// restore `return ` (consuming any line break to avoid ASI) inside the
+	// generated IIFE.
+	for (const returnStatement of topLevelReturns) {
+		const label = `${returnLabelPrefix}${returnIndex++}`;
+		const arg = returnStatement.argument
+			? `(${source.slice(returnStatement.argument.start, returnStatement.argument.end)})`
+			: "void 0";
 		edits.push({
-			start: finalStatement.start,
-			end: finalStatement.end,
-			text: finalPersistence
-				? `try {\nreturn (${expression});\n} finally {${finalPersistence}\n}`
-				: `return (${expression});`,
+			start: returnStatement.start,
+			end: returnStatement.end,
+			text: `${label}: ${arg};`,
 		});
-	} else if (bindingNames.length > 0) {
-		edits.push({ start: source.length, end: source.length, text: persistenceSource(persistedBindings) });
 	}
 
+	let prepared = applyEdits(source, edits);
+	const finalStatement = program.body.at(-1);
+	// Suppress Bun `replMode`'s implicit completion value for declaration/control
+	// cells (e.g. `const data = hugeArray;`) so assigning to a variable does not
+	// echo or spill the assigned value, while explicit `return` and trailing
+	// expressions still return their values.
+	if (finalStatement && finalStatement.type !== "ExpressionStatement" && finalStatement.type !== "ReturnStatement") {
+		prepared = `${prepared}\n;void 0;`;
+	}
+
+	let replCode = stripBunRequireShim(replTranspiler.transformSync(prepared));
+	// Strip Bun `replMode`'s top-level `var ...;` hoist preamble so bindings are
+	// assigned onto `globalThis` as `configurable: true` properties and can be
+	// cleanly deleted by `prune_oversized` snapshots to release heap memory.
+	replCode = replCode.replace(/^(?:var [^;\n]+;\n)+/, "");
+	if (returnIndex > 0) {
+		const restoreReturnPattern = new RegExp(`\\b${returnLabelPrefix}\\d+:\\s*`, "g");
+		replCode = replCode.replace(restoreReturnPattern, "return ");
+	}
 	return {
-		code: applyEdits(source, edits),
+		code: replCode,
 		bindingNames,
 		bindingRecipes,
 	};

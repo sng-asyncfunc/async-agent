@@ -13,6 +13,14 @@ export function resolveResultSpillChars(env: Record<string, string | undefined> 
 	return Math.floor(parsed);
 }
 
+export function resolveStdoutSpillChars(env: Record<string, string | undefined> = process.env): number {
+	const raw = env.ASYNC_AGENT_REPL_STDOUT_SPILL_CHARS?.trim();
+	if (!raw) return resolveResultSpillChars(env);
+	const parsed = Number(raw);
+	if (!Number.isFinite(parsed) || parsed < 0) return resolveResultSpillChars(env);
+	return Math.floor(parsed);
+}
+
 function compactPreview(value: unknown, maxChars = MAX_ITEM_PREVIEW_CHARS): string {
 	const inspected = Bun.inspect(value, { colors: false, depth: 3, breakLength: 100 });
 	if (inspected.length <= maxChars) return inspected;
@@ -171,4 +179,41 @@ export function formatSpilledResultSummary(spillName: string, value: unknown, ap
 		compactPreview(value, 1_200),
 		`Inspect full value in JS via ${spillName}.`,
 	].join("\n");
+}
+
+export function formatSpilledStdoutSummary(
+	spillName: string,
+	fullText: string,
+	alreadyStreamedChars: number,
+	droppedChars: number,
+): string {
+	let lineCount = 1;
+	for (let i = 0; i < fullText.length; i += 1) {
+		if (fullText.charCodeAt(i) === 10) lineCount += 1;
+	}
+	const totalChars = fullText.length + droppedChars;
+	const droppedNote =
+		droppedChars > 0 ? ` (${droppedChars.toLocaleString("en-US")} trailing chars truncated at capture cap)` : "";
+	if (alreadyStreamedChars > 0) {
+		const tail = fullText.slice(Math.max(0, fullText.length - STRING_TAIL_CHARS));
+		return [
+			`\n[Stdout exceeded limit after ${alreadyStreamedChars.toLocaleString("en-US")} streamed chars; full output (${totalChars.toLocaleString("en-US")} chars, ${lineCount.toLocaleString("en-US")} lines) captured in ${spillName}${droppedNote}]`,
+			tail ? `Tail:\n${tail}` : "",
+			`Inspect full stdout in JS via ${spillName} (e.g. ${spillName}.slice(...), ${spillName}.split("\\n")).\n`,
+		]
+			.filter((part) => part.length > 0)
+			.join("\n");
+	}
+	const omitted = Math.max(0, fullText.length - STRING_HEAD_CHARS - STRING_TAIL_CHARS);
+	const head = fullText.slice(0, STRING_HEAD_CHARS);
+	const tail = fullText.slice(Math.max(STRING_HEAD_CHARS, fullText.length - STRING_TAIL_CHARS));
+	return [
+		`[Stdout spilled to ${spillName}: ${totalChars.toLocaleString("en-US")} chars, ${lineCount.toLocaleString("en-US")} lines${droppedNote}]`,
+		head,
+		omitted > 0 ? `\n[... ${omitted.toLocaleString("en-US")} chars omitted ...]\n` : "",
+		tail,
+		`\nInspect full stdout in JS via ${spillName} (e.g. ${spillName}.slice(...), ${spillName}.split("\\n"), JSON.parse(${spillName})).\n`,
+	]
+		.filter((part) => part.length > 0)
+		.join("\n");
 }

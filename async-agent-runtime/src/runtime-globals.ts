@@ -51,46 +51,31 @@ const ASYNC_RUNTIME_GLOBAL_NAMES = [
 	"hostRequest",
 	"__asyncDisplay",
 	"__asyncHostRequest",
+	"__asyncImportModule",
 	"__asyncSetCompletionNoticesWired",
 	"__asyncLoadSkills",
 ] as const;
 
-const BUN_ONLY_GLOBAL_NAMES = [
-	"AsyncDisposableStack",
-	"BuildError",
-	"BuildMessage",
-	"CloseEvent",
-	"DisposableStack",
-	"ErrorEvent",
-	"Float16Array",
-	"HTMLRewriter",
-	"PerformanceServerTiming",
-	"PerformanceTiming",
-	"ResolveError",
-	"ResolveMessage",
-	"ShadowRealm",
-	"SuppressedError",
-	"URLPattern",
-	"Worker",
-	"addEventListener",
-	"alert",
-	"confirm",
-	"dispatchEvent",
-	"ffi",
-	"jsc",
-	"onerror",
-	"onmessage",
-	"postMessage",
-	"prompt",
-	"removeEventListener",
-	"reportError",
-	"self",
-	"sqlite",
+/**
+ * Core JS/kernel globals that must never be shadowed or overwritten by REPL
+ * user bindings or loaded skills because the REPL runtime itself relies on
+ * them (stream interception, cwd/env, global namespace).
+ *
+ * Intentionally excludes everyday Web/DOM-like global names (`prompt`, `self`,
+ * `confirm`, `alert`, `fetch`, `File`, `Response`, `Request`, `Event`, `URL`,
+ * `crypto`, etc.) so LLM cells can freely declare `const prompt = ...` etc.
+ */
+const CORE_PROTECTED_GLOBAL_NAMES = [
+	"globalThis",
+	"console",
+	"process",
+	"undefined",
+	"NaN",
+	"Infinity",
 ] as const;
 
 export const BUN_RUNTIME_GLOBAL_NAMES: ReadonlySet<string> = new Set([
-	...Object.getOwnPropertyNames(globalThis),
-	...BUN_ONLY_GLOBAL_NAMES,
+	...CORE_PROTECTED_GLOBAL_NAMES,
 	...ASYNC_RUNTIME_GLOBAL_NAMES,
 ]);
 

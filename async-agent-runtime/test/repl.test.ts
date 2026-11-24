@@ -460,11 +460,18 @@ describe("Protocol v3 REPL E2E", () => {
 			"$binding: custom prototype or unsupported view is not snapshot-safe",
 		);
 
-		// Single-pass cell transform handles EOF zero-width edits + imports + early return
+		// Bun replMode cell transform handles imports + early return + configurable globals
 		const cell = transformJavaScriptCell('import { join } from "node:path";\nconst a = join("x", "y");\nif (false) return a;\nconst b = 42');
 		expect(cell.bindingNames).toEqual(["join", "a", "b"]);
-		expect(cell.code).toContain('__asyncPersist("join"');
-		expect(cell.code).toContain('__asyncPersist("b", b);');
+		expect(cell.bindingRecipes.join).toEqual({
+			exportName: "join",
+			loader: "import",
+			specifier: "node:path",
+			type: "module",
+		});
+		expect(cell.code).not.toMatch(/^var /);
+		expect(cell.code).toContain('__asyncImportModule("node:path")');
+		expect(cell.code).toContain("return a;");
 
 		// parseMachineFile handles BOM + CRLF + indented fences identically
 		const md = "\ufeff---\r\nname: sample-machine\r\ndescription: A valid sample machine\r\nversion: 1.0.0\r\nauthor: test\r\n---\r\n\r\n  ```machine-spec\r\n{\"states\": []}\r\n```  \r\n";
@@ -547,5 +554,120 @@ describe("Protocol v3 REPL E2E", () => {
 		const text4 = String(ev4.find((e) => e.event === "result")?.text ?? "");
 		expect(text4).toContain("hi restored");
 		expect(text4).toContain("a: 77");
+	});
+
+	test("preserves live closure bindings, REPL idioms, and everyday variable names like prompt/self across cells", async () => {
+		const dir = makeTempDir("repl-idioms-");
+		const snapPath = path.join(dir, "idioms-state.bin");
+		const manifestPath = path.join(dir, "idioms-state.json");
+		const { client } = await startRepl();
+
+		// 1. Closure binding drift fix: top-level function shares live binding with subsequent cells
+		await client.exec("clo1", "let count = 0; function inc() { count += 1; return count; }");
+		const clo2 = await client.exec("clo2", "const r1 = inc(); ({ r1, globalCount: count })");
+		const clo2Text = String(clo2.find((e) => e.event === "result")?.text ?? "");
+		expect(clo2Text).toContain("r1: 1");
+		expect(clo2Text).toContain("globalCount: 1");
+
+		const clo3 = await client.exec("clo3", "count = 10; inc()");
+		expect(clo3.find((e) => e.event === "result")?.text).toBe("11");
+
+		// 2. Bare object literal as final expression (with and without TS annotations)
+		const obj1 = await client.exec("obj1", "{ a: 1, b: 2 }");
+		const obj1Text = String(obj1.find((e) => e.event === "result")?.text ?? "");
+		expect(obj1Text).toContain("a: 1");
+		expect(obj1Text).toContain("b: 2");
+
+		const obj2 = await client.exec("obj2", "{ a: 3 as number, b: 4 }");
+		const obj2Text = String(obj2.find((e) => e.event === "result")?.text ?? "");
+		expect(obj2Text).toContain("a: 3");
+		expect(obj2Text).toContain("b: 4");
+
+		// 3. Redeclaring from previous cell value (const x = x + 1) + class redeclaration
+		await client.exec("re1", "const x = 10;");
+		const re2 = await client.exec("re2", "const x = x + 1; x");
+		expect(re2.find((e) => e.event === "result")?.text).toBe("11");
+		await client.exec("cls1", "class Box { constructor(public v: number) {} }");
+		await client.exec("cls2", "class Box { constructor(public v: number) {} double() { return this.v * 2; } }");
+		const cls3 = await client.exec("cls3", "new Box(21).double()");
+		expect(cls3.find((e) => e.event === "result")?.text).toBe("42");
+
+		// 4. Declaration-only cell does NOT echo or spill its assigned value
+		const declOnly = await client.exec("decl1", 'const silentBig = "z".repeat(30000);');
+		expect(declOnly.find((e) => e.event === "done")?.status).toBe("ok");
+		expect(declOnly.find((e) => e.event === "result")).toBeUndefined();
+
+		// 5. Everyday names like prompt/self/Response/File are allowed and persisted, while runtime globals like fs stay protected
+		const namesEv = await client.exec(
+			"names1",
+			'const prompt = "spawn task"; const self = "worker-1"; const Response = 200; ({ prompt, self, Response })',
+		);
+		expect(namesEv.find((e) => e.event === "done")?.status).toBe("ok");
+		expect(String(namesEv.find((e) => e.event === "result")?.text ?? "")).toContain('prompt: "spawn task"');
+
+		const clashEv = await client.exec("clash1", "const fs = 123;");
+		expect(clashEv.find((e) => e.event === "done")?.status).toBe("error");
+		expect(String(clashEv.find((e) => e.event === "error")?.evalue ?? "")).toContain("conflicts with a runtime global");
+
+		// Snapshot & restore preserves shadowed baseline globals like `prompt` and `self`
+		client.send({ type: "snapshot", id: "snap-id", path: snapPath, manifest_path: manifestPath });
+		const snapDone = await client.waitForEvent((e) => e.event === "done" && e.id === "snap-id");
+		expect(snapDone.status).toBe("ok");
+		expect(snapDone.saved as string[]).toContain("prompt");
+		expect(snapDone.saved as string[]).toContain("self");
+		await client.close();
+
+		const { client: c2 } = await startRepl();
+		c2.send({ type: "restore", id: "rest-id", path: snapPath });
+		const restDone = await c2.waitForEvent((e) => e.event === "done" && e.id === "rest-id");
+		expect(restDone.status).toBe("ok");
+		const afterRest = await c2.exec("rest-check", "{ prompt, self, x }");
+		const afterRestText = String(afterRest.find((e) => e.event === "result")?.text ?? "");
+		expect(afterRestText).toContain('prompt: "spawn task"');
+		expect(afterRestText).toContain('self: "worker-1"');
+		expect(afterRestText).toContain("x: 11");
+	});
+
+	test("interrupts synchronous infinite loops via vm timeout without losing kernel heap state", async () => {
+		const { client } = await startRepl({ ASYNC_AGENT_REPL_SYNC_TIMEOUT_MS: "150" });
+		await client.exec("keep1", "const survivor = 777;");
+
+		const loopEv = await client.exec("loop1", "while (true) {}");
+		expect(loopEv.find((e) => e.event === "done")?.status).toBe("error");
+		expect(String(loopEv.find((e) => e.event === "error")?.evalue ?? "")).toContain("timed out");
+
+		// Kernel is still alive and heap variable survived!
+		const aliveEv = await client.exec("keep2", "survivor + 1");
+		expect(aliveEv.find((e) => e.event === "done")?.status).toBe("ok");
+		expect(aliveEv.find((e) => e.event === "result")?.text).toBe("778");
+	});
+
+	test("auto-spills oversized console.log stdout to $stdout_<n> while preserving normal streaming", async () => {
+		const { client } = await startRepl({ ASYNC_AGENT_REPL_SPILL_CHARS: "1200" });
+
+		// Small stdout streams normally without spilling
+		const smallEv = await client.exec("small-out", 'console.log("hello small");');
+		const smallOut = smallEv
+			.filter((e) => e.event === "stdout" && e.id === "small-out")
+			.map((e) => String(e.text))
+			.join("");
+		expect(smallOut).toContain("hello small");
+		expect(smallOut).not.toContain("Stdout spilled");
+
+		// Single huge console.log burst spills cleanly to $stdout_1
+		const bigEv = await client.exec("big-out", 'console.log("START_MARK:" + "a".repeat(4000) + ":END_MARK");');
+		const bigOut = bigEv
+			.filter((e) => e.event === "stdout" && e.id === "big-out")
+			.map((e) => String(e.text))
+			.join("");
+		expect(bigOut).toContain("[Stdout spilled to $stdout_1:");
+		expect(bigOut).toContain("START_MARK:");
+		expect(bigOut).toContain(":END_MARK");
+		expect(bigOut.length).toBeLessThan(2600);
+
+		const checkSpill = await client.exec("big-out-check", "{ len: $stdout_1.length, hasEnd: $stdout_1.includes(':END_MARK') }");
+		const checkText = String(checkSpill.find((e) => e.event === "result")?.text ?? "");
+		expect(checkText).toContain("len: 4021");
+		expect(checkText).toContain("hasEnd: true");
 	});
 });

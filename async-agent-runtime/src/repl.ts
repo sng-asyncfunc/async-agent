@@ -8,6 +8,7 @@ import { dirname, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { Writable } from "node:stream";
 import { pathToFileURL } from "node:url";
+import vm from "node:vm";
 import {
 	activityRequest,
 	bash,
@@ -30,7 +31,12 @@ import {
 import { type ModuleBindingRecipe, transformJavaScriptCell } from "./cell-transform.ts";
 import { ACTIVITY_ACTIONS, ACTIVITY_TIMEOUT_MS_CAP, scheduleFactoryActivity } from "./factory.ts";
 import { close as closeMcp, mcpNamespace, status as mcpStatus } from "./mcp.ts";
-import { formatSpilledResultSummary, resolveResultSpillChars } from "./result-spill.ts";
+import {
+	formatSpilledResultSummary,
+	formatSpilledStdoutSummary,
+	resolveResultSpillChars,
+	resolveStdoutSpillChars,
+} from "./result-spill.ts";
 import { rlm } from "./rlm.ts";
 import {
 	$,
@@ -38,6 +44,7 @@ import {
 	createKernelRequire,
 	createSkillLoader,
 	installPackage,
+	JAVASCRIPT_SKILL_IMPORT_ERROR_REPORT_MARKER,
 	osModule,
 	pathModule,
 	asyncFileSystem,
@@ -78,6 +85,8 @@ const MAX_RESULT_PROJECTION_DEPTH = 8;
 const MAX_RESULT_PROJECTION_ENTRIES = 256;
 const MAX_RESULT_PROJECTION_KEY_CHARS = 256;
 const MAX_WRITEV_BUFFERS = 1024;
+const DEFAULT_SYNC_EXECUTION_TIMEOUT_MS = 30_000;
+const MAX_STDOUT_SPILL_CAPTURE_CHARS = 8 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // Types & State
@@ -114,6 +123,12 @@ interface CellStreamState {
 	stdout: string;
 	stdoutBytes: number;
 	stdoutScheduled: boolean;
+	stdoutTotalChars: number;
+	stdoutAlreadyStreamedChars: number;
+	stdoutSpilled: boolean;
+	stdoutSpillChunks: string[];
+	stdoutCapturedChars: number;
+	stdoutDroppedChars: number;
 	stderr: string;
 	stderrBytes: number;
 	stderrScheduled: boolean;
@@ -156,12 +171,18 @@ async function importFromCell(specifier: string, options?: ImportCallOptions): P
 }
 
 let spillCounter = 0;
+let stdoutSpillCounter = 0;
 
-function allocateSpillName(): string {
+function allocateSpillName(prefix: "$out_" | "$stdout_" = "$out_"): string {
 	let candidate: string;
 	do {
-		spillCounter += 1;
-		candidate = `$out_${spillCounter}`;
+		if (prefix === "$stdout_") {
+			stdoutSpillCounter += 1;
+			candidate = `$stdout_${stdoutSpillCounter}`;
+		} else {
+			spillCounter += 1;
+			candidate = `$out_${spillCounter}`;
+		}
 	} while (Object.hasOwn(globalThis, candidate));
 	return candidate;
 }
@@ -232,6 +253,12 @@ function cellStreamState(cellId: string): CellStreamState {
 			stdout: "",
 			stdoutBytes: 0,
 			stdoutScheduled: false,
+			stdoutTotalChars: 0,
+			stdoutAlreadyStreamedChars: 0,
+			stdoutSpilled: false,
+			stdoutSpillChunks: [],
+			stdoutCapturedChars: 0,
+			stdoutDroppedChars: 0,
 			stderr: "",
 			stderrBytes: 0,
 			stderrScheduled: false,
@@ -241,8 +268,32 @@ function cellStreamState(cellId: string): CellStreamState {
 	return state;
 }
 
+function appendStdoutSpillChunk(state: CellStreamState, text: string): void {
+	if (!text) return;
+	const remaining = MAX_STDOUT_SPILL_CAPTURE_CHARS - state.stdoutCapturedChars;
+	if (remaining <= 0) {
+		state.stdoutDroppedChars += text.length;
+		return;
+	}
+	if (text.length <= remaining) {
+		state.stdoutSpillChunks.push(text);
+		state.stdoutCapturedChars += text.length;
+		return;
+	}
+	state.stdoutSpillChunks.push(text.slice(0, remaining));
+	state.stdoutCapturedChars += remaining;
+	state.stdoutDroppedChars += text.length - remaining;
+}
+
 function cleanupStreamState(cellId: string, state: CellStreamState): void {
-	if (!state.stdout && !state.stderr && !state.stdoutScheduled && !state.stderrScheduled) {
+	if (
+		!state.stdout &&
+		!state.stderr &&
+		!state.stdoutScheduled &&
+		!state.stderrScheduled &&
+		!state.stdoutSpilled &&
+		state.stdoutSpillChunks.length === 0
+	) {
 		if (cellStreams.get(cellId) === state) cellStreams.delete(cellId);
 	}
 }
@@ -252,19 +303,58 @@ function flushCellStream(cellId: string, name: "stdout" | "stderr"): void {
 	if (!state) return;
 	if (name === "stdout") state.stdoutScheduled = false;
 	else state.stderrScheduled = false;
+	if (name === "stdout" && state.stdoutSpilled) {
+		state.stdout = "";
+		state.stdoutBytes = 0;
+		return;
+	}
 	const text = state[name];
 	if (!text) {
 		cleanupStreamState(cellId, state);
 		return;
 	}
 	state[name] = "";
-	if (name === "stdout") state.stdoutBytes = 0;
-	else state.stderrBytes = 0;
+	if (name === "stdout") {
+		state.stdoutBytes = 0;
+		state.stdoutAlreadyStreamedChars += text.length;
+	} else {
+		state.stderrBytes = 0;
+	}
 	sendStreamFrames(cellId, name, text);
 	cleanupStreamState(cellId, state);
 }
 
-function flushCellStreams(cellId: string): void {
+function flushCellStreams(cellId: string, finalize = false): void {
+	const state = cellStreams.get(cellId);
+	if (finalize && state) {
+		if (state.stdoutSpilled) {
+			state.stdoutScheduled = false;
+			state.stdout = "";
+			state.stdoutBytes = 0;
+			const fullText = state.stdoutSpillChunks.join("");
+			const alreadyStreamed = state.stdoutAlreadyStreamedChars;
+			const dropped = state.stdoutDroppedChars;
+			state.stdoutSpillChunks = [];
+			state.stdoutCapturedChars = 0;
+			state.stdoutDroppedChars = 0;
+			state.stdoutSpilled = false;
+			const spillName = allocateSpillName("$stdout_");
+			persistBinding(spillName, fullText);
+			sendStreamFrames(
+				cellId,
+				"stdout",
+				capText(formatSpilledStdoutSummary(spillName, fullText, alreadyStreamed, dropped)),
+			);
+		} else {
+			state.stdoutSpillChunks = [];
+			state.stdoutCapturedChars = 0;
+			state.stdoutDroppedChars = 0;
+			flushCellStream(cellId, "stdout");
+		}
+		flushCellStream(cellId, "stderr");
+		cleanupStreamState(cellId, state);
+		return;
+	}
 	flushCellStream(cellId, "stdout");
 	flushCellStream(cellId, "stderr");
 }
@@ -277,6 +367,23 @@ function emitStream(name: "stdout" | "stderr", text: string): void {
 		return;
 	}
 	const state = cellStreamState(sourceCell.cellId);
+	if (name === "stdout" && sourceCell.active && !text.startsWith(JAVASCRIPT_SKILL_IMPORT_ERROR_REPORT_MARKER)) {
+		const spillLimit = resolveStdoutSpillChars();
+		if (spillLimit > 0) {
+			state.stdoutTotalChars += text.length;
+			if (state.stdoutSpilled) {
+				appendStdoutSpillChunk(state, text);
+				return;
+			}
+			appendStdoutSpillChunk(state, text);
+			if (state.stdoutTotalChars > spillLimit) {
+				state.stdoutSpilled = true;
+				state.stdout = "";
+				state.stdoutBytes = 0;
+				return;
+			}
+		}
+	}
 	state[name] += text;
 	const bytes = Buffer.byteLength(text);
 	if (name === "stdout") state.stdoutBytes += bytes;
@@ -994,15 +1101,30 @@ async function performRestore(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// Cell compilation & execution
+// Cell compilation & execution (Bun native replMode + vm.runInThisContext)
 // ---------------------------------------------------------------------------
 
-const cellTranspiler = new Bun.Transpiler({ deadCodeElimination: false, loader: "ts", target: "bun" });
-const BUN_REQUIRE_SHIM = "var {require}=import.meta;";
+function resolveSyncExecutionTimeoutMs(requestTimeoutMs?: unknown): number | undefined {
+	if (typeof requestTimeoutMs === "number" && Number.isFinite(requestTimeoutMs) && requestTimeoutMs >= 0) {
+		const floored = Math.floor(requestTimeoutMs);
+		return floored > 0 ? floored : undefined;
+	}
+	const raw = process.env.ASYNC_AGENT_REPL_SYNC_TIMEOUT_MS?.trim();
+	if (!raw) return DEFAULT_SYNC_EXECUTION_TIMEOUT_MS;
+	const parsed = Number(raw);
+	if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_SYNC_EXECUTION_TIMEOUT_MS;
+	const floored = Math.floor(parsed);
+	return floored > 0 ? floored : undefined;
+}
 
-function transpileCell(source: string): string {
-	const transpiled = cellTranspiler.transformSync(source);
-	return transpiled.startsWith(BUN_REQUIRE_SHIM) ? transpiled.slice(BUN_REQUIRE_SHIM.length) : transpiled;
+function unwrapReplModeResult(raw: unknown): unknown {
+	if (raw !== null && typeof raw === "object" && Object.getPrototypeOf(raw) === null) {
+		const keys = Object.keys(raw);
+		if (keys.length === 1 && keys[0] === "value") {
+			return (raw as { value: unknown }).value;
+		}
+	}
+	return raw;
 }
 
 function consumePendingInterrupt(rid: string): boolean {
@@ -1037,6 +1159,7 @@ function requestInterrupt(targetId?: string): void {
 async function handleExecute(req: Record<string, unknown>): Promise<void> {
 	const cellId = String(req.id);
 	const code = String(req.code);
+	const syncTimeoutMs = resolveSyncExecutionTimeoutMs(req.timeout_ms);
 	let resolveFinished!: () => void;
 	const finished = new Promise<void>((resolvePromise) => {
 		resolveFinished = resolvePromise;
@@ -1060,62 +1183,87 @@ async function handleExecute(req: Record<string, unknown>): Promise<void> {
 	let status: "ok" | "error" = "ok";
 	let resultText: string | null = null;
 	let errorEvent: Record<string, unknown> | null = null;
+	let declaredBindingNames: string[] = [];
+	let declaredBindingRecipes: Record<string, ModuleBindingRecipe> = {};
 
 	try {
 		if (cell.abortController.signal.aborted) {
 			throw new InterruptError();
 		}
-		const transpiled = transpileCell(code);
-		const transformed = transformJavaScriptCell(transpiled);
+		const transformed = transformJavaScriptCell(code);
 		const conflict = transformed.bindingNames.find((name) => runtimeBindingNames.has(name));
 		if (conflict) {
 			throw new SyntaxError(`${conflict} conflicts with a runtime global and cannot be redeclared`);
 		}
-		const executor = new AsyncFunction("__asyncPersist", "__asyncImportModule", transformed.code);
+		declaredBindingNames = transformed.bindingNames;
+		declaredBindingRecipes = transformed.bindingRecipes;
 
-		const abortPromise = new Promise<never>((_res, reject) => {
-			if (cell.abortController.signal.aborted) {
-				reject(new InterruptError());
-				return;
-			}
-			cell.abortController.signal.addEventListener("abort", () => reject(new InterruptError()), { once: true });
-		});
-
-		const execPromise = cellContext.run(cell, () => executor(persistBinding, importFromCell));
-		// Prevent unhandled rejection if abortPromise wins and execPromise rejects later.
-		execPromise.catch(() => undefined);
-
-		const value = await Promise.race([execPromise, abortPromise]);
-		if (cell.abortController.signal.aborted) {
-			throw new InterruptError();
-		}
-		if (value !== undefined) {
-			Object.defineProperty(globalThis, "_", {
-				configurable: true,
-				enumerable: true,
-				value,
-				writable: true,
+		if (transformed.code.length > 0) {
+			const abortPromise = new Promise<never>((_res, reject) => {
+				if (cell.abortController.signal.aborted) {
+					reject(new InterruptError());
+					return;
+				}
+				cell.abortController.signal.addEventListener("abort", () => reject(new InterruptError()), { once: true });
 			});
-			const inspected = boundedInspect(value, RESULT_TEXT_CAP);
-			const spillLimit = resolveResultSpillChars();
-			const shouldSpill =
-				spillLimit > 0 &&
-				(inspected.length > spillLimit || (Array.isArray(value) && value.length > MAX_RESULT_PROJECTION_ENTRIES));
-			if (shouldSpill) {
-				const spillName = allocateSpillName();
-				persistBinding(spillName, value);
-				resultText = capText(formatSpilledResultSummary(spillName, value, inspected.length));
-			} else {
-				resultText = inspected;
+
+			const vmOptions =
+				syncTimeoutMs !== undefined
+					? { filename: `cell:${cellId}`, timeout: syncTimeoutMs }
+					: { filename: `cell:${cellId}` };
+			const execPromise = Promise.resolve().then(() =>
+				cellContext.run(cell, () => vm.runInThisContext(transformed.code, vmOptions)),
+			);
+			// Prevent unhandled rejection if abortPromise wins and execPromise rejects later.
+			execPromise.catch(() => undefined);
+
+			const rawValue = await Promise.race([execPromise, abortPromise]);
+			if (cell.abortController.signal.aborted) {
+				throw new InterruptError();
+			}
+			const value = unwrapReplModeResult(rawValue);
+			if (value !== undefined) {
+				Object.defineProperty(globalThis, "_", {
+					configurable: true,
+					enumerable: true,
+					value,
+					writable: true,
+				});
+				const inspected = boundedInspect(value, RESULT_TEXT_CAP);
+				const spillLimit = resolveResultSpillChars();
+				const shouldSpill =
+					spillLimit > 0 &&
+					(inspected.length > spillLimit || (Array.isArray(value) && value.length > MAX_RESULT_PROJECTION_ENTRIES));
+				if (shouldSpill) {
+					const spillName = allocateSpillName("$out_");
+					persistBinding(spillName, value);
+					resultText = capText(formatSpilledResultSummary(spillName, value, inspected.length));
+				} else {
+					resultText = inspected;
+				}
 			}
 		}
 	} catch (error) {
 		status = "error";
 		errorEvent = formatErrorEvent(cellId, error);
 	} finally {
+		for (const name of declaredBindingNames) {
+			if (!Object.hasOwn(globalThis, name)) continue;
+			bindings.add(name);
+			const recipe = declaredBindingRecipes[name];
+			if (recipe) {
+				try {
+					bindingRecipes.set(name, { recipe, value: Reflect.get(globalThis, name) });
+				} catch {
+					bindingRecipes.delete(name);
+				}
+			} else {
+				bindingRecipes.delete(name);
+			}
+		}
 		cell.active = false;
 		reconcileBindings();
-		flushCellStreams(cellId);
+		flushCellStreams(cellId, true);
 		activeCell = null;
 		activeRequestId = null;
 		finishInflight(cellId);
@@ -1503,6 +1651,7 @@ function bootstrapRuntime(): void {
 	defineRuntimeGlobal("installPackage", installPackage);
 	defineRuntimeGlobal("hostRequest", hostRequest);
 	defineRuntimeGlobal("__asyncHostRequest", hostRequest);
+	defineRuntimeGlobal("__asyncImportModule", importFromCell);
 	defineRuntimeGlobal("__asyncDisplay", skillDisplay);
 	defineRuntimeGlobal("__asyncSetCompletionNoticesWired", setCompletionNoticesWired);
 	defineRuntimeGlobal("__asyncLoadSkills", createSkillLoader(runtimeBindingNames, requireModule));
