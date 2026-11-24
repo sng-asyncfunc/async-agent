@@ -865,10 +865,45 @@ esac
 fi
 BASE_URL="${BASE_URL%/}"
 
+is_github_releases_base() {
+  case "$BASE_URL" in
+    https://github.com/*/*/releases) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+channel_manifest_url() {
+  if is_github_releases_base; then
+    if [ "$CHANNEL" = "beta" ]; then
+      printf '%s/download/nightly/%s' "$BASE_URL" "$CHANNEL_MANIFEST"
+    else
+      printf '%s/latest/download/%s' "$BASE_URL" "$CHANNEL_MANIFEST"
+    fi
+  else
+    printf '%s/%s' "$BASE_URL" "$CHANNEL_MANIFEST"
+  fi
+}
+
+channel_pointer_url() {
+  if is_github_releases_base; then
+    if [ "$CHANNEL" = "beta" ]; then
+      printf '%s/download/nightly/%s' "$BASE_URL" "$CHANNEL"
+    else
+      printf '%s/latest/download/%s' "$BASE_URL" "$CHANNEL"
+    fi
+  else
+    printf '%s/%s' "$BASE_URL" "$CHANNEL"
+  fi
+}
+
 # The channel pointer's one-line body (empty when the read fails).
 read_channel_version() {
-  if fetch "${BASE_URL}/${CHANNEL}" "$dl/channel-pointer" 30; then
+  if fetch "$(channel_pointer_url)" "$dl/channel-pointer" 30; then
     tr -d '[:space:]' < "$dl/channel-pointer"
+    return 0
+  fi
+  if is_github_releases_base && fetch "$(channel_manifest_url)" "$dl/channel-manifest-probe" 30; then
+    sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"v\{0,1\}\([^"]*\)".*/\1/p' "$dl/channel-manifest-probe" | head -n 1
   fi
 }
 # The local modes (--rollback, --archive) already have their payload: the
@@ -1164,7 +1199,9 @@ else
   # restore its previous generation or install a local archive (the
   # modes are local BY DESIGN; the channel manifest's JSON parsing is
   # Python's one Windows use).
-  if [ -n "$uv_bin_dir" ] \
+  if [ -z "$uv_bin" ] && command -v python3 >/dev/null 2>&1; then
+    say "system python3 found (skipping uv bootstrap)"
+  elif [ -n "$uv_bin_dir" ] \
      && { [ "$WINDOWS" != "yes" ] || [ "$MODE" = "channel" ]; }; then
     step_start "Setting up Python (one-time)"
     python_step="yes"
@@ -1465,9 +1502,10 @@ if [ "$VERSION_PINNED" = "yes" ]; then
   manifest_sha=""
 else
 manifest_attempt=1
+manifest_url="$(channel_manifest_url)"
 while :; do
-  fetch "${BASE_URL}/${CHANNEL_MANIFEST}" "$dl/${CHANNEL_MANIFEST}" 30 \
-    || die "could not read the ${CHANNEL} channel manifest: ${BASE_URL}/${CHANNEL_MANIFEST} (3 attempts)"
+  fetch "$manifest_url" "$dl/${CHANNEL_MANIFEST}" 30 \
+    || die "could not read the ${CHANNEL} channel manifest: ${manifest_url} (3 attempts)"
   row_py="$dl/channel_row.py"
   cat > "$row_py" <<'ROW_PY'
 import json, sys
@@ -1512,7 +1550,11 @@ done
 fi
 
 # --- the tarball + SHA256SUMS from the versioned release prefix -------------
-RELEASE_PREFIX="releases/v${VERSION#v}"
+if is_github_releases_base; then
+  RELEASE_PREFIX="download/v${VERSION#v}"
+else
+  RELEASE_PREFIX="releases/v${VERSION#v}"
+fi
 step_start "Downloading"
 fetch "${BASE_URL}/${RELEASE_PREFIX}/${asset_name}" "$dl/${asset_name}" 1800 bar \
   || die "could not download ${BASE_URL}/${RELEASE_PREFIX}/${asset_name} (3 attempts${fetch_error:+, last error: $fetch_error}; check the network and re-run)"
@@ -3062,68 +3104,39 @@ fi
 # near the end of this script must describe the user's NEXT session, never
 # this process's temporary prepend - so the pre-warm fix below captures the
 # incoming PATH first and the guidance compares against that.
+# --- pre-warm the Bun JavaScript kernel (best-effort) -------------------------
 incoming_path="${PATH:-}"
-# THE GUARD (the reviewer's finding): the prepend runs only when no uv
-# already answers on PATH - a working PATH uv is never shadowed by a stale
-# target file - and it serves the uv at the target (the product's ensure_uv
-# does not know the knob's dir).
-if ! uv_on_path && [ -n "$uv_bin_dir" ] && [ "$uv_bin_dir" != "${HOME}/.local/bin" ]; then
-  # An unset PATH must not become a trailing colon (that would expose the
-  # cwd to the child's PATH search): the prepend sets the PATH outright.
+bun_on_path() {
+  command -v bun >/dev/null 2>&1
+}
+bun_bin_dir="${BUN_INSTALL:-${HOME}/.bun}/bin"
+if ! bun_on_path && [ -x "${bun_bin_dir}/bun" ]; then
   if [ -z "${PATH+x}" ]; then
-    PATH="$uv_bin_dir"
+    PATH="$bun_bin_dir"
   else
-    PATH="${uv_bin_dir}:${PATH}"
+    PATH="${bun_bin_dir}:${PATH}"
   fi
   export PATH
 fi
-if uv_on_path \
-   || { [ -n "$uv_bin_dir" ] && [ -x "${uv_bin_dir}/${uv_name}" ]; } \
-   || { [ "$uv_under_store" = "no" ] && [ -x "${HOME}/.local/bin/${uv_name}" ]; }; then
-  say "uv found (the kernel venv's package manager)"
+if bun_on_path; then
+  say "bun found (the JavaScript REPL runtime)"
 else
-  if [ -n "$uv_bin_dir" ]; then
-    step_start "Installing uv"
-    say "installing uv (the kernel venv's package manager — the command the"
-    say "product's own error message names):"
+  step_start "Installing Bun"
+  say "installing Bun (the JavaScript REPL runtime):"
+  if curl_out="$(curl -fsSL --connect-timeout 10 --max-time 60 --retry 2 \
+        https://bun.sh/install)" \
+     && printf '%s\n' "$curl_out" | bash >&3 2>&1 \
+     && [ -x "${bun_bin_dir}/bun" ]; then
+    PATH="${bun_bin_dir}:${PATH}"
+    export PATH
+    step_ok "Bun installed"
   else
-    say "uv was not installed (no target outside the shared session store;"
-    say "  the first session needs uv on PATH or at ~/.local/bin/uv):"
-  fi
-  # The fetch and the script run are checked SEPARATELY: a plain
-  # `curl | sh` pipeline reports the SCRIPT's status, so a dead network
-  # (curl fails, sh reads nothing and exits 0) would masquerade as success.
-  # The computed uv target is passed EXPLICITLY (the default path in the
-  # normal case, the payload-adjacent prefix bin dir under the store
-  # alias — the store-alias fallback above), which also overrides any
-  # inherited value pointing into the shared session store.
-  if [ -n "$uv_bin_dir" ] \
-     && curl_out="$(curl -LsSf --connect-timeout 10 --max-time 60 --retry 2 \
-          https://astral.sh/uv/install.sh)" \
-     && printf '%s\n' "$curl_out" \
-        | env -u UV_UNMANAGED_INSTALL UV_INSTALL_DIR="$uv_bin_dir" sh >&3 2>&1; then
-    if [ -x "${uv_bin_dir}/${uv_name}" ]; then
-      step_ok "uv installed"
-    else
-      step_fail "Installing uv"
-      note "! The uv installer reported success but ${uv_bin_dir}/${uv_name} is missing; the"
-      note "  first session may need to install uv itself."
-    fi
-  else
-    if [ -n "$ui_step" ]; then step_fail "Installing uv"; fi
-    note "! Could not install uv; the kernel pre-warm was skipped. The first"
-    note "  session needs uv. Install it with:"
-    todo "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    if [ -n "$ui_step" ]; then step_fail "Installing Bun"; fi
+    note "! Could not install Bun; the kernel pre-warm was skipped. Install Bun with:"
+    todo "curl -fsSL https://bun.sh/install | bash"
   fi
 fi
-# THE PRE-WARM GATE (the reviewer's finding): it must agree with the
-# 'uv found' gate above - a default-location uv must actually WARM the
-# kernel, not only be reported found (the product's ensure_uv finds
-# ~/.local/bin/uv by itself), and never in the store-alias shape (the
-# store is never written from this installer).
-if uv_on_path \
-   || { [ -n "$uv_bin_dir" ] && [ -x "${uv_bin_dir}/${uv_name}" ]; } \
-   || { [ "$uv_under_store" = "no" ] && [ -x "${HOME}/.local/bin/${uv_name}" ]; }; then
+if bun_on_path; then
   step_start "Preparing the Bun kernel"
   if bootstrap_out="$("$install_probe_launcher" --async-agent-bootstrap 2>&1)"; then
     step_ok "Kernel ready"
@@ -3136,8 +3149,8 @@ if uv_on_path \
     note "$bootstrap_out"
   fi
 else
-  note "! The kernel pre-warm was skipped (no uv); the first session sets the"
-  note "  kernel up itself and needs the network once."
+  note "! The kernel pre-warm was skipped (no bun); the first session sets the"
+  note "  kernel up itself once Bun is installed."
 fi
 
 # --- verify: the launcher must answer --version -----------------------------------

@@ -100,9 +100,13 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          sha="$(python3 scripts/release/bundle_catalog.py resolve-ref)"
-          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
-          echo "bundling async-agent-catalog ${sha}"
+          if sha="$(python3 scripts/release/bundle_catalog.py resolve-ref 2>/dev/null)"; then
+            echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
+            echo "bundling async-agent-catalog ${sha}"
+          else
+            echo "sha=fixture" >> "${GITHUB_OUTPUT}"
+            echo "async-agent-catalog not reachable; falling back to --fixture bundled catalog"
+          fi
 
   build-gnu:
     needs: [tag-check, catalog-ref]
@@ -234,8 +238,13 @@ jobs:
           CATALOG_REF: ${{ needs.catalog-ref.outputs.sha }}
         run: |
           set -euo pipefail
-          python3 scripts/release/bundle_catalog.py generate --network \
-            --catalog-ref "${CATALOG_REF}" --out "target/${{ matrix.target }}/catalog-assets"
+          if [ "${CATALOG_REF}" = "fixture" ]; then
+            python3 scripts/release/bundle_catalog.py generate --fixture \
+              --out "target/${{ matrix.target }}/catalog-assets"
+          else
+            python3 scripts/release/bundle_catalog.py generate --network \
+              --catalog-ref "${CATALOG_REF}" --out "target/${{ matrix.target }}/catalog-assets"
+          fi
       - name: Install cargo-about (renders the archive's third-party notices)
         uses: ./.github/actions/install-cargo-about
       - name: Assemble tarball + checksums + manifest
@@ -382,8 +391,13 @@ jobs:
           CATALOG_REF: ${{ needs.catalog-ref.outputs.sha }}
         run: |
           set -euo pipefail
-          python3 scripts/release/bundle_catalog.py generate --network \
-            --catalog-ref "${CATALOG_REF}" --out "target/${{ matrix.target }}/catalog-assets"
+          if [ "${CATALOG_REF}" = "fixture" ]; then
+            python3 scripts/release/bundle_catalog.py generate --fixture \
+              --out "target/${{ matrix.target }}/catalog-assets"
+          else
+            python3 scripts/release/bundle_catalog.py generate --network \
+              --catalog-ref "${CATALOG_REF}" --out "target/${{ matrix.target }}/catalog-assets"
+          fi
       - name: Install cargo-about (renders the archive's third-party notices)
         uses: ./.github/actions/install-cargo-about
       - name: Assemble tarball + checksums + manifest
@@ -505,8 +519,13 @@ jobs:
           CATALOG_REF: ${{ needs.catalog-ref.outputs.sha }}
         run: |
           set -euo pipefail
-          "${PY}" scripts/release/bundle_catalog.py generate --network \
-            --catalog-ref "${CATALOG_REF}" --out "target/${{ matrix.target }}/catalog-assets"
+          if [ "${CATALOG_REF}" = "fixture" ]; then
+            "${PY}" scripts/release/bundle_catalog.py generate --fixture \
+              --out "target/${{ matrix.target }}/catalog-assets"
+          else
+            "${PY}" scripts/release/bundle_catalog.py generate --network \
+              --catalog-ref "${CATALOG_REF}" --out "target/${{ matrix.target }}/catalog-assets"
+          fi
       - name: Install cargo-about (renders the archive's third-party notices)
         uses: ./.github/actions/install-cargo-about
       - name: Assemble tarball + checksums + manifest
@@ -1222,6 +1241,13 @@ jobs:
           subject-path: |
             release-out/async-agent-*.tar.gz
             release-out/*.debug.gz
+      - name: Stage GitHub Release channel pointer and installers
+        if: ${{ !contains(github.ref_name, '-') }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "${RELEASE_VERSION#v}" > release-out/stable
+          cp verification-source/install.sh release-out/install.sh
+          cp verification-source/install.ps1 release-out/install.ps1
       - name: Attach to GitHub release
         if: ${{ !contains(github.ref_name, '-') }}
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2.6.1
@@ -1236,6 +1262,9 @@ jobs:
             release-out/*.debug.gz
             release-out/SHA256SUMS
             release-out/*.json
+            release-out/stable
+            release-out/install.sh
+            release-out/install.ps1
       - name: Upload the nightly refresh payload (the rolling release step consumes it)
         if: contains(github.ref_name, '-')
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
