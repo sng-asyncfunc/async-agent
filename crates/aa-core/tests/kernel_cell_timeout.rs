@@ -152,7 +152,8 @@ async fn a_cell_past_its_timeout_is_interrupted_and_the_turn_continues() {
 
     let model = scripted_model();
     let provider = std::sync::Arc::new(ScriptedProvider::new(model.clone()));
-    let swallow_interrupt = "while (true) {}";
+    let sync_spin = "while (true) {}";
+    let swallow_interrupt = "await Bun.sleep(10);\nwhile (true) {}";
     for (call_id, args) in [
         ("call-1", json!({ "code": "const x = 41;" })),
         (
@@ -160,7 +161,9 @@ async fn a_cell_past_its_timeout_is_interrupted_and_the_turn_continues() {
             json!({ "code": "console.log('before');\nawait Bun.sleep(30_000);", "timeout": 2 }),
         ),
         ("call-3", json!({ "code": "console.log(x + 1);" })),
-        ("call-4", json!({ "code": swallow_interrupt, "timeout": 2 })),
+        ("call-4", json!({ "code": sync_spin, "timeout": 2 })),
+        ("call-4b", json!({ "code": "console.log(x + 2);" })),
+        ("call-5", json!({ "code": swallow_interrupt, "timeout": 2 })),
     ] {
         provider.push_turn(ScriptedTurn::Events(tool_call_turn_steps(
             &model,
@@ -238,8 +241,22 @@ async fn a_cell_past_its_timeout_is_interrupted_and_the_turn_continues() {
     assert_eq!(status, "ok", "{text}");
     assert!(text.contains("42"), "{text}");
 
-    // A cell that swallows the interrupt gets the kernel restarted.
+    // A synchronous infinite loop is caught cleanly by Bun's vm timeout without resetting the kernel.
     let (status, text) = tool_result(&entries, "call-4");
+    assert_eq!(status, "error", "{text}");
+    assert!(!text.contains("<javascript_kernel_reset>"), "{text}");
+    assert!(
+        text.contains("timed out") || text.contains("interrupted after 2s"),
+        "{text}"
+    );
+
+    // The namespace survived the synchronous loop timeout intact.
+    let (status, text) = tool_result(&entries, "call-4b");
+    assert_eq!(status, "ok", "{text}");
+    assert!(text.contains("43"), "{text}");
+
+    // A post-await sync loop that blocks past the interrupt grace window gets the kernel restarted.
+    let (status, text) = tool_result(&entries, "call-5");
     assert_eq!(status, "error", "{text}");
     assert!(text.starts_with("<javascript_kernel_reset>"), "{text}");
     assert!(text.contains("interrupted after 2s"), "{text}");

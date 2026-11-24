@@ -18,6 +18,7 @@ pub const REPL_PROTOCOL_VERSION: u64 = 3;
 pub enum Request {
     Execute {
         code: String,
+        timeout_ms: Option<u64>,
     },
     Interrupt,
     HostReply {
@@ -63,7 +64,10 @@ impl Request {
     #[must_use]
     pub fn to_json(&self) -> Value {
         match self {
-            Request::Execute { code } => json!({ "type": "execute", "code": code }),
+            Request::Execute { code, timeout_ms } => match timeout_ms.filter(|ms| *ms > 0) {
+                Some(ms) => json!({ "type": "execute", "code": code, "timeout_ms": ms }),
+                None => json!({ "type": "execute", "code": code }),
+            },
             Request::Interrupt => json!({ "type": "interrupt" }),
             Request::HostReply { data } => json!({ "type": "host_reply", "data": data }),
             Request::Snapshot {
@@ -336,6 +340,29 @@ mod tests {
         let v = req.to_json();
         assert_eq!(v["type"], "snapshot");
         assert_eq!(v["prune_oversized"], true);
+
+        let exec_plain = Request::Execute {
+            code: "1 + 1".into(),
+            timeout_ms: None,
+        }
+        .to_json();
+        assert_eq!(exec_plain["type"], "execute");
+        assert_eq!(exec_plain["code"], "1 + 1");
+        assert!(exec_plain.get("timeout_ms").is_none());
+
+        let exec_zero = Request::Execute {
+            code: "1 + 1".into(),
+            timeout_ms: Some(0),
+        }
+        .to_json();
+        assert!(exec_zero.get("timeout_ms").is_none());
+
+        let exec_timed = Request::Execute {
+            code: "1 + 1".into(),
+            timeout_ms: Some(5000),
+        }
+        .to_json();
+        assert_eq!(exec_timed["timeout_ms"], 5000);
     }
 
     #[test]

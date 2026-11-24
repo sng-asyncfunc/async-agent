@@ -150,6 +150,7 @@ impl Inner {
         let result = Box::pin(self.enqueue_request(
             Request::Execute {
                 code: code.to_string(),
+                timeout_ms: Some(REPAIR_STEP_TIMEOUT_MS),
             },
             ExecuteOptions {
                 internal: true,

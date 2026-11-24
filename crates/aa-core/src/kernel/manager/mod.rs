@@ -640,9 +640,11 @@ impl ReplKernelManager {
         opts: ExecuteOptions,
         execution_timeout_ms: Option<u64>,
     ) -> anyhow::Result<InternalExecuteResult> {
+        let timeout_ms = opts.cell_timeout_ms.filter(|ms| *ms > 0);
         self.enqueue_request(
             Request::Execute {
                 code: code.to_string(),
+                timeout_ms,
             },
             opts,
             execution_timeout_ms,
