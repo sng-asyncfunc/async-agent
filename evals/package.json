@@ -1,0 +1,12 @@
+{
+  "name": "async-agent-evals",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "bt eval --runner bun async_agent.eval.ts",
+    "eval:local": "bt eval --runner bun --no-send-logs async_agent.eval.ts"
+  },
+  "dependencies": {
+    "braintrust": "^3.44.0"
+  }
+}
