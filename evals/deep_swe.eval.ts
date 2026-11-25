@@ -25,6 +25,27 @@ const AGENT_TIMEOUT_SEC = Number(process.env.DEEPSWE_AGENT_TIMEOUT_SEC ?? 900);
 const VERIFIER_TIMEOUT_SEC = Number(process.env.DEEPSWE_VERIFIER_TIMEOUT_SEC ?? 480);
 const SAMPLE_SEED = Number(process.env.DEEPSWE_SAMPLE_SEED ?? 0);
 const SAMPLE_COUNT = Number(process.env.DEEPSWE_SAMPLE_COUNT ?? 10);
+const CACHE_PATH = resolve(
+  process.env.DEEPSWE_CACHE_PATH ??
+    join(REPO_ROOT, "evals", `.deepswe-cache-seed${SAMPLE_SEED}-${MODEL}-${THINKING}.json`),
+);
+const USE_CACHE = process.env.DEEPSWE_NO_CACHE !== "1";
+
+function loadCache(): Record<string, DeepSweRunOutput> {
+  if (!USE_CACHE || !existsSync(CACHE_PATH)) return {};
+  try {
+    return JSON.parse(readFileSync(CACHE_PATH, "utf8")) as Record<string, DeepSweRunOutput>;
+  } catch {
+    return {};
+  }
+}
+
+function saveCacheEntry(taskId: string, output: DeepSweRunOutput) {
+  if (!USE_CACHE) return;
+  const cache = loadCache();
+  cache[taskId] = output;
+  writeFileSync(CACHE_PATH, JSON.stringify(cache, null, 2));
+}
 
 interface DeepSweTask {
   id: string;
@@ -508,7 +529,18 @@ Eval(process.env.BRAINTRUST_PROJECT ?? "My Project", {
     })),
   maxConcurrency: 1,
   task: async (input: DeepSweTask): Promise<DeepSweRunOutput> => {
-    return runDeepSweTask(input);
+    const cached = loadCache()[input.id];
+    if (cached) {
+      console.error(
+        `[deepswe] CACHED ${input.id}: reward=${cached.reward} f2p=${cached.f2pPassed}/${cached.f2pTotal} p2p=${cached.p2pPassed}/${cached.p2pTotal} cost=$${cached.costUsd}`,
+      );
+      return cached;
+    }
+    const result = await runDeepSweTask(input);
+    if (!result.error) {
+      saveCacheEntry(input.id, result);
+    }
+    return result;
   },
   scores: [
     ({ output }) => ({
