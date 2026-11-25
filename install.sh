@@ -3087,19 +3087,10 @@ except Exception:
 fi
 
 # --- the kernel pre-warm: uv + the Python kernel venv ------------------------
-# The payload ships the async-agent-runtime/ sidecar but NOT uv and not the
-# venv: without this step the FIRST session fails with "uv is required to
-# set up the Python kernel" — and the Python kernel is the product's only
-# tool, so a fresh install would be dead in the water. The binary's own
-# install-time entry (`--async-agent-bootstrap`, the TS cli-main.ts
-# precedent) creates the venv now; both steps are best-effort — an offline
-# machine still gets a successful install, and the first session retries
-# the bootstrap online per the product's own guidance.
-# THE PRE-WARM'S PATH FIX (the bots' finding): the product's own ensure_uv
-# searches PATH and ~/.local/bin/uv, so a payload-adjacent uv (the
-# store-alias fallback) is invisible to the launcher unless the prefix's
-# bin dir rides PATH — the pre-warm's child inherits this PATH, and the
-# profile note below tells the user to make it permanent.
+# The payload ships the async-agent-runtime/ sidecar, and the binary's
+# install-time entry (`--async-agent-bootstrap`) verifies/prepares the Bun
+# JavaScript kernel now. Both steps are best-effort: an offline machine still
+# gets a successful install, and the first session retries once Bun is present.
 # THE INCOMING PATH (the reviewer's finding): the persistent-PATH guidance
 # near the end of this script must describe the user's NEXT session, never
 # this process's temporary prepend - so the pre-warm fix below captures the
@@ -3127,7 +3118,11 @@ else
         https://bun.sh/install)" \
      && printf '%s\n' "$curl_out" | bash >&3 2>&1 \
      && [ -x "${bun_bin_dir}/bun" ]; then
-    PATH="${bun_bin_dir}:${PATH}"
+    if [ -z "${PATH+x}" ]; then
+      PATH="$bun_bin_dir"
+    else
+      PATH="${bun_bin_dir}:${PATH}"
+    fi
     export PATH
     step_ok "Bun installed"
   else

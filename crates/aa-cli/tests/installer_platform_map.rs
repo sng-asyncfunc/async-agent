@@ -542,18 +542,20 @@ fn install_rust_sh_honors_the_uv_bin_dir_knob() {
         "no bare command -v result may become uv_bin"
     );
     assert!(
-        text.contains("|| { [ \"$uv_under_store\" = \"no\" ] && [ -x \"${HOME}/.local/bin/${uv_name}\" ]; }") ,
-        "the 'uv found' and pre-warm gates must see a default-location uv only outside the store-alias shape"
+        text.contains("bun_on_path()")
+            && text.contains("bun_bin_dir=\"${BUN_INSTALL:-${HOME}/.bun}/bin\"")
+            && text.contains("https://bun.sh/install"),
+        "the sh installer must resolve/install Bun for the JavaScript REPL kernel"
     );
     assert!(
-        text.contains("if uv_on_path \\\n   || { [ -n \"$uv_bin_dir\" ] && [ -x \"${uv_bin_dir}/${uv_name}\" ]; } \\\n   || { [ \"$uv_under_store\" = \"no\" ] && [ -x \"${HOME}/.local/bin/${uv_name}\" ]; }; then\n  step_start \"Preparing the Bun kernel\""),
-        "the kernel pre-warm gate must agree with the 'uv found' gate (a default-location uv must actually warm the kernel, not just be reported found)"
+        text.contains("if bun_on_path; then\n  step_start \"Preparing the Bun kernel\""),
+        "the kernel pre-warm gate must run once Bun is available"
     );
     assert!(
-        text.contains("! uv_on_path && [ -n \"$uv_bin_dir\" ]")
-            && text.contains("PATH=\"$uv_bin_dir\"")
-            && text.contains("PATH=\"${uv_bin_dir}:${PATH}\""),
-        "the sh's pre-warm PATH prepend must run only when no uv already answers on PATH (never shadow a working system uv)"
+        text.contains("if ! bun_on_path && [ -x \"${bun_bin_dir}/bun\" ]; then")
+            && text.contains("PATH=\"$bun_bin_dir\"")
+            && text.contains("PATH=\"${bun_bin_dir}:${PATH}\""),
+        "the sh's pre-warm PATH prepend must run only when no bun already answers on PATH (never shadow a working system bun)"
     );
     assert!(
         text.contains("path_check_note \"${bin_dir}\"")

@@ -2,27 +2,20 @@
 // style gate only.
 #![allow(clippy::large_futures, clippy::too_many_lines)]
 
-//! The windows-runtime-triage workflow's contract gates (the operator's
-//! 2026-10-08 ask: "we need to give you an easy way to test things" - a
-//! repeatable Windows test surface for the fleet). The workflow IS the
-//! test surface, so this file pins its contract the same way
-//! `release_workflow.rs` pins the release pipeline's:
+//! The windows-runtime-triage workflow's contract gates: a repeatable
+//! on-demand Windows test surface pinned the same way `release_workflow.rs`
+//! pins the release pipeline:
 //!
-//!   - the PR trigger: every Windows-touched PR (crate source, the
-//!     Windows installers, the workflow itself, the build manifests) runs
-//!     the battery before review;
-//!   - the nightly trigger: main gets the battery every night even when
-//!     no PR touched it;
+//!   - manual-only trigger (`workflow_dispatch`): no automatic nightly cron
+//!     (the deep Windows battery hits GitHub's 6-hour limit) and no per-PR
+//!     vouch/trust billing gate;
 //!   - the `windows-runtime-tui-battery` job: the freshly-built binary
 //!     driven through the three scripted TUI scenarios
 //!     (`windows_runtime_triage_e2e.rs`), with the captured pane dumps
-//!     uploaded as a run artifact (`if: always()` - the fleet reads the
-//!     dumps from a red run too);
+//!     uploaded as a run artifact (`if: always()` - dumps survive red runs);
 //!   - the runner pin: windows-2022, never the mutable `windows-latest`
 //!     (the reviewed-baseline rule the release build already carries);
-//!   - the deep `windows-battery` job stays the on-demand/nightly loop,
-//!     not a per-PR gate (the full aa-cli e2e set runs past three hours
-//!     on that runner - measured twice).
+//!   - the deep `windows-battery` job stays off PRs.
 //!
 //! The battery source file's three scenario tests are asserted by name, so
 //! the workflow and the battery it claims to run cannot drift apart.
@@ -109,61 +102,26 @@ fn the_battery_source_defines_the_three_scenarios() {
 }
 
 #[test]
-fn the_pr_wave_runs_on_windows_touched_paths() {
-    let (_, triggers) = workflow_yaml();
-    let pull_request = triggers
-        .get("pull_request")
-        .expect("the workflow carries the pull_request trigger");
-    let branches = pull_request
-        .get("branches")
-        .and_then(serde_yaml::Value::as_sequence)
-        .expect("the pull_request trigger names its branches");
-    assert!(
-        branches
-            .iter()
-            .any(|branch| branch.as_str() == Some("main")),
-        "the PR wave gates main: {branches:?}"
-    );
-    let paths = pull_request
-        .get("paths")
-        .and_then(serde_yaml::Value::as_sequence)
-        .expect("the pull_request trigger carries a Windows-touched paths filter");
-    let paths: Vec<&str> = paths.iter().filter_map(serde_yaml::Value::as_str).collect();
-    assert!(
-        paths.contains(&"crates/**"),
-        "every crate-source PR is Windows-touched: {paths:?}"
-    );
-    assert!(
-        paths
-            .iter()
-            .any(|path| path.ends_with("windows-runtime-triage.yml")),
-        "workflow edits re-run the workflow: {paths:?}"
-    );
-    assert!(
-        paths.contains(&"install.ps1"),
-        "the Windows installer is Windows-touched: {paths:?}"
-    );
-}
-
-#[test]
-fn the_nightly_wave_runs_on_main() {
-    let (_, triggers) = workflow_yaml();
-    let schedule = triggers
-        .get("schedule")
-        .and_then(serde_yaml::Value::as_sequence)
-        .expect("the workflow carries the nightly schedule");
-    assert!(
-        schedule.iter().any(|entry| entry.get("cron").is_some()),
-        "a nightly cron entry exists: {schedule:?}"
-    );
-}
-
-#[test]
-fn the_dispatch_loop_stays_available() {
-    let (_, triggers) = workflow_yaml();
+fn the_workflow_is_manual_dispatch_only() {
+    let (workflow, triggers) = workflow_yaml();
     assert!(
         triggers.get("workflow_dispatch").is_some(),
         "the on-demand triage dispatch stays (the fast fix->push->dispatch loop)"
+    );
+    assert!(
+        triggers.get("schedule").is_none(),
+        "the workflow must not run a 6-hour nightly cron schedule"
+    );
+    assert!(
+        triggers.get("pull_request").is_none(),
+        "the workflow must stay manual-only instead of gating PRs"
+    );
+    let jobs = workflow
+        .get("jobs")
+        .expect("the workflow declares its jobs");
+    assert!(
+        jobs.get("trust").is_none(),
+        "the removed Prime Intellect vouch trust job must not reappear"
     );
 }
 
@@ -181,37 +139,6 @@ fn the_tui_battery_job_boots_the_binary_and_dumps_the_panes() {
     assert_eq!(
         runs_on, "windows-2022",
         "the battery runs on the pinned image, not the mutable label"
-    );
-
-    // The contributor-trust gate: PR authors must be vouched (the ci.yml
-    // trust job's own class - an unvouched author must not bill a
-    // windows runner).
-    let needs = job
-        .get("needs")
-        .map(|needs| match needs {
-            serde_yaml::Value::Sequence(entries) => entries
-                .iter()
-                .filter_map(serde_yaml::Value::as_str)
-                .collect::<Vec<_>>(),
-            serde_yaml::Value::String(single) => vec![single.as_str()],
-            _ => Vec::new(),
-        })
-        .unwrap_or_default();
-    assert!(
-        needs.contains(&"trust"),
-        "the battery job needs the trust gate: {needs:?}"
-    );
-    let condition = job
-        .get("if")
-        .and_then(serde_yaml::Value::as_str)
-        .expect("the job gates itself on the trust verdict");
-    assert!(
-        condition.contains("outputs.allowed == 'true'"),
-        "the job runs only for allowed authors: {condition}"
-    );
-    assert!(
-        condition.contains("draft"),
-        "draft PRs do not bill the runner: {condition}"
     );
 
     // The freshly-built binary: the daemon the battery boots IS the
